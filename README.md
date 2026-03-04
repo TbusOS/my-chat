@@ -75,7 +75,8 @@ my-chat/
 
 | 项目 | 描述 | 链接 |
 |------|------|------|
-| **llama.c** | 1000行C语言实现羊驼模型 | [GitHub](https://github.com/karpathy/llama.c) |
+| **llama2.c** | 纯C语言实现Llama2模型，约500行 | [GitHub](https://github.com/karpathy/llama2.c) |
+| **llm.c** | 纯C语言实现GPT-2训练 | [GitHub](https://github.com/karpathy/llm.c) |
 | **minGPT** | PyTorch 最小 GPT 实现 | [GitHub](https://github.com/karpathy/minGPT) |
 | **nanoGPT** | 最简洁的 GPT 实现 | [GitHub](https://github.com/karpathy/nanoGPT) |
 | **tinygrad** | 最小深度学习框架 | [GitHub](https://github.com/tinygrad/tinygrad) |
