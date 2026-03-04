@@ -10,6 +10,7 @@ my-chat/
 ├── 2-litgpt-finetune/       # LitGPT 微调 (9 篇)
 ├── 3-nn-from-zero/          # 从零实现神经网络 (13 篇)
 ├── 4-llama-cpp-native/      # llama.cpp 原生实现 (12 篇)
+├── 5-minimal-agent/          # 最小 Agent 框架 (4 篇)
 └── README.md
 ```
 
@@ -55,6 +56,16 @@ my-chat/
 | 理论 | llama.cpp 架构 · GGUF 格式 · 量化技术 · 推理优化 · 采样策略 |
 | 实战 | 环境搭建 · 模型加载 · 聊天机器人 · HTTP 服务器 · CUDA 加速 |
 
+### 极简 | Minimal
+
+**5-minimal-agent** - 最小 Agent 框架
+
+| 类别 | 文档 |
+|------|------|
+| 教程 | 最小 Agent 框架简介 |
+| 理论 | Agent 核心原理 |
+| 实战 | 从零实现最小 Agent |
+
 ---
 
 ## 文档统计 | Statistics
@@ -65,7 +76,8 @@ my-chat/
 | 2-litgpt-finetune | 3 | 3 | 3 | **9** |
 | 3-nn-from-zero | 3 | 5 | 5 | **13** |
 | 4-llama-cpp-native | 3 | 5 | 4 | **12** |
-| **总计** | **12** | **15** | **15** | **42** |
+| 5-minimal-agent | 1 | 1 | 1 | **3** |
+| **总计** | **13** | **16** | **16** | **45** |
 
 ---
 
@@ -81,6 +93,8 @@ my-chat/
 | **nanoGPT** | 最简洁的 GPT 实现 | [GitHub](https://github.com/karpathy/nanoGPT) |
 | **tinygrad** | 最小深度学习框架 | [GitHub](https://github.com/tinygrad/tinygrad) |
 | **ggml** | C++ 张量库 | [GitHub](https://github.com/ggerganov/ggml) |
+| **agent-c** | 超轻量 C Agent (4KB) | [GitHub](https://github.com/senx/agent-c) |
+| **tinyagents** | 最小 Python Agent | [GitHub](https://github.com/tinyagents/tinyagents) |
 
 ---
 
@@ -88,7 +102,7 @@ my-chat/
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-repo/my-chat.git
+git clone https://github.com/TbusOS/my-chat.git
 cd my-chat
 
 # 从第一阶段开始
