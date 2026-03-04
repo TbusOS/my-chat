@@ -21,6 +21,7 @@
 |------|------|------|------|
 | agent-c | C | 4KB | 超轻量，调用 OpenRouter |
 | tinyagents | Python | 50行 | MCP 工具支持 |
+| Pocket Flow | 多语言 | 100行 | LLM 框架 |
 
 ### 2. 核心原理
 
@@ -41,5 +42,6 @@
 
 - [agent-c](https://github.com/senx/agent-c)
 - [tinyagents](https://github.com/tinyagents/tinyagents)
+- [Pocket Flow](https://github.com/pocket-flow/pocket-flow)
 - [karpathy/llama2.c](https://github.com/karpathy/llama2.c)
 - [karpathy/llm.c](https://github.com/karpathy/llm.c)

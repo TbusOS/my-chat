@@ -5,8 +5,9 @@
 了解最轻量的 Agent 框架：
 1. agent-c 超轻量实现
 2. tinyagents 最小实现
-3. 从零写一个最小 Agent
-4. 实战：50 行代码实现 Agent
+3. Pocket Flow 极简框架
+4. 从零写一个最小 Agent
+5. 实战：50 行代码实现 Agent
 
 ---
 
@@ -269,7 +270,62 @@ print(agent.chat("执行 ls -la"))
 
 ---
 
-## 5.4 从零实现最小 Agent
+## 5.4 Pocket Flow 极简框架
+
+### 5.4.1 简介
+
+**Pocket Flow** 是一个极简的 LLM 框架，仅用约 100 行代码实现。支持多种语言，专注于构建基于流式处理的 Agent。
+
+### 5.4.2 项目地址
+
+[GitHub - pocket-flow/pocket-flow](https://github.com/pocket-flow/pocket-flow)
+
+### 5.4.3 核心特性
+
+- 极简代码：约 100 行
+- 流式处理支持
+- 多语言实现
+- 易于扩展
+
+### 5.4.4 安装与使用
+
+```bash
+# 安装
+pip install pocket-flow
+
+# 基本使用
+from pocket import Pocket
+
+agent = Pocket()
+response = agent.chat("你好")
+print(response)
+```
+
+### 5.4.5 核心代码结构
+
+```python
+# Pocket Flow 核心概念
+class Pocket:
+    def __init__(self):
+        self.messages = []
+        self.tools = {}
+
+    def tool(self, name, description):
+        """装饰器注册工具"""
+        def decorator(func):
+            self.tools[name] = {"func": func, "description": description}
+            return func
+        return decorator
+
+    def chat(self, message):
+        """主对话方法"""
+        # 实现流式处理逻辑
+        pass
+```
+
+---
+
+## 5.5 从零实现最小 Agent
 
 ### 5.4.1 50 行代码实现
 
@@ -342,6 +398,7 @@ if __name__ == "__main__":
 - ✅ 理解最小 Agent 核心逻辑
 - ✅ agent-c 超轻量框架
 - ✅ tinyagents 最小实现
+- ✅ Pocket Flow 极简框架
 - ✅ 50 行代码实现 Agent
 
 ---
@@ -350,5 +407,6 @@ if __name__ == "__main__":
 
 - [agent-c](https://github.com/senx/agent-c) - 超轻量 C Agent
 - [tinyagents](https://github.com/tinyagents/tinyagents) - 最小 Python Agent
+- [Pocket Flow](https://github.com/pocket-flow/pocket-flow) - 极简 LLM 框架
 - [karpathy/llama2.c](https://github.com/karpathy/llama2.c) - 纯 C LLM
 - [karpathy/llm.c](https://github.com/karpathy/llm.c) - 纯 C 训练 LLM

@@ -95,6 +95,7 @@ my-chat/
 | **ggml** | C++ 张量库 | [GitHub](https://github.com/ggerganov/ggml) |
 | **agent-c** | 超轻量 C Agent (4KB) | [GitHub](https://github.com/senx/agent-c) |
 | **tinyagents** | 最小 Python Agent | [GitHub](https://github.com/tinyagents/tinyagents) |
+| **Pocket Flow** | 100 行实现 LLM 框架 | [GitHub](https://github.com/pocket-flow/pocket-flow) |
 
 ---
 
