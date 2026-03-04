@@ -1,0 +1,32 @@
+# LoRA 训练配置示例
+# 保存为 configs/lora_7b.yaml
+
+model:
+  name: Llama-3.2-1B
+  tokenizer_dir: Llama-3.2-1B
+
+data:
+  alpaca:
+    path: data/alpaca.json
+  max_seq_length: 512
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  query_key: true
+  value: true
+  projection: true
+  mlp: true
+  head: false
+
+train:
+  epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 2
+  lr: 3e-4
+  warmup_steps: 100
+  save_interval: 500
+  log_interval: 10
+
+out_dir: out/lora-custom
