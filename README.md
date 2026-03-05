@@ -93,9 +93,8 @@ my-chat/
 | **nanoGPT** | 最简洁的 GPT 实现 | [GitHub](https://github.com/karpathy/nanoGPT) |
 | **tinygrad** | 最小深度学习框架 | [GitHub](https://github.com/tinygrad/tinygrad) |
 | **ggml** | C++ 张量库 | [GitHub](https://github.com/ggerganov/ggml) |
-| **agent-c** | 超轻量 C Agent (4KB) | [GitHub](https://github.com/senx/agent-c) |
-| **tinyagents** | 最小 Python Agent | [GitHub](https://github.com/tinyagents/tinyagents) |
-| **Pocket Flow** | 100 行实现 LLM 框架 | [GitHub](https://github.com/pocket-flow/pocket-flow) |
+| **smolagents** | Hugging Face 轻量 Agent 框架 | [GitHub](https://github.com/huggingface/smolagents) |
+| **Pocket Flow** | 100 行实现 LLM 框架 | [GitHub](https://github.com/The-Pocket/PocketFlow) |
 
 ---
 

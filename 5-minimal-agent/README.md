@@ -19,8 +19,7 @@
 
 | 框架 | 语言 | 大小 | 特点 |
 |------|------|------|------|
-| agent-c | C | 4KB | 超轻量，调用 OpenRouter |
-| tinyagents | Python | 50行 | MCP 工具支持 |
+| smolagents | Python | 轻量 | Hugging Face 官方 Agent 框架 |
 | Pocket Flow | 多语言 | 100行 | LLM 框架 |
 
 ### 2. 核心原理
@@ -40,8 +39,7 @@
 
 ## 参考资源
 
-- [agent-c](https://github.com/senx/agent-c)
-- [tinyagents](https://github.com/tinyagents/tinyagents)
-- [Pocket Flow](https://github.com/pocket-flow/pocket-flow)
-- [karpathy/llama2.c](https://github.com/karpathy/llama2.c)
-- [karpathy/llm.c](https://github.com/karpathy/llm.c)
+- [smolagents](https://github.com/huggingface/smolagents) - Hugging Face 轻量 Agent 框架
+- [Pocket Flow](https://github.com/The-Pocket/PocketFlow) - 极简 LLM 框架
+- [karpathy/llama2.c](https://github.com/karpathy/llama2.c) - 纯 C LLM
+- [karpathy/llm.c](https://github.com/karpathy/llm.c) - 纯 C 训练 LLM
