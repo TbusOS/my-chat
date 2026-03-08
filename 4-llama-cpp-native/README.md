@@ -72,71 +72,88 @@ huggingface-cli download TheBloke/Llama-2-7B-Chat-GGUF llama-2-7b-chat.Q4_K_M.gg
 
 ### 基本推理
 
+> **注意**：llama.cpp API 更新频繁，以下示例基于 2024-2025 年的 API。
+> 如果编译报错，请参考 [llama.cpp examples](https://github.com/ggerganov/llama.cpp/tree/master/examples) 获取最新用法。
+
 ```cpp
-#include "common.h"
 #include "llama.h"
+#include <cstdio>
+#include <string>
+#include <vector>
 
 int main() {
-    // 初始化推理参数
-    struct llama_model_params mparams = llama_model_default_params();
-    mparams.n_gpu_layers = 0;  // CPU 推理
+    // 初始化后端
+    llama_backend_init();
 
     // 加载模型
-    struct llama_model* model = llama_load_model_from_file(
-        "models/llama-2-7b-chat.Q4_K_M.gguf",
-        mparams
-    );
+    struct llama_model_params mparams = llama_model_default_params();
+    mparams.n_gpu_layers = 0;  // CPU 推理，GPU 设为 99
 
+    struct llama_model * model = llama_model_load_from_file(
+        "models/llama-2-7b-chat.Q4_K_M.gguf", mparams
+    );
     if (!model) {
         fprintf(stderr, "Failed to load model\n");
         return 1;
     }
 
-    // 初始化上下文
+    // 创建上下文
     struct llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx = 512;
-    cparams.n_threads = 4;
+    cparams.n_ctx   = 512;
+    cparams.n_batch = 512;
 
-    struct llama_context* ctx = llama_new_context_with_model(model, cparams);
+    struct llama_context * ctx = llama_init_from_model(model, cparams);
 
-    // 构建 prompt
-    const char* prompt = "Write a hello world program in Python:";
+    // 分词
+    const char * prompt = "Write a hello world program in Python:";
+    const int n_prompt_tokens_max = 256;
+    std::vector<llama_token> tokens(n_prompt_tokens_max);
+    int n_tokens = llama_tokenize(model, prompt, strlen(prompt),
+                                   tokens.data(), n_prompt_tokens_max,
+                                   true, false);
+    tokens.resize(n_tokens);
 
-    // 推理
-    llama_token token = llama_token_bos(ctx);
+    // 创建 batch 并评估 prompt
+    llama_batch batch = llama_batch_init(512, 0, 1);
+    for (int i = 0; i < n_tokens; i++) {
+        llama_batch_add(batch, tokens[i], i, { 0 }, (i == n_tokens - 1));
+    }
+    llama_decode(ctx, batch);
+
+    // 创建采样器
+    llama_sampler * sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.8f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(42));
+
+    // 自回归生成
     std::string response;
+    int n_cur = n_tokens;
 
     for (int i = 0; i < 256; i++) {
-        // 采样
-        auto logits = llama_get_logits_ith(ctx, 0);
-        auto n_vocab = llama_n_vocab(model);
-        std::vector<llama_token_data> candidates(n_vocab);
-        for (int i = 0; i < n_vocab; i++) {
-            candidates[i] = {i, logits[i], 0.0f};
-        }
-        llama_token_data_array candidates_p = {candidates.data(), candidates.size(), false};
-
-        // greedy 采样
-        token = candidates_p.data[0].id;
-
-        // 添加到输出
-        response += llama_token_to_piece(ctx, token);
+        llama_token token = llama_sampler_sample(sampler, ctx, -1);
 
         // 结束条件
-        if (token == llama_token_eos(ctx)) {
-            break;
-        }
+        if (llama_token_is_eog(model, token)) break;
 
-        // 评估下一个 token
-        llama_token_array tokens = {token};
-        llama_decode(ctx, tokens.data(), tokens.size());
+        // 转换为文本
+        char buf[128];
+        int n = llama_token_to_piece(model, token, buf, sizeof(buf), 0, true);
+        response.append(buf, n);
+
+        // 准备下一步
+        llama_batch_clear(batch);
+        llama_batch_add(batch, token, n_cur++, { 0 }, true);
+        llama_decode(ctx, batch);
     }
 
     printf("%s\n", response.c_str());
 
     // 清理
+    llama_sampler_free(sampler);
+    llama_batch_free(batch);
     llama_free(ctx);
-    llama_free_model(model);
+    llama_model_free(model);
+    llama_backend_free();
 
     return 0;
 }
@@ -212,11 +229,13 @@ cparams.n_threads_batch = 8;        // 批处理线程数
 ### GPU 推理
 
 ```bash
-# CUDA
-cmake .. -DLLAMA_CUBLAS=ON
+# CUDA（新版使用 GGML_CUDA）
+cmake .. -DGGML_CUDA=ON
+# 旧版本使用 -DLLAMA_CUBLAS=ON
 
 # Metal (macOS)
-cmake .. -DLLAMA_METAL=ON
+cmake .. -DGGML_METAL=ON
+# 旧版本使用 -DLLAMA_METAL=ON
 
 # 设置 GPU 层数
 mparams.n_gpu_layers = 32;  // 0 = 仅 CPU

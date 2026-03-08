@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Training artifacts
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.gguf
+checkpoints/
+out/
+wandb/
+
+# Data
+data/
+*.csv
+*.jsonl
+
+# Logs
+*.log
+logs/

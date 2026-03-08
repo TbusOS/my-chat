@@ -1,0 +1,19 @@
+# 1-ollama-agent: Ollama 快速入门
+ollama
+
+# 2-litgpt-finetune: 模型微调
+# pip install 'litgpt[all]'
+torch>=2.0
+pyyaml
+
+# 3-nn-from-zero: 从零实现神经网络
+numpy
+
+# 4-llama-cpp-native: llama.cpp Python 客户端
+requests
+
+# 6-nanoGPT-train: nanoGPT 训练
+# torch (已在上方列出)
+tiktoken
+datasets
+transformers

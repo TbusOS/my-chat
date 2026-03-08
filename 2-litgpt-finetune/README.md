@@ -30,12 +30,16 @@ pip install -e ".[all]"
 ## 下载预训练模型
 
 ```bash
-# 方法1：使用 litgpt 下载（推荐）
-python scripts/download.py --model_id microsoft/phi-2
+# 方法1：使用 litgpt CLI 下载（推荐，当前版本）
+litgpt download --repo_id microsoft/phi-2
 
-# 方法2：手动下载后转换
-# 从 HuggingFace 下载后转换
-python scripts/convert_hf_checkpoint.py --model_dir models/phi-2/
+# 方法2：使用 Python API
+# python -c "from litgpt import download; download('microsoft/phi-2')"
+
+# 方法3：手动从 HuggingFace 下载
+# huggingface-cli download microsoft/phi-2 --local-dir models/phi-2/
+
+# 注意：旧版本使用 python scripts/download.py，新版已迁移到 litgpt CLI
 ```
 
 ## 训练方式
