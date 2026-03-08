@@ -1,5 +1,7 @@
 # 从零实现 Transformer 神经网络
 
+> **类型**: 可直接运行 | **前置**: Python 基础 | **硬件**: CPU 即可
+
 ## 概述
 
 不依赖 PyTorch/TensorFlow 等深度学习框架，用纯 Python + NumPy 从零实现 Transformer 架构。

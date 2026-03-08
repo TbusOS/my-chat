@@ -6,16 +6,16 @@
 
 ```
 my-chat/
-├── 1-ollama-agent/          # Ollama 快速入门
-├── 2-litgpt-finetune/       # LitGPT 微调
-├── 3-nn-from-zero/          # 从零实现神经网络
-├── 4-llama-cpp-native/      # llama.cpp 原生实现
-├── 5-minimal-agent/         # 最小 Agent 框架
-├── 6-nanoGPT-train/         # nanoGPT 从零训练
-├── 7-tokenizer/             # 分词器原理与实现
-├── 8-rag-deepdive/          # RAG 检索增强生成
-├── 9-rlhf-alignment/        # RLHF 对齐技术
-├── 10-model-evaluation/     # 模型评估方法
+├── 1-ollama-agent/          # 入门 · 可直接运行
+├── 2-litgpt-finetune/       # 进阶 · 外部项目教程
+├── 3-nn-from-zero/          # 原理 · 可直接运行
+├── 4-llama-cpp-native/      # 原生推理 · 外部项目教程
+├── 5-minimal-agent/         # Agent · 理论专题
+├── 6-nanoGPT-train/         # 训练 · 外部项目教程
+├── 7-tokenizer/             # 分词器 · 可直接运行
+├── 8-rag-deepdive/          # RAG · 可直接运行
+├── 9-rlhf-alignment/        # 对齐 · 理论专题
+├── 10-model-evaluation/     # 评估 · 可直接运行
 ├── requirements.txt
 └── LICENSE
 ```
@@ -68,126 +68,22 @@ my-chat/
 
 ---
 
-## 各模块概览
+## 模块导航
 
-### 1-ollama-agent | 入门
+| 模块 | 类型 | 说明 |
+|------|------|------|
+| [1-ollama-agent](1-ollama-agent/) | 可直接运行 | Ollama 快速入门，构建天气 Agent、工具 Agent、RAG Agent |
+| [2-litgpt-finetune](2-litgpt-finetune/) | 外部项目教程 | 基于 LitGPT 学习 LoRA / QLoRA 微调 |
+| [3-nn-from-zero](3-nn-from-zero/) | 可直接运行 | 纯 Python + NumPy 从零实现 Transformer |
+| [4-llama-cpp-native](4-llama-cpp-native/) | 外部项目教程 | 基于 llama.cpp 学习 C++ 原生推理与量化 |
+| [5-minimal-agent](5-minimal-agent/) | 理论专题 | Agent 核心原理、Tool Calling 机制 |
+| [6-nanoGPT-train](6-nanoGPT-train/) | 外部项目教程 | 基于 nanoGPT 从零训练一个 GPT 模型 |
+| [7-tokenizer](7-tokenizer/) | 可直接运行 | BPE 分词器原理与实现 |
+| [8-rag-deepdive](8-rag-deepdive/) | 可直接运行 | 检索增强生成，构建本地知识库 |
+| [9-rlhf-alignment](9-rlhf-alignment/) | 理论专题 | RLHF / DPO 对齐技术详解 |
+| [10-model-evaluation](10-model-evaluation/) | 可直接运行 | 模型评估方法与指标 |
 
-使用 Ollama 快速运行本地 LLM，构建各类 Agent。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | 快速入门 · 模型使用指南 · Python API |
-| 理论 | LLM 基础概念 · Transformer 简介 |
-| 实战 | 天气 Agent · 工具 Agent · RAG Agent |
-| 示例 | `agent.py` · `chat.py` · `examples/*.py` |
-
-### 2-litgpt-finetune | 进阶
-
-使用 LitGPT 框架微调自己的模型。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | 微调入门 · 环境配置 · 训练流程 |
-| 理论 | 什么是微调 · LoRA 原理 · QLoRA 原理 |
-| 实战 | 数据准备 · LoRA 训练 · 模型测试部署 |
-
-### 3-nn-from-zero | 原理
-
-纯 Python + NumPy 从零实现 Transformer。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | 神经网络基础 · 反向传播 · PyTorch 入门 |
-| 理论 | Attention 机制 · 多头注意力 · 位置编码 · 残差 LayerNorm · Transformer 架构 |
-| 实战 | 最小 GPT · 多头注意力 · 位置编码 · 完整 Encoder · GPT 训练 |
-
-### 4-llama-cpp-native | 原生
-
-C++ 原生实现 LLM 推理，深入性能优化。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | C++ 基础 · CMake 构建 |
-| 理论 | llama.cpp 架构 · GGUF 格式 · 量化技术 · 推理优化 · 采样策略 |
-| 实战 | 环境搭建 · 模型加载 · 聊天机器人 · HTTP 服务器 · CUDA 加速 |
-
-### 5-minimal-agent | 极简
-
-用最少代码实现 Agent 框架。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | Agent 框架简介 · 主流框架对比 |
-| 理论 | Agent 核心原理 · Tool Calling 机制 |
-| 实战 | 从零实现 Agent · 多工具 Agent · 生产部署指南 |
-
-### 6-nanoGPT-train | 训练
-
-用 nanoGPT 从零训练一个 GPT 模型。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | Mac 训练指南 (MPS) · Ubuntu 训练指南 (CUDA) |
-| 理论 | nanoGPT 架构解析 · 训练数据准备 · 训练过程监控 |
-| 实战 | 训练你的第一个 GPT · 常见训练问题排查 |
-
-### 7-tokenizer | 分词器
-
-理解文本如何变成模型可处理的 token。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | 分词器入门 |
-| 理论 | BPE 算法详解 |
-| 实战 | 从零实现 BPE 分词器 |
-
-### 8-rag-deepdive | RAG 深入
-
-构建生产级检索增强生成系统。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | RAG 基础概念 |
-| 理论 | 向量检索原理 |
-| 实战 | 构建本地知识库 |
-
-### 9-rlhf-alignment | 对齐
-
-理解 ChatGPT 为什么"听话"。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | 对齐技术入门 |
-| 理论 | RLHF 原理详解 · DPO 原理详解 |
-| 实战 | DPO 微调实战 |
-
-### 10-model-evaluation | 评估
-
-如何科学评估模型质量。
-
-| 类别 | 文档 |
-|------|------|
-| 教程 | 评估方法入门 |
-| 理论 | 评估指标详解 |
-| 实战 | 评估你的模型 |
-
----
-
-## 文档统计
-
-| 目录 | 教程 | 理论 | 实战 | 示例代码 | 总计 |
-|------|------|------|------|----------|------|
-| 1-ollama-agent | 3 | 2 | 3 | 6 | **14** |
-| 2-litgpt-finetune | 3 | 3 | 3 | 2 | **11** |
-| 3-nn-from-zero | 3 | 5 | 5 | 1 | **14** |
-| 4-llama-cpp-native | 2 | 5 | 5 | 1 | **13** |
-| 5-minimal-agent | 2 | 2 | 3 | - | **7** |
-| 6-nanoGPT-train | 2 | 3 | 2 | - | **7** |
-| 7-tokenizer | 1 | 1 | 1 | 1 | **4** |
-| 8-rag-deepdive | 1 | 1 | 1 | 1 | **4** |
-| 9-rlhf-alignment | 1 | 2 | 1 | - | **4** |
-| 10-model-evaluation | 1 | 1 | 1 | 1 | **4** |
-| **总计** | **19** | **25** | **25** | **13** | **82** |
+> **类型说明**：「可直接运行」= 仓库内有示例代码可直接执行；「外部项目教程」= 文档引导你使用外部项目（需另行 clone）；「理论专题」= 以概念讲解为主。
 
 ---
 
@@ -213,7 +109,7 @@ C++ 原生实现 LLM 推理，深入性能优化。
 git clone https://github.com/TbusOS/my-chat.git
 cd my-chat
 
-# 安装依赖
+# 安装基础依赖（覆盖大部分模块）
 pip install -r requirements.txt
 
 # 路径 A：从 Ollama 开始
@@ -222,6 +118,8 @@ cd 1-ollama-agent
 # 路径 B：从神经网络原理开始
 cd 3-nn-from-zero
 ```
+
+> **注意**：根目录 `requirements.txt` 只包含基础依赖。部分模块有额外依赖（如 `8-rag-deepdive` 需要 `chromadb`，`10-model-evaluation` 需要 `lm-eval`），请进入模块后查看各自的 README。
 
 ---
 

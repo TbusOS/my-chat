@@ -2,6 +2,8 @@
 
 > 检索增强生成（Retrieval-Augmented Generation）从原理到实战
 
+> **类型**: 可直接运行 | **前置**: Python 基础 | **硬件**: CPU 即可 | **额外依赖**: `pip install chromadb`
+
 ## 本章目录
 
 ### 教程 (Tutorial)

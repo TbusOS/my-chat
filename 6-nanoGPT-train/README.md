@@ -2,6 +2,8 @@
 
 > 使用 Karpathy 的 nanoGPT 在本地从零训练一个小型 GPT 模型
 
+> **类型**: 外部项目教程 | **前置**: Python 基础 | **硬件**: Apple Silicon (MPS) / NVIDIA GPU
+
 ## 本章目录
 
 ### 教程 (Tutorial)
