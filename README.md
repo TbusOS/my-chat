@@ -16,6 +16,7 @@ my-chat/
 ├── 8-rag-deepdive/          # RAG · 可直接运行
 ├── 9-rlhf-alignment/        # 对齐 · 理论专题
 ├── 10-model-evaluation/     # 评估 · 可直接运行
+├── 11-nanochat/             # 综合实战 · 外部项目教程
 ├── requirements.txt
 └── LICENSE
 ```
@@ -42,6 +43,8 @@ my-chat/
 6-nanoGPT-train   从零训练 GPT
        ↓
 7~10 进阶专题      分词器 / RAG / 对齐 / 评估
+       ↓
+11-nanochat       用 $100 训练你自己的 ChatGPT（毕业项目）
 ```
 
 ### 路径 B：原理优先
@@ -64,6 +67,8 @@ my-chat/
 5-minimal-agent   构建应用
        ↓
 8~10 进阶专题      RAG / 对齐 / 评估
+       ↓
+11-nanochat       用 $100 训练你自己的 ChatGPT（毕业项目）
 ```
 
 ---
@@ -82,6 +87,7 @@ my-chat/
 | [8-rag-deepdive](8-rag-deepdive/) | 可直接运行 | 检索增强生成，构建本地知识库 |
 | [9-rlhf-alignment](9-rlhf-alignment/) | 理论专题 | RLHF / DPO 对齐技术详解 |
 | [10-model-evaluation](10-model-evaluation/) | 可直接运行 | 模型评估方法与指标 |
+| [11-nanochat](11-nanochat/) | 外部项目教程 | 用 $100 训练完整 ChatGPT：分词 → 预训练 → SFT → RL → Web 聊天 |
 
 > **类型说明**：「可直接运行」= 仓库内有示例代码可直接执行；「外部项目教程」= 文档引导你使用外部项目（需另行 clone）；「理论专题」= 以概念讲解为主。
 
@@ -98,6 +104,7 @@ my-chat/
 | **tinygrad** | 最小深度学习框架 | [GitHub](https://github.com/tinygrad/tinygrad) |
 | **ggml** | C++ 张量库 | [GitHub](https://github.com/ggerganov/ggml) |
 | **smolagents** | Hugging Face 轻量 Agent 框架 | [GitHub](https://github.com/huggingface/smolagents) |
+| **nanochat** | 用 $100 训练完整 ChatGPT | [GitHub](https://github.com/karpathy/nanochat) |
 | **Pocket Flow** | 100 行实现 LLM 框架 | [GitHub](https://github.com/The-Pocket/PocketFlow) |
 
 ---
