@@ -17,6 +17,8 @@ my-chat/
 ├── 9-rlhf-alignment/        # 对齐 · 理论专题
 ├── 10-model-evaluation/     # 评估 · 可直接运行
 ├── 11-nanochat/             # 综合实战 · 外部项目教程
+├── 12-ollama-macos-setup/   # Ollama macOS 配置
+├── 13-feishu-bots/          # 飞书 AI Bot · 可直接部署
 ├── requirements.txt
 └── LICENSE
 ```
@@ -88,6 +90,7 @@ my-chat/
 | [9-rlhf-alignment](9-rlhf-alignment/) | 理论专题 | RLHF / DPO 对齐技术详解 |
 | [10-model-evaluation](10-model-evaluation/) | 可直接运行 | 模型评估方法与指标 |
 | [11-nanochat](11-nanochat/) | 外部项目教程 | 用 $100 训练完整 ChatGPT：分词 → 预训练 → SFT → RL → Web 聊天 |
+| [13-feishu-bots](13-feishu-bots/) | 可直接部署 | Mac 虚拟机部署飞书 AI Bot（OpenClaw + Nanobot），一键启停脚本 |
 
 > **类型说明**：「可直接运行」= 仓库内有示例代码可直接执行；「外部项目教程」= 文档引导你使用外部项目（需另行 clone）；「理论专题」= 以概念讲解为主。
 

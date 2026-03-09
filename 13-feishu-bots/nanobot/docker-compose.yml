@@ -1,0 +1,7 @@
+services:
+  bot:
+    build: .
+    container_name: nanobot-bot
+    env_file:
+      - .env
+    restart: "no"

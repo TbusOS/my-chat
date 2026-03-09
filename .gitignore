@@ -42,3 +42,8 @@ data/
 # Logs
 *.log
 logs/
+
+# Secrets — 绝对不要提交
+.env
+*.secret
+openclaw.json
