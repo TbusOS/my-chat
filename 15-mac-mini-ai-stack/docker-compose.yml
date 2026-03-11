@@ -1,0 +1,96 @@
+services:
+  # ============================================
+  # LobeChat - 聊天前端界面
+  # ============================================
+  lobechat:
+    image: lobehub/lobe-chat
+    container_name: lobechat
+    ports:
+      - "3210:3210"
+    environment:
+      # 指向 macOS 原生 Ollama
+      # Docker Desktop 用户：HOST_IP 留空即可（默认 host.docker.internal）
+      # Colima 用户：在 .env 中设置 HOST_IP 为宿主机 IP
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-placeholder}
+      - OPENAI_PROXY_URL=http://${HOST_IP:-host.docker.internal}:${OLLAMA_PORT:-11434}/v1
+      - OPENAI_MODEL_LIST=${OLLAMA_MODELS:-qwen2.5:7b}
+      # 可选：启用 MCP 插件
+      - PLUGINS_INDEX_URL=${PLUGINS_INDEX_URL:-}
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+
+  # ============================================
+  # PostgreSQL - 数据存储
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_DB=${POSTGRES_DB:-lobechat}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # Redis - 缓存 & 会话管理
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: ai-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis123}
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # 预留：飞书 Bot（取消注释即可启用）
+  # ============================================
+  # feishu-bot:
+  #   build:
+  #     context: ../projects/feishu-bot
+  #     dockerfile: Dockerfile
+  #   container_name: feishu-bot
+  #   ports:
+  #     - "9000:9000"
+  #   environment:
+  #     - FEISHU_APP_ID=${FEISHU_APP_ID}
+  #     - FEISHU_APP_SECRET=${FEISHU_APP_SECRET}
+  #     - OLLAMA_URL=http://${HOST_IP:-host.docker.internal}:${OLLAMA_PORT:-11434}
+  #   restart: unless-stopped
+
+  # ============================================
+  # 预留：自定义 Agent 服务模板
+  # ============================================
+  # custom-agent:
+  #   build:
+  #     context: ../projects/my-agents/custom-agent
+  #   ports:
+  #     - "8090:8090"
+  #   environment:
+  #     - OLLAMA_URL=http://${HOST_IP:-host.docker.internal}:${OLLAMA_PORT:-11434}
+  #     - MCP_SERVER_URL=http://${HOST_IP:-host.docker.internal}:8811
+  #   restart: unless-stopped
+
+volumes:
+  pgdata:
+    name: ai-stack-pgdata
+  redisdata:
+    name: ai-stack-redisdata

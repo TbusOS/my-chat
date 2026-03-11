@@ -20,6 +20,7 @@ my-chat/
 ├── 12-ollama-macos-setup/   # Ollama macOS 配置
 ├── 13-feishu-bots/          # 飞书 AI Bot · 可直接部署
 ├── 14-kernel-expert/        # 专项 · Linux 内核专家蒸馏模型
+├── 15-mac-mini-ai-stack/    # 部署 · Mac Mini 本地 AI 全栈方案
 ├── requirements.txt
 └── LICENSE
 ```
@@ -94,6 +95,7 @@ my-chat/
 | [12-ollama-macos-setup](12-ollama-macos-setup/) | 可直接运行 | macOS Ollama 部署、模型管理、性能调优 |
 | [13-feishu-bots](13-feishu-bots/) | 可直接部署 | Mac 虚拟机部署飞书 AI Bot（OpenClaw + Nanobot），一键启停脚本 |
 | [14-kernel-expert](14-kernel-expert/) | 专项实战 | 基于 FlowSight 知识库 + Opus 4.6 蒸馏，构建 ARM32/ARM64 内核专家模型 |
+| [15-mac-mini-ai-stack](15-mac-mini-ai-stack/) | 可直接部署 | Mac Mini 本地 AI 全栈方案：macOS 跑模型 + Docker 跑服务 |
 
 > **类型说明**：「可直接运行」= 仓库内有示例代码可直接执行；「外部项目教程」= 文档引导你使用外部项目（需另行 clone）；「理论专题」= 以概念讲解为主。
 
