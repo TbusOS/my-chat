@@ -21,6 +21,9 @@ my-chat/
 ├── 13-feishu-bots/          # 飞书 AI Bot · 可直接部署
 ├── 14-kernel-expert/        # 专项 · Linux 内核专家蒸馏模型
 ├── 15-mac-mini-ai-stack/    # 部署 · Mac Mini 本地 AI 全栈方案
+├── 16-sky-chat/             # 部署 · LobeChat + Cloudflare 公网安全部署
+├── 17-openclaw-control-ui/  # 运维 · OpenClaw 网页管理面板
+├── 18-openclaw-office/      # 前端 · OpenClaw Office 3D 可视化
 ├── requirements.txt
 └── LICENSE
 ```
@@ -96,6 +99,9 @@ my-chat/
 | [13-feishu-bots](13-feishu-bots/) | 可直接部署 | Mac 虚拟机部署飞书 AI Bot（OpenClaw + Nanobot），一键启停脚本 |
 | [14-kernel-expert](14-kernel-expert/) | 专项实战 | 基于 FlowSight 知识库 + Opus 4.6 蒸馏，构建 ARM32/ARM64 内核专家模型 |
 | [15-mac-mini-ai-stack](15-mac-mini-ai-stack/) | 可直接部署 | Mac Mini 本地 AI 全栈方案：macOS 跑模型 + Docker 跑服务 |
+| [16-sky-chat](16-sky-chat/) | 可直接部署 | LobeChat 定制化 + Cloudflare Tunnel/Access 公网安全部署 |
+| [17-openclaw-control-ui](17-openclaw-control-ui/) | 运维教程 | OpenClaw 网页管理面板：状态监控、对话管理、配置管理 |
+| [18-openclaw-office](18-openclaw-office/) | 可直接部署 | OpenClaw Office 3D 可视化 AI 前端，连接 Gateway 交互 |
 
 > **类型说明**：「可直接运行」= 仓库内有示例代码可直接执行；「外部项目教程」= 文档引导你使用外部项目（需另行 clone）；「理论专题」= 以概念讲解为主。
 
