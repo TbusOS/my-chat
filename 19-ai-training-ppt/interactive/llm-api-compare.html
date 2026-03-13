@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型 API 对比 — GPT vs Claude vs Gemini</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #ffffff;
+  color: #1a1a2e;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 48px 0 32px;
+  border-bottom: 1px solid #e8e8ed;
+}
+
+.header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.header .subtitle {
+  font-size: 16px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+/* Tab Bar */
+.tab-bar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 0 0;
+  border-bottom: 1px solid #e8e8ed;
+}
+
+.tab-btn {
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: 'Noto Sans SC', sans-serif;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+  color: #1a1a2e;
+}
+
+.tab-btn.active {
+  color: #1a1a2e;
+  font-weight: 600;
+  border-bottom-color: #1a1a2e;
+}
+
+/* Columns Grid */
+.columns-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  padding: 32px 0;
+}
+
+.column {
+  border: 1px solid #e8e8ed;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  transition: box-shadow 0.2s;
+}
+
+.column:hover {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e8e8ed;
+}
+
+.column-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.column-logo.gpt { background: #10a37f; }
+.column-logo.claude { background: #d4a574; }
+.column-logo.gemini { background: #4285f4; }
+
+.column-info h3 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.column-info .model-name {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.accent-bar {
+  height: 3px;
+  width: 100%;
+}
+
+.accent-bar.gpt { background: #10a37f; }
+.accent-bar.claude { background: #d4a574; }
+.accent-bar.gemini { background: #4285f4; }
+
+/* Code Block */
+.code-wrapper {
+  position: relative;
+  background: #1e293b;
+  margin: 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.code-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.code-wrapper::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.code-wrapper::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  color: #94a3b8;
+  background: #334155;
+  border: 1px solid #475569;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.15s;
+  z-index: 5;
+}
+
+.code-wrapper:hover .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  background: #475569;
+  color: #e2e8f0;
+}
+
+.copy-btn.copied {
+  background: #10a37f;
+  border-color: #10a37f;
+  color: #fff;
+}
+
+pre {
+  margin: 0;
+  padding: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #e2e8f0;
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Syntax Highlighting */
+.syn-key { color: #7dd3fc; }
+.syn-str { color: #86efac; }
+.syn-num { color: #fbbf24; }
+.syn-cmd { color: #c4b5fd; }
+.syn-flag { color: #fb923c; }
+.syn-url { color: #67e8f9; text-decoration: underline; }
+.syn-comment { color: #64748b; font-style: italic; }
+.syn-bool { color: #f472b6; }
+.syn-var { color: #fbbf24; }
+
+.highlight-diff {
+  background: rgba(251, 191, 36, 0.12);
+  display: inline;
+  border-radius: 2px;
+  padding: 1px 0;
+}
+
+/* Differences Section */
+.diff-section {
+  margin: 0 0 48px;
+  padding: 24px;
+  background: #fafafa;
+  border: 1px solid #e8e8ed;
+  border-radius: 12px;
+}
+
+.diff-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #1a1a2e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diff-section h3::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 18px;
+  background: #fbbf24;
+  border-radius: 2px;
+}
+
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.diff-table th,
+.diff-table td {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 13px;
+  border-bottom: 1px solid #e8e8ed;
+  vertical-align: top;
+}
+
+.diff-table th {
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+  width: 120px;
+}
+
+.diff-table td {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #374151;
+}
+
+.diff-table tr:last-child th,
+.diff-table tr:last-child td {
+  border-bottom: none;
+}
+
+.diff-table .label-gpt { color: #10a37f; font-weight: 500; }
+.diff-table .label-claude { color: #d4a574; font-weight: 500; }
+.diff-table .label-gemini { color: #4285f4; font-weight: 500; }
+
+/* Tab Content */
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .columns-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .container {
+    padding: 0 16px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+  }
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 32px 0;
+  color: #9ca3af;
+  font-size: 12px;
+  border-top: 1px solid #e8e8ed;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>大模型 API 对比</h1>
+    <p class="subtitle">GPT vs Claude vs Gemini &mdash; 请求格式、响应格式、工具调用、流式输出</p>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="request">请求格式</button>
+    <button class="tab-btn" data-tab="response">响应格式</button>
+    <button class="tab-btn" data-tab="tools">工具调用</button>
+    <button class="tab-btn" data-tab="streaming">流式输出</button>
+  </div>
+
+  <!-- Tab 1: Request Format -->
+  <div class="tab-content active" id="tab-request">
+    <div class="columns-grid">
+      <!-- GPT -->
+      <div class="column">
+        <div class="accent-bar gpt"></div>
+        <div class="column-header">
+          <div class="column-logo gpt">G</div>
+          <div class="column-info">
+            <h3>OpenAI GPT</h3>
+            <span class="model-name">gpt-4o</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-cmd">curl</span> <span class="syn-url">https://api.openai.com/v1/chat/completions</span> \
+  <span class="syn-flag">-H</span> <span class="syn-str">"Authorization: Bearer <span class="syn-var highlight-diff">$OPENAI_API_KEY</span>"</span> \
+  <span class="syn-flag">-H</span> <span class="syn-str">"Content-Type: application/json"</span> \
+  <span class="syn-flag">-d</span> <span class="syn-str">'{
+    <span class="syn-key">"model"</span>: <span class="syn-str">"gpt-4o"</span>,
+    <span class="syn-key highlight-diff">"messages"</span>: [
+      {<span class="syn-key">"role"</span>: <span class="syn-str highlight-diff">"system"</span>, <span class="syn-key">"content"</span>: <span class="syn-str">"你是资深后端工程师"</span>},
+      {<span class="syn-key">"role"</span>: <span class="syn-str">"user"</span>, <span class="syn-key">"content"</span>: <span class="syn-str">"OAuth 2.0 的认证流程是什么？"</span>}
+    ],
+    <span class="syn-key">"temperature"</span>: <span class="syn-num">0.3</span>,
+    <span class="syn-key">"max_tokens"</span>: <span class="syn-num">1024</span>
+  }'</span></pre>
+        </div>
+      </div>
+
+      <!-- Claude -->
+      <div class="column">
+        <div class="accent-bar claude"></div>
+        <div class="column-header">
+          <div class="column-logo claude">C</div>
+          <div class="column-info">
+            <h3>Anthropic Claude</h3>
+            <span class="model-name">claude-sonnet-4-20250514</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-cmd">curl</span> <span class="syn-url">https://api.anthropic.com/v1/messages</span> \
+  <span class="syn-flag">-H</span> <span class="syn-str">"<span class="highlight-diff">x-api-key: <span class="syn-var">$ANTHROPIC_API_KEY</span></span>"</span> \
+  <span class="syn-flag">-H</span> <span class="syn-str">"anthropic-version: 2023-06-01"</span> \
+  <span class="syn-flag">-H</span> <span class="syn-str">"Content-Type: application/json"</span> \
+  <span class="syn-flag">-d</span> <span class="syn-str">'{
+    <span class="syn-key">"model"</span>: <span class="syn-str">"claude-sonnet-4-20250514"</span>,
+    <span class="syn-key highlight-diff">"system"</span>: <span class="syn-str">"你是资深后端工程师"</span>,
+    <span class="syn-key">"messages"</span>: [
+      {<span class="syn-key">"role"</span>: <span class="syn-str">"user"</span>, <span class="syn-key">"content"</span>: <span class="syn-str">"OAuth 2.0 的认证流程是什么？"</span>}
+    ],
+    <span class="syn-key">"max_tokens"</span>: <span class="syn-num">1024</span>,
+    <span class="syn-key">"temperature"</span>: <span class="syn-num">0.3</span>
+  }'</span></pre>
+        </div>
+      </div>
+
+      <!-- Gemini -->
+      <div class="column">
+        <div class="accent-bar gemini"></div>
+        <div class="column-header">
+          <div class="column-logo gemini">G</div>
+          <div class="column-info">
+            <h3>Google Gemini</h3>
+            <span class="model-name">gemini-pro</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-cmd">curl</span> <span class="syn-url">"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent<span class="highlight-diff">?key=<span class="syn-var">$GOOGLE_API_KEY</span></span>"</span> \
+  <span class="syn-flag">-H</span> <span class="syn-str">"Content-Type: application/json"</span> \
+  <span class="syn-flag">-d</span> <span class="syn-str">'{
+    <span class="syn-key highlight-diff">"system_instruction"</span>: {
+      <span class="syn-key">"parts"</span>: [{<span class="syn-key">"text"</span>: <span class="syn-str">"你是资深后端工程师"</span>}]
+    },
+    <span class="syn-key">"contents"</span>: [{
+      <span class="syn-key">"parts"</span>: [{<span class="syn-key">"text"</span>: <span class="syn-str">"OAuth 2.0 的认证流程是什么？"</span>}]
+    }],
+    <span class="syn-key">"generationConfig"</span>: {
+      <span class="syn-key">"temperature"</span>: <span class="syn-num">0.3</span>,
+      <span class="syn-key">"maxOutputTokens"</span>: <span class="syn-num">1024</span>
+    }
+  }'</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="diff-section">
+      <h3>差异标注</h3>
+      <table class="diff-table">
+        <tr>
+          <th>认证方式</th>
+          <td>
+            <span class="label-gpt">GPT:</span> Authorization: Bearer token<br>
+            <span class="label-claude">Claude:</span> x-api-key 自定义 Header<br>
+            <span class="label-gemini">Gemini:</span> URL 查询参数 ?key=
+          </td>
+        </tr>
+        <tr>
+          <th>系统提示</th>
+          <td>
+            <span class="label-gpt">GPT:</span> 放在 messages 数组中，role="system"<br>
+            <span class="label-claude">Claude:</span> 独立的顶层 "system" 字段<br>
+            <span class="label-gemini">Gemini:</span> 独立的 "system_instruction" 对象，内含 parts
+          </td>
+        </tr>
+        <tr>
+          <th>消息结构</th>
+          <td>
+            <span class="label-gpt">GPT:</span> messages: [{role, content}]<br>
+            <span class="label-claude">Claude:</span> messages: [{role, content}]（与 GPT 相似）<br>
+            <span class="label-gemini">Gemini:</span> contents: [{parts: [{text}]}]（嵌套更深）
+          </td>
+        </tr>
+        <tr>
+          <th>Token 限制参数</th>
+          <td>
+            <span class="label-gpt">GPT:</span> max_tokens<br>
+            <span class="label-claude">Claude:</span> max_tokens（必填）<br>
+            <span class="label-gemini">Gemini:</span> generationConfig.maxOutputTokens
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab 2: Response Format -->
+  <div class="tab-content" id="tab-response">
+    <div class="columns-grid">
+      <!-- GPT Response -->
+      <div class="column">
+        <div class="accent-bar gpt"></div>
+        <div class="column-header">
+          <div class="column-logo gpt">G</div>
+          <div class="column-info">
+            <h3>OpenAI GPT</h3>
+            <span class="model-name">响应格式</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre>{
+  <span class="syn-key">"id"</span>: <span class="syn-str">"chatcmpl-abc123"</span>,
+  <span class="syn-key">"object"</span>: <span class="syn-str">"chat.completion"</span>,
+  <span class="syn-key">"model"</span>: <span class="syn-str">"gpt-4o"</span>,
+  <span class="syn-key highlight-diff">"choices"</span>: [{
+    <span class="syn-key">"index"</span>: <span class="syn-num">0</span>,
+    <span class="syn-key highlight-diff">"message"</span>: {
+      <span class="syn-key">"role"</span>: <span class="syn-str">"assistant"</span>,
+      <span class="syn-key highlight-diff">"content"</span>: <span class="syn-str">"OAuth 2.0 的认证流程包括..."</span>
+    },
+    <span class="syn-key">"finish_reason"</span>: <span class="syn-str">"stop"</span>
+  }],
+  <span class="syn-key">"usage"</span>: {
+    <span class="syn-key">"prompt_tokens"</span>: <span class="syn-num">28</span>,
+    <span class="syn-key">"completion_tokens"</span>: <span class="syn-num">256</span>,
+    <span class="syn-key">"total_tokens"</span>: <span class="syn-num">284</span>
+  }
+}</pre>
+        </div>
+      </div>
+
+      <!-- Claude Response -->
+      <div class="column">
+        <div class="accent-bar claude"></div>
+        <div class="column-header">
+          <div class="column-logo claude">C</div>
+          <div class="column-info">
+            <h3>Anthropic Claude</h3>
+            <span class="model-name">响应格式</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre>{
+  <span class="syn-key">"id"</span>: <span class="syn-str">"msg_abc123"</span>,
+  <span class="syn-key">"type"</span>: <span class="syn-str">"message"</span>,
+  <span class="syn-key">"role"</span>: <span class="syn-str">"assistant"</span>,
+  <span class="syn-key">"model"</span>: <span class="syn-str">"claude-sonnet-4-20250514"</span>,
+  <span class="syn-key highlight-diff">"content"</span>: [{
+    <span class="syn-key">"type"</span>: <span class="syn-str">"text"</span>,
+    <span class="syn-key highlight-diff">"text"</span>: <span class="syn-str">"OAuth 2.0 的认证流程包括..."</span>
+  }],
+  <span class="syn-key">"stop_reason"</span>: <span class="syn-str">"end_turn"</span>,
+  <span class="syn-key">"usage"</span>: {
+    <span class="syn-key">"input_tokens"</span>: <span class="syn-num">28</span>,
+    <span class="syn-key">"output_tokens"</span>: <span class="syn-num">256</span>
+  }
+}</pre>
+        </div>
+      </div>
+
+      <!-- Gemini Response -->
+      <div class="column">
+        <div class="accent-bar gemini"></div>
+        <div class="column-header">
+          <div class="column-logo gemini">G</div>
+          <div class="column-info">
+            <h3>Google Gemini</h3>
+            <span class="model-name">响应格式</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre>{
+  <span class="syn-key highlight-diff">"candidates"</span>: [{
+    <span class="syn-key highlight-diff">"content"</span>: {
+      <span class="syn-key">"role"</span>: <span class="syn-str">"model"</span>,
+      <span class="syn-key highlight-diff">"parts"</span>: [{
+        <span class="syn-key highlight-diff">"text"</span>: <span class="syn-str">"OAuth 2.0 的认证流程包括..."</span>
+      }]
+    },
+    <span class="syn-key">"finishReason"</span>: <span class="syn-str">"STOP"</span>,
+    <span class="syn-key">"safetyRatings"</span>: [...]
+  }],
+  <span class="syn-key">"usageMetadata"</span>: {
+    <span class="syn-key">"promptTokenCount"</span>: <span class="syn-num">28</span>,
+    <span class="syn-key">"candidatesTokenCount"</span>: <span class="syn-num">256</span>,
+    <span class="syn-key">"totalTokenCount"</span>: <span class="syn-num">284</span>
+  }
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="diff-section">
+      <h3>差异标注</h3>
+      <table class="diff-table">
+        <tr>
+          <th>取文本路径</th>
+          <td>
+            <span class="label-gpt">GPT:</span> choices[0].message.content<br>
+            <span class="label-claude">Claude:</span> content[0].text<br>
+            <span class="label-gemini">Gemini:</span> candidates[0].content.parts[0].text
+          </td>
+        </tr>
+        <tr>
+          <th>结束原因</th>
+          <td>
+            <span class="label-gpt">GPT:</span> finish_reason: "stop"<br>
+            <span class="label-claude">Claude:</span> stop_reason: "end_turn"<br>
+            <span class="label-gemini">Gemini:</span> finishReason: "STOP"（大写）
+          </td>
+        </tr>
+        <tr>
+          <th>用量统计</th>
+          <td>
+            <span class="label-gpt">GPT:</span> usage.prompt_tokens / completion_tokens<br>
+            <span class="label-claude">Claude:</span> usage.input_tokens / output_tokens<br>
+            <span class="label-gemini">Gemini:</span> usageMetadata.promptTokenCount / candidatesTokenCount
+          </td>
+        </tr>
+        <tr>
+          <th>内容结构</th>
+          <td>
+            <span class="label-gpt">GPT:</span> content 是字符串<br>
+            <span class="label-claude">Claude:</span> content 是数组（支持多块内容，如文本+工具调用）<br>
+            <span class="label-gemini">Gemini:</span> parts 数组（嵌套最深）
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab 3: Tool Calling -->
+  <div class="tab-content" id="tab-tools">
+    <div class="columns-grid">
+      <!-- GPT Tools -->
+      <div class="column">
+        <div class="accent-bar gpt"></div>
+        <div class="column-header">
+          <div class="column-logo gpt">G</div>
+          <div class="column-info">
+            <h3>OpenAI GPT</h3>
+            <span class="model-name">工具定义 + 调用</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-comment">// 请求：定义工具</span>
+{
+  <span class="syn-key">"model"</span>: <span class="syn-str">"gpt-4o"</span>,
+  <span class="syn-key highlight-diff">"tools"</span>: [{
+    <span class="syn-key">"type"</span>: <span class="syn-str">"function"</span>,
+    <span class="syn-key">"function"</span>: {
+      <span class="syn-key">"name"</span>: <span class="syn-str">"query_logs"</span>,
+      <span class="syn-key">"description"</span>: <span class="syn-str">"查询系统日志"</span>,
+      <span class="syn-key">"parameters"</span>: {
+        <span class="syn-key">"type"</span>: <span class="syn-str">"object"</span>,
+        <span class="syn-key">"properties"</span>: {
+          <span class="syn-key">"request_id"</span>: {
+            <span class="syn-key">"type"</span>: <span class="syn-str">"string"</span>,
+            <span class="syn-key">"description"</span>: <span class="syn-str">"请求ID"</span>
+          }
+        },
+        <span class="syn-key">"required"</span>: [<span class="syn-str">"request_id"</span>]
+      }
+    }
+  }],
+  <span class="syn-key">"messages"</span>: [...]
+}
+
+<span class="syn-comment">// 响应：模型调用工具</span>
+{
+  <span class="syn-key">"choices"</span>: [{
+    <span class="syn-key">"message"</span>: {
+      <span class="syn-key">"role"</span>: <span class="syn-str">"assistant"</span>,
+      <span class="syn-key">"content"</span>: <span class="syn-bool">null</span>,
+      <span class="syn-key highlight-diff">"tool_calls"</span>: [{
+        <span class="syn-key">"id"</span>: <span class="syn-str">"call_abc123"</span>,
+        <span class="syn-key">"type"</span>: <span class="syn-str">"function"</span>,
+        <span class="syn-key">"function"</span>: {
+          <span class="syn-key">"name"</span>: <span class="syn-str">"query_logs"</span>,
+          <span class="syn-key">"arguments"</span>: <span class="syn-str">"{\"request_id\":\"REQ-001\"}"</span>
+        }
+      }]
+    },
+    <span class="syn-key">"finish_reason"</span>: <span class="syn-str">"tool_calls"</span>
+  }]
+}</pre>
+        </div>
+      </div>
+
+      <!-- Claude Tools -->
+      <div class="column">
+        <div class="accent-bar claude"></div>
+        <div class="column-header">
+          <div class="column-logo claude">C</div>
+          <div class="column-info">
+            <h3>Anthropic Claude</h3>
+            <span class="model-name">工具定义 + 调用</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-comment">// 请求：定义工具</span>
+{
+  <span class="syn-key">"model"</span>: <span class="syn-str">"claude-sonnet-4-20250514"</span>,
+  <span class="syn-key highlight-diff">"tools"</span>: [{
+    <span class="syn-key">"name"</span>: <span class="syn-str">"query_logs"</span>,
+    <span class="syn-key">"description"</span>: <span class="syn-str">"查询系统日志"</span>,
+    <span class="syn-key">"input_schema"</span>: {
+      <span class="syn-key">"type"</span>: <span class="syn-str">"object"</span>,
+      <span class="syn-key">"properties"</span>: {
+        <span class="syn-key">"request_id"</span>: {
+          <span class="syn-key">"type"</span>: <span class="syn-str">"string"</span>,
+          <span class="syn-key">"description"</span>: <span class="syn-str">"请求ID"</span>
+        }
+      },
+      <span class="syn-key">"required"</span>: [<span class="syn-str">"request_id"</span>]
+    }
+  }],
+  <span class="syn-key">"messages"</span>: [...]
+}
+
+<span class="syn-comment">// 响应：模型调用工具</span>
+{
+  <span class="syn-key">"content"</span>: [
+    {
+      <span class="syn-key">"type"</span>: <span class="syn-str">"text"</span>,
+      <span class="syn-key">"text"</span>: <span class="syn-str">"我来查询这条日志..."</span>
+    },
+    {
+      <span class="syn-key highlight-diff">"type"</span>: <span class="syn-str highlight-diff">"tool_use"</span>,
+      <span class="syn-key">"id"</span>: <span class="syn-str">"toolu_abc123"</span>,
+      <span class="syn-key">"name"</span>: <span class="syn-str">"query_logs"</span>,
+      <span class="syn-key">"input"</span>: {
+        <span class="syn-key">"request_id"</span>: <span class="syn-str">"REQ-001"</span>
+      }
+    }
+  ],
+  <span class="syn-key">"stop_reason"</span>: <span class="syn-str">"tool_use"</span>
+}</pre>
+        </div>
+      </div>
+
+      <!-- Gemini Tools -->
+      <div class="column">
+        <div class="accent-bar gemini"></div>
+        <div class="column-header">
+          <div class="column-logo gemini">G</div>
+          <div class="column-info">
+            <h3>Google Gemini</h3>
+            <span class="model-name">工具定义 + 调用</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-comment">// 请求：定义工具</span>
+{
+  <span class="syn-key highlight-diff">"tools"</span>: [{
+    <span class="syn-key highlight-diff">"functionDeclarations"</span>: [{
+      <span class="syn-key">"name"</span>: <span class="syn-str">"query_logs"</span>,
+      <span class="syn-key">"description"</span>: <span class="syn-str">"查询系统日志"</span>,
+      <span class="syn-key">"parameters"</span>: {
+        <span class="syn-key">"type"</span>: <span class="syn-str">"OBJECT"</span>,
+        <span class="syn-key">"properties"</span>: {
+          <span class="syn-key">"request_id"</span>: {
+            <span class="syn-key">"type"</span>: <span class="syn-str">"STRING"</span>,
+            <span class="syn-key">"description"</span>: <span class="syn-str">"请求ID"</span>
+          }
+        },
+        <span class="syn-key">"required"</span>: [<span class="syn-str">"request_id"</span>]
+      }
+    }]
+  }],
+  <span class="syn-key">"contents"</span>: [...]
+}
+
+<span class="syn-comment">// 响应：模型调用工具</span>
+{
+  <span class="syn-key">"candidates"</span>: [{
+    <span class="syn-key">"content"</span>: {
+      <span class="syn-key">"parts"</span>: [{
+        <span class="syn-key highlight-diff">"functionCall"</span>: {
+          <span class="syn-key">"name"</span>: <span class="syn-str">"query_logs"</span>,
+          <span class="syn-key">"args"</span>: {
+            <span class="syn-key">"request_id"</span>: <span class="syn-str">"REQ-001"</span>
+          }
+        }
+      }]
+    },
+    <span class="syn-key">"finishReason"</span>: <span class="syn-str">"STOP"</span>
+  }]
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="diff-section">
+      <h3>差异标注</h3>
+      <table class="diff-table">
+        <tr>
+          <th>工具定义</th>
+          <td>
+            <span class="label-gpt">GPT:</span> tools[].function.parameters（JSON Schema）<br>
+            <span class="label-claude">Claude:</span> tools[].input_schema（JSON Schema）<br>
+            <span class="label-gemini">Gemini:</span> tools[].functionDeclarations[].parameters（类型大写：OBJECT, STRING）
+          </td>
+        </tr>
+        <tr>
+          <th>调用格式</th>
+          <td>
+            <span class="label-gpt">GPT:</span> message.tool_calls[]，arguments 是 JSON 字符串<br>
+            <span class="label-claude">Claude:</span> content[] 中 type="tool_use" 块，input 是对象<br>
+            <span class="label-gemini">Gemini:</span> parts[].functionCall，args 是对象
+          </td>
+        </tr>
+        <tr>
+          <th>参数传递</th>
+          <td>
+            <span class="label-gpt">GPT:</span> arguments: "{\"request_id\":\"REQ-001\"}"（字符串，需 JSON.parse）<br>
+            <span class="label-claude">Claude:</span> input: {"request_id": "REQ-001"}（已解析的对象）<br>
+            <span class="label-gemini">Gemini:</span> args: {"request_id": "REQ-001"}（已解析的对象）
+          </td>
+        </tr>
+        <tr>
+          <th>并行特性</th>
+          <td>
+            <span class="label-gpt">GPT:</span> tool_calls 数组可含多个调用（原生并行）<br>
+            <span class="label-claude">Claude:</span> content 数组可含文本+多个 tool_use（混合内容）<br>
+            <span class="label-gemini">Gemini:</span> parts 数组可含多个 functionCall
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab 4: Streaming -->
+  <div class="tab-content" id="tab-streaming">
+    <div class="columns-grid">
+      <!-- GPT Streaming -->
+      <div class="column">
+        <div class="accent-bar gpt"></div>
+        <div class="column-header">
+          <div class="column-logo gpt">G</div>
+          <div class="column-info">
+            <h3>OpenAI GPT</h3>
+            <span class="model-name">stream: true</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-comment">// 请求中添加 "stream": true</span>
+<span class="syn-comment">// 响应为 Server-Sent Events:</span>
+
+data: {
+  <span class="syn-key">"id"</span>: <span class="syn-str">"chatcmpl-abc123"</span>,
+  <span class="syn-key">"choices"</span>: [{
+    <span class="syn-key highlight-diff">"delta"</span>: {
+      <span class="syn-key">"role"</span>: <span class="syn-str">"assistant"</span>
+    },
+    <span class="syn-key">"index"</span>: <span class="syn-num">0</span>
+  }]
+}
+
+data: {
+  <span class="syn-key">"choices"</span>: [{
+    <span class="syn-key highlight-diff">"delta"</span>: {
+      <span class="syn-key highlight-diff">"content"</span>: <span class="syn-str">"OAuth"</span>
+    }
+  }]
+}
+
+data: {
+  <span class="syn-key">"choices"</span>: [{
+    <span class="syn-key">"delta"</span>: {
+      <span class="syn-key">"content"</span>: <span class="syn-str">"2.0"</span>
+    }
+  }]
+}
+
+data: {
+  <span class="syn-key">"choices"</span>: [{
+    <span class="syn-key">"delta"</span>: {},
+    <span class="syn-key">"finish_reason"</span>: <span class="syn-str">"stop"</span>
+  }]
+}
+
+data: [DONE]</pre>
+        </div>
+      </div>
+
+      <!-- Claude Streaming -->
+      <div class="column">
+        <div class="accent-bar claude"></div>
+        <div class="column-header">
+          <div class="column-logo claude">C</div>
+          <div class="column-info">
+            <h3>Anthropic Claude</h3>
+            <span class="model-name">stream: true</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-comment">// 请求中添加 "stream": true</span>
+<span class="syn-comment">// 响应为 Server-Sent Events:</span>
+
+event: <span class="syn-str">message_start</span>
+data: {
+  <span class="syn-key">"type"</span>: <span class="syn-str">"message_start"</span>,
+  <span class="syn-key">"message"</span>: {<span class="syn-key">"id"</span>: <span class="syn-str">"msg_abc"</span>, ...}
+}
+
+event: <span class="syn-str highlight-diff">content_block_start</span>
+data: {
+  <span class="syn-key">"type"</span>: <span class="syn-str">"content_block_start"</span>,
+  <span class="syn-key">"index"</span>: <span class="syn-num">0</span>,
+  <span class="syn-key">"content_block"</span>: {
+    <span class="syn-key">"type"</span>: <span class="syn-str">"text"</span>, <span class="syn-key">"text"</span>: <span class="syn-str">""</span>
+  }
+}
+
+event: <span class="syn-str highlight-diff">content_block_delta</span>
+data: {
+  <span class="syn-key">"type"</span>: <span class="syn-str">"content_block_delta"</span>,
+  <span class="syn-key highlight-diff">"delta"</span>: {
+    <span class="syn-key">"type"</span>: <span class="syn-str">"text_delta"</span>,
+    <span class="syn-key">"text"</span>: <span class="syn-str">"OAuth 认证"</span>
+  }
+}
+
+event: <span class="syn-str">content_block_stop</span>
+data: {<span class="syn-key">"type"</span>: <span class="syn-str">"content_block_stop"</span>}
+
+event: <span class="syn-str">message_stop</span>
+data: {<span class="syn-key">"type"</span>: <span class="syn-str">"message_stop"</span>}</pre>
+        </div>
+      </div>
+
+      <!-- Gemini Streaming -->
+      <div class="column">
+        <div class="accent-bar gemini"></div>
+        <div class="column-header">
+          <div class="column-logo gemini">G</div>
+          <div class="column-info">
+            <h3>Google Gemini</h3>
+            <span class="model-name">streamGenerateContent</span>
+          </div>
+        </div>
+        <div class="code-wrapper">
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+          <pre><span class="syn-comment">// 使用 streamGenerateContent 端点</span>
+<span class="syn-comment">// 响应为 JSON 数组流:</span>
+
+[{
+  <span class="syn-key highlight-diff">"candidates"</span>: [{
+    <span class="syn-key">"content"</span>: {
+      <span class="syn-key">"parts"</span>: [{
+        <span class="syn-key">"text"</span>: <span class="syn-str">"OAuth"</span>
+      }],
+      <span class="syn-key">"role"</span>: <span class="syn-str">"model"</span>
+    }
+  }]
+},
+{
+  <span class="syn-key">"candidates"</span>: [{
+    <span class="syn-key">"content"</span>: {
+      <span class="syn-key">"parts"</span>: [{
+        <span class="syn-key">"text"</span>: <span class="syn-str">"2.0 的认证"</span>
+      }]
+    }
+  }]
+},
+{
+  <span class="syn-key">"candidates"</span>: [{
+    <span class="syn-key">"content"</span>: {
+      <span class="syn-key">"parts"</span>: [{
+        <span class="syn-key">"text"</span>: <span class="syn-str">"流程包括..."</span>
+      }]
+    },
+    <span class="syn-key">"finishReason"</span>: <span class="syn-str">"STOP"</span>
+  }],
+  <span class="syn-key">"usageMetadata"</span>: {...}
+}]</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="diff-section">
+      <h3>差异标注</h3>
+      <table class="diff-table">
+        <tr>
+          <th>协议格式</th>
+          <td>
+            <span class="label-gpt">GPT:</span> SSE（data: JSON），以 data: [DONE] 结束<br>
+            <span class="label-claude">Claude:</span> SSE（event + data），有明确的生命周期事件<br>
+            <span class="label-gemini">Gemini:</span> JSON 数组流（非标准 SSE），直接返回 JSON 对象
+          </td>
+        </tr>
+        <tr>
+          <th>增量字段</th>
+          <td>
+            <span class="label-gpt">GPT:</span> choices[0].delta.content<br>
+            <span class="label-claude">Claude:</span> delta.text（在 content_block_delta 事件中）<br>
+            <span class="label-gemini">Gemini:</span> candidates[0].content.parts[0].text
+          </td>
+        </tr>
+        <tr>
+          <th>事件粒度</th>
+          <td>
+            <span class="label-gpt">GPT:</span> 无事件类型，每个 chunk 结构相同<br>
+            <span class="label-claude">Claude:</span> 细粒度事件：message_start → content_block_start → delta → stop<br>
+            <span class="label-gemini">Gemini:</span> 无事件类型，每个 chunk 是完整的 candidate 对象
+          </td>
+        </tr>
+        <tr>
+          <th>启用方式</th>
+          <td>
+            <span class="label-gpt">GPT:</span> "stream": true 参数<br>
+            <span class="label-claude">Claude:</span> "stream": true 参数<br>
+            <span class="label-gemini">Gemini:</span> 更换端点为 streamGenerateContent
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    AI 培训课程 &mdash; 大模型 API 对比
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var tabButtons = document.querySelectorAll('.tab-btn');
+  var tabContents = document.querySelectorAll('.tab-content');
+
+  tabButtons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var tabId = btn.getAttribute('data-tab');
+
+      tabButtons.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+
+      tabContents.forEach(function(tc) { tc.classList.remove('active'); });
+      var target = document.getElementById('tab-' + tabId);
+      if (target) {
+        target.classList.add('active');
+      }
+    });
+  });
+})();
+
+function copyCode(btn) {
+  var pre = btn.parentElement.querySelector('pre');
+  var text = pre.textContent || pre.innerText;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      showCopied(btn);
+    }).catch(function() {
+      fallbackCopy(text, btn);
+    });
+  } else {
+    fallbackCopy(text, btn);
+  }
+}
+
+function fallbackCopy(text, btn) {
+  var textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    showCopied(btn);
+  } catch (e) {
+    // silent fail
+  }
+  document.body.removeChild(textarea);
+}
+
+function showCopied(btn) {
+  var original = btn.textContent;
+  btn.textContent = 'Copied!';
+  btn.classList.add('copied');
+  setTimeout(function() {
+    btn.textContent = original;
+    btn.classList.remove('copied');
+  }, 1500);
+}
+</script>
+</body>
+</html>

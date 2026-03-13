@@ -1,0 +1,250 @@
+/* @theme ai-training */
+@import 'default';
+
+:root {
+  --color-primary: #2563eb;
+  --color-text: #1e293b;
+  --color-text-light: #475569;
+  --color-bg: #ffffff;
+  --color-code-bg: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-accent: #3b82f6;
+  --color-highlight: #dbeafe;
+}
+
+section {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  padding: 40px 50px;
+  font-size: 24px;
+  line-height: 1.6;
+}
+
+h1 {
+  color: var(--color-primary);
+  font-size: 36px;
+  font-weight: 700;
+  border-bottom: 3px solid var(--color-primary);
+  padding-bottom: 12px;
+  margin-bottom: 30px;
+}
+
+h2 {
+  color: var(--color-text);
+  font-size: 30px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+h3 {
+  color: var(--color-text-light);
+  font-size: 24px;
+  font-weight: 500;
+}
+
+p {
+  margin-bottom: 16px;
+}
+
+ul, ol {
+  margin-left: 20px;
+}
+
+li {
+  margin-bottom: 8px;
+}
+
+table {
+  font-size: 0.8em;
+  border-collapse: collapse;
+  width: 100%;
+  margin: 20px 0;
+}
+
+th {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+}
+
+td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+tr:nth-child(even) td {
+  background-color: #f8fafc;
+}
+
+code {
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.85em;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 24px;
+  font-size: 0.7em;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+blockquote {
+  border-left: 4px solid var(--color-primary);
+  background: var(--color-highlight);
+  padding: 16px 24px;
+  margin: 20px 0;
+  border-radius: 0 8px 8px 0;
+  font-style: normal;
+  color: var(--color-text);
+}
+
+blockquote p {
+  margin: 0;
+}
+
+strong {
+  color: var(--color-primary);
+}
+
+img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+/* ===== Cover / Title Slide ===== */
+section.lead {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+  color: white;
+}
+
+section.lead h1 {
+  color: white;
+  border-bottom: none;
+  font-size: 52px;
+  margin-bottom: 16px;
+}
+
+section.lead h2 {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 400;
+  font-size: 28px;
+}
+
+section.lead p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 22px;
+}
+
+/* ===== Section Divider ===== */
+section.divider {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: #f8fafc;
+}
+
+section.divider h1 {
+  border-bottom: none;
+  font-size: 48px;
+}
+
+section.divider h2 {
+  color: var(--color-text-light);
+  font-weight: 400;
+}
+
+/* ===== Key Point Highlight ===== */
+section.highlight {
+  background: var(--color-highlight);
+}
+
+section.highlight h1 {
+  color: #1e40af;
+}
+
+/* ===== Demo Slide ===== */
+section.demo {
+  border-top: 6px solid #f59e0b;
+}
+
+section.demo h1::before {
+  content: '[ DEMO ] ';
+  color: #f59e0b;
+  font-size: 0.8em;
+}
+
+/* ===== Compare Layout ===== */
+section.compare {
+  padding: 40px 50px;
+}
+
+/* ===== Two Column ===== */
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+.col {
+  padding: 0;
+}
+
+/* ===== Callout Box ===== */
+.callout {
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0;
+}
+
+.callout-blue {
+  background: var(--color-highlight);
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0;
+}
+
+/* ===== Footer ===== */
+footer {
+  color: var(--color-text-light);
+  font-size: 16px;
+}
+
+/* ===== Page Number ===== */
+section::after {
+  color: var(--color-text-light);
+  font-size: 16px;
+}

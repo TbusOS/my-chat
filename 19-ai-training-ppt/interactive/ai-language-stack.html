@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 说什么「语言」？</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1a1a2e;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px 60px; }
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 40px 0 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.header h1 { font-size: 34px; font-weight: 700; margin-bottom: 8px; }
+.header h1 .hl {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.header .subtitle { font-size: 16px; color: #6b7280; }
+
+/* Tabs */
+.tabs {
+  display: flex; justify-content: center; gap: 4px;
+  padding: 16px 0 0; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap;
+}
+.tab-btn {
+  padding: 10px 20px; font-size: 14px; font-weight: 500; font-family: inherit;
+  color: #6b7280; background: none; border: none; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: #1a1a2e; }
+.tab-btn.active { color: #1a1a2e; font-weight: 600; border-bottom-color: #f59e0b; }
+
+.tab-content { display: none; padding: 32px 0; animation: fadeIn 0.3s ease; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* === Tab 1: Language Comparison Table === */
+.compare-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.compare-table th {
+  padding: 14px 20px; font-size: 14px; font-weight: 600;
+  text-align: left; border-bottom: 2px solid #e5e7eb;
+}
+.compare-table th:nth-child(1) { background: #f9fafb; color: #6b7280; width: 15%; }
+.compare-table th:nth-child(2) { background: #eff6ff; color: #1d4ed8; width: 28%; }
+.compare-table th:nth-child(3) { background: #fef3c7; color: #b45309; width: 28%; }
+.compare-table th:nth-child(4) { background: #f0fdf4; color: #166534; width: 29%; }
+.compare-table td {
+  padding: 14px 20px; font-size: 13px; border-bottom: 1px solid #f3f4f6;
+  vertical-align: top; line-height: 1.7;
+}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table td:nth-child(1) { font-weight: 600; color: #374151; background: #f9fafb; }
+.compare-table td:nth-child(2) { background: #fafbff; }
+.compare-table td:nth-child(3) { background: #fffdf5; }
+.compare-table td:nth-child(4) { background: #f7fef9; }
+.compare-table .emoji { font-size: 18px; margin-right: 4px; }
+
+.insight-box {
+  margin-top: 24px; padding: 20px 24px;
+  background: linear-gradient(135deg, #fef3c7, #fef9c3);
+  border-radius: 12px; border: 1px solid #fde68a;
+  font-size: 15px; line-height: 1.8;
+}
+.insight-box strong { color: #92400e; }
+
+/* === Tab 2: Token Anatomy === */
+.token-demo { max-width: 700px; margin: 0 auto; }
+.token-input-area {
+  display: flex; gap: 12px; margin-bottom: 24px; align-items: center;
+}
+.token-input {
+  flex: 1; padding: 12px 16px; font-size: 16px; font-family: inherit;
+  border: 2px solid #e5e7eb; border-radius: 10px; outline: none;
+  transition: border-color 0.2s;
+}
+.token-input:focus { border-color: #f59e0b; }
+.token-btn {
+  padding: 12px 24px; background: #f59e0b; color: white; border: none;
+  border-radius: 10px; font-size: 14px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background 0.2s; white-space: nowrap;
+}
+.token-btn:hover { background: #d97706; }
+
+.token-result { min-height: 100px; }
+
+.token-stage {
+  margin-bottom: 24px; padding: 20px; background: #f9fafb;
+  border-radius: 12px; border: 1px solid #e5e7eb;
+  opacity: 0; transform: translateY(10px); transition: all 0.4s ease;
+}
+.token-stage.show { opacity: 1; transform: translateY(0); }
+.token-stage-label {
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 10px; color: #6b7280;
+}
+.token-stage-label .step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%; font-size: 11px;
+  margin-right: 6px; color: white;
+}
+.stage-human .step-num { background: #3b82f6; }
+.stage-token .step-num { background: #f59e0b; }
+.stage-vector .step-num { background: #ef4444; }
+
+.token-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.token-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border-radius: 8px; font-size: 14px; font-weight: 500;
+  opacity: 0; transform: scale(0.8); transition: all 0.3s ease;
+}
+.token-chip.show { opacity: 1; transform: scale(1); }
+.token-chip.human-chip { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+.token-chip.token-piece { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.token-chip .chip-id { font-size: 10px; color: #9ca3af; font-family: monospace; }
+
+.vector-display {
+  font-family: 'SF Mono', 'JetBrains Mono', monospace; font-size: 12px;
+  color: #6b7280; line-height: 1.8; word-break: break-all;
+}
+.vector-display .vec-num {
+  display: inline-block; padding: 2px 6px; margin: 2px;
+  background: #fef2f2; border-radius: 4px; color: #dc2626; font-weight: 500;
+}
+
+.token-insight {
+  margin-top: 16px; padding: 16px 20px;
+  background: #fffbeb; border-radius: 10px; border: 1px solid #fde68a;
+  font-size: 14px; color: #92400e; line-height: 1.7;
+}
+
+/* === Tab 3: Agent Communication === */
+.comm-scene { position: relative; }
+
+.comm-agents {
+  display: flex; justify-content: space-around; align-items: flex-start;
+  padding: 20px 0 0; position: relative;
+}
+
+.comm-agent {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  position: relative; z-index: 2;
+}
+.comm-avatar {
+  width: 72px; height: 72px; border-radius: 20px; display: flex;
+  align-items: center; justify-content: center; font-size: 36px;
+  transition: all 0.3s; position: relative;
+}
+.comm-avatar.active {
+  transform: scale(1.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+.comm-avatar.human { background: #dbeafe; }
+.comm-avatar.planner { background: #dcfce7; }
+.comm-avatar.coder { background: #fef3c7; }
+.comm-avatar.reviewer { background: #fae8ff; }
+
+.comm-name { font-size: 13px; font-weight: 600; color: #374151; }
+.comm-role { font-size: 11px; color: #9ca3af; }
+
+/* Message Bubbles */
+.msg-track {
+  min-height: 340px; position: relative; margin: 20px 0;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+.comm-msg {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 16px; border-radius: 14px; border: 1px solid #e5e7eb;
+  background: white; opacity: 0; transform: translateX(-20px);
+  transition: all 0.5s ease; max-width: 90%; position: relative;
+}
+.comm-msg.show { opacity: 1; transform: translateX(0); }
+.comm-msg.from-right { margin-left: auto; transform: translateX(20px); }
+.comm-msg.from-right.show { transform: translateX(0); }
+
+.msg-sender {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.3px; margin-bottom: 4px;
+}
+.msg-sender.human { color: #2563eb; }
+.msg-sender.planner { color: #16a34a; }
+.msg-sender.coder { color: #d97706; }
+.msg-sender.reviewer { color: #9333ea; }
+
+.msg-format-tag {
+  display: inline-block; padding: 1px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 600; margin-left: 8px;
+}
+.tag-natural { background: #dbeafe; color: #1d4ed8; }
+.tag-json { background: #fef3c7; color: #92400e; }
+.tag-hybrid { background: #f3e8ff; color: #7c3aed; }
+
+.msg-body { font-size: 13px; line-height: 1.7; }
+.msg-body pre {
+  background: #1a1a2e; color: #e5e7eb; padding: 12px 16px;
+  border-radius: 8px; font-size: 12px; overflow-x: auto;
+  font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  line-height: 1.6; margin-top: 8px;
+}
+.msg-body .json-key { color: #7dd3fc; }
+.msg-body .json-str { color: #86efac; }
+.msg-body .json-comment { color: #6b7280; font-style: italic; }
+
+.msg-icon { font-size: 28px; flex-shrink: 0; }
+
+/* Play Controls */
+.play-controls {
+  display: flex; justify-content: center; gap: 12px; margin-bottom: 20px;
+}
+.play-btn {
+  padding: 10px 24px; background: #f59e0b; color: white; border: none;
+  border-radius: 8px; font-size: 14px; font-weight: 500; font-family: inherit;
+  cursor: pointer; transition: background 0.2s;
+}
+.play-btn:hover { background: #d97706; }
+.play-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+
+.reset-btn {
+  padding: 10px 24px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db;
+  border-radius: 8px; font-size: 14px; font-weight: 500; font-family: inherit;
+  cursor: pointer; transition: all 0.2s;
+}
+.reset-btn:hover { background: #e5e7eb; }
+
+/* Step indicator */
+.step-indicator {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;
+}
+.step-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #e5e7eb; transition: all 0.3s;
+}
+.step-dot.active { background: #f59e0b; transform: scale(1.3); }
+.step-dot.done { background: #86efac; }
+
+/* Explanation callout */
+.explain-box {
+  padding: 16px 20px; border-radius: 10px; font-size: 14px;
+  line-height: 1.7; margin-top: 16px; min-height: 60px;
+  transition: all 0.3s ease; border: 1px solid #e5e7eb; background: #f9fafb;
+}
+.explain-box.highlight {
+  background: #fffbeb; border-color: #fde68a;
+}
+
+/* === Tab 4: Protocol Comparison === */
+.protocol-cards {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+}
+.protocol-card {
+  padding: 24px; border-radius: 16px; border: 1px solid #e5e7eb;
+  background: white; transition: transform 0.2s, box-shadow 0.2s;
+}
+.protocol-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.protocol-card .card-emoji { font-size: 40px; margin-bottom: 12px; display: block; }
+.protocol-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.protocol-card .card-sub { font-size: 13px; color: #6b7280; margin-bottom: 16px; }
+.protocol-card .card-example {
+  background: #1a1a2e; color: #e5e7eb; padding: 14px 16px;
+  border-radius: 10px; font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  font-size: 11px; line-height: 1.6; overflow-x: auto;
+}
+.protocol-card .card-example .k { color: #7dd3fc; }
+.protocol-card .card-example .s { color: #86efac; }
+.protocol-card .card-example .c { color: #6b7280; }
+
+.protocol-summary {
+  margin-top: 24px; padding: 20px 24px; border-radius: 12px;
+  background: #f9fafb; border: 1px solid #e5e7eb;
+}
+.protocol-summary h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+.protocol-flow {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 500;
+}
+.pf-node {
+  padding: 8px 16px; border-radius: 10px; text-align: center;
+}
+.pf-human { background: #dbeafe; color: #1d4ed8; }
+.pf-token { background: #fef3c7; color: #92400e; }
+.pf-vector { background: #fef2f2; color: #dc2626; }
+.pf-json { background: #f3e8ff; color: #7c3aed; }
+.pf-natural { background: #dcfce7; color: #166534; }
+.pf-arrow { color: #9ca3af; font-size: 20px; }
+
+@media (max-width: 800px) {
+  .protocol-cards { grid-template-columns: 1fr; }
+  .comm-agents { flex-wrap: wrap; gap: 16px; }
+  .compare-table { font-size: 12px; }
+  .compare-table th, .compare-table td { padding: 10px 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>AI 说什么<span class="hl">「语言」</span>？</h1>
+    <p class="subtitle">人类说中文/英文，计算机说二进制，那 AI 之间用什么语言沟通？</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="compare">语言对比</button>
+    <button class="tab-btn" data-tab="token">Token 拆解</button>
+    <button class="tab-btn" data-tab="agent-talk">Agent 对话实况</button>
+    <button class="tab-btn" data-tab="protocols">通信协议</button>
+  </div>
+
+  <!-- ===== Tab 1: Language Comparison ===== -->
+  <div class="tab-content active" id="tab-compare">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>层级</th>
+          <th><span class="emoji">&#128187;</span> 传统计算机</th>
+          <th><span class="emoji">&#129504;</span> AI 大模型</th>
+          <th><span class="emoji">&#128100;</span> 类比人类</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>最底层</td>
+          <td><strong>二进制</strong><br>0 和 1，电路的开与关<br><code>01001000 01101001</code></td>
+          <td><strong>向量 / 张量</strong><br>一串浮点数，神经网络的「血液」<br><code>[0.23, -0.87, 0.45, ...]</code></td>
+          <td><strong>神经信号</strong><br>大脑神经元之间的电化学信号<br>你自己也感知不到</td>
+        </tr>
+        <tr>
+          <td>内部处理</td>
+          <td><strong>汇编语言 / 机器码</strong><br><code>MOV AX, 1</code><br>CPU 直接执行的指令</td>
+          <td><strong>Token（词元）</strong><br>不是字也不是词，是「亚词单元」<br><code>["你", "好", "世", "界"]</code></td>
+          <td><strong>概念 / 意象</strong><br>脑中浮现画面和感觉<br>还没组织成语言</td>
+        </tr>
+        <tr>
+          <td>程序间通信</td>
+          <td><strong>API / 协议</strong><br>HTTP、TCP/IP、gRPC<br>标准化接口调用</td>
+          <td><strong>JSON + 自然语言</strong><br>外层 JSON 壳，内层人话填充<br>结构化 + 语义化混合</td>
+          <td><strong>书面语 / 公文</strong><br>有格式模板，内容用人话<br>邮件、合同、报告</td>
+        </tr>
+        <tr>
+          <td>跟人交互</td>
+          <td><strong>GUI / 命令行</strong><br>图形界面或文字终端<br>翻译成人能理解的样子</td>
+          <td><strong>自然语言</strong><br>中文、英文、日文...<br>你用什么语言问，它用什么语言答</td>
+          <td><strong>说话 / 写字</strong><br>口语、书面语<br>面对面沟通</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="insight-box">
+      <strong>关键洞察：</strong>AI 最独特的地方在于——它的「程序间通信」用的是 <strong>JSON + 自然语言的混合体</strong>。
+      传统软件之间只能用严格的接口协议（必须一个字段都不能错），而 AI Agent 之间可以用「半结构化」的方式沟通：
+      外面套个 JSON 格式让机器能解析，里面填的是人话让 AI 能理解语义。<br><br>
+      这就像你填表格——<strong>表格的格式是固定的（JSON），但「备注」栏你可以自由发挥（自然语言）</strong>。
+    </div>
+  </div>
+
+  <!-- ===== Tab 2: Token Anatomy ===== -->
+  <div class="tab-content" id="tab-token">
+    <div class="token-demo">
+      <p style="font-size:15px;color:#6b7280;margin-bottom:16px;text-align:center;">
+        输入一句话，看 AI 是怎么「看到」你说的文字的
+      </p>
+      <div class="token-input-area">
+        <input type="text" class="token-input" id="tokenInput" value="今天天气真好，我想出去玩" placeholder="输入一句话...">
+        <button class="token-btn" onclick="tokenize()">拆解 Token</button>
+      </div>
+
+      <div class="token-result" id="tokenResult">
+        <!-- Stage 1: Human sees -->
+        <div class="token-stage stage-human" id="stage1">
+          <div class="token-stage-label"><span class="step-num">1</span> 你看到的（自然语言）</div>
+          <div class="token-chips" id="humanChips"></div>
+        </div>
+        <!-- Stage 2: AI tokenizes -->
+        <div class="token-stage stage-token" id="stage2">
+          <div class="token-stage-label"><span class="step-num">2</span> AI 看到的（Token 序列）</div>
+          <div class="token-chips" id="tokenChips"></div>
+        </div>
+        <!-- Stage 3: Vectors -->
+        <div class="token-stage stage-vector" id="stage3">
+          <div class="token-stage-label"><span class="step-num">3</span> AI 内心的（向量 / 嵌入）</div>
+          <div class="vector-display" id="vectorDisplay"></div>
+        </div>
+      </div>
+
+      <div class="token-insight">
+        <strong>为什么是 Token 而不是「字」？</strong><br>
+        &#8226; 英文 "unhappiness" 会被拆成 <code>["un", "happiness"]</code>，因为 "un-" 是一个有意义的前缀<br>
+        &#8226; 中文 "今天天气" 可能被拆成 <code>["今天", "天气"]</code> 或 <code>["今", "天", "天", "气"]</code>，取决于模型的词表<br>
+        &#8226; Token 是 AI 的「最小理解单位」，就像人类大脑处理语言时用的也不是单个笔画，而是词组和概念<br>
+        &#8226; <strong>API 收费按 Token 数量计算</strong>，所以中文比英文贵（同样的意思，中文 Token 更多）
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Tab 3: Agent Communication Live ===== -->
+  <div class="tab-content" id="tab-agent-talk">
+    <div class="comm-scene">
+      <div class="comm-agents">
+        <div class="comm-agent">
+          <div class="comm-avatar human" id="av-human">&#128104;&#8205;&#128187;</div>
+          <div class="comm-name">用户（你）</div>
+          <div class="comm-role">自然语言</div>
+        </div>
+        <div class="comm-agent">
+          <div class="comm-avatar planner" id="av-planner">&#128203;</div>
+          <div class="comm-name">Planner</div>
+          <div class="comm-role">规划 Agent</div>
+        </div>
+        <div class="comm-agent">
+          <div class="comm-avatar coder" id="av-coder">&#128187;</div>
+          <div class="comm-name">Coder</div>
+          <div class="comm-role">编码 Agent</div>
+        </div>
+        <div class="comm-agent">
+          <div class="comm-avatar reviewer" id="av-reviewer">&#128270;</div>
+          <div class="comm-name">Reviewer</div>
+          <div class="comm-role">审查 Agent</div>
+        </div>
+      </div>
+
+      <div class="step-indicator" id="stepIndicator">
+        <div class="step-dot" data-step="0"></div>
+        <div class="step-dot" data-step="1"></div>
+        <div class="step-dot" data-step="2"></div>
+        <div class="step-dot" data-step="3"></div>
+        <div class="step-dot" data-step="4"></div>
+        <div class="step-dot" data-step="5"></div>
+      </div>
+
+      <div class="play-controls">
+        <button class="play-btn" id="nextStepBtn" onclick="nextStep()">&#9654; 下一步 (1/6)</button>
+        <button class="play-btn" id="autoPlayBtn" onclick="autoPlay()" style="background:#6366f1;">&#9654;&#9654; 自动播放</button>
+        <button class="reset-btn" onclick="resetAgentComm()">&#8634; 重置</button>
+      </div>
+
+      <div class="msg-track" id="msgTrack"></div>
+
+      <div class="explain-box" id="explainBox">
+        点击「下一步」逐步查看，或「自动播放」连续演示
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Tab 4: Protocol Comparison ===== -->
+  <div class="tab-content" id="tab-protocols">
+    <div class="protocol-cards">
+      <div class="protocol-card">
+        <span class="card-emoji">&#128172;</span>
+        <h3>API 调用</h3>
+        <p class="card-sub">你 &#8594; AI 模型：标准 JSON 格式</p>
+        <div class="card-example">
+<span class="c">// 你发给 GPT 的请求</span>
+{
+  <span class="k">"model"</span>: <span class="s">"gpt-4o"</span>,
+  <span class="k">"messages"</span>: [
+    {
+      <span class="k">"role"</span>: <span class="s">"user"</span>,
+      <span class="k">"content"</span>: <span class="s">"帮我写个登录页"</span>
+    }
+  ]
+}
+        </div>
+      </div>
+
+      <div class="protocol-card">
+        <span class="card-emoji">&#128295;</span>
+        <h3>Tool Calling</h3>
+        <p class="card-sub">AI &#8594; 工具：JSON 函数调用</p>
+        <div class="card-example">
+<span class="c">// AI 决定调用搜索工具</span>
+{
+  <span class="k">"tool_calls"</span>: [{
+    <span class="k">"function"</span>: {
+      <span class="k">"name"</span>: <span class="s">"search_code"</span>,
+      <span class="k">"arguments"</span>: <span class="s">"{
+        \"query\": \"login page\",
+        \"language\": \"react\"
+      }"</span>
+    }
+  }]
+}
+        </div>
+      </div>
+
+      <div class="protocol-card">
+        <span class="card-emoji">&#129309;</span>
+        <h3>Agent 间通信</h3>
+        <p class="card-sub">Agent &#8594; Agent：JSON + 自然语言混合</p>
+        <div class="card-example">
+<span class="c">// Planner 发给 Coder</span>
+{
+  <span class="k">"from"</span>: <span class="s">"planner"</span>,
+  <span class="k">"to"</span>: <span class="s">"coder"</span>,
+  <span class="k">"task"</span>: <span class="s">"实现用户登录页面，
+  需要支持手机号+验证码，
+  用 React + TypeScript"</span>,
+  <span class="k">"priority"</span>: <span class="s">"high"</span>
+}
+        </div>
+      </div>
+    </div>
+
+    <div class="protocol-summary">
+      <h3>AI 的「语言翻译链路」—— 从你打字到 AI 回答，经历了多少次「翻译」：</h3>
+      <div class="protocol-flow">
+        <span class="pf-node pf-human">&#128100; 你输入中文</span>
+        <span class="pf-arrow">&#10230;</span>
+        <span class="pf-node pf-json">&#128230; JSON 请求</span>
+        <span class="pf-arrow">&#10230;</span>
+        <span class="pf-node pf-token">&#128300; 拆成 Token</span>
+        <span class="pf-arrow">&#10230;</span>
+        <span class="pf-node pf-vector">&#128290; 变成向量</span>
+        <span class="pf-arrow">&#10230;</span>
+        <span class="pf-node pf-vector">&#129504; 神经网络计算</span>
+        <span class="pf-arrow">&#10230;</span>
+        <span class="pf-node pf-token">&#128300; 输出 Token</span>
+        <span class="pf-arrow">&#10230;</span>
+        <span class="pf-node pf-natural">&#128172; 拼成自然语言</span>
+      </div>
+      <p style="text-align:center;margin-top:16px;font-size:14px;color:#6b7280;">
+        一句「帮我写个登录页」，AI 背后经历了 <strong>6 次格式转换</strong>，最终给你一个看起来像「人话」的回答
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Tab Switching =====
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.getAttribute('data-tab')).classList.add('active');
+  });
+});
+
+// ===== Tab 2: Token Demo =====
+// Simulated tokenization (real tokenization requires BPE algorithm)
+var tokenMaps = {
+  'zh': function(text) {
+    // Simulate Chinese tokenization: mix of single chars and bigrams
+    var tokens = [];
+    var bigrams = ['今天','天气','真好','我想','出去','去玩','你好','世界','人工','智能','机器','学习','怎么','快乐','什么','感觉','非常','开心','工作','编程','代码','登录','页面','手机','验证'];
+    var i = 0;
+    while (i < text.length) {
+      if (text[i] === '，' || text[i] === '。' || text[i] === '！' || text[i] === '？' || text[i] === ' ') {
+        tokens.push(text[i]);
+        i++;
+        continue;
+      }
+      var found = false;
+      if (i + 1 < text.length) {
+        var pair = text[i] + text[i+1];
+        if (bigrams.indexOf(pair) >= 0) {
+          tokens.push(pair);
+          i += 2;
+          found = true;
+        }
+      }
+      if (!found) {
+        tokens.push(text[i]);
+        i++;
+      }
+    }
+    return tokens;
+  }
+};
+
+function tokenize() {
+  var text = document.getElementById('tokenInput').value.trim();
+  if (!text) return;
+
+  var stages = [document.getElementById('stage1'), document.getElementById('stage2'), document.getElementById('stage3')];
+  stages.forEach(function(s) { s.classList.remove('show'); });
+
+  var tokens = tokenMaps.zh(text);
+
+  // Stage 1: Human view
+  setTimeout(function() {
+    var humanChips = document.getElementById('humanChips');
+    humanChips.innerHTML = '';
+    var chars = text.split('');
+    chars.forEach(function(ch, i) {
+      var chip = document.createElement('span');
+      chip.className = 'token-chip human-chip';
+      chip.textContent = ch;
+      humanChips.appendChild(chip);
+      setTimeout(function() { chip.classList.add('show'); }, i * 40);
+    });
+    stages[0].classList.add('show');
+  }, 100);
+
+  // Stage 2: Token view
+  setTimeout(function() {
+    var tokenChips = document.getElementById('tokenChips');
+    tokenChips.innerHTML = '';
+    var tokenId = 1024 + Math.floor(Math.random() * 5000);
+    tokens.forEach(function(t, i) {
+      var chip = document.createElement('span');
+      chip.className = 'token-chip token-piece';
+      chip.innerHTML = '「' + t + '」<span class="chip-id">#' + (tokenId + i * 37) + '</span>';
+      tokenChips.appendChild(chip);
+      setTimeout(function() { chip.classList.add('show'); }, i * 80);
+    });
+    stages[1].classList.add('show');
+  }, 600);
+
+  // Stage 3: Vector view
+  setTimeout(function() {
+    var vecDisplay = document.getElementById('vectorDisplay');
+    var vecHtml = tokens.map(function(t) {
+      var nums = [];
+      for (var j = 0; j < 6; j++) {
+        nums.push((Math.random() * 2 - 1).toFixed(4));
+      }
+      return '「' + t + '」→ [<span class="vec-num">' + nums.join('</span>, <span class="vec-num">') + '</span>, ...]';
+    }).join('<br>');
+    vecDisplay.innerHTML = vecHtml;
+    stages[2].classList.add('show');
+  }, 1200);
+}
+
+// ===== Tab 3: Agent Communication =====
+var agentMsgs = [
+  {
+    from: 'human', icon: '&#128104;&#8205;&#128187;', sender: '用户', senderClass: 'human',
+    format: 'natural', formatLabel: '自然语言', formatClass: 'tag-natural',
+    align: 'left',
+    body: '帮我做一个用户登录页面，要支持手机号验证码登录。',
+    explain: '<strong>第 1 步：</strong>你用<strong>纯自然语言</strong>输入需求。这是最外层——AI 世界的「普通话」。你怎么跟同事说话就怎么跟 AI 说。'
+  },
+  {
+    from: 'planner', icon: '&#128203;', sender: 'Planner Agent', senderClass: 'planner',
+    format: 'hybrid', formatLabel: 'JSON + 自然语言', formatClass: 'tag-hybrid',
+    align: 'left',
+    body: '<pre>{\n  <span class="json-key">"action"</span>: <span class="json-str">"decompose_task"</span>,\n  <span class="json-key">"subtasks"</span>: [\n    <span class="json-str">"创建 React 登录组件，包含手机号输入框和验证码输入框"</span>,\n    <span class="json-str">"实现验证码发送逻辑，60秒倒计时"</span>,\n    <span class="json-str">"对接后端登录 API，处理成功/失败状态"</span>\n  ],\n  <span class="json-key">"assign_to"</span>: <span class="json-str">"coder"</span>,\n  <span class="json-key">"context"</span>: <span class="json-str">"用户要求手机号+验证码登录，技术栈未指定，默认 React"</span>\n}</pre>',
+    explain: '<strong>第 2 步：</strong>Planner 拿到你的需求，用 <strong>JSON + 自然语言混合体</strong> 拆解任务。外层 JSON 结构让机器能解析字段（action、assign_to），内层自然语言让下游 Agent 理解语义。<br><br>这就是 AI 之间的「官方语言」——<strong>半结构化通信</strong>。'
+  },
+  {
+    from: 'coder', icon: '&#128187;', sender: 'Coder Agent', senderClass: 'coder',
+    format: 'hybrid', formatLabel: 'JSON + 代码 + 自然语言', formatClass: 'tag-hybrid',
+    align: 'from-right',
+    body: '<pre>{\n  <span class="json-key">"action"</span>: <span class="json-str">"submit_code"</span>,\n  <span class="json-key">"files"</span>: {\n    <span class="json-key">"LoginPage.tsx"</span>: <span class="json-str">"... 148 行代码 ..."</span>,\n    <span class="json-key">"useCountdown.ts"</span>: <span class="json-str">"... 32 行代码 ..."</span>\n  },\n  <span class="json-key">"notes"</span>: <span class="json-str">"已实现手机号+验证码登录，使用 React Hook 管理倒计时状态"</span>,\n  <span class="json-key">"request_review"</span>: <span class="json-str">true</span>\n}</pre>',
+    explain: '<strong>第 3 步：</strong>Coder 写完代码，用 JSON 打包提交。注意 <code>notes</code> 字段是自然语言注释，<code>files</code> 里是真正的代码。<br><br>Agent 之间传递的不只是数据，还有<strong>上下文说明</strong>——告诉其他 Agent「我做了什么、为什么这么做」。'
+  },
+  {
+    from: 'reviewer', icon: '&#128270;', sender: 'Reviewer Agent', senderClass: 'reviewer',
+    format: 'hybrid', formatLabel: 'JSON + 自然语言', formatClass: 'tag-hybrid',
+    align: 'left',
+    body: '<pre>{\n  <span class="json-key">"action"</span>: <span class="json-str">"review_result"</span>,\n  <span class="json-key">"verdict"</span>: <span class="json-str">"needs_revision"</span>,\n  <span class="json-key">"issues"</span>: [\n    {\n      <span class="json-key">"severity"</span>: <span class="json-str">"high"</span>,\n      <span class="json-key">"description"</span>: <span class="json-str">"验证码接口缺少防刷限制，建议加 60 秒内同一手机号只能发一次的校验"</span>\n    },\n    {\n      <span class="json-key">"severity"</span>: <span class="json-str">"medium"</span>,\n      <span class="json-key">"description"</span>: <span class="json-str">"手机号格式校验不够严格，建议用正则验证 11 位数字"</span>\n    }\n  ]\n}</pre>',
+    explain: '<strong>第 4 步：</strong>Reviewer 审查后给出结构化反馈。<code>severity</code> 是机器可解析的（方便统计、过滤），<code>description</code> 是自然语言（让 Coder 理解具体问题）。<br><br>这种混合格式的好处：<strong>既能自动化处理，又保留了人类可读性</strong>。'
+  },
+  {
+    from: 'coder', icon: '&#128187;', sender: 'Coder Agent', senderClass: 'coder',
+    format: 'hybrid', formatLabel: 'JSON + 自然语言', formatClass: 'tag-hybrid',
+    align: 'from-right',
+    body: '<pre>{\n  <span class="json-key">"action"</span>: <span class="json-str">"submit_revision"</span>,\n  <span class="json-key">"changes"</span>: <span class="json-str">"已添加手机号正则校验和 60 秒防刷限制"</span>,\n  <span class="json-key">"status"</span>: <span class="json-str">"ready_for_user"</span>\n}</pre>',
+    explain: '<strong>第 5 步：</strong>Coder 修复后再次提交。Agent 之间的对话就像真人 Code Review——有来有回，直到质量达标。<br><br>整个过程中，Agent 们用的都是 <strong>JSON 外壳 + 自然语言内容</strong> 的混合格式。'
+  },
+  {
+    from: 'planner', icon: '&#128203;', sender: 'Planner Agent', senderClass: 'planner',
+    format: 'natural', formatLabel: '自然语言', formatClass: 'tag-natural',
+    align: 'left',
+    body: '登录页面已完成，包含手机号验证码登录功能，代码已通过审查。需要我帮你部署或者添加其他功能吗？',
+    explain: '<strong>第 6 步：</strong>最终回复给你时，又变回了<strong>纯自然语言</strong>。你看不到中间那些 JSON 格式的 Agent 对话——就像你打电话叫外卖，不需要知道厨房内部是怎么协调配菜、炒菜、打包的。'
+  }
+];
+
+var agentStep = -1;
+var autoTimer = null;
+
+// Show one step of Agent communication
+function showStep(stepIdx) {
+  if (stepIdx >= agentMsgs.length) return;
+
+  var msg = agentMsgs[stepIdx];
+  var track = document.getElementById('msgTrack');
+
+  // Update step indicator
+  var dots = document.querySelectorAll('.step-dot');
+  dots.forEach(function(d, i) {
+    d.classList.remove('active');
+    if (i < stepIdx) d.classList.add('done');
+    if (i === stepIdx) d.classList.add('active');
+  });
+
+  // Highlight active avatar
+  document.querySelectorAll('.comm-avatar').forEach(function(a) { a.classList.remove('active'); });
+  var avEl = document.getElementById('av-' + msg.from);
+  if (avEl) avEl.classList.add('active');
+
+  // Create message bubble
+  var div = document.createElement('div');
+  div.className = 'comm-msg' + (msg.align === 'from-right' ? ' from-right' : '');
+  div.innerHTML = '<span class="msg-icon">' + msg.icon + '</span>' +
+    '<div>' +
+    '<div class="msg-sender ' + msg.senderClass + '">' + msg.sender +
+    '<span class="msg-format-tag ' + msg.formatClass + '">' + msg.formatLabel + '</span></div>' +
+    '<div class="msg-body">' + msg.body + '</div>' +
+    '</div>';
+  track.appendChild(div);
+  setTimeout(function() { div.classList.add('show'); }, 50);
+
+  // Update explanation
+  var box = document.getElementById('explainBox');
+  box.innerHTML = msg.explain;
+  box.classList.add('highlight');
+
+  // Scroll message into view
+  setTimeout(function() {
+    div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 100);
+}
+
+function updateNextBtn() {
+  var btn = document.getElementById('nextStepBtn');
+  if (agentStep >= agentMsgs.length - 1) {
+    btn.textContent = '\u2714 已完成';
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = '&#9654; 下一步 (' + (agentStep + 2) + '/' + agentMsgs.length + ')';
+    btn.disabled = false;
+  }
+}
+
+// Single step: click to advance one message
+function nextStep() {
+  // If auto-play is running, stop it
+  stopAuto();
+
+  agentStep++;
+  if (agentStep >= agentMsgs.length) {
+    agentStep = agentMsgs.length - 1;
+    return;
+  }
+  showStep(agentStep);
+  updateNextBtn();
+}
+
+// Auto play: advance all remaining steps with delay
+function autoPlay() {
+  if (autoTimer) return; // already running
+  var btn = document.getElementById('autoPlayBtn');
+  btn.innerHTML = '&#9724; 暂停';
+  btn.onclick = stopAuto;
+
+  function tick() {
+    agentStep++;
+    if (agentStep >= agentMsgs.length) {
+      stopAuto();
+      return;
+    }
+    showStep(agentStep);
+    updateNextBtn();
+    autoTimer = setTimeout(tick, 2500);
+  }
+
+  tick();
+}
+
+function stopAuto() {
+  if (autoTimer) {
+    clearTimeout(autoTimer);
+    autoTimer = null;
+  }
+  var btn = document.getElementById('autoPlayBtn');
+  btn.innerHTML = '&#9654;&#9654; 继续播放';
+  btn.onclick = autoPlay;
+  btn.style.background = '#6366f1';
+  if (agentStep >= agentMsgs.length - 1) {
+    btn.innerHTML = '&#9654;&#9654; 自动播放';
+    btn.disabled = true;
+  }
+}
+
+// Keyboard support for Agent Communication tab
+document.addEventListener('keydown', function(e) {
+  var agentTab = document.getElementById('tab-agent-talk');
+  if (!agentTab || !agentTab.classList.contains('active')) return;
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    nextStep();
+  }
+});
+
+function resetAgentComm() {
+  stopAuto();
+  agentStep = -1;
+  document.getElementById('msgTrack').innerHTML = '';
+  document.getElementById('explainBox').innerHTML = '点击「下一步」逐步查看，或「自动播放」连续演示';
+  document.getElementById('explainBox').classList.remove('highlight');
+  document.querySelectorAll('.step-dot').forEach(function(d) { d.classList.remove('active', 'done'); });
+  document.querySelectorAll('.comm-avatar').forEach(function(a) { a.classList.remove('active'); });
+
+  var nextBtn = document.getElementById('nextStepBtn');
+  nextBtn.innerHTML = '&#9654; 下一步 (1/' + agentMsgs.length + ')';
+  nextBtn.disabled = false;
+
+  var autoBtn = document.getElementById('autoPlayBtn');
+  autoBtn.innerHTML = '&#9654;&#9654; 自动播放';
+  autoBtn.onclick = autoPlay;
+  autoBtn.disabled = false;
+  autoBtn.style.background = '#6366f1';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型参数实验室</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+header .subtitle {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.main-layout {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 48px;
+}
+
+.left-panel {
+  width: 40%;
+  flex-shrink: 0;
+}
+
+.right-panel {
+  width: 60%;
+  flex-shrink: 0;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .icon {
+  width: 32px;
+  height: 32px;
+  background: #eff6ff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.param-group {
+  margin-bottom: 24px;
+}
+
+.param-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.param-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  font-family: 'Inter', monospace;
+}
+
+.param-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 2px 10px;
+  border-radius: 6px;
+  min-width: 48px;
+  text-align: center;
+}
+
+.param-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #2563eb;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.4);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #2563eb;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+.prompt-group {
+  margin-bottom: 20px;
+}
+
+.prompt-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.prompt-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: 'Noto Sans SC', sans-serif;
+  color: #1e293b;
+  background: #f8fafc;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.prompt-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background: #ffffff;
+}
+
+.generate-btn {
+  width: 100%;
+  padding: 14px 24px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'Noto Sans SC', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.generate-btn:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.generate-btn:active {
+  transform: scale(0.98);
+}
+
+.generate-btn .spinner {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.generate-btn.loading .spinner {
+  display: block;
+}
+
+.generate-btn.loading .btn-text {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.output-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.output-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.output-card.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1), 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.output-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.output-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+
+.output-label.low {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.output-label.mid {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.output-label.high {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.output-text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #334155;
+  min-height: 48px;
+}
+
+.output-text .cursor {
+  display: inline-block;
+  width: 2px;
+  height: 18px;
+  background: #2563eb;
+  margin-left: 2px;
+  animation: blink 0.8s infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.output-meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.meta-item {
+  font-size: 12px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-item .value {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.placeholder-text {
+  color: #cbd5e1;
+  font-style: italic;
+  font-size: 14px;
+}
+
+/* Bottom explanation */
+.explanation-section {
+  margin-top: 48px;
+}
+
+.explanation-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.explanation-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.distribution-container {
+  display: flex;
+  gap: 48px;
+  align-items: flex-start;
+}
+
+.dist-panel {
+  flex: 1;
+}
+
+.dist-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  height: 140px;
+  padding-bottom: 8px;
+}
+
+.bar {
+  width: 28px;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.bar .bar-label {
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.bar .bar-pct {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.spectrum {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 48px;
+  padding: 16px 24px;
+  background: linear-gradient(90deg, #dbeafe 0%, #ede9fe 50%, #fce7f3 100%);
+  border-radius: 12px;
+}
+
+.spectrum-end {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.spectrum-end.left {
+  color: #1e40af;
+}
+
+.spectrum-end.right {
+  color: #9d174d;
+}
+
+.spectrum-arrow {
+  font-size: 20px;
+  color: #94a3b8;
+  letter-spacing: 4px;
+}
+
+.temp-indicator {
+  position: relative;
+  height: 4px;
+  background: linear-gradient(90deg, #2563eb, #7c3aed, #ec4899);
+  border-radius: 2px;
+  margin-top: 12px;
+}
+
+.temp-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  border: 3px solid #2563eb;
+  border-radius: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.4s;
+}
+
+@media (max-width: 900px) {
+  .main-layout {
+    flex-direction: column;
+  }
+  .left-panel, .right-panel {
+    width: 100%;
+  }
+  .distribution-container {
+    flex-direction: column;
+    gap: 32px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>大模型参数实验室</h1>
+    <p class="subtitle">拖动滑块，看参数如何影响 AI 输出</p>
+  </header>
+
+  <div class="main-layout">
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-title">
+          <div class="icon">⚙️</div>
+          参数控制面板
+        </div>
+
+        <div class="param-group">
+          <div class="param-header">
+            <span class="param-name">temperature</span>
+            <span class="param-value" id="temp-val">0.7</span>
+          </div>
+          <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+          <p class="param-desc">控制输出的随机性。值越低，输出越确定、越一致；值越高，输出越多样、越有创意。</p>
+        </div>
+
+        <div class="param-group">
+          <div class="param-header">
+            <span class="param-name">top_p</span>
+            <span class="param-value" id="topp-val">0.90</span>
+          </div>
+          <input type="range" id="top_p" min="0" max="1" step="0.05" value="0.9">
+          <p class="param-desc">核采样阈值。仅从累积概率达到 top_p 的最高概率词中采样，过滤掉低概率的长尾词汇。</p>
+        </div>
+
+        <div class="param-group">
+          <div class="param-header">
+            <span class="param-name">top_k</span>
+            <span class="param-value" id="topk-val">40</span>
+          </div>
+          <input type="range" id="top_k" min="1" max="100" step="1" value="40">
+          <p class="param-desc">限制每一步只从概率最高的 K 个词中选择。值越小，输出越集中；值越大，选择范围越广。</p>
+        </div>
+
+        <div class="param-group">
+          <div class="param-header">
+            <span class="param-name">max_tokens</span>
+            <span class="param-value" id="maxt-val">200</span>
+          </div>
+          <input type="range" id="max_tokens" min="50" max="500" step="50" value="200">
+          <p class="param-desc">限制生成的最大 token 数量。控制回复的长度上限，影响输出成本。</p>
+        </div>
+
+        <div class="prompt-group">
+          <label class="prompt-label">Prompt</label>
+          <input type="text" class="prompt-input" id="prompt-input" value="描述一下'快乐'是什么感觉">
+        </div>
+
+        <button class="generate-btn" id="generate-btn" onclick="generateOutput()">
+          <span class="btn-text">生成 Generate</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-title">
+          <div class="icon">📝</div>
+          模拟输出结果
+        </div>
+
+        <div class="output-cards">
+          <div class="output-card" id="output-1">
+            <div class="output-header">
+              <span class="output-label low">输出 1 — 低随机性</span>
+            </div>
+            <div class="output-text" id="text-1">
+              <span class="placeholder-text">点击"生成"按钮查看结果...</span>
+            </div>
+            <div class="output-meta" id="meta-1" style="display: none;">
+              <div class="meta-item">Tokens: <span class="value" id="tokens-1">—</span></div>
+              <div class="meta-item">预估成本: <span class="value" id="cost-1">—</span></div>
+              <div class="meta-item">耗时: <span class="value" id="time-1">—</span></div>
+            </div>
+          </div>
+
+          <div class="output-card" id="output-2">
+            <div class="output-header">
+              <span class="output-label mid">输出 2 — 中等随机性</span>
+            </div>
+            <div class="output-text" id="text-2">
+              <span class="placeholder-text">点击"生成"按钮查看结果...</span>
+            </div>
+            <div class="output-meta" id="meta-2" style="display: none;">
+              <div class="meta-item">Tokens: <span class="value" id="tokens-2">—</span></div>
+              <div class="meta-item">预估成本: <span class="value" id="cost-2">—</span></div>
+              <div class="meta-item">耗时: <span class="value" id="time-2">—</span></div>
+            </div>
+          </div>
+
+          <div class="output-card" id="output-3">
+            <div class="output-header">
+              <span class="output-label high">输出 3 — 高随机性</span>
+            </div>
+            <div class="output-text" id="text-3">
+              <span class="placeholder-text">点击"生成"按钮查看结果...</span>
+            </div>
+            <div class="output-meta" id="meta-3" style="display: none;">
+              <div class="meta-item">Tokens: <span class="value" id="tokens-3">—</span></div>
+              <div class="meta-item">预估成本: <span class="value" id="cost-3">—</span></div>
+              <div class="meta-item">耗时: <span class="value" id="time-3">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="explanation-section">
+    <div class="explanation-card">
+      <div class="explanation-title">Temperature 如何影响下一个 Token 的选择概率？</div>
+
+      <div class="distribution-container">
+        <div class="dist-panel">
+          <div class="dist-label">temperature = 0.1（确定性高）</div>
+          <div class="bar-chart" id="chart-low"></div>
+        </div>
+        <div class="dist-panel">
+          <div class="dist-label">temperature = 0.7（平衡）</div>
+          <div class="bar-chart" id="chart-mid"></div>
+        </div>
+        <div class="dist-panel">
+          <div class="dist-label">temperature = 1.5（创造性高）</div>
+          <div class="bar-chart" id="chart-high"></div>
+        </div>
+      </div>
+
+      <div class="temp-indicator">
+        <div class="temp-dot" id="temp-dot"></div>
+      </div>
+
+      <div class="spectrum">
+        <span class="spectrum-end left">确定性 Deterministic</span>
+        <span class="spectrum-arrow">← ─ ─ ─ ─ ─ ─ ─ →</span>
+        <span class="spectrum-end right">创造性 Creative</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const outputs = {
+  low: [
+    "快乐是一种积极的情绪体验，通常由满足感、成就感或与他人的积极互动所引发。",
+    "快乐是当期望得到满足或超出预期时，大脑释放多巴胺和内啡肽所产生的愉悦感受。",
+    "快乐是一种基本的人类情感，表现为心情愉快、精神振奋，通常伴随着微笑和放松的身体状态。"
+  ],
+  mid: [
+    "快乐就像冬天里捧着一杯热可可，暖意从手心一直蔓延到心底，让你忍不住弯起嘴角。",
+    "快乐是下班路上戴着耳机，恰好听到最喜欢的那首歌，脚步不自觉地轻快起来。",
+    "快乐是周五下午的最后一个会议取消了，你关上电脑，感觉整个世界都在微笑。"
+  ],
+  high: [
+    "快乐是灵魂在跳一支没有编排的舞蹈，每个细胞都变成了小小的烟花，在你体内此起彼伏地绽放... 🎆",
+    "快乐？就是你的心长出了翅膀，在肋骨间扑棱棱地飞，撞得胸腔嗡嗡响，像一群蜜蜂住进了花园... 🐝🌸",
+    "快乐是宇宙偷偷塞给你的一颗糖，你含在嘴里，甜味变成光，从眼睛里漏出来，照亮了旁边三个人... ✨🍬"
+  ]
+};
+
+const tokenCounts = {
+  low: [32, 35, 38],
+  mid: [36, 34, 40],
+  high: [42, 40, 45]
+};
+
+let isGenerating = false;
+
+function getSliderValues() {
+  return {
+    temperature: parseFloat(document.getElementById('temperature').value),
+    top_p: parseFloat(document.getElementById('top_p').value),
+    top_k: parseInt(document.getElementById('top_k').value),
+    max_tokens: parseInt(document.getElementById('max_tokens').value)
+  };
+}
+
+function getOutputIndex(temp) {
+  if (temp <= 0.3) return 0;
+  if (temp <= 0.8) return 1;
+  return 2;
+}
+
+function getOutputCategory(temp) {
+  if (temp <= 0.3) return 'low';
+  if (temp <= 0.8) return 'mid';
+  return 'high';
+}
+
+function typeText(elementId, text, speed, callback) {
+  const el = document.getElementById(elementId);
+  el.innerHTML = '<span class="cursor"></span>';
+  let i = 0;
+
+  function type() {
+    if (i < text.length) {
+      el.innerHTML = text.substring(0, i + 1) + '<span class="cursor"></span>';
+      i++;
+      setTimeout(type, speed);
+    } else {
+      el.innerHTML = text;
+      if (callback) callback();
+    }
+  }
+  type();
+}
+
+function generateOutput() {
+  if (isGenerating) return;
+  isGenerating = true;
+
+  const btn = document.getElementById('generate-btn');
+  btn.classList.add('loading');
+
+  const params = getSliderValues();
+  const temp = params.temperature;
+  const category = getOutputCategory(temp);
+  const idx = getOutputIndex(temp);
+
+  const cards = document.querySelectorAll('.output-card');
+  cards.forEach(function(c) { c.classList.remove('active'); });
+
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById('text-' + i).innerHTML = '<span class="placeholder-text">生成中...</span>';
+    document.getElementById('meta-' + i).style.display = 'none';
+  }
+
+  const categories = ['low', 'mid', 'high'];
+  let completed = 0;
+
+  categories.forEach(function(cat, cardIdx) {
+    const cardNum = cardIdx + 1;
+    const randomPick = Math.floor(Math.random() * 3);
+    const text = outputs[cat][randomPick];
+    const tokens = tokenCounts[cat][randomPick];
+    const costPer1k = 0.015;
+    const cost = (tokens / 1000 * costPer1k).toFixed(5);
+    const baseTime = cat === 'low' ? 0.3 : cat === 'mid' ? 0.5 : 0.8;
+    const time = (baseTime + Math.random() * 0.3).toFixed(2);
+
+    const delay = cardIdx * 600;
+    const speed = cat === 'low' ? 30 : cat === 'mid' ? 40 : 50;
+
+    setTimeout(function() {
+      const card = document.getElementById('output-' + cardNum);
+      if (cat === category) {
+        card.classList.add('active');
+      }
+
+      typeText('text-' + cardNum, text, speed, function() {
+        document.getElementById('tokens-' + cardNum).textContent = tokens;
+        document.getElementById('cost-' + cardNum).textContent = '$' + cost;
+        document.getElementById('time-' + cardNum).textContent = time + 's';
+        document.getElementById('meta-' + cardNum).style.display = 'flex';
+
+        completed++;
+        if (completed === 3) {
+          btn.classList.remove('loading');
+          isGenerating = false;
+        }
+      });
+    }, delay);
+  });
+}
+
+// Slider event listeners
+document.getElementById('temperature').addEventListener('input', function() {
+  var val = parseFloat(this.value).toFixed(1);
+  document.getElementById('temp-val').textContent = val;
+  updateDistributions(parseFloat(val));
+  updateTempDot(parseFloat(val));
+});
+
+document.getElementById('top_p').addEventListener('input', function() {
+  document.getElementById('topp-val').textContent = parseFloat(this.value).toFixed(2);
+});
+
+document.getElementById('top_k').addEventListener('input', function() {
+  document.getElementById('topk-val').textContent = this.value;
+});
+
+document.getElementById('max_tokens').addEventListener('input', function() {
+  document.getElementById('maxt-val').textContent = this.value;
+});
+
+// Distribution charts
+var barColors = ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe', '#eff6ff'];
+var barLabels = ['快乐', '愉悦', '开心', '满足', '欣喜', '兴奋', '狂喜'];
+
+var distributions = {
+  low: [65, 20, 8, 4, 2, 1, 0],
+  mid: [30, 25, 18, 12, 8, 5, 2],
+  high: [15, 14, 14, 14, 15, 15, 13]
+};
+
+function createBars(chartId, dist) {
+  var chart = document.getElementById(chartId);
+  chart.innerHTML = '';
+
+  dist.forEach(function(pct, i) {
+    var bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = (pct / 65 * 120) + 'px';
+    bar.style.background = barColors[i];
+    bar.style.minHeight = '4px';
+
+    var label = document.createElement('span');
+    label.className = 'bar-label';
+    label.textContent = barLabels[i];
+    bar.appendChild(label);
+
+    var pctLabel = document.createElement('span');
+    pctLabel.className = 'bar-pct';
+    pctLabel.textContent = pct + '%';
+    bar.appendChild(pctLabel);
+
+    chart.appendChild(bar);
+  });
+}
+
+function updateDistributions(temp) {
+  var lowDist, midDist, highDist;
+
+  if (temp <= 0.3) {
+    lowDist = [75, 15, 5, 3, 1, 1, 0];
+    midDist = [40, 25, 15, 10, 5, 3, 2];
+    highDist = [18, 16, 15, 15, 14, 13, 9];
+  } else if (temp <= 0.8) {
+    lowDist = [65, 20, 8, 4, 2, 1, 0];
+    midDist = [30, 25, 18, 12, 8, 5, 2];
+    highDist = [15, 14, 14, 14, 15, 15, 13];
+  } else if (temp <= 1.2) {
+    lowDist = [55, 22, 10, 6, 4, 2, 1];
+    midDist = [25, 22, 18, 14, 10, 7, 4];
+    highDist = [14, 14, 14, 14, 15, 15, 14];
+  } else {
+    lowDist = [45, 22, 13, 8, 6, 4, 2];
+    midDist = [22, 20, 16, 14, 12, 9, 7];
+    highDist = [14, 14, 14, 15, 15, 14, 14];
+  }
+
+  updateBars('chart-low', lowDist);
+  updateBars('chart-mid', midDist);
+  updateBars('chart-high', highDist);
+}
+
+function updateBars(chartId, dist) {
+  var chart = document.getElementById(chartId);
+  var bars = chart.querySelectorAll('.bar');
+
+  bars.forEach(function(bar, i) {
+    bar.style.height = (dist[i] / 75 * 120) + 'px';
+    bar.querySelector('.bar-pct').textContent = dist[i] + '%';
+  });
+}
+
+function updateTempDot(temp) {
+  var dot = document.getElementById('temp-dot');
+  var pct = (temp / 2) * 100;
+  dot.style.left = pct + '%';
+
+  if (temp <= 0.3) {
+    dot.style.borderColor = '#2563eb';
+  } else if (temp <= 0.8) {
+    dot.style.borderColor = '#7c3aed';
+  } else {
+    dot.style.borderColor = '#ec4899';
+  }
+}
+
+// Initialize
+createBars('chart-low', distributions.low);
+createBars('chart-mid', distributions.mid);
+createBars('chart-high', distributions.high);
+updateTempDot(0.7);
+</script>
+</body>
+</html>

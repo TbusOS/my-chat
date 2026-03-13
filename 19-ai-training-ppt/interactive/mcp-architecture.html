@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP 架构</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+header .subtitle {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Analogy Section */
+.analogy-section {
+  margin-bottom: 56px;
+}
+
+.analogy-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.analogy-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.analogy-header p {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.toggle-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+
+.toggle-switch {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.toggle-option {
+  padding: 10px 28px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: #64748b;
+  border: none;
+  background: transparent;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.toggle-option.active {
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.analogy-panels {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+}
+
+.analogy-panel {
+  flex: 1;
+  max-width: 480px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.4s;
+}
+
+.analogy-panel.dimmed {
+  opacity: 0.4;
+  transform: scale(0.96);
+}
+
+.analogy-panel.highlighted {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1), 0 4px 16px rgba(37, 99, 235, 0.08);
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.panel-title .badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.badge.old {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.badge.new {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Spaghetti diagram */
+.diagram-box {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.diagram-row {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0;
+}
+
+.diagram-node {
+  width: 80px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  position: relative;
+  z-index: 2;
+}
+
+.node-model { background: #2563eb; }
+.node-tool { background: #7c3aed; }
+.node-protocol { background: #0891b2; }
+
+.spaghetti-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.spaghetti-line {
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+  fill: none;
+  opacity: 0.4;
+}
+
+.clean-line {
+  stroke: #2563eb;
+  stroke-width: 2;
+  fill: none;
+  opacity: 0.6;
+}
+
+.diagram-label {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 4px 0;
+  text-align: center;
+}
+
+.formula {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 16px;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+.formula.bad {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.formula.good {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+/* Main Architecture */
+.main-content {
+  display: flex;
+  gap: 32px;
+}
+
+.architecture-panel {
+  flex: 1;
+}
+
+.sidebar-panel {
+  width: 380px;
+  flex-shrink: 0;
+}
+
+/* Layers */
+.layer {
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 0;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.layer:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.layer.active {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2), 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.layer.host { border-color: #bfdbfe; }
+.layer.host.active { border-color: #2563eb; background: #fafbff; }
+.layer.client { border-color: #c7d2fe; }
+.layer.client.active { border-color: #4f46e5; background: #fafaff; }
+.layer.server { border-color: #ddd6fe; }
+.layer.server.active { border-color: #7c3aed; background: #fbfaff; }
+.layer.capability { border-color: #99f6e4; }
+.layer.capability.active { border-color: #0d9488; background: #f0fdfa; }
+
+.layer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.layer-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.layer-title.host-color { color: #2563eb; }
+.layer-title.client-color { color: #4f46e5; }
+.layer-title.server-color { color: #7c3aed; }
+.layer-title.cap-color { color: #0d9488; }
+
+.layer-en {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.layer-badge {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.badge-host { background: #dbeafe; color: #1e40af; }
+.badge-client { background: #e0e7ff; color: #3730a3; }
+.badge-server { background: #ede9fe; color: #5b21b6; }
+.badge-cap { background: #ccfbf1; color: #115e59; }
+
+.layer-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+
+.layer-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.example-tag {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Connectors between layers */
+.connector {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 40px;
+  position: relative;
+}
+
+.connector-line {
+  width: 2px;
+  height: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.connector-line::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, var(--from-color, #bfdbfe), var(--to-color, #c7d2fe));
+}
+
+.connector-line::after {
+  content: '';
+  position: absolute;
+  top: -100%;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.8);
+  animation: flowDown 1.5s infinite;
+}
+
+@keyframes flowDown {
+  0% { top: -100%; }
+  100% { top: 100%; }
+}
+
+.connector-arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #cbd5e1;
+}
+
+.connector-label {
+  position: absolute;
+  right: calc(50% - 120px);
+  font-size: 11px;
+  color: #94a3b8;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* Capability cards */
+.cap-cards {
+  display: flex;
+  gap: 12px;
+}
+
+.cap-card {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+}
+
+.cap-card-icon {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.cap-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.cap-card-subtitle {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.cap-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cap-example {
+  font-size: 11px;
+  color: #64748b;
+  background: #ffffff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Sidebar */
+.sidebar-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  position: sticky;
+  top: 20px;
+}
+
+.sidebar-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-header .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.message-list {
+  padding: 16px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.message {
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  transition: all 0.3s;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.message:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.message.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.message.outgoing {
+  background: #eff6ff;
+}
+
+.message.incoming {
+  background: #f0fdf4;
+}
+
+.message-direction {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.message.outgoing .message-direction {
+  color: #2563eb;
+}
+
+.message.incoming .message-direction {
+  color: #16a34a;
+}
+
+.direction-arrow {
+  font-size: 14px;
+}
+
+.msg-key { color: #2563eb; }
+.msg-str { color: #059669; }
+.msg-comment { color: #94a3b8; font-style: italic; }
+
+/* Layer detail expand */
+.layer-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.layer.active .layer-detail {
+  max-height: 300px;
+}
+
+.layer-detail-content {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.layer-detail-content h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.layer-detail-content p {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.7;
+}
+
+.layer-detail-content pre {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 10px;
+  color: #334155;
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    flex-direction: column;
+  }
+  .sidebar-panel {
+    width: 100%;
+  }
+  .sidebar-card {
+    position: static;
+  }
+  .analogy-panels {
+    flex-direction: column;
+    align-items: center;
+  }
+  .analogy-panel {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .cap-cards {
+    flex-direction: column;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>MCP 架构</h1>
+    <p class="subtitle">Model Context Protocol -- AI 世界的 USB 接口</p>
+  </header>
+
+  <!-- USB Analogy Section -->
+  <div class="analogy-section">
+    <div class="analogy-header">
+      <h2>为什么需要 MCP？</h2>
+      <p>点击切换，对比传统方式与 MCP 标准协议的区别</p>
+    </div>
+
+    <div class="toggle-container">
+      <div class="toggle-switch">
+        <button class="toggle-option active" id="toggle-old" onclick="switchView('old')">传统方式</button>
+        <button class="toggle-option" id="toggle-new" onclick="switchView('new')">MCP 方式</button>
+      </div>
+    </div>
+
+    <div class="analogy-panels">
+      <div class="analogy-panel highlighted" id="panel-old">
+        <div class="panel-title">
+          传统集成方式
+          <span class="badge old">N x M 连接</span>
+        </div>
+        <div class="diagram-box">
+          <div class="diagram-label">AI 模型</div>
+          <div class="diagram-row">
+            <div class="diagram-node node-model">GPT</div>
+            <div class="diagram-node node-model">Claude</div>
+            <div class="diagram-node node-model">Gemini</div>
+          </div>
+          <svg class="spaghetti-svg" viewBox="0 0 400 80" preserveAspectRatio="none" style="height: 80px; position: relative;">
+            <!-- GPT to tools -->
+            <line class="spaghetti-line" x1="60" y1="5" x2="55" y2="75" />
+            <line class="spaghetti-line" x1="60" y1="5" x2="160" y2="75" />
+            <line class="spaghetti-line" x1="60" y1="5" x2="265" y2="75" />
+            <line class="spaghetti-line" x1="60" y1="5" x2="345" y2="75" />
+            <!-- Claude to tools -->
+            <line class="spaghetti-line" x1="185" y1="5" x2="55" y2="75" />
+            <line class="spaghetti-line" x1="185" y1="5" x2="160" y2="75" />
+            <line class="spaghetti-line" x1="185" y1="5" x2="265" y2="75" />
+            <line class="spaghetti-line" x1="185" y1="5" x2="345" y2="75" />
+            <!-- Gemini to tools -->
+            <line class="spaghetti-line" x1="310" y1="5" x2="55" y2="75" />
+            <line class="spaghetti-line" x1="310" y1="5" x2="160" y2="75" />
+            <line class="spaghetti-line" x1="310" y1="5" x2="265" y2="75" />
+            <line class="spaghetti-line" x1="310" y1="5" x2="345" y2="75" />
+          </svg>
+          <div class="diagram-row">
+            <div class="diagram-node node-tool">文件</div>
+            <div class="diagram-node node-tool">GitHub</div>
+            <div class="diagram-node node-tool">数据库</div>
+            <div class="diagram-node node-tool">搜索</div>
+          </div>
+          <div class="diagram-label">工具 / 数据源</div>
+        </div>
+        <div class="formula bad">3 个模型 x 4 个工具 = 12 个适配器</div>
+      </div>
+
+      <div class="analogy-panel dimmed" id="panel-new">
+        <div class="panel-title">
+          MCP 标准协议
+          <span class="badge new">N + M 连接</span>
+        </div>
+        <div class="diagram-box">
+          <div class="diagram-label">AI 模型</div>
+          <div class="diagram-row">
+            <div class="diagram-node node-model">GPT</div>
+            <div class="diagram-node node-model">Claude</div>
+            <div class="diagram-node node-model">Gemini</div>
+          </div>
+          <svg class="spaghetti-svg" viewBox="0 0 400 30" preserveAspectRatio="none" style="height: 30px; position: relative;">
+            <line class="clean-line" x1="60" y1="5" x2="60" y2="25" />
+            <line class="clean-line" x1="185" y1="5" x2="185" y2="25" />
+            <line class="clean-line" x1="310" y1="5" x2="310" y2="25" />
+          </svg>
+          <div class="diagram-row" style="width: 100%;">
+            <div class="diagram-node node-protocol" style="width: 100%; border-radius: 8px;">MCP 标准协议层</div>
+          </div>
+          <svg class="spaghetti-svg" viewBox="0 0 400 30" preserveAspectRatio="none" style="height: 30px; position: relative;">
+            <line class="clean-line" x1="55" y1="5" x2="55" y2="25" />
+            <line class="clean-line" x1="160" y1="5" x2="160" y2="25" />
+            <line class="clean-line" x1="265" y1="5" x2="265" y2="25" />
+            <line class="clean-line" x1="345" y1="5" x2="345" y2="25" />
+          </svg>
+          <div class="diagram-row">
+            <div class="diagram-node node-tool">文件</div>
+            <div class="diagram-node node-tool">GitHub</div>
+            <div class="diagram-node node-tool">数据库</div>
+            <div class="diagram-node node-tool">搜索</div>
+          </div>
+          <div class="diagram-label">工具 / 数据源</div>
+        </div>
+        <div class="formula good">3 个模型 + 4 个工具 = 7 个适配器</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Architecture -->
+  <div class="main-content">
+    <div class="architecture-panel">
+      <!-- Layer 1: Host -->
+      <div class="layer host" id="layer-host" onclick="toggleLayer('host')">
+        <div class="layer-header">
+          <div>
+            <span class="layer-title host-color">Host 宿主</span>
+            <span class="layer-en">Application Host</span>
+          </div>
+          <span class="layer-badge badge-host">Layer 1</span>
+        </div>
+        <div class="layer-desc">运行 AI 应用的环境，管理 Client 实例和用户交互界面</div>
+        <div class="layer-examples">
+          <span class="example-tag">Claude Desktop</span>
+          <span class="example-tag">VS Code + Copilot</span>
+          <span class="example-tag">自定义 App</span>
+          <span class="example-tag">Cursor IDE</span>
+        </div>
+        <div class="layer-detail">
+          <div class="layer-detail-content">
+            <h4>Host 的职责</h4>
+            <p>Host 是 MCP 架构的最顶层，负责管理 AI 应用的生命周期。它可以创建多个 Client 实例，每个 Client 连接到不同的 Server。Host 还负责用户界面渲染和权限管理。</p>
+            <pre><span class="msg-comment">// Host 创建 Client 实例</span>
+<span class="msg-key">const</span> client = <span class="msg-key">new</span> MCPClient({
+  <span class="msg-key">name</span>: <span class="msg-str">"my-app"</span>,
+  <span class="msg-key">version</span>: <span class="msg-str">"1.0.0"</span>
+});</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connector 1-2 -->
+      <div class="connector">
+        <div class="connector-line" style="--from-color: #bfdbfe; --to-color: #c7d2fe;"></div>
+        <div class="connector-arrow"></div>
+        <span class="connector-label">管理 &amp; 创建</span>
+      </div>
+
+      <!-- Layer 2: Client -->
+      <div class="layer client" id="layer-client" onclick="toggleLayer('client')">
+        <div class="layer-header">
+          <div>
+            <span class="layer-title client-color">Client 客户端</span>
+            <span class="layer-en">Protocol Client</span>
+          </div>
+          <span class="layer-badge badge-client">Layer 2</span>
+        </div>
+        <div class="layer-desc">维护与 Server 的 1:1 连接，处理协议通信和消息路由</div>
+        <div class="layer-examples">
+          <span class="example-tag">Protocol Handler</span>
+          <span class="example-tag">JSON-RPC 通信</span>
+          <span class="example-tag">能力协商</span>
+        </div>
+        <div class="layer-detail">
+          <div class="layer-detail-content">
+            <h4>Client 的职责</h4>
+            <p>每个 Client 维护与一个 Server 的连接。它负责协议握手、能力协商、消息序列化与反序列化。Client 是 Host 与 Server 之间的桥梁，确保通信符合 MCP 规范。</p>
+            <pre><span class="msg-comment">// Client 连接到 Server</span>
+<span class="msg-key">await</span> client.connect(
+  <span class="msg-key">new</span> StdioTransport({
+    <span class="msg-key">command</span>: <span class="msg-str">"npx"</span>,
+    <span class="msg-key">args</span>: [<span class="msg-str">"@mcp/fs-server"</span>]
+  })
+);</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connector 2-3 -->
+      <div class="connector">
+        <div class="connector-line" style="--from-color: #c7d2fe; --to-color: #ddd6fe;"></div>
+        <div class="connector-arrow"></div>
+        <span class="connector-label">JSON-RPC 2.0</span>
+      </div>
+
+      <!-- Layer 3: Server -->
+      <div class="layer server" id="layer-server" onclick="toggleLayer('server')">
+        <div class="layer-header">
+          <div>
+            <span class="layer-title server-color">Server 服务端</span>
+            <span class="layer-en">MCP Server</span>
+          </div>
+          <span class="layer-badge badge-server">Layer 3</span>
+        </div>
+        <div class="layer-desc">暴露 Tools / Resources / Prompts 给 Client，提供具体功能实现</div>
+        <div class="layer-examples">
+          <span class="example-tag">File System Server</span>
+          <span class="example-tag">GitHub Server</span>
+          <span class="example-tag">Database Server</span>
+          <span class="example-tag">Web Search Server</span>
+        </div>
+        <div class="layer-detail">
+          <div class="layer-detail-content">
+            <h4>Server 的职责</h4>
+            <p>Server 是功能的实际提供者。它向 Client 声明自己的能力（有哪些工具、资源、提示模板），并在收到调用请求时执行具体操作。每个 Server 专注于一个领域。</p>
+            <pre><span class="msg-comment">// Server 注册工具</span>
+server.setRequestHandler(
+  ListToolsRequestSchema,
+  <span class="msg-key">async</span> () => ({
+    <span class="msg-key">tools</span>: [{
+      <span class="msg-key">name</span>: <span class="msg-str">"read_file"</span>,
+      <span class="msg-key">description</span>: <span class="msg-str">"读取文件内容"</span>
+    }]
+  })
+);</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connector 3-4 -->
+      <div class="connector">
+        <div class="connector-line" style="--from-color: #ddd6fe; --to-color: #99f6e4;"></div>
+        <div class="connector-arrow"></div>
+        <span class="connector-label">暴露能力</span>
+      </div>
+
+      <!-- Layer 4: Capabilities -->
+      <div class="layer capability" id="layer-capability" onclick="toggleLayer('capability')">
+        <div class="layer-header">
+          <div>
+            <span class="layer-title cap-color">能力层</span>
+            <span class="layer-en">Capabilities</span>
+          </div>
+          <span class="layer-badge badge-cap">Layer 4</span>
+        </div>
+        <div class="layer-desc">Server 对外暴露的三种标准化能力类型</div>
+
+        <div class="cap-cards">
+          <div class="cap-card">
+            <div class="cap-card-icon">&#x1F6E0;&#xFE0F;</div>
+            <div class="cap-card-title">Tools</div>
+            <div class="cap-card-subtitle">工具 - 可执行的操作</div>
+            <div class="cap-examples">
+              <span class="cap-example">read_file</span>
+              <span class="cap-example">run_query</span>
+              <span class="cap-example">search_web</span>
+            </div>
+          </div>
+          <div class="cap-card">
+            <div class="cap-card-icon">&#x1F4C1;</div>
+            <div class="cap-card-title">Resources</div>
+            <div class="cap-card-subtitle">资源 - 可读取的数据</div>
+            <div class="cap-examples">
+              <span class="cap-example">file://src/*.ts</span>
+              <span class="cap-example">db://users</span>
+              <span class="cap-example">api://weather</span>
+            </div>
+          </div>
+          <div class="cap-card">
+            <div class="cap-card-icon">&#x1F4DD;</div>
+            <div class="cap-card-title">Prompts</div>
+            <div class="cap-card-subtitle">提示模板 - 可复用的指令</div>
+            <div class="cap-examples">
+              <span class="cap-example">code-review</span>
+              <span class="cap-example">summarize</span>
+              <span class="cap-example">translate</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-detail">
+          <div class="layer-detail-content">
+            <h4>三种能力的区别</h4>
+            <p><strong>Tools</strong> 是模型主动调用的操作，会产生副作用（如写文件、发请求）。<strong>Resources</strong> 是只读的数据源，供应用程序读取上下文。<strong>Prompts</strong> 是预定义的指令模板，由用户选择触发。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar: Protocol Messages -->
+    <div class="sidebar-panel">
+      <div class="sidebar-card">
+        <div class="sidebar-header">
+          <div class="dot"></div>
+          实际通信示例
+        </div>
+        <div class="message-list">
+          <div class="message outgoing" onclick="highlightMsg(this, 'client')">
+            <div class="message-direction">
+              <span class="direction-arrow">&#x2192;</span> Client 发送 &mdash; 初始化请求
+            </div>
+<span class="msg-comment">// 建立连接，声明客户端能力</span>
+{
+  <span class="msg-key">"jsonrpc"</span>: <span class="msg-str">"2.0"</span>,
+  <span class="msg-key">"id"</span>: 1,
+  <span class="msg-key">"method"</span>: <span class="msg-str">"initialize"</span>,
+  <span class="msg-key">"params"</span>: {
+    <span class="msg-key">"protocolVersion"</span>: <span class="msg-str">"2024-11-05"</span>,
+    <span class="msg-key">"capabilities"</span>: {}
+  }
+}</div>
+
+          <div class="message incoming" onclick="highlightMsg(this, 'server')">
+            <div class="message-direction">
+              <span class="direction-arrow">&#x2190;</span> Server 响应 &mdash; 返回能力列表
+            </div>
+<span class="msg-comment">// Server 声明支持的功能</span>
+{
+  <span class="msg-key">"jsonrpc"</span>: <span class="msg-str">"2.0"</span>,
+  <span class="msg-key">"id"</span>: 1,
+  <span class="msg-key">"result"</span>: {
+    <span class="msg-key">"protocolVersion"</span>: <span class="msg-str">"2024-11-05"</span>,
+    <span class="msg-key">"capabilities"</span>: {
+      <span class="msg-key">"tools"</span>: {}
+    }
+  }
+}</div>
+
+          <div class="message outgoing" onclick="highlightMsg(this, 'server')">
+            <div class="message-direction">
+              <span class="direction-arrow">&#x2192;</span> Client 发送 &mdash; 列出工具
+            </div>
+<span class="msg-comment">// 查询 Server 有哪些工具</span>
+{
+  <span class="msg-key">"jsonrpc"</span>: <span class="msg-str">"2.0"</span>,
+  <span class="msg-key">"id"</span>: 2,
+  <span class="msg-key">"method"</span>: <span class="msg-str">"tools/list"</span>
+}</div>
+
+          <div class="message incoming" onclick="highlightMsg(this, 'capability')">
+            <div class="message-direction">
+              <span class="direction-arrow">&#x2190;</span> Server 响应 &mdash; 工具定义
+            </div>
+<span class="msg-comment">// 返回可用工具的详细描述</span>
+{
+  <span class="msg-key">"jsonrpc"</span>: <span class="msg-str">"2.0"</span>,
+  <span class="msg-key">"id"</span>: 2,
+  <span class="msg-key">"result"</span>: {
+    <span class="msg-key">"tools"</span>: [{
+      <span class="msg-key">"name"</span>: <span class="msg-str">"read_file"</span>,
+      <span class="msg-key">"description"</span>: <span class="msg-str">"读取文件内容"</span>,
+      <span class="msg-key">"inputSchema"</span>: {
+        <span class="msg-key">"type"</span>: <span class="msg-str">"object"</span>,
+        <span class="msg-key">"properties"</span>: {
+          <span class="msg-key">"path"</span>: {
+            <span class="msg-key">"type"</span>: <span class="msg-str">"string"</span>
+          }
+        }
+      }
+    }]
+  }
+}</div>
+
+          <div class="message outgoing" onclick="highlightMsg(this, 'capability')">
+            <div class="message-direction">
+              <span class="direction-arrow">&#x2192;</span> Client 发送 &mdash; 调用工具
+            </div>
+<span class="msg-comment">// AI 决定调用 read_file 工具</span>
+{
+  <span class="msg-key">"jsonrpc"</span>: <span class="msg-str">"2.0"</span>,
+  <span class="msg-key">"id"</span>: 3,
+  <span class="msg-key">"method"</span>: <span class="msg-str">"tools/call"</span>,
+  <span class="msg-key">"params"</span>: {
+    <span class="msg-key">"name"</span>: <span class="msg-str">"read_file"</span>,
+    <span class="msg-key">"arguments"</span>: {
+      <span class="msg-key">"path"</span>: <span class="msg-str">"/src/main.go"</span>
+    }
+  }
+}</div>
+
+          <div class="message incoming" onclick="highlightMsg(this, 'capability')">
+            <div class="message-direction">
+              <span class="direction-arrow">&#x2190;</span> Server 响应 &mdash; 工具结果
+            </div>
+<span class="msg-comment">// 返回文件内容</span>
+{
+  <span class="msg-key">"jsonrpc"</span>: <span class="msg-str">"2.0"</span>,
+  <span class="msg-key">"id"</span>: 3,
+  <span class="msg-key">"result"</span>: {
+    <span class="msg-key">"content"</span>: [{
+      <span class="msg-key">"type"</span>: <span class="msg-str">"text"</span>,
+      <span class="msg-key">"text"</span>: <span class="msg-str">"package main\n\nimport..."</span>
+    }]
+  }
+}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var activeLayer = null;
+
+function toggleLayer(layerName) {
+  var layers = document.querySelectorAll('.layer');
+
+  if (activeLayer === layerName) {
+    // Deactivate
+    layers.forEach(function(l) { l.classList.remove('active'); });
+    activeLayer = null;
+    return;
+  }
+
+  layers.forEach(function(l) { l.classList.remove('active'); });
+
+  var target = document.getElementById('layer-' + layerName);
+  if (target) {
+    target.classList.add('active');
+    activeLayer = layerName;
+  }
+}
+
+function switchView(view) {
+  var oldPanel = document.getElementById('panel-old');
+  var newPanel = document.getElementById('panel-new');
+  var toggleOld = document.getElementById('toggle-old');
+  var toggleNew = document.getElementById('toggle-new');
+
+  if (view === 'old') {
+    oldPanel.classList.remove('dimmed');
+    oldPanel.classList.add('highlighted');
+    newPanel.classList.add('dimmed');
+    newPanel.classList.remove('highlighted');
+    toggleOld.classList.add('active');
+    toggleNew.classList.remove('active');
+  } else {
+    newPanel.classList.remove('dimmed');
+    newPanel.classList.add('highlighted');
+    oldPanel.classList.add('dimmed');
+    oldPanel.classList.remove('highlighted');
+    toggleNew.classList.add('active');
+    toggleOld.classList.remove('active');
+  }
+}
+
+function highlightMsg(el, layerName) {
+  // Remove active from all messages
+  var msgs = document.querySelectorAll('.message');
+  msgs.forEach(function(m) { m.classList.remove('active'); });
+
+  el.classList.add('active');
+
+  // Highlight the related layer
+  if (layerName) {
+    var layers = document.querySelectorAll('.layer');
+    layers.forEach(function(l) { l.classList.remove('active'); });
+
+    var target = document.getElementById('layer-' + layerName);
+    if (target) {
+      target.classList.add('active');
+      activeLayer = layerName;
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+}
+
+// Auto-cycle the toggle for demo effect
+var autoToggle = null;
+function startAutoToggle() {
+  var current = 'old';
+  autoToggle = setInterval(function() {
+    current = current === 'old' ? 'new' : 'old';
+    switchView(current);
+  }, 3000);
+}
+
+// Start auto-toggle, stop on user interaction
+startAutoToggle();
+
+document.querySelector('.toggle-switch').addEventListener('click', function() {
+  if (autoToggle) {
+    clearInterval(autoToggle);
+    autoToggle = null;
+  }
+});
+</script>
+</body>
+</html>

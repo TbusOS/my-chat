@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多 Agent 协作动画</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 32px 28px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+header .subtitle {
+  font-size: 15px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.control-btn {
+  padding: 8px 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Noto Sans SC', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.control-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+.control-btn.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+.control-btn.primary:hover { background: #1d4ed8; }
+.control-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.phase-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.phase-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.phase-dot.active { background: #2563eb; transform: scale(1.3); }
+.phase-dot.done { background: #10b981; }
+
+/* Stage */
+.stage-wrapper {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.stage-header {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.stage-header .phase-label {
+  background: #2563eb;
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  overflow: hidden;
+}
+
+/* Characters */
+.character {
+  position: absolute;
+  bottom: 40px;
+  cursor: pointer;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 10;
+}
+
+.character:hover { transform: translateY(-4px); }
+.character.jump { animation: jump 0.5s ease; }
+
+@keyframes jump {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-18px); }
+}
+
+.char-label {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+/* Connection lines */
+.connection-line {
+  position: absolute;
+  bottom: 82px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #cbd5e1 0, #cbd5e1 6px, transparent 6px, transparent 12px);
+  z-index: 1;
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+.connection-line.glow {
+  opacity: 1;
+  background: repeating-linear-gradient(90deg, #2563eb 0, #2563eb 6px, transparent 6px, transparent 12px);
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
+  animation: lineGlow 1s ease infinite;
+}
+
+@keyframes lineGlow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Speech bubbles */
+.bubble {
+  position: absolute;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  z-index: 20;
+  opacity: 0;
+  transform: translateY(10px) scale(0.95);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 280px;
+  pointer-events: none;
+}
+
+.bubble.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 24px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  transform: rotate(45deg);
+}
+
+.bubble.thought {
+  border-style: dashed;
+  background: #fefce8;
+  border-color: #fde68a;
+}
+
+.bubble.thought::after {
+  background: #fefce8;
+  border-color: #fde68a;
+}
+
+/* Task cards */
+.task-card {
+  position: absolute;
+  background: #fff;
+  border: 2px solid #2563eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.12);
+  z-index: 15;
+  opacity: 0;
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  white-space: nowrap;
+}
+
+.task-card.visible { opacity: 1; }
+
+.task-card.small {
+  padding: 6px 10px;
+  font-size: 11px;
+  border-width: 1.5px;
+}
+
+.task-card.small.t1 { border-color: #2563eb; background: #eff6ff; }
+.task-card.small.t2 { border-color: #10b981; background: #ecfdf5; }
+.task-card.small.t3 { border-color: #7c3aed; background: #f5f3ff; }
+
+/* JSON message packets */
+.json-packet {
+  position: absolute;
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  z-index: 25;
+  opacity: 0;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  white-space: pre;
+  pointer-events: none;
+}
+
+.json-packet .key { color: #7dd3fc; }
+.json-packet .str { color: #86efac; }
+.json-packet .arr { color: #fde68a; }
+
+/* Code display */
+.code-panel {
+  position: absolute;
+  background: #1e293b;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #e2e8f0;
+  z-index: 15;
+  opacity: 0;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  transition: opacity 0.4s;
+  overflow: hidden;
+}
+
+.code-panel.visible { opacity: 1; }
+.code-panel .kw { color: #c084fc; }
+.code-panel .fn { color: #7dd3fc; }
+.code-panel .str { color: #86efac; }
+.code-panel .cm { color: #64748b; }
+.code-panel .cursor { animation: blink 0.8s step-end infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Progress bar */
+.progress-bar {
+  position: absolute;
+  background: #e2e8f0;
+  border-radius: 4px;
+  height: 6px;
+  width: 140px;
+  z-index: 16;
+  opacity: 0;
+  overflow: hidden;
+  transition: opacity 0.3s;
+}
+
+.progress-bar.visible { opacity: 1; }
+
+.progress-fill {
+  height: 100%;
+  background: #10b981;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.progress-label {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 600;
+  color: #10b981;
+  z-index: 16;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.progress-label.visible { opacity: 1; }
+
+/* Review results */
+.review-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin: 3px 0;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.4s;
+}
+
+.review-item.visible { opacity: 1; transform: translateX(0); }
+
+.check { color: #10b981; font-weight: 700; }
+.cross { color: #ef4444; font-weight: 700; }
+
+/* Celebration */
+.celebration {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+@keyframes confettiFall {
+  0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(300px) rotate(720deg); }
+}
+
+/* Bottom panels */
+.bottom-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.panel-header {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-body {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.7;
+}
+
+/* Message log */
+.message-log {
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 12px;
+}
+
+.message-log::-webkit-scrollbar { width: 4px; }
+.message-log::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+.log-entry {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border-left: 3px solid #e2e8f0;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.3s;
+}
+
+.log-entry.visible { opacity: 1; transform: translateY(0); }
+.log-entry.from-planner { border-left-color: #2563eb; }
+.log-entry.from-coder { border-left-color: #10b981; }
+.log-entry.from-reviewer { border-left-color: #7c3aed; }
+.log-entry.from-user { border-left-color: #94a3b8; }
+
+.log-time { color: #94a3b8; font-size: 10px; }
+.log-sender { font-weight: 600; }
+.log-sender.planner { color: #2563eb; }
+.log-sender.coder { color: #10b981; }
+.log-sender.reviewer { color: #7c3aed; }
+.log-sender.user { color: #64748b; }
+
+/* Role cards */
+.role-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.role-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.role-card:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.06); transform: translateY(-2px); }
+
+.role-card .card-color {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  margin-bottom: 12px;
+}
+
+.role-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.role-card .role { font-size: 12px; color: #64748b; margin-bottom: 10px; }
+.role-card .details { font-size: 12px; color: #475569; line-height: 1.7; display: none; }
+.role-card.expanded .details { display: block; }
+
+.role-card .tools { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+.role-card .tool-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Protocol section */
+.protocol-section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.protocol-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  color: #0f172a;
+}
+
+.protocol-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.proto-item {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.proto-item h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #334155;
+}
+
+.proto-item p {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.proto-item code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  background: #e2e8f0;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #334155;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .bottom-section { grid-template-columns: 1fr; }
+  .role-cards { grid-template-columns: repeat(2, 1fr); }
+  .protocol-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>多 Agent 协作：AI 团队如何配合？</h1>
+  <p class="subtitle">三个 Agent 如何通过 JSON 消息协作完成一个功能</p>
+</header>
+
+<div class="controls">
+  <button class="control-btn primary" id="btnAutoPlay">&#9654; 自动播放</button>
+  <button class="control-btn" id="btnPrev" disabled>&#8592; 上一步</button>
+  <button class="control-btn" id="btnNext">下一步 &#8594;</button>
+  <button class="control-btn" id="btnReplay">&#8635; 重播</button>
+</div>
+
+<div class="phase-indicator" id="phaseIndicator"></div>
+
+<div class="stage-wrapper">
+  <div class="stage-header">
+    <span class="phase-label" id="phaseLabel">阶段 0/6</span>
+    <span id="phaseTitle">准备就绪</span>
+  </div>
+  <div class="stage" id="stage">
+    <!-- Characters rendered by JS -->
+    <!-- Connection lines -->
+    <div class="connection-line" id="lineUserPlanner" style="left:120px; width:140px;"></div>
+    <div class="connection-line" id="linePlannerCoder" style="left:330px; width:180px;"></div>
+    <div class="connection-line" id="lineCoderReviewer" style="left:570px; width:180px;"></div>
+  </div>
+</div>
+
+<div class="bottom-section">
+  <div class="panel">
+    <div class="panel-header">&#128214; 当前阶段说明</div>
+    <div class="panel-body" id="phaseDesc">
+      点击「自动播放」或「下一步」开始演示。<br><br>
+      本动画展示了三个 AI Agent 如何通过结构化的 JSON 消息，协作完成一个用户需求：<strong>给用户注册接口添加邮箱验证功能</strong>。
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-header">&#128172; 实时消息日志</div>
+    <div class="message-log" id="messageLog">
+      <div class="log-entry visible from-user">
+        <span class="log-time">00:00</span> <span class="log-sender user">[系统]</span><br>等待任务开始...
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="role-cards" id="roleCards">
+  <!-- User card -->
+  <div class="role-card" data-role="user" onclick="toggleCard(this)">
+    <div class="card-color" style="background:#94a3b8;"></div>
+    <h3>User 用户</h3>
+    <p class="role">任务发起者</p>
+    <div class="details">
+      <p><strong>角色：</strong>提出需求，验收成果</p>
+      <p><strong>能力：</strong>描述业务需求，评估最终交付</p>
+      <div class="tools">
+        <span class="tool-tag">自然语言</span>
+        <span class="tool-tag">需求描述</span>
+      </div>
+      <p style="margin-top:8px;"><strong>System Prompt 摘要：</strong></p>
+      <p style="font-size:11px; color:#64748b; font-style:italic;">"你是一个产品经理，请用清晰的语言描述需求..."</p>
+    </div>
+  </div>
+  <!-- Planner card -->
+  <div class="role-card" data-role="planner" onclick="toggleCard(this)">
+    <div class="card-color" style="background:#2563eb;"></div>
+    <h3>Planner 规划师</h3>
+    <p class="role">任务分析与拆解</p>
+    <div class="details">
+      <p><strong>角色：</strong>分析需求，拆解子任务，分配优先级</p>
+      <p><strong>能力：</strong>架构分析、依赖识别、风险评估</p>
+      <div class="tools">
+        <span class="tool-tag">task_decompose</span>
+        <span class="tool-tag">assign_task</span>
+        <span class="tool-tag">read_codebase</span>
+      </div>
+      <p style="margin-top:8px;"><strong>System Prompt 摘要：</strong></p>
+      <p style="font-size:11px; color:#64748b; font-style:italic;">"你是一个资深架构师。收到需求后，先分析技术可行性，再拆解为可执行的子任务，输出 JSON 格式的任务列表。"</p>
+    </div>
+  </div>
+  <!-- Coder card -->
+  <div class="role-card" data-role="coder" onclick="toggleCard(this)">
+    <div class="card-color" style="background:#10b981;"></div>
+    <h3>Coder 程序员</h3>
+    <p class="role">代码实现</p>
+    <div class="details">
+      <p><strong>角色：</strong>编写代码，实现功能，修复问题</p>
+      <p><strong>能力：</strong>代码生成、TDD、调试</p>
+      <div class="tools">
+        <span class="tool-tag">write_file</span>
+        <span class="tool-tag">run_tests</span>
+        <span class="tool-tag">read_file</span>
+        <span class="tool-tag">bash</span>
+      </div>
+      <p style="margin-top:8px;"><strong>System Prompt 摘要：</strong></p>
+      <p style="font-size:11px; color:#64748b; font-style:italic;">"你是一个高级工程师。按照任务列表逐一实现，遵循 TDD 模式，代码要有完善的错误处理和输入验证。"</p>
+    </div>
+  </div>
+  <!-- Reviewer card -->
+  <div class="role-card" data-role="reviewer" onclick="toggleCard(this)">
+    <div class="card-color" style="background:#7c3aed;"></div>
+    <h3>Reviewer 审查员</h3>
+    <p class="role">代码审查</p>
+    <div class="details">
+      <p><strong>角色：</strong>审查代码质量、安全性、最佳实践</p>
+      <p><strong>能力：</strong>静态分析、安全审计、性能评估</p>
+      <div class="tools">
+        <span class="tool-tag">review_diff</span>
+        <span class="tool-tag">run_linter</span>
+        <span class="tool-tag">security_scan</span>
+      </div>
+      <p style="margin-top:8px;"><strong>System Prompt 摘要：</strong></p>
+      <p style="font-size:11px; color:#64748b; font-style:italic;">"你是一个代码审查专家。检查每个变更的安全性、性能、可维护性，标记问题并给出具体修改建议。"</p>
+    </div>
+  </div>
+</div>
+
+<div class="protocol-section">
+  <h3>Agent 之间的语言是什么？</h3>
+  <div class="protocol-grid">
+    <div class="proto-item">
+      <h4>JSON 结构化消息</h4>
+      <p>任务分配、状态更新、工具调用都使用 <code>JSON</code> 格式，确保机器可解析。</p>
+    </div>
+    <div class="proto-item">
+      <h4>自然语言推理</h4>
+      <p>Agent 内部的思考和推理用自然语言完成，类似人类的 "内心独白"。</p>
+    </div>
+    <div class="proto-item">
+      <h4>System Prompt 定义行为</h4>
+      <p>每个 Agent 的角色、能力边界和输出格式由 System Prompt 严格定义。</p>
+    </div>
+    <div class="proto-item">
+      <h4>Tool Calls 执行动作</h4>
+      <p>Agent 通过 <code>tool_call</code> 调用外部工具（读写文件、运行命令等）来执行实际操作。</p>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ============================================================
+// SVG character factory
+// ============================================================
+function svgUser() {
+  return `<svg width="70" height="90" viewBox="0 0 70 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- body -->
+    <ellipse cx="35" cy="72" rx="18" ry="16" fill="#cbd5e1"/>
+    <!-- head -->
+    <circle cx="35" cy="32" r="18" fill="#e2e8f0"/>
+    <!-- face -->
+    <circle cx="28" cy="29" r="2.5" fill="#64748b"/>
+    <circle cx="42" cy="29" r="2.5" fill="#64748b"/>
+    <path d="M30 38 Q35 42 40 38" stroke="#64748b" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- hair -->
+    <path d="M17 28 Q18 14 35 14 Q52 14 53 28" fill="#94a3b8"/>
+  </svg>`;
+}
+
+function svgPlanner() {
+  return `<svg width="70" height="90" viewBox="0 0 70 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- body -->
+    <ellipse cx="35" cy="72" rx="18" ry="16" fill="#bfdbfe"/>
+    <!-- head -->
+    <circle cx="35" cy="32" r="18" fill="#dbeafe"/>
+    <!-- beret -->
+    <ellipse cx="35" cy="17" rx="20" ry="8" fill="#2563eb"/>
+    <circle cx="35" cy="10" r="4" fill="#2563eb"/>
+    <!-- face -->
+    <circle cx="28" cy="29" r="2.5" fill="#1e40af"/>
+    <circle cx="42" cy="29" r="2.5" fill="#1e40af"/>
+    <path d="M30 38 Q35 41 40 38" stroke="#1e40af" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- clipboard -->
+    <rect x="48" y="50" width="16" height="20" rx="2" fill="#fff" stroke="#2563eb" stroke-width="1.5"/>
+    <rect x="50" y="48" width="12" height="5" rx="1.5" fill="#2563eb"/>
+    <line x1="51" y1="56" x2="61" y2="56" stroke="#93c5fd" stroke-width="1.5"/>
+    <line x1="51" y1="60" x2="59" y2="60" stroke="#93c5fd" stroke-width="1.5"/>
+    <line x1="51" y1="64" x2="60" y2="64" stroke="#93c5fd" stroke-width="1.5"/>
+  </svg>`;
+}
+
+function svgCoder() {
+  return `<svg width="70" height="90" viewBox="0 0 70 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- body -->
+    <ellipse cx="35" cy="72" rx="18" ry="16" fill="#a7f3d0"/>
+    <!-- head -->
+    <circle cx="35" cy="32" r="18" fill="#d1fae5"/>
+    <!-- headphones -->
+    <path d="M14 32 Q14 12 35 12 Q56 12 56 32" stroke="#10b981" stroke-width="4" fill="none"/>
+    <rect x="10" y="28" width="8" height="12" rx="4" fill="#10b981"/>
+    <rect x="52" y="28" width="8" height="12" rx="4" fill="#10b981"/>
+    <!-- face -->
+    <circle cx="28" cy="29" r="2.5" fill="#065f46"/>
+    <circle cx="42" cy="29" r="2.5" fill="#065f46"/>
+    <path d="M29 38 Q35 43 41 38" stroke="#065f46" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- laptop -->
+    <rect x="4" y="58" width="22" height="14" rx="2" fill="#1e293b"/>
+    <rect x="6" y="60" width="18" height="9" rx="1" fill="#10b981" opacity="0.4"/>
+    <rect x="1" y="72" width="28" height="2" rx="1" fill="#334155"/>
+    <!-- code on screen -->
+    <line x1="8" y1="63" x2="16" y2="63" stroke="#86efac" stroke-width="1"/>
+    <line x1="8" y1="66" x2="20" y2="66" stroke="#7dd3fc" stroke-width="1"/>
+  </svg>`;
+}
+
+function svgReviewer() {
+  return `<svg width="70" height="90" viewBox="0 0 70 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- body -->
+    <ellipse cx="35" cy="72" rx="18" ry="16" fill="#ddd6fe"/>
+    <!-- head -->
+    <circle cx="35" cy="32" r="18" fill="#ede9fe"/>
+    <!-- glasses -->
+    <circle cx="27" cy="29" r="7" fill="none" stroke="#7c3aed" stroke-width="2"/>
+    <circle cx="43" cy="29" r="7" fill="none" stroke="#7c3aed" stroke-width="2"/>
+    <line x1="34" y1="29" x2="36" y2="29" stroke="#7c3aed" stroke-width="2"/>
+    <line x1="17" y1="27" x2="20" y2="28" stroke="#7c3aed" stroke-width="2"/>
+    <line x1="53" y1="27" x2="50" y2="28" stroke="#7c3aed" stroke-width="2"/>
+    <!-- eyes behind glasses -->
+    <circle cx="27" cy="29" r="2" fill="#5b21b6"/>
+    <circle cx="43" cy="29" r="2" fill="#5b21b6"/>
+    <!-- mouth -->
+    <path d="M31 39 Q35 42 39 39" stroke="#5b21b6" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- magnifying glass -->
+    <circle cx="58" cy="52" r="9" fill="none" stroke="#7c3aed" stroke-width="2.5"/>
+    <line x1="64" y1="58" x2="68" y2="64" stroke="#7c3aed" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="58" cy="52" r="5" fill="#7c3aed" opacity="0.1"/>
+  </svg>`;
+}
+
+// ============================================================
+// State
+// ============================================================
+const TOTAL_PHASES = 6;
+let currentPhase = 0;
+let autoPlayTimer = null;
+let isAutoPlaying = false;
+
+const stage = document.getElementById('stage');
+
+// Character positions per phase { user, planner, coder, reviewer }
+const positions = {
+  0: { user: 60,  planner: 260, coder: 480, reviewer: 700 },
+  1: { user: 40,  planner: 260, coder: 480, reviewer: 700 },
+  2: { user: 40,  planner: 200, coder: 480, reviewer: 700 },
+  3: { user: 40,  planner: 200, coder: 420, reviewer: 700 },
+  4: { user: 40,  planner: 200, coder: 480, reviewer: 620 },
+  5: { user: 40,  planner: 200, coder: 420, reviewer: 700 },
+  6: { user: 150, planner: 310, coder: 470, reviewer: 630 },
+};
+
+const phaseNames = [
+  '准备就绪',
+  '阶段 1：用户下达任务',
+  '阶段 2：Planner 拆解任务',
+  '阶段 3：Coder 编写代码',
+  '阶段 4：Reviewer 审查代码',
+  '阶段 5：Coder 修复问题',
+  '阶段 6：审查通过，交付',
+];
+
+const phaseDescs = [
+  '点击「自动播放」或「下一步」开始演示。<br><br>本动画展示了三个 AI Agent 如何通过结构化的 JSON 消息，协作完成一个用户需求：<strong>给用户注册接口添加邮箱验证功能</strong>。',
+  '<strong>用户 (User)</strong> 向 Agent 团队发出任务需求：<br><br>"给用户注册接口添加邮箱验证功能"<br><br>所有 Agent 收到任务后进入准备状态。任务以「任务卡」的形式出现在舞台中央。',
+  '<strong>Planner 规划师</strong> 分析任务卡，将其拆解为 3 个子任务：<br><br>1. 添加邮箱格式校验<br>2. 实现验证码发送接口<br>3. 添加验证码核验逻辑<br><br>然后通过 JSON 消息将任务分配给 Coder。',
+  '<strong>Coder 程序员</strong> 收到 3 个子任务后，开始逐一编码实现。<br><br>完成后将代码通过 JSON 消息发送给 Reviewer 进行审查。进度条显示完成情况。',
+  '<strong>Reviewer 审查员</strong> 审查代码，发现一个问题：<br><br>验证码发送接口缺少发送频率限制。<br><br>通过 JSON 消息将问题反馈给 Coder。',
+  '<strong>Coder 程序员</strong> 收到反馈后，快速修复问题：<br><br>添加 60 秒发送冷却时间。<br><br>修复完成后重新提交给 Reviewer。',
+  '<strong>Reviewer 审查员</strong> 再次检查：全部通过！<br><br>三个 Agent 共同将完成的功能交付给用户。用户表示满意。<br><br>协作流程完成。',
+];
+
+// ============================================================
+// Initialization
+// ============================================================
+function init() {
+  buildPhaseIndicator();
+  renderCharacters();
+  updatePhaseUI();
+}
+
+function buildPhaseIndicator() {
+  const el = document.getElementById('phaseIndicator');
+  el.innerHTML = '';
+  for (let i = 0; i <= TOTAL_PHASES; i++) {
+    const d = document.createElement('div');
+    d.className = 'phase-dot' + (i === 0 ? ' active' : '');
+    d.dataset.phase = i;
+    d.addEventListener('click', () => goToPhase(i));
+    el.appendChild(d);
+  }
+}
+
+function renderCharacters() {
+  const chars = [
+    { id: 'user', svg: svgUser(), label: 'User 用户', color: '#64748b' },
+    { id: 'planner', svg: svgPlanner(), label: 'Planner 规划师', color: '#2563eb' },
+    { id: 'coder', svg: svgCoder(), label: 'Coder 程序员', color: '#10b981' },
+    { id: 'reviewer', svg: svgReviewer(), label: 'Reviewer 审查员', color: '#7c3aed' },
+  ];
+  chars.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'character';
+    div.id = 'char-' + c.id;
+    div.innerHTML = c.svg + `<div class="char-label" style="color:${c.color}">${c.label}</div>`;
+    div.style.left = positions[0][c.id] + 'px';
+    div.addEventListener('click', () => {
+      const card = document.querySelector(`.role-card[data-role="${c.id}"]`);
+      if (card) { toggleCard(card); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    });
+    stage.appendChild(div);
+  });
+}
+
+// ============================================================
+// Phase transitions
+// ============================================================
+function clearDynamic() {
+  stage.querySelectorAll('.bubble, .task-card, .json-packet, .code-panel, .progress-bar, .progress-label, .celebration, .review-panel-stage').forEach(el => el.remove());
+  document.querySelectorAll('.connection-line').forEach(el => el.classList.remove('glow'));
+}
+
+function moveChars(phase) {
+  const p = positions[phase] || positions[0];
+  Object.keys(p).forEach(k => {
+    const el = document.getElementById('char-' + k);
+    if (el) el.style.left = p[k] + 'px';
+  });
+}
+
+function updatePhaseUI() {
+  document.getElementById('phaseLabel').textContent = `阶段 ${currentPhase}/${TOTAL_PHASES}`;
+  document.getElementById('phaseTitle').textContent = phaseNames[currentPhase];
+  document.getElementById('phaseDesc').innerHTML = phaseDescs[currentPhase];
+
+  document.querySelectorAll('.phase-dot').forEach(d => {
+    const i = parseInt(d.dataset.phase);
+    d.className = 'phase-dot' + (i === currentPhase ? ' active' : (i < currentPhase ? ' done' : ''));
+  });
+
+  document.getElementById('btnPrev').disabled = currentPhase === 0;
+  document.getElementById('btnNext').disabled = currentPhase === TOTAL_PHASES;
+
+  // Update connection lines
+  const ll = document.getElementById('lineUserPlanner');
+  const lpc = document.getElementById('linePlannerCoder');
+  const lcr = document.getElementById('lineCoderReviewer');
+
+  [ll, lpc, lcr].forEach(l => { l.style.opacity = '0.3'; l.classList.remove('glow'); });
+
+  // Adjust line positions based on character positions
+  const p = positions[currentPhase] || positions[0];
+  ll.style.left = (p.user + 50) + 'px'; ll.style.width = (p.planner - p.user - 30) + 'px';
+  lpc.style.left = (p.planner + 50) + 'px'; lpc.style.width = (p.coder - p.planner - 30) + 'px';
+  lcr.style.left = (p.coder + 50) + 'px'; lcr.style.width = (p.reviewer - p.coder - 30) + 'px';
+}
+
+// ============================================================
+// Animation helpers
+// ============================================================
+function showBubble(opts) {
+  const b = document.createElement('div');
+  b.className = 'bubble' + (opts.thought ? ' thought' : '');
+  b.innerHTML = opts.text;
+  b.style.left = opts.x + 'px';
+  b.style.bottom = (opts.bottom || 165) + 'px';
+  if (opts.width) b.style.maxWidth = opts.width + 'px';
+  stage.appendChild(b);
+  requestAnimationFrame(() => b.classList.add('visible'));
+  return b;
+}
+
+function showTaskCard(opts) {
+  const c = document.createElement('div');
+  c.className = 'task-card' + (opts.small ? ' small ' + (opts.cls || '') : '') + (opts.visible ? ' visible' : '');
+  c.innerHTML = opts.text;
+  c.style.left = opts.x + 'px';
+  c.style.top = opts.y + 'px';
+  if (opts.id) c.id = opts.id;
+  stage.appendChild(c);
+  if (!opts.visible) {
+    setTimeout(() => c.classList.add('visible'), opts.delay || 100);
+  }
+  return c;
+}
+
+function animateJsonPacket(opts) {
+  const pkt = document.createElement('div');
+  pkt.className = 'json-packet';
+  pkt.innerHTML = opts.html;
+  pkt.style.left = opts.fromX + 'px';
+  pkt.style.top = opts.fromY + 'px';
+  stage.appendChild(pkt);
+
+  // Animate in
+  setTimeout(() => { pkt.style.opacity = '1'; pkt.style.transition = 'all 0.3s'; }, 50);
+
+  // Move
+  setTimeout(() => {
+    pkt.style.transition = 'all 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    pkt.style.left = opts.toX + 'px';
+    pkt.style.top = opts.toY + 'px';
+  }, opts.moveDelay || 600);
+
+  // Fade out
+  setTimeout(() => {
+    pkt.style.transition = 'opacity 0.4s';
+    pkt.style.opacity = '0';
+  }, (opts.moveDelay || 600) + 1500);
+
+  setTimeout(() => pkt.remove(), (opts.moveDelay || 600) + 2000);
+}
+
+function addLogEntry(sender, text, cls) {
+  const log = document.getElementById('messageLog');
+  const time = String(currentPhase).padStart(2, '0') + ':' + String(Math.floor(Math.random() * 59)).padStart(2, '0');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry from-' + cls;
+  entry.innerHTML = `<span class="log-time">${time}</span> <span class="log-sender ${cls}">[${sender}]</span><br>${text}`;
+  log.appendChild(entry);
+  requestAnimationFrame(() => {
+    entry.classList.add('visible');
+    log.scrollTop = log.scrollHeight;
+  });
+}
+
+function jumpChar(id) {
+  const el = document.getElementById('char-' + id);
+  if (!el) return;
+  el.classList.remove('jump');
+  void el.offsetWidth;
+  el.classList.add('jump');
+}
+
+// ============================================================
+// Phase renderers
+// ============================================================
+function runPhase(phase) {
+  clearDynamic();
+  moveChars(phase);
+  updatePhaseUI();
+
+  const p = positions[phase];
+
+  switch (phase) {
+    case 0: break;
+
+    case 1: phaseOne(p); break;
+    case 2: phaseTwo(p); break;
+    case 3: phaseThree(p); break;
+    case 4: phaseFour(p); break;
+    case 5: phaseFive(p); break;
+    case 6: phaseSix(p); break;
+  }
+}
+
+function phaseOne(p) {
+  // User bubble
+  showBubble({ text: '给用户注册接口添加<br>邮箱验证功能', x: p.user - 10, bottom: 170, width: 200 });
+  document.getElementById('lineUserPlanner').classList.add('glow');
+
+  // Task card appears in center
+  setTimeout(() => {
+    showTaskCard({ text: '&#128203; 添加邮箱验证功能', x: 360, y: 140, id: 'mainTask' });
+  }, 600);
+
+  // Agents stand at attention
+  setTimeout(() => { jumpChar('planner'); }, 400);
+  setTimeout(() => { jumpChar('coder'); }, 600);
+  setTimeout(() => { jumpChar('reviewer'); }, 800);
+
+  addLogEntry('User', '任务下达：给用户注册接口添加邮箱验证功能', 'user');
+}
+
+function phaseTwo(p) {
+  // Planner steps forward, already done via positions
+  // Thought bubble
+  showBubble({
+    text: '&#128203; 拆解为 3 个子任务：<br>1. 添加邮箱格式校验<br>2. 实现验证码发送接口<br>3. 添加验证码核验逻辑',
+    x: p.planner - 30, bottom: 175, thought: true, width: 240
+  });
+
+  document.getElementById('linePlannerCoder').classList.add('glow');
+
+  // Original task card
+  const mainCard = showTaskCard({ text: '&#128203; 添加邮箱验证功能', x: 320, y: 80, visible: true, id: 'mainTask2' });
+
+  // Split into 3 small cards
+  setTimeout(() => {
+    if (mainCard.parentNode) {
+      mainCard.style.transition = 'all 0.5s'; mainCard.style.opacity = '0'; mainCard.style.transform = 'scale(0.5)';
+      setTimeout(() => mainCard.remove(), 500);
+    }
+  }, 1200);
+
+  setTimeout(() => {
+    showTaskCard({ text: '1. 邮箱格式校验', x: 280, y: 70, small: true, cls: 't1', delay: 0 });
+    showTaskCard({ text: '2. 发送验证码接口', x: 280, y: 100, small: true, cls: 't2', delay: 200 });
+    showTaskCard({ text: '3. 验证码核验逻辑', x: 280, y: 130, small: true, cls: 't3', delay: 400 });
+  }, 1800);
+
+  // JSON message to Coder
+  setTimeout(() => {
+    animateJsonPacket({
+      html: `{
+  <span class="key">"from"</span>: <span class="str">"planner"</span>,
+  <span class="key">"to"</span>: <span class="str">"coder"</span>,
+  <span class="key">"tasks"</span>: [<span class="arr">"邮箱校验"</span>,
+    <span class="arr">"发送验证码"</span>,
+    <span class="arr">"核验逻辑"</span>],
+  <span class="key">"priority"</span>: <span class="str">"high"</span>
+}`,
+      fromX: p.planner + 20, fromY: 60,
+      toX: p.coder - 20, toY: 60,
+      moveDelay: 500
+    });
+  }, 2800);
+
+  addLogEntry('Planner', '分析任务，拆解为 3 个子任务', 'planner');
+  setTimeout(() => {
+    addLogEntry('Planner', `<pre style="margin:4px 0;font-size:10px;white-space:pre-wrap;">{\n  "from": "planner",\n  "to": "coder",\n  "tasks": ["邮箱校验", "发送验证码", "核验逻辑"],\n  "priority": "high"\n}</pre>`, 'planner');
+  }, 2800);
+}
+
+function phaseThree(p) {
+  // 3 task cards near coder
+  showTaskCard({ text: '1. 邮箱格式校验', x: p.coder - 60, y: 30, small: true, cls: 't1', delay: 0 });
+  showTaskCard({ text: '2. 发送验证码接口', x: p.coder - 60, y: 56, small: true, cls: 't2', delay: 200 });
+  showTaskCard({ text: '3. 验证码核验逻辑', x: p.coder - 60, y: 82, small: true, cls: 't3', delay: 400 });
+
+  // Code panel
+  const code = document.createElement('div');
+  code.className = 'code-panel';
+  code.style.left = (p.coder - 100) + 'px';
+  code.style.top = '120px';
+  code.style.width = '280px';
+  code.id = 'codePanel';
+  stage.appendChild(code);
+
+  const codeLines = [
+    '<span class="kw">def</span> <span class="fn">validate_email</span>(email: <span class="fn">str</span>) -&gt; <span class="fn">bool</span>:',
+    '    pattern = <span class="str">r\'^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$\'</span>',
+    '    <span class="kw">return</span> <span class="fn">bool</span>(re.match(pattern, email))',
+  ];
+
+  setTimeout(() => { code.classList.add('visible'); }, 600);
+
+  let lineIdx = 0;
+  function typeLine() {
+    if (lineIdx >= codeLines.length) return;
+    code.innerHTML += (lineIdx > 0 ? '\n' : '') + codeLines[lineIdx];
+    lineIdx++;
+    setTimeout(typeLine, 500);
+  }
+  setTimeout(typeLine, 900);
+
+  // Progress bar
+  const bar = document.createElement('div');
+  bar.className = 'progress-bar';
+  bar.style.left = (p.coder - 40) + 'px';
+  bar.style.top = '210px';
+  bar.innerHTML = '<div class="progress-fill" id="progFill" style="width:0%"></div>';
+  stage.appendChild(bar);
+
+  const lbl = document.createElement('div');
+  lbl.className = 'progress-label';
+  lbl.style.left = (p.coder + 110) + 'px';
+  lbl.style.top = '206px';
+  lbl.id = 'progLabel';
+  lbl.textContent = '0/3';
+  stage.appendChild(lbl);
+
+  setTimeout(() => { bar.classList.add('visible'); lbl.classList.add('visible'); }, 800);
+  setTimeout(() => { document.getElementById('progFill').style.width = '33%'; lbl.textContent = '1/3'; }, 1500);
+  setTimeout(() => { document.getElementById('progFill').style.width = '66%'; lbl.textContent = '2/3'; }, 2200);
+  setTimeout(() => { document.getElementById('progFill').style.width = '100%'; lbl.textContent = '3/3'; }, 2900);
+
+  document.getElementById('lineCoderReviewer').classList.add('glow');
+
+  // JSON to reviewer
+  setTimeout(() => {
+    animateJsonPacket({
+      html: `{
+  <span class="key">"from"</span>: <span class="str">"coder"</span>,
+  <span class="key">"to"</span>: <span class="str">"reviewer"</span>,
+  <span class="key">"status"</span>: <span class="str">"ready_for_review"</span>,
+  <span class="key">"files_changed"</span>: 3
+}`,
+      fromX: p.coder + 40, fromY: 80,
+      toX: p.reviewer - 40, toY: 80,
+      moveDelay: 500
+    });
+  }, 3500);
+
+  addLogEntry('Coder', '开始编写代码，处理 3 个子任务...', 'coder');
+  setTimeout(() => {
+    addLogEntry('Coder', `<pre style="margin:4px 0;font-size:10px;white-space:pre-wrap;">{\n  "from": "coder",\n  "to": "reviewer",\n  "status": "ready_for_review",\n  "files_changed": 3\n}</pre>`, 'coder');
+  }, 3500);
+}
+
+function phaseFour(p) {
+  document.getElementById('lineCoderReviewer').classList.add('glow');
+
+  // Reviewer thought with review results
+  const reviewPanel = document.createElement('div');
+  reviewPanel.className = 'bubble thought review-panel-stage';
+  reviewPanel.style.left = (p.reviewer - 80) + 'px';
+  reviewPanel.style.bottom = '175px';
+  reviewPanel.style.maxWidth = '260px';
+  reviewPanel.style.pointerEvents = 'auto';
+  reviewPanel.innerHTML = `
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px;">&#128269; 审查发现：</div>
+    <div class="review-item" id="rv1"><span class="check">&#10004;</span> 邮箱格式校验 — 通过</div>
+    <div class="review-item" id="rv2"><span class="cross">&#10008;</span> 验证码发送 — 缺少发送频率限制</div>
+    <div class="review-item" id="rv3"><span class="check">&#10004;</span> 核验逻辑 — 通过</div>
+  `;
+  stage.appendChild(reviewPanel);
+  setTimeout(() => reviewPanel.classList.add('visible'), 300);
+  setTimeout(() => document.getElementById('rv1').classList.add('visible'), 700);
+  setTimeout(() => document.getElementById('rv2').classList.add('visible'), 1200);
+  setTimeout(() => document.getElementById('rv3').classList.add('visible'), 1700);
+
+  // JSON feedback to coder
+  setTimeout(() => {
+    // Glow line
+    document.getElementById('linePlannerCoder').classList.add('glow');
+    animateJsonPacket({
+      html: `{
+  <span class="key">"from"</span>: <span class="str">"reviewer"</span>,
+  <span class="key">"to"</span>: <span class="str">"coder"</span>,
+  <span class="key">"action"</span>: <span class="str">"fix_required"</span>,
+  <span class="key">"issue"</span>: <span class="str">"添加60秒发送冷却时间"</span>
+}`,
+      fromX: p.reviewer - 20, fromY: 80,
+      toX: p.coder + 20, toY: 80,
+      moveDelay: 500
+    });
+  }, 2400);
+
+  addLogEntry('Reviewer', '审查发现问题：验证码发送缺少频率限制', 'reviewer');
+  setTimeout(() => {
+    addLogEntry('Reviewer', `<pre style="margin:4px 0;font-size:10px;white-space:pre-wrap;">{\n  "from": "reviewer",\n  "to": "coder",\n  "action": "fix_required",\n  "issue": "添加60秒发送冷却时间"\n}</pre>`, 'reviewer');
+  }, 2400);
+}
+
+function phaseFive(p) {
+  document.getElementById('linePlannerCoder').classList.add('glow');
+  document.getElementById('lineCoderReviewer').classList.add('glow');
+
+  // Coder receives feedback, nods
+  setTimeout(() => jumpChar('coder'), 300);
+
+  showBubble({ text: '收到，马上修复！', x: p.coder - 10, bottom: 175, width: 160 });
+
+  // Fix code panel
+  const code = document.createElement('div');
+  code.className = 'code-panel';
+  code.style.left = (p.coder - 100) + 'px';
+  code.style.top = '120px';
+  code.style.width = '320px';
+  stage.appendChild(code);
+
+  const fixLines = [
+    '<span class="cm"># 添加发送频率限制</span>',
+    '<span class="kw">if</span> last_sent_time <span class="kw">and</span> \\',
+    '    (now - last_sent_time).seconds &lt; 60:',
+    '    <span class="kw">raise</span> <span class="fn">RateLimitError</span>(',
+    '        <span class="str">"请等待60秒后重试"</span>)',
+  ];
+
+  setTimeout(() => { code.classList.add('visible'); }, 700);
+
+  let i = 0;
+  function typeFixLine() {
+    if (i >= fixLines.length) return;
+    code.innerHTML += (i > 0 ? '\n' : '') + fixLines[i];
+    i++;
+    setTimeout(typeFixLine, 400);
+  }
+  setTimeout(typeFixLine, 1000);
+
+  // Send back to reviewer
+  setTimeout(() => {
+    animateJsonPacket({
+      html: `{
+  <span class="key">"from"</span>: <span class="str">"coder"</span>,
+  <span class="key">"to"</span>: <span class="str">"reviewer"</span>,
+  <span class="key">"status"</span>: <span class="str">"fixed"</span>,
+  <span class="key">"fix"</span>: <span class="str">"60秒冷却时间已添加"</span>
+}`,
+      fromX: p.coder + 40, fromY: 70,
+      toX: p.reviewer - 40, toY: 70,
+      moveDelay: 500
+    });
+  }, 3200);
+
+  addLogEntry('Coder', '修复中：添加 60 秒发送冷却时间', 'coder');
+  setTimeout(() => {
+    addLogEntry('Coder', `<pre style="margin:4px 0;font-size:10px;white-space:pre-wrap;">{\n  "from": "coder",\n  "to": "reviewer",\n  "status": "fixed",\n  "fix": "60秒冷却时间已添加"\n}</pre>`, 'coder');
+  }, 3200);
+}
+
+function phaseSix(p) {
+  // All lines glow
+  document.getElementById('lineUserPlanner').classList.add('glow');
+  document.getElementById('linePlannerCoder').classList.add('glow');
+  document.getElementById('lineCoderReviewer').classList.add('glow');
+
+  // Reviewer approval
+  showBubble({ text: '&#10004; 全部通过！代码质量优秀。', x: p.reviewer - 60, bottom: 175, width: 220 });
+
+  // Delivered to user
+  setTimeout(() => {
+    showBubble({ text: '完美！功能已上线。', x: p.user - 10, bottom: 175, width: 180 });
+  }, 1200);
+
+  // Celebration jumps
+  setTimeout(() => { jumpChar('user'); }, 1800);
+  setTimeout(() => { jumpChar('planner'); }, 2000);
+  setTimeout(() => { jumpChar('coder'); }, 2200);
+  setTimeout(() => { jumpChar('reviewer'); }, 2400);
+
+  // Confetti
+  setTimeout(() => launchConfetti(), 1800);
+
+  // Completion task card
+  setTimeout(() => {
+    showTaskCard({
+      text: '&#10004; 邮箱验证功能 — 已完成',
+      x: 330, y: 120,
+      delay: 0
+    });
+  }, 1000);
+
+  addLogEntry('Reviewer', '全部审查通过！', 'reviewer');
+  setTimeout(() => {
+    addLogEntry('User', '完美！功能已上线。协作流程完成。', 'user');
+  }, 1200);
+}
+
+function launchConfetti() {
+  const cel = document.createElement('div');
+  cel.className = 'celebration';
+  stage.appendChild(cel);
+
+  const colors = ['#2563eb', '#10b981', '#7c3aed', '#f59e0b', '#ef4444', '#ec4899'];
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = (150 + Math.random() * 600) + 'px';
+    c.style.top = (20 + Math.random() * 60) + 'px';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.width = (4 + Math.random() * 8) + 'px';
+    c.style.height = (4 + Math.random() * 8) + 'px';
+    c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    c.style.animation = `confettiFall ${1.5 + Math.random() * 1.5}s ease-out ${Math.random() * 0.5}s forwards`;
+    cel.appendChild(c);
+  }
+
+  setTimeout(() => cel.remove(), 4000);
+}
+
+// ============================================================
+// Navigation
+// ============================================================
+function goToPhase(phase) {
+  if (phase < 0 || phase > TOTAL_PHASES) return;
+  currentPhase = phase;
+  runPhase(currentPhase);
+}
+
+function nextPhase() {
+  if (currentPhase < TOTAL_PHASES) {
+    currentPhase++;
+    runPhase(currentPhase);
+  }
+}
+
+function prevPhase() {
+  if (currentPhase > 0) {
+    currentPhase--;
+    runPhase(currentPhase);
+  }
+}
+
+function toggleAutoPlay() {
+  if (isAutoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  isAutoPlaying = true;
+  document.getElementById('btnAutoPlay').textContent = '\u275A\u275A 暂停';
+  document.getElementById('btnAutoPlay').classList.add('primary');
+
+  if (currentPhase >= TOTAL_PHASES) {
+    currentPhase = 0;
+    document.getElementById('messageLog').innerHTML = '';
+    runPhase(0);
+  }
+
+  autoPlayTimer = setInterval(() => {
+    if (currentPhase < TOTAL_PHASES) {
+      nextPhase();
+    } else {
+      stopAutoPlay();
+    }
+  }, 5000);
+}
+
+function stopAutoPlay() {
+  isAutoPlaying = false;
+  clearInterval(autoPlayTimer);
+  autoPlayTimer = null;
+  document.getElementById('btnAutoPlay').innerHTML = '&#9654; 自动播放';
+}
+
+function replay() {
+  stopAutoPlay();
+  currentPhase = 0;
+  document.getElementById('messageLog').innerHTML = '<div class="log-entry visible from-user"><span class="log-time">00:00</span> <span class="log-sender user">[系统]</span><br>等待任务开始...</div>';
+  runPhase(0);
+}
+
+// ============================================================
+// Role card toggle
+// ============================================================
+function toggleCard(el) {
+  el.classList.toggle('expanded');
+}
+
+// ============================================================
+// Event listeners
+// ============================================================
+document.getElementById('btnAutoPlay').addEventListener('click', toggleAutoPlay);
+document.getElementById('btnNext').addEventListener('click', nextPhase);
+document.getElementById('btnPrev').addEventListener('click', prevPhase);
+document.getElementById('btnReplay').addEventListener('click', replay);
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextPhase(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevPhase(); }
+});
+
+// ============================================================
+// Init
+// ============================================================
+init();
+</script>
+</body>
+</html>
