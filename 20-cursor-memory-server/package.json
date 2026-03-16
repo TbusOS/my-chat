@@ -1,0 +1,16 @@
+{
+  "name": "cursor-memory-server",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.10",
+    "typescript": "^5.9.3"
+  }
+}
