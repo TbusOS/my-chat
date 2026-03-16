@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Prompt 是什么？</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+.header { text-align: center; padding: 32px 20px 16px; }
+.header h1 { font-size: 32px; font-weight: 900; color: #1e293b; margin-bottom: 8px; letter-spacing: -0.5px; }
+.header h1 span { color: #2563eb; }
+.header p { font-size: 16px; color: #64748b; font-weight: 400; }
+.progress-bar { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; }
+.progress-dot { width: 10px; height: 10px; border-radius: 50%; background: #e2e8f0; transition: all 0.4s ease; cursor: pointer; }
+.progress-dot.active { background: #2563eb; transform: scale(1.3); box-shadow: 0 0 0 4px rgba(37,99,235,0.15); }
+.progress-dot.completed { background: #2563eb; }
+.progress-line { width: 24px; height: 2px; background: #e2e8f0; transition: background 0.4s ease; }
+.progress-line.completed { background: #2563eb; }
+.step-label { font-size: 14px; color: #94a3b8; font-weight: 500; margin-top: 6px; }
+.step-label strong { color: #2563eb; }
+.stage-container {
+  position: relative; width: 680px; height: 440px; margin: 12px 0 16px;
+  background: #f8fafc; border-radius: 20px; border: 2px solid #e2e8f0;
+  overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+.stage { position: relative; width: 100%; height: 100%; }
+.step-title {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  font-size: 15px; font-weight: 700; color: #2563eb; background: #eff6ff;
+  padding: 4px 18px; border-radius: 20px; z-index: 20; white-space: nowrap;
+  opacity: 0; transition: opacity 0.5s ease;
+}
+.step-title.visible { opacity: 1; }
+.character-wrapper {
+  position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+  z-index: 10; transition: left 0.8s ease, transform 0.8s ease;
+}
+.character-wrapper.idle { animation: bobbing 2s ease-in-out infinite; }
+.character-wrapper.nod { animation: nod 0.5s ease-in-out 2; }
+.character-wrapper.thinking { animation: thinking-bob 2.5s ease-in-out infinite; }
+.character-wrapper.eureka { animation: eureka 0.6s ease-out; }
+.character-wrapper.celebrate { animation: celebrate 0.5s ease-in-out 3; }
+.character-wrapper.pos-right { left: 62%; }
+.character-wrapper.pos-center { left: 50%; }
+.character-wrapper.pos-left { left: 38%; }
+@keyframes bobbing { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-6px)} }
+@keyframes nod { 0%,100%{transform:translateX(-50%) rotate(0)} 30%{transform:translateX(-50%) rotate(8deg)} 60%{transform:translateX(-50%) rotate(-4deg)} }
+@keyframes thinking-bob { 0%,100%{transform:translateX(-50%) translateY(0) rotate(0)} 30%{transform:translateX(-50%) translateY(-4px) rotate(-2deg)} 70%{transform:translateX(-50%) translateY(-2px) rotate(2deg)} }
+@keyframes eureka { 0%{transform:translateX(-50%) translateY(0) scale(1)} 40%{transform:translateX(-50%) translateY(-20px) scale(1.1)} 100%{transform:translateX(-50%) translateY(0) scale(1)} }
+@keyframes celebrate { 0%,100%{transform:translateX(-50%) translateY(0) rotate(0)} 25%{transform:translateX(-50%) translateY(-15px) rotate(-8deg)} 75%{transform:translateX(-50%) translateY(-15px) rotate(8deg)} }
+.char-arm-left, .char-arm-right { transition: transform 0.4s ease; transform-origin: center top; }
+.character-wrapper.wave .char-arm-right { animation: wave-arm 0.6s ease-in-out 2; }
+.character-wrapper.reach .char-arm-right { transform: rotate(-60deg) translateX(5px); }
+.character-wrapper.point .char-arm-right { transform: rotate(-45deg) translateX(10px) translateY(-10px); }
+.character-wrapper.present .char-arm-left, .character-wrapper.present .char-arm-right { transform: rotate(-40deg); }
+@keyframes wave-arm { 0%,100%{transform:rotate(0)} 50%{transform:rotate(-40deg)} }
+.lightbulb { position: absolute; top: -45px; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.5s ease; }
+.lightbulb.on { opacity: 1; animation: glow-pulse 1.5s ease-in-out infinite; }
+@keyframes glow-pulse { 0%,100%{filter:drop-shadow(0 0 4px rgba(250,204,21,0.4))} 50%{filter:drop-shadow(0 0 12px rgba(250,204,21,0.8))} }
+.question-mark {
+  position: absolute; top: -50px; left: 50%; transform: translateX(-50%);
+  font-size: 36px; font-weight: 900; color: #94a3b8; opacity: 0; transition: all 0.5s ease;
+}
+.question-mark.visible { opacity: 1; animation: float-question 2s ease-in-out infinite; }
+@keyframes float-question { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-8px)} }
+.bubble {
+  position: absolute; background: #ffffff; border: 2px solid #e2e8f0; border-radius: 16px;
+  padding: 12px 18px; font-size: 14px; line-height: 1.6; color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06); opacity: 0;
+  transform: scale(0.8) translateY(10px); transition: all 0.5s cubic-bezier(0.34,1.56,0.64,1); z-index: 15; max-width: 240px;
+}
+.bubble.visible { opacity: 1; transform: scale(1) translateY(0); }
+.bubble::after { content:''; position:absolute; width:0; height:0; }
+.bubble.tail-left::after { bottom:20px; left:-10px; border-right:10px solid #fff; border-top:6px solid transparent; border-bottom:6px solid transparent; }
+.bubble.tail-right::after { bottom:20px; right:-10px; border-left:10px solid #fff; border-top:6px solid transparent; border-bottom:6px solid transparent; }
+.thought-bubble {
+  position: absolute; background: #fff; border: 2px solid #e2e8f0; border-radius: 20px;
+  padding: 16px 20px; font-size: 13px; line-height: 1.8; color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06); opacity: 0; transform: scale(0.8);
+  transition: all 0.5s cubic-bezier(0.34,1.56,0.64,1); z-index: 15;
+}
+.thought-bubble.visible { opacity: 1; transform: scale(1); }
+.prompt-card {
+  position: absolute; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 3px solid #93c5fd; border-radius: 20px; padding: 28px 36px;
+  font-size: 22px; line-height: 1.8; color: #1e40af;
+  box-shadow: 0 8px 32px rgba(37,99,235,0.15); opacity: 0;
+  transform: scale(0.5) translateY(-50px); transition: all 0.6s cubic-bezier(0.34,1.56,0.64,1); z-index: 16;
+}
+.prompt-card.visible { opacity: 1; transform: scale(1) translateY(0); }
+.prompt-card.absorb {
+  transform: scale(0.3) translateY(80px); opacity: 0;
+  transition: all 0.8s cubic-bezier(0.55,0.085,0.68,0.53);
+}
+.prompt-card .label {
+  font-weight: 900; color: #2563eb; font-size: 24px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 6px;
+}
+.code-panel {
+  position: absolute; background: #1e293b; border-radius: 12px; padding: 0;
+  font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.7; color: #e2e8f0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12); opacity: 0;
+  transform: scale(0.9) translateY(10px); transition: all 0.5s cubic-bezier(0.34,1.56,0.64,1); z-index: 14; overflow: hidden;
+}
+.code-panel.visible { opacity: 1; transform: scale(1) translateY(0); }
+.code-panel-header { background: #334155; padding: 6px 12px; display: flex; align-items: center; gap: 6px; }
+.code-dot { width: 8px; height: 8px; border-radius: 50%; }
+.code-dot.red { background: #ef4444; } .code-dot.yellow { background: #eab308; } .code-dot.green { background: #22c55e; }
+.code-panel-title { font-size: 11px; color: #94a3b8; margin-left: 6px; font-family: 'Noto Sans SC', sans-serif; }
+.code-panel-body { padding: 12px 16px; }
+.code-line { opacity: 0; transform: translateX(-5px); transition: all 0.3s ease; white-space: nowrap; }
+.code-line.visible { opacity: 1; transform: translateX(0); }
+.code-keyword { color: #818cf8; } .code-func { color: #38bdf8; } .code-string { color: #34d399; } .code-comment { color: #64748b; }
+.badge {
+  position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
+  background: #2563eb; color: white; font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 10px; white-space: nowrap;
+  opacity: 0; transition: all 0.4s ease; z-index: 12;
+}
+.badge.visible { opacity: 1; }
+.badge.poet { background: #7c3aed; }
+.report-panel {
+  position: absolute; background: #fff; border: 2px solid #22c55e; border-radius: 16px;
+  padding: 0; font-size: 13px; line-height: 1.8;
+  box-shadow: 0 8px 32px rgba(34,197,94,0.12); opacity: 0;
+  transform: scale(0.5) rotate(-5deg); transition: all 0.6s cubic-bezier(0.34,1.56,0.64,1); z-index: 15; overflow: hidden;
+}
+.report-panel.visible { opacity: 1; transform: scale(1) rotate(0deg); }
+.report-header { background: #22c55e; color: white; padding: 8px 18px; font-weight: 700; font-size: 14px; }
+.report-body { padding: 14px 18px; }
+.report-item { opacity: 0; transform: translateX(-8px); transition: all 0.4s ease; }
+.report-item.visible { opacity: 1; transform: translateX(0); }
+.user-avatar { position: absolute; z-index: 10; opacity: 0; transform: translateX(-30px); transition: all 0.5s ease; }
+.user-avatar.visible { opacity: 1; transform: translateX(0); }
+.ground-shadow {
+  position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+  width: 60px; height: 8px; background: radial-gradient(ellipse, rgba(0,0,0,0.08) 0%, transparent 70%);
+  z-index: 5; transition: left 0.8s ease;
+}
+.confetti-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; overflow: hidden; }
+.confetti { position: absolute; width: 8px; height: 8px; border-radius: 2px; opacity: 0; }
+.confetti.active { animation: confetti-fall 2s ease-out forwards; }
+@keyframes confetti-fall { 0%{opacity:1;transform:translateY(-20px) rotate(0) scale(1)} 100%{opacity:0;transform:translateY(400px) rotate(720deg) scale(0.5)} }
+.controls { display: flex; align-items: center; gap: 12px; margin: 8px 0 32px; }
+.btn {
+  padding: 10px 24px; border: none; border-radius: 10px; font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: #2563eb; color: white; box-shadow: 0 2px 8px rgba(37,99,235,0.3); }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-primary:disabled { background: #94a3b8; box-shadow: none; cursor: not-allowed; transform: none; }
+.btn-secondary { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.btn-secondary:hover { background: #e2e8f0; }
+.btn-auto { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.btn-auto:hover { background: #dcfce7; }
+.btn-auto.playing { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+/* Hat morphing */
+.hat-engineer, .hat-beret { transition: opacity 0.5s ease; }
+/* Poetic panel */
+.poetic-panel {
+  position: absolute; background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%);
+  border: 2px solid #d8b4fe; border-radius: 16px; padding: 16px 20px;
+  font-size: 14px; line-height: 2; color: #6b21a8;
+  box-shadow: 0 8px 32px rgba(124,58,237,0.12); opacity: 0;
+  transform: scale(0.9); transition: all 0.5s cubic-bezier(0.34,1.56,0.64,1); z-index: 14;
+}
+.poetic-panel.visible { opacity: 1; transform: scale(1); }
+.insight-box {
+  position: absolute; background: #fffbeb; border: 2px solid #fbbf24; border-radius: 12px;
+  padding: 10px 16px; font-size: 13px; font-weight: 700; color: #92400e;
+  box-shadow: 0 4px 16px rgba(251,191,36,0.15); opacity: 0;
+  transform: translateY(10px); transition: all 0.5s ease; z-index: 16;
+}
+.insight-box.visible { opacity: 1; transform: translateY(0); }
+@media (max-width: 720px) {
+  .stage-container { width: 95vw; height: 380px; }
+  .header h1 { font-size: 24px; }
+  .bubble, .thought-bubble { font-size: 12px; max-width: 180px; }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span>System Prompt</span> 是什么？</h1>
+  <p>一段隐藏的指令，决定了 AI 会怎么回答你</p>
+</div>
+<div class="progress-bar" id="progressBar">
+  <div class="progress-dot active" data-step="0" onclick="goToStep(0)"></div>
+  <div class="progress-line" data-line="0"></div>
+  <div class="progress-dot" data-step="1" onclick="goToStep(1)"></div>
+  <div class="progress-line" data-line="1"></div>
+  <div class="progress-dot" data-step="2" onclick="goToStep(2)"></div>
+  <div class="progress-line" data-line="2"></div>
+  <div class="progress-dot" data-step="3" onclick="goToStep(3)"></div>
+  <div class="progress-line" data-line="3"></div>
+  <div class="progress-dot" data-step="4" onclick="goToStep(4)"></div>
+  <div class="progress-line" data-line="4"></div>
+  <div class="progress-dot" data-step="5" onclick="goToStep(5)"></div>
+</div>
+<div class="step-label" id="stepLabel">步骤 <strong>1</strong> / 6</div>
+<div class="stage-container">
+  <div class="stage" id="stage">
+    <div class="step-title" id="stepTitle"></div>
+    <div class="ground-shadow" id="groundShadow"></div>
+    <div class="character-wrapper idle" id="character">
+      <div class="lightbulb" id="lightbulb">
+        <svg width="30" height="36" viewBox="0 0 30 36">
+          <ellipse cx="15" cy="14" rx="11" ry="12" fill="#fbbf24" opacity="0.3"/>
+          <path d="M15 2C8 2 3 7.5 3 14C3 19 6 22 9 24L9 28L21 28L21 24C24 22 27 19 27 14C27 7.5 22 2 15 2Z" fill="#fbbf24"/>
+          <rect x="10" y="28" width="10" height="3" rx="1" fill="#d4a017"/>
+          <rect x="11" y="31" width="8" height="2" rx="1" fill="#d4a017"/>
+          <path d="M15 8L15 18M10 13L20 13" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+      <div class="question-mark" id="questionMark">？</div>
+      <div class="badge" id="charBadge"></div>
+      <svg width="100" height="140" viewBox="0 0 100 140" id="charSvg">
+        <rect x="30" y="62" width="40" height="45" rx="12" fill="#2563eb"/>
+        <rect x="35" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <rect x="53" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <ellipse cx="41" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <ellipse cx="59" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <g class="char-arm-left"><rect x="17" y="66" width="14" height="30" rx="7" fill="#2563eb"/><circle cx="24" cy="98" r="6" fill="#fde68a"/></g>
+        <g class="char-arm-right"><rect x="69" y="66" width="14" height="30" rx="7" fill="#2563eb"/><circle cx="76" cy="98" r="6" fill="#fde68a"/></g>
+        <circle cx="50" cy="36" r="28" fill="#fde68a"/>
+        <!-- Engineer hat (default) -->
+        <g class="hat-engineer" id="hatEngineer">
+          <path d="M25 32Q25 14 50 10Q75 14 75 32Z" fill="#2563eb"/>
+          <rect x="20" y="30" width="60" height="6" rx="3" fill="#1d4ed8"/>
+        </g>
+        <!-- Beret (hidden by default) -->
+        <g class="hat-beret" id="hatBeret" opacity="0">
+          <ellipse cx="50" cy="16" rx="24" ry="14" fill="#7c3aed"/>
+          <circle cx="50" cy="6" r="4" fill="#7c3aed"/>
+          <ellipse cx="50" cy="28" rx="28" ry="4" fill="#6d28d9"/>
+        </g>
+        <g class="char-face">
+          <circle class="char-eye" cx="40" cy="38" r="3.5" fill="#1e293b"/>
+          <circle class="char-eye" cx="60" cy="38" r="3.5" fill="#1e293b"/>
+          <circle cx="41.5" cy="36.5" r="1.2" fill="white"/>
+          <circle cx="61.5" cy="36.5" r="1.2" fill="white"/>
+          <ellipse class="char-mouth" cx="50" cy="50" rx="6" ry="3" fill="#1e293b"/>
+          <ellipse cx="34" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+          <ellipse cx="66" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+        </g>
+      </svg>
+    </div>
+    <div class="confetti-container" id="confettiContainer"></div>
+  </div>
+</div>
+<div class="controls">
+  <button class="btn btn-secondary" onclick="replay()">重播</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+</div>
+
+<script>
+const STEPS = [
+  { title: '第一步：一个空白的 AI', key: 'blank' },
+  { title: '第二步：注入人设', key: 'inject' },
+  { title: '第三步：人设生效', key: 'effect' },
+  { title: '第四步：换个人设', key: 'switch' },
+  { title: '第五步：同样的问题，不同的回答', key: 'contrast' },
+  { title: '第六步：System Prompt 的秘密', key: 'summary' }
+];
+let currentStep = -1, autoPlayInterval = null, isAutoPlaying = false, dynamicElements = [];
+const stage = document.getElementById('stage');
+const character = document.getElementById('character');
+const stepTitle = document.getElementById('stepTitle');
+const lightbulb = document.getElementById('lightbulb');
+const questionMark = document.getElementById('questionMark');
+const charBadge = document.getElementById('charBadge');
+const groundShadow = document.getElementById('groundShadow');
+const confettiContainer = document.getElementById('confettiContainer');
+const hatEngineer = document.getElementById('hatEngineer');
+const hatBeret = document.getElementById('hatBeret');
+
+function clearDynamic() {
+  dynamicElements.forEach(el => { if(el&&el.parentNode) el.parentNode.removeChild(el); });
+  dynamicElements = [];
+  character.className = 'character-wrapper idle pos-center';
+  groundShadow.style.left = '50%';
+  stepTitle.classList.remove('visible');
+  lightbulb.classList.remove('on');
+  questionMark.classList.remove('visible');
+  charBadge.classList.remove('visible','poet');
+  charBadge.textContent = '';
+  confettiContainer.innerHTML = '';
+  hatEngineer.setAttribute('opacity','1');
+  hatBeret.setAttribute('opacity','0');
+}
+function ce(tag, attrs, parent) {
+  const el = document.createElement(tag);
+  if(attrs) Object.keys(attrs).forEach(k => {
+    if(k==='style'&&typeof attrs[k]==='object') Object.assign(el.style,attrs[k]);
+    else if(k==='className') el.className=attrs[k];
+    else if(k==='innerHTML') el.innerHTML=attrs[k];
+    else if(k==='textContent') el.textContent=attrs[k];
+    else el.setAttribute(k,attrs[k]);
+  });
+  (parent||stage).appendChild(el);
+  dynamicElements.push(el);
+  return el;
+}
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function updateProgress(step){
+  document.querySelectorAll('.progress-dot').forEach((d,i)=>{ d.classList.toggle('active',i===step); d.classList.toggle('completed',i<step); });
+  document.querySelectorAll('.progress-line').forEach((l,i)=>{ l.classList.toggle('completed',i<step); });
+  document.getElementById('stepLabel').innerHTML=`步骤 <strong>${step+1}</strong> / 6`;
+}
+
+function makeUserAvatar(x, bottom) {
+  return ce('div',{
+    className:'user-avatar',
+    style:{left:x,bottom:bottom},
+    innerHTML:`<svg width="60" height="80" viewBox="0 0 60 80">
+      <circle cx="30" cy="26" r="20" fill="#e2e8f0"/><circle cx="30" cy="26" r="16" fill="#fde68a"/>
+      <circle cx="24" cy="24" r="2" fill="#1e293b"/><circle cx="36" cy="24" r="2" fill="#1e293b"/>
+      <path d="M26 32Q30 36 34 32" stroke="#1e293b" fill="none" stroke-width="1.5" stroke-linecap="round"/>
+      <rect x="15" y="44" width="30" height="30" rx="10" fill="#64748b"/>
+      <rect x="10" y="70" width="16" height="10" rx="5" fill="#64748b"/>
+      <rect x="34" y="70" width="16" height="10" rx="5" fill="#64748b"/>
+    </svg>`
+  });
+}
+
+/* Step 0: Blank AI */
+async function stepBlank() {
+  character.className = 'character-wrapper idle pos-center';
+  hatEngineer.setAttribute('opacity','0');
+  hatBeret.setAttribute('opacity','0');
+  stepTitle.textContent = STEPS[0].title;
+  await delay(200); stepTitle.classList.add('visible');
+  await delay(400);
+  questionMark.classList.add('visible');
+  const tb = ce('div',{
+    className:'thought-bubble',
+    style:{right:'50px',top:'60px',maxWidth:'220px'},
+    innerHTML:'<div style="color:#94a3b8">我是谁？<br>我该用什么语气？<br>我该怎么回答？</div>'
+  });
+  await delay(500); tb.classList.add('visible');
+  const ua = makeUserAvatar('30px','50px');
+  await delay(600); ua.classList.add('visible');
+  const ub = ce('div',{
+    className:'bubble tail-right',
+    style:{left:'90px',bottom:'100px',maxWidth:'180px'},
+    textContent:'帮我写一段代码'
+  });
+  await delay(500); ub.classList.add('visible');
+  await delay(600);
+  character.className = 'character-wrapper thinking pos-center';
+  const cb = ce('div',{
+    className:'bubble tail-left',
+    style:{right:'70px',bottom:'180px',maxWidth:'200px'},
+    innerHTML:'<span style="color:#94a3b8">用什么语言？什么风格？<br>我完全不知道...</span>'
+  });
+  await delay(500); cb.classList.add('visible');
+}
+
+/* Step 1: Inject persona */
+async function stepInject() {
+  character.className = 'character-wrapper idle pos-center';
+  hatEngineer.setAttribute('opacity','0');
+  hatBeret.setAttribute('opacity','0');
+  stepTitle.textContent = STEPS[1].title;
+  await delay(200); stepTitle.classList.add('visible');
+  questionMark.classList.add('visible');
+  await delay(400);
+  const card = ce('div',{
+    className:'prompt-card',
+    style:{left:'50%',top:'20px',transform:'translateX(-50%) scale(0.5) translateY(-50px)',width:'520px'},
+    innerHTML:`<div class="label">📜 System Prompt</div>
+      <div>你是一个<strong>资深 Python 程序员</strong>，擅长写简洁高效的代码，<strong>用中文回答</strong>。</div>`
+  });
+  await delay(300); card.classList.add('visible');
+  await delay(1500);
+  questionMark.classList.remove('visible');
+  card.classList.add('absorb');
+  await delay(800);
+  hatEngineer.setAttribute('opacity','1');
+  character.className = 'character-wrapper eureka pos-center';
+  charBadge.textContent = '🐍 Python 专家';
+  charBadge.classList.add('visible');
+  await delay(600);
+  lightbulb.classList.add('on');
+  const cb = ce('div',{
+    className:'bubble tail-left',
+    style:{right:'60px',bottom:'170px',maxWidth:'180px'},
+    innerHTML:'<span style="font-weight:700;color:#2563eb">人设已加载！</span><br>我现在是 Python 专家了'
+  });
+  await delay(400); cb.classList.add('visible');
+  await delay(600);
+  character.className = 'character-wrapper idle pos-center';
+}
+
+/* Step 2: Persona in effect */
+async function stepEffect() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '38%';
+  hatEngineer.setAttribute('opacity','1');
+  charBadge.textContent = '🐍 Python 专家';
+  charBadge.classList.add('visible');
+  stepTitle.textContent = STEPS[2].title;
+  await delay(200); stepTitle.classList.add('visible');
+  const ua = makeUserAvatar('20px','50px');
+  await delay(300); ua.classList.add('visible');
+  const ub = ce('div',{
+    className:'bubble tail-right',
+    style:{left:'80px',bottom:'100px',maxWidth:'180px'},
+    textContent:'帮我写一个排序算法'
+  });
+  await delay(400); ub.classList.add('visible');
+  await delay(600);
+  character.className = 'character-wrapper nod pos-left';
+  const cb = ce('div',{
+    className:'bubble tail-left',
+    style:{right:'30px',top:'45px',maxWidth:'160px'},
+    innerHTML:'<span style="font-weight:700;color:#2563eb">好的！</span>这是一个高效的快排：'
+  });
+  await delay(400); cb.classList.add('visible');
+  const code = ce('div',{
+    className:'code-panel',
+    style:{right:'20px',top:'110px',width:'300px'},
+    innerHTML:`<div class="code-panel-header">
+      <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+      <span class="code-panel-title">quicksort.py</span></div>
+      <div class="code-panel-body">
+        <div class="code-line" data-i="0"><span class="code-keyword">def</span> <span class="code-func">quicksort</span>(arr):</div>
+        <div class="code-line" data-i="1">&nbsp;&nbsp;<span class="code-keyword">if</span> len(arr) &lt;= 1:</div>
+        <div class="code-line" data-i="2">&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword">return</span> arr</div>
+        <div class="code-line" data-i="3">&nbsp;&nbsp;pivot = arr[len(arr)//2]</div>
+        <div class="code-line" data-i="4">&nbsp;&nbsp;left = [x <span class="code-keyword">for</span> x <span class="code-keyword">in</span> arr <span class="code-keyword">if</span> x &lt; pivot]</div>
+        <div class="code-line" data-i="5">&nbsp;&nbsp;mid = [x <span class="code-keyword">for</span> x <span class="code-keyword">in</span> arr <span class="code-keyword">if</span> x == pivot]</div>
+        <div class="code-line" data-i="6">&nbsp;&nbsp;right = [x <span class="code-keyword">for</span> x <span class="code-keyword">in</span> arr <span class="code-keyword">if</span> x &gt; pivot]</div>
+        <div class="code-line" data-i="7">&nbsp;&nbsp;<span class="code-keyword">return</span> quicksort(left)+mid+quicksort(right)</div>
+      </div>`
+  });
+  await delay(500); code.classList.add('visible');
+  const lines = code.querySelectorAll('.code-line');
+  for(let i=0;i<lines.length;i++){ await delay(250); lines[i].classList.add('visible'); }
+  await delay(300);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+/* Step 3: Switch persona */
+async function stepSwitch() {
+  character.className = 'character-wrapper idle pos-center';
+  groundShadow.style.left = '50%';
+  hatEngineer.setAttribute('opacity','1');
+  charBadge.textContent = '🐍 Python 专家';
+  charBadge.classList.add('visible');
+  stepTitle.textContent = STEPS[3].title;
+  await delay(200); stepTitle.classList.add('visible');
+  const oldCard = ce('div',{
+    className:'prompt-card visible',
+    style:{left:'100px',top:'50px',width:'240px',opacity:'0.5'},
+    innerHTML:'<div class="label" style="color:#94a3b8">📜 旧 System Prompt</div><div style="color:#94a3b8;text-decoration:line-through">你是一个资深 Python 程序员...</div>'
+  });
+  await delay(600);
+  oldCard.style.transition = 'all 0.6s ease';
+  oldCard.style.opacity = '0';
+  oldCard.style.transform = 'scale(0.5) translateX(-100px)';
+  await delay(400);
+  const newCard = ce('div',{
+    className:'prompt-card',
+    style:{right:'80px',top:'50px',width:'280px'},
+    innerHTML:'<div class="label" style="color:#7c3aed">📜 新 System Prompt</div><div style="color:#6b21a8">你是一个<strong>浪漫的诗人</strong>，用优美的文字描述一切，充满诗意和想象力。</div>'
+  });
+  await delay(300); newCard.classList.add('visible');
+  await delay(1200);
+  newCard.classList.add('absorb');
+  await delay(600);
+  hatEngineer.setAttribute('opacity','0');
+  hatBeret.setAttribute('opacity','1');
+  charBadge.textContent = '✒️ 诗人';
+  charBadge.classList.add('poet');
+  character.className = 'character-wrapper eureka pos-center';
+  await delay(600);
+  character.className = 'character-wrapper idle pos-center';
+}
+
+/* Step 4: Same question, different answer */
+async function stepContrast() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '38%';
+  hatBeret.setAttribute('opacity','1');
+  hatEngineer.setAttribute('opacity','0');
+  charBadge.textContent = '✒️ 诗人';
+  charBadge.classList.add('visible','poet');
+  stepTitle.textContent = STEPS[4].title;
+  await delay(200); stepTitle.classList.add('visible');
+  const ua = makeUserAvatar('20px','50px');
+  await delay(300); ua.classList.add('visible');
+  const ub = ce('div',{
+    className:'bubble tail-right',
+    style:{left:'80px',bottom:'100px',maxWidth:'200px'},
+    innerHTML:'帮我写一个排序算法<br><span style="font-size:11px;color:#94a3b8">（和上次一模一样的问题）</span>'
+  });
+  await delay(400); ub.classList.add('visible');
+  await delay(600);
+  character.className = 'character-wrapper nod pos-left';
+  const pp = ce('div',{
+    className:'poetic-panel',
+    style:{right:'20px',top:'50px',width:'300px'},
+    innerHTML:`<div style="font-weight:700;color:#7c3aed;margin-bottom:8px">✒️ 排序之诗</div>
+      <div style="font-style:italic">让数字如落叶般归位，<br>从小到大，似溪水汇入江河。<br>每一次比较，都是一场温柔的对话，<br>每一次交换，都是命运的重新排列...</div>`
+  });
+  await delay(500); pp.classList.add('visible');
+  await delay(800);
+  const insight = ce('div',{
+    className:'insight-box',
+    style:{left:'50%',bottom:'12px',transform:'translateX(-50%) translateY(10px)',whiteSpace:'nowrap'},
+    innerHTML:'💡 同一个问题 → 不同的 System Prompt → 完全不同的回答'
+  });
+  await delay(500); insight.classList.add('visible');
+  await delay(400);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+/* Step 5: Summary */
+async function stepSummary() {
+  character.className = 'character-wrapper present pos-left';
+  groundShadow.style.left = '38%';
+  hatEngineer.setAttribute('opacity','1');
+  hatBeret.setAttribute('opacity','0');
+  charBadge.textContent = '🐍 Python 专家';
+  charBadge.classList.add('visible');
+  stepTitle.textContent = STEPS[5].title;
+  await delay(200); stepTitle.classList.add('visible');
+  const rp = ce('div',{
+    className:'report-panel',
+    style:{right:'30px',top:'40px',width:'310px'},
+    innerHTML:`<div class="report-header">System Prompt 的秘密</div>
+      <div class="report-body">
+        <div class="report-item" data-i="0">📋 System Prompt = AI 的人设说明书</div>
+        <div class="report-item" data-i="1">👤 用户看不到它，但它影响每一句回答</div>
+        <div class="report-item" data-i="2">🔧 Claude / GPT / Gemini 都支持</div>
+        <div class="report-item" data-i="3">🎭 不同的 Prompt → 完全不同的 AI 人格</div>
+        <div class="report-item" data-i="4" style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;font-weight:700;color:#2563eb">💡 写好 System Prompt = 拥有专属助手</div>
+      </div>`
+  });
+  await delay(400); rp.classList.add('visible');
+  const items = rp.querySelectorAll('.report-item');
+  for(let i=0;i<items.length;i++){ await delay(400); items[i].classList.add('visible'); }
+  await delay(500);
+  character.className = 'character-wrapper celebrate pos-left';
+  spawnConfetti();
+  await delay(1500);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+function spawnConfetti(){
+  const colors=['#2563eb','#22c55e','#eab308','#ef4444','#a855f7','#f97316'];
+  for(let i=0;i<40;i++){
+    const c=document.createElement('div'); c.className='confetti';
+    c.style.left=(Math.random()*100)+'%'; c.style.top='-10px';
+    c.style.width=(4+Math.random()*6)+'px'; c.style.height=(4+Math.random()*6)+'px';
+    c.style.background=colors[Math.floor(Math.random()*colors.length)];
+    c.style.borderRadius=Math.random()>0.5?'50%':'2px';
+    c.style.animationDelay=(Math.random()*0.8)+'s';
+    c.style.animationDuration=(1.5+Math.random())+'s';
+    confettiContainer.appendChild(c);
+    setTimeout(()=>c.classList.add('active'),10);
+  }
+}
+
+const stepFunctions=[stepBlank,stepInject,stepEffect,stepSwitch,stepContrast,stepSummary];
+async function goToStep(step){
+  if(step<0||step>5||step===currentStep) return;
+  currentStep=step; clearDynamic(); updateProgress(step);
+  const btn=document.getElementById('btnNext');
+  btn.disabled=false; btn.textContent=step<5?'下一步':'完成';
+  if(step>=5) btn.disabled=true;
+  await stepFunctions[step]();
+}
+async function nextStep(){ if(currentStep>=5) return; await goToStep(currentStep+1); }
+function prevStep(){if(!isAutoPlaying&&currentStep>0)goToStep(currentStep-1)}
+function replay(){
+  stopAutoPlay(); currentStep=-1; clearDynamic(); updateProgress(0);
+  document.getElementById('btnNext').disabled=false;
+  document.getElementById('btnNext').textContent='下一步';
+  goToStep(0);
+}
+function toggleAutoPlay(){ isAutoPlaying?stopAutoPlay():startAutoPlay(); }
+function startAutoPlay(){
+  isAutoPlaying=true;
+  const btn=document.getElementById('btnAuto'); btn.textContent='暂停播放'; btn.classList.add('playing');
+  document.getElementById('btnNext').disabled=true;
+  currentStep=-1; clearDynamic(); updateProgress(0);
+  const adv=async()=>{
+    if(!isAutoPlaying)return; if(currentStep>=5){stopAutoPlay();return;}
+    await goToStep(currentStep<0?0:currentStep+1);
+    if(isAutoPlaying) autoPlayInterval=setTimeout(adv,3500);
+  }; adv();
+}
+function stopAutoPlay(){
+  isAutoPlaying=false; if(autoPlayInterval){clearTimeout(autoPlayInterval);autoPlayInterval=null;}
+  const btn=document.getElementById('btnAuto'); btn.textContent='自动播放'; btn.classList.remove('playing');
+  document.getElementById('btnNext').disabled=(currentStep>=5);
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();if(!isAutoPlaying)nextStep();}
+  if(e.key==='ArrowLeft'){e.preventDefault();if(!isAutoPlaying&&currentStep>0)goToStep(currentStep-1);}
+  if(e.key==='r'||e.key==='R') replay();
+});
+goToStep(0);
+</script>
+</body>
+</html>

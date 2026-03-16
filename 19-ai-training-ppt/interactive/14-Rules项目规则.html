@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rules 项目规则</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans SC',sans-serif;background:#fff;color:#1e293b;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
+.header{text-align:center;padding:32px 20px 16px}
+.header h1{font-size:32px;font-weight:900;color:#1e293b;margin-bottom:8px;letter-spacing:-0.5px}
+.header h1 span{color:#2563eb}
+.header p{font-size:16px;color:#64748b;font-weight:400}
+.progress-bar{display:flex;align-items:center;gap:8px;margin:16px 0 8px}
+.progress-dot{width:10px;height:10px;border-radius:50%;background:#e2e8f0;transition:all .4s ease;cursor:pointer}
+.progress-dot.active{background:#2563eb;transform:scale(1.3);box-shadow:0 0 0 4px rgba(37,99,235,.15)}
+.progress-dot.completed{background:#2563eb}
+.progress-line{width:24px;height:2px;background:#e2e8f0;transition:background .4s ease}
+.progress-line.completed{background:#2563eb}
+.step-label{font-size:14px;color:#94a3b8;font-weight:500;margin-top:6px}
+.step-label strong{color:#2563eb}
+.stage-container{position:relative;width:680px;height:440px;margin:12px 0 16px;background:#f8fafc;border-radius:20px;border:2px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.04)}
+.stage{position:relative;width:100%;height:100%}
+.step-title{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:700;color:#2563eb;background:#eff6ff;padding:4px 18px;border-radius:20px;z-index:20;white-space:nowrap;opacity:0;transition:opacity .5s ease}
+.step-title.visible{opacity:1}
+.character-wrapper{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:10;transition:left .8s ease,transform .8s ease}
+.character-wrapper.idle{animation:bobbing 2s ease-in-out infinite}
+.character-wrapper.nod{animation:nod .5s ease-in-out 2}
+.character-wrapper.thinking{animation:thinking-bob 2.5s ease-in-out infinite}
+.character-wrapper.eureka{animation:eureka .6s ease-out}
+.character-wrapper.celebrate{animation:celebrate .5s ease-in-out 3}
+.character-wrapper.pos-right{left:62%}
+.character-wrapper.pos-center{left:50%}
+.character-wrapper.pos-left{left:35%}
+@keyframes bobbing{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}
+@keyframes nod{0%,100%{transform:translateX(-50%) rotate(0)}30%{transform:translateX(-50%) rotate(8deg)}60%{transform:translateX(-50%) rotate(-4deg)}}
+@keyframes thinking-bob{0%,100%{transform:translateX(-50%) translateY(0) rotate(0)}30%{transform:translateX(-50%) translateY(-4px) rotate(-2deg)}70%{transform:translateX(-50%) translateY(-2px) rotate(2deg)}}
+@keyframes eureka{0%{transform:translateX(-50%) translateY(0) scale(1)}40%{transform:translateX(-50%) translateY(-20px) scale(1.1)}100%{transform:translateX(-50%) translateY(0) scale(1)}}
+@keyframes celebrate{0%,100%{transform:translateX(-50%) translateY(0) rotate(0)}25%{transform:translateX(-50%) translateY(-15px) rotate(-8deg)}75%{transform:translateX(-50%) translateY(-15px) rotate(8deg)}}
+.char-arm-left,.char-arm-right{transition:transform .4s ease;transform-origin:center top}
+.character-wrapper.reach .char-arm-right{transform:rotate(-60deg) translateX(5px)}
+.character-wrapper.point .char-arm-right{transform:rotate(-45deg) translateX(10px) translateY(-10px)}
+.character-wrapper.present .char-arm-left,.character-wrapper.present .char-arm-right{transform:rotate(-40deg)}
+.lightbulb{position:absolute;top:-45px;left:50%;transform:translateX(-50%);opacity:0;transition:opacity .5s ease}
+.lightbulb.on{opacity:1;animation:glow-pulse 1.5s ease-in-out infinite}
+@keyframes glow-pulse{0%,100%{filter:drop-shadow(0 0 4px rgba(250,204,21,.4))}50%{filter:drop-shadow(0 0 12px rgba(250,204,21,.8))}}
+.bubble{position:absolute;background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:12px 18px;font-size:14px;line-height:1.6;color:#334155;box-shadow:0 4px 16px rgba(0,0,0,.06);opacity:0;transform:scale(.8) translateY(10px);transition:all .5s cubic-bezier(.34,1.56,.64,1);z-index:15;max-width:240px}
+.bubble.visible{opacity:1;transform:scale(1) translateY(0)}
+.bubble::after{content:'';position:absolute;width:0;height:0}
+.bubble.tail-left::after{bottom:20px;left:-10px;border-right:10px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent}
+.bubble.tail-right::after{bottom:20px;right:-10px;border-left:10px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent}
+.code-panel{position:absolute;background:#1e293b;border-radius:12px;padding:0;font-family:'Courier New',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;box-shadow:0 8px 32px rgba(0,0,0,.12);opacity:0;transform:scale(.9) translateY(10px);transition:all .5s cubic-bezier(.34,1.56,.64,1);z-index:14;overflow:hidden}
+.code-panel.visible{opacity:1;transform:scale(1) translateY(0)}
+.code-panel-header{background:#334155;padding:6px 12px;display:flex;align-items:center;gap:6px}
+.code-dot{width:8px;height:8px;border-radius:50%}
+.code-dot.red{background:#ef4444}.code-dot.yellow{background:#eab308}.code-dot.green{background:#22c55e}
+.code-panel-title{font-size:11px;color:#94a3b8;margin-left:6px;font-family:'Noto Sans SC',sans-serif}
+.code-panel-body{padding:12px 16px}
+.code-line{opacity:0;transform:translateX(-5px);transition:all .3s ease;white-space:nowrap}
+.code-line.visible{opacity:1;transform:translateX(0)}
+.code-keyword{color:#818cf8}.code-func{color:#38bdf8}.code-string{color:#34d399}.code-comment{color:#64748b}.code-error{color:#ef4444}.code-ok{color:#22c55e}
+.ground-shadow{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);width:60px;height:8px;background:radial-gradient(ellipse,rgba(0,0,0,.08) 0%,transparent 70%);z-index:5;transition:left .8s ease}
+.confetti-container{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:30;overflow:hidden}
+.confetti{position:absolute;width:8px;height:8px;border-radius:2px;opacity:0}
+.confetti.active{animation:confetti-fall 2s ease-out forwards}
+@keyframes confetti-fall{0%{opacity:1;transform:translateY(-20px) rotate(0) scale(1)}100%{opacity:0;transform:translateY(400px) rotate(720deg) scale(.5)}}
+.controls{display:flex;align-items:center;gap:12px;margin:8px 0 32px}
+.btn{padding:10px 24px;border:none;border-radius:10px;font-family:'Noto Sans SC',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s ease;display:flex;align-items:center;gap:6px}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(0)}
+.btn-primary{background:#2563eb;color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+.btn-primary:hover{background:#1d4ed8}
+.btn-primary:disabled{background:#94a3b8;box-shadow:none;cursor:not-allowed;transform:none}
+.btn-secondary{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}.btn-secondary:hover{background:#e2e8f0}
+.btn-auto{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}.btn-auto:hover{background:#dcfce7}
+.btn-auto.playing{background:#fef2f2;color:#dc2626;border-color:#fecaca}
+.file-icon{position:absolute;background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.06);opacity:0;transform:scale(.8);transition:all .5s cubic-bezier(.34,1.56,.64,1);z-index:12;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.file-icon.visible{opacity:1;transform:scale(1)}
+.file-icon.highlight{border-color:#2563eb;box-shadow:0 4px 16px rgba(37,99,235,.15)}
+.project-building{position:absolute;right:40px;bottom:30px;z-index:8;opacity:0;transform:translateY(20px);transition:all .6s ease}
+.project-building.visible{opacity:1;transform:translateY(0)}
+.report-panel{position:absolute;background:#fff;border:2px solid #22c55e;border-radius:16px;padding:0;font-size:13px;line-height:1.8;box-shadow:0 8px 32px rgba(34,197,94,.12);opacity:0;transform:scale(.5) rotate(-5deg);transition:all .6s cubic-bezier(.34,1.56,.64,1);z-index:15;overflow:hidden}
+.report-panel.visible{opacity:1;transform:scale(1) rotate(0)}
+.report-header{background:#22c55e;color:#fff;padding:8px 18px;font-weight:700;font-size:14px}
+.report-body{padding:14px 18px}
+.report-item{opacity:0;transform:translateX(-8px);transition:all .4s ease}
+.report-item.visible{opacity:1;transform:translateX(0)}
+.cross-line{text-decoration:line-through;color:#94a3b8!important}
+@media(max-width:720px){.stage-container{width:95vw;height:380px}.header h1{font-size:24px}.bubble{font-size:12px;max-width:180px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span>Rules</span> 项目规则</h1>
+  <p>每个项目都有自己的规矩，AI 开工前必读</p>
+</div>
+<div class="progress-bar" id="progressBar">
+  <div class="progress-dot active" data-step="0" onclick="goToStep(0)"></div><div class="progress-line" data-line="0"></div>
+  <div class="progress-dot" data-step="1" onclick="goToStep(1)"></div><div class="progress-line" data-line="1"></div>
+  <div class="progress-dot" data-step="2" onclick="goToStep(2)"></div><div class="progress-line" data-line="2"></div>
+  <div class="progress-dot" data-step="3" onclick="goToStep(3)"></div><div class="progress-line" data-line="3"></div>
+  <div class="progress-dot" data-step="4" onclick="goToStep(4)"></div><div class="progress-line" data-line="4"></div>
+  <div class="progress-dot" data-step="5" onclick="goToStep(5)"></div>
+</div>
+<div class="step-label" id="stepLabel">步骤 <strong>1</strong> / 6</div>
+<div class="stage-container">
+  <div class="stage" id="stage">
+    <div class="step-title" id="stepTitle"></div>
+    <div class="ground-shadow" id="groundShadow"></div>
+    <div class="character-wrapper idle" id="character">
+      <div class="lightbulb" id="lightbulb">
+        <svg width="30" height="36" viewBox="0 0 30 36"><ellipse cx="15" cy="14" rx="11" ry="12" fill="#fbbf24" opacity=".3"/><path d="M15 2C8 2 3 7.5 3 14C3 19 6 22 9 24L9 28L21 28L21 24C24 22 27 19 27 14C27 7.5 22 2 15 2Z" fill="#fbbf24"/><rect x="10" y="28" width="10" height="3" rx="1" fill="#d4a017"/><rect x="11" y="31" width="8" height="2" rx="1" fill="#d4a017"/><path d="M15 8L15 18M10 13L20 13" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".6"/></svg>
+      </div>
+      <svg width="100" height="140" viewBox="0 0 100 140">
+        <rect x="30" y="62" width="40" height="45" rx="12" fill="#2563eb"/>
+        <rect x="35" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/><rect x="53" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <ellipse cx="41" cy="126" rx="9" ry="5" fill="#1e293b"/><ellipse cx="59" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <g class="char-arm-left"><rect x="17" y="66" width="14" height="30" rx="7" fill="#2563eb"/><circle cx="24" cy="98" r="6" fill="#fde68a"/></g>
+        <g class="char-arm-right"><rect x="69" y="66" width="14" height="30" rx="7" fill="#2563eb"/><circle cx="76" cy="98" r="6" fill="#fde68a"/></g>
+        <circle cx="50" cy="36" r="28" fill="#fde68a"/>
+        <path d="M25 32Q25 14 50 10Q75 14 75 32Z" fill="#2563eb"/><rect x="20" y="30" width="60" height="6" rx="3" fill="#1d4ed8"/>
+        <g class="char-face"><circle cx="40" cy="38" r="3.5" fill="#1e293b"/><circle cx="60" cy="38" r="3.5" fill="#1e293b"/><circle cx="41.5" cy="36.5" r="1.2" fill="#fff"/><circle cx="61.5" cy="36.5" r="1.2" fill="#fff"/><ellipse cx="50" cy="50" rx="6" ry="3" fill="#1e293b"/><ellipse cx="34" cy="48" rx="5" ry="3" fill="#fca5a5" opacity=".4"/><ellipse cx="66" cy="48" rx="5" ry="3" fill="#fca5a5" opacity=".4"/></g>
+      </svg>
+    </div>
+    <div class="confetti-container" id="confettiContainer"></div>
+  </div>
+</div>
+<div class="controls">
+  <button class="btn btn-secondary" onclick="replay()">重播</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+</div>
+<script>
+const STEPS=[
+  {title:'第一步：走进新项目',key:'enter'},
+  {title:'第二步：发现规则文件',key:'discover'},
+  {title:'第三步：阅读规则',key:'read'},
+  {title:'第四步：按规则写代码',key:'follow'},
+  {title:'第五步：违规自动纠正',key:'correct'},
+  {title:'第六步：不同项目，不同规则',key:'switch'}
+];
+let currentStep=-1,autoPlayInterval=null,isAutoPlaying=false,dynamicElements=[];
+const stage=document.getElementById('stage'),character=document.getElementById('character'),stepTitle=document.getElementById('stepTitle'),lightbulb=document.getElementById('lightbulb'),groundShadow=document.getElementById('groundShadow'),confettiContainer=document.getElementById('confettiContainer');
+function clearDynamic(){dynamicElements.forEach(el=>{if(el&&el.parentNode)el.parentNode.removeChild(el)});dynamicElements=[];character.className='character-wrapper idle pos-center';groundShadow.style.left='50%';stepTitle.classList.remove('visible');lightbulb.classList.remove('on');confettiContainer.innerHTML=''}
+function ce(tag,attrs,parent){const el=document.createElement(tag);if(attrs)Object.keys(attrs).forEach(k=>{if(k==='style'&&typeof attrs[k]==='object')Object.assign(el.style,attrs[k]);else if(k==='className')el.className=attrs[k];else if(k==='innerHTML')el.innerHTML=attrs[k];else if(k==='textContent')el.textContent=attrs[k];else el.setAttribute(k,attrs[k])});(parent||stage).appendChild(el);dynamicElements.push(el);return el}
+function delay(ms){return new Promise(r=>setTimeout(r,ms))}
+function updateProgress(step){document.querySelectorAll('.progress-dot').forEach((d,i)=>{d.classList.toggle('active',i===step);d.classList.toggle('completed',i<step)});document.querySelectorAll('.progress-line').forEach((l,i)=>{l.classList.toggle('completed',i<step)});document.getElementById('stepLabel').innerHTML=`步骤 <strong>${step+1}</strong> / 6`}
+
+function makeBuilding(label,color){
+  return `<svg width="120" height="140" viewBox="0 0 120 140">
+    <rect x="10" y="20" width="100" height="120" rx="8" fill="${color||'#e2e8f0'}" stroke="#cbd5e1" stroke-width="2"/>
+    <rect x="25" y="40" width="20" height="18" rx="3" fill="#fff" opacity=".7"/><rect x="55" y="40" width="20" height="18" rx="3" fill="#fff" opacity=".7"/>
+    <rect x="25" y="68" width="20" height="18" rx="3" fill="#fff" opacity=".7"/><rect x="55" y="68" width="20" height="18" rx="3" fill="#fff" opacity=".7"/>
+    <rect x="40" y="100" width="22" height="40" rx="4" fill="#94a3b8"/>
+    <text x="60" y="15" text-anchor="middle" fill="#475569" font-size="11" font-weight="700" font-family="Noto Sans SC,sans-serif">${label}</text>
+  </svg>`;
+}
+
+async function stepEnter(){
+  character.className='character-wrapper idle pos-left';
+  groundShadow.style.left='35%';
+  stepTitle.textContent=STEPS[0].title;
+  await delay(200);stepTitle.classList.add('visible');
+  const bld=ce('div',{className:'project-building',style:{right:'40px',bottom:'30px'},innerHTML:makeBuilding('电商后台项目','#dbeafe')});
+  await delay(300);bld.classList.add('visible');
+  await delay(500);
+  const bb=ce('div',{className:'bubble tail-left',style:{right:'50px',bottom:'200px',maxWidth:'220px'},textContent:'新项目！让我看看有什么要求...'});
+  await delay(400);bb.classList.add('visible');
+  await delay(500);character.className='character-wrapper reach pos-left';
+  await delay(800);character.className='character-wrapper idle pos-left';
+}
+
+async function stepDiscover(){
+  character.className='character-wrapper idle pos-left';
+  groundShadow.style.left='35%';
+  stepTitle.textContent=STEPS[1].title;
+  await delay(200);stepTitle.classList.add('visible');
+  const bld=ce('div',{className:'project-building visible',style:{right:'40px',bottom:'30px'},innerHTML:makeBuilding('电商后台项目','#dbeafe')});
+  const files=[
+    {text:'📄 CLAUDE.md',sub:'Claude Code',top:'55px',right:'180px'},
+    {text:'📄 .cursorrules',sub:'Cursor',top:'105px',right:'200px'},
+    {text:'📄 copilot-instructions.md',sub:'Copilot',top:'155px',right:'160px'}
+  ];
+  for(const f of files){
+    const fi=ce('div',{className:'file-icon',style:{top:f.top,right:f.right},innerHTML:`${f.text}<span style="font-size:10px;color:#94a3b8;margin-left:4px">${f.sub}</span>`});
+    await delay(400);fi.classList.add('visible');
+  }
+  await delay(400);
+  const bb=ce('div',{className:'bubble tail-left',style:{left:'20px',top:'60px',maxWidth:'220px'},innerHTML:'几乎所有 AI 编程工具<br>都支持<strong style="color:#2563eb">规则文件</strong>！'});
+  await delay(300);bb.classList.add('visible');
+  await delay(400);character.className='character-wrapper eureka pos-left';
+  await delay(600);character.className='character-wrapper idle pos-left';
+}
+
+async function stepRead(){
+  character.className='character-wrapper idle pos-left';
+  groundShadow.style.left='35%';
+  stepTitle.textContent=STEPS[2].title;
+  await delay(200);stepTitle.classList.add('visible');
+  const cp=ce('div',{className:'code-panel',style:{right:'20px',top:'45px',width:'340px'},innerHTML:`
+    <div class="code-panel-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div><span class="code-panel-title">CLAUDE.md</span></div>
+    <div class="code-panel-body">
+      <div class="code-line" data-i="0"><span class="code-comment"># 项目规则</span></div>
+      <div class="code-line" data-i="1"><span class="code-func">1.</span> 使用 TypeScript，不用 JavaScript</div>
+      <div class="code-line" data-i="2"><span class="code-func">2.</span> 所有函数必须有类型标注</div>
+      <div class="code-line" data-i="3"><span class="code-func">3.</span> 禁止使用 console.log</div>
+      <div class="code-line" data-i="4"><span class="code-func">4.</span> 用 immutable 模式，不能直接修改对象</div>
+      <div class="code-line" data-i="5"><span class="code-func">5.</span> 组件文件不超过 200 行</div>
+    </div>`});
+  await delay(400);cp.classList.add('visible');
+  const lines=cp.querySelectorAll('.code-line');
+  for(let i=0;i<lines.length;i++){await delay(400);lines[i].classList.add('visible');if(i>0)character.className='character-wrapper nod pos-left';await delay(200);character.className='character-wrapper idle pos-left';}
+  await delay(300);lightbulb.classList.add('on');
+  const bb=ce('div',{className:'bubble tail-left',style:{left:'20px',bottom:'80px',maxWidth:'140px'},innerHTML:'<span style="font-weight:700;color:#2563eb">明白了！</span>'});
+  await delay(300);bb.classList.add('visible');
+}
+
+async function stepFollow(){
+  character.className='character-wrapper idle pos-left';
+  groundShadow.style.left='35%';
+  stepTitle.textContent=STEPS[3].title;
+  await delay(200);stepTitle.classList.add('visible');
+  const cp=ce('div',{className:'code-panel',style:{right:'20px',top:'50px',width:'360px'},innerHTML:`
+    <div class="code-panel-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div><span class="code-panel-title">user.ts</span></div>
+    <div class="code-panel-body">
+      <div class="code-line" data-i="0"><span class="code-comment">// ✅ TypeScript + 类型标注</span></div>
+      <div class="code-line" data-i="1"><span class="code-keyword">function</span> <span class="code-func">updateUser</span>(</div>
+      <div class="code-line" data-i="2">&nbsp;&nbsp;user: <span class="code-func">User</span>, name: <span class="code-func">string</span></div>
+      <div class="code-line" data-i="3">): <span class="code-func">User</span> {</div>
+      <div class="code-line" data-i="4">&nbsp;&nbsp;<span class="code-comment">// ✅ immutable 模式</span></div>
+      <div class="code-line" data-i="5">&nbsp;&nbsp;<span class="code-keyword">return</span> { ...user, name }</div>
+      <div class="code-line" data-i="6">}</div>
+    </div>`});
+  await delay(400);cp.classList.add('visible');
+  const lines=cp.querySelectorAll('.code-line');
+  for(let i=0;i<lines.length;i++){await delay(300);lines[i].classList.add('visible')}
+  const checks=[
+    {text:'✅ TypeScript',top:'260px',right:'250px'},
+    {text:'✅ 有类型标注',top:'290px',right:'220px'},
+    {text:'✅ immutable',top:'320px',right:'260px'}
+  ];
+  for(const c of checks){
+    const ck=ce('div',{style:{position:'absolute',top:c.top,right:c.right,fontSize:'13px',fontWeight:'700',color:'#22c55e',opacity:'0',transform:'translateX(10px)',transition:'all .4s ease',zIndex:'15'},textContent:c.text});
+    await delay(300);ck.style.opacity='1';ck.style.transform='translateX(0)';
+  }
+  await delay(300);
+  const bb=ce('div',{className:'bubble tail-left',style:{left:'20px',bottom:'80px',maxWidth:'180px'},innerHTML:'按规矩来，<span style="color:#22c55e;font-weight:700">全部合规！</span>'});
+  await delay(300);bb.classList.add('visible');
+  character.className='character-wrapper nod pos-left';
+  await delay(500);character.className='character-wrapper idle pos-left';
+}
+
+async function stepCorrect(){
+  character.className='character-wrapper idle pos-left';
+  groundShadow.style.left='35%';
+  stepTitle.textContent=STEPS[4].title;
+  await delay(200);stepTitle.classList.add('visible');
+  const bad=ce('div',{className:'code-panel',style:{right:'20px',top:'40px',width:'360px'},innerHTML:`
+    <div class="code-panel-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div><span class="code-panel-title">user.js ❌</span></div>
+    <div class="code-panel-body">
+      <div class="code-line visible"><span class="code-comment code-error">// ❌ 写了 JavaScript！</span></div>
+      <div class="code-line visible"><span class="code-keyword">function</span> <span class="code-func">updateUser</span>(user, name) {</div>
+      <div class="code-line visible">&nbsp;&nbsp;user.name = name <span class="code-error">// ❌ 直接修改！</span></div>
+      <div class="code-line visible">&nbsp;&nbsp;console.log(user) <span class="code-error">// ❌ console.log！</span></div>
+      <div class="code-line visible">&nbsp;&nbsp;<span class="code-keyword">return</span> user</div>
+      <div class="code-line visible">}</div>
+    </div>`});
+  await delay(300);bad.classList.add('visible');
+  await delay(600);character.className='character-wrapper eureka pos-left';
+  const bb1=ce('div',{className:'bubble tail-left',style:{left:'20px',top:'60px',maxWidth:'160px'},innerHTML:'<span style="color:#ef4444;font-weight:700">发现3处违规！</span>'});
+  await delay(300);bb1.classList.add('visible');
+  await delay(800);
+  bad.style.transition='all .5s ease';bad.style.opacity='.3';bad.style.transform='scale(.9) translateY(-10px)';
+  await delay(400);
+  const good=ce('div',{className:'code-panel',style:{right:'20px',top:'40px',width:'360px'},innerHTML:`
+    <div class="code-panel-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div><span class="code-panel-title">user.ts ✅ 已纠正</span></div>
+    <div class="code-panel-body">
+      <div class="code-line visible"><span class="code-comment" style="color:#22c55e">// ✅ 改为 TypeScript</span></div>
+      <div class="code-line visible"><span class="code-keyword">function</span> <span class="code-func">updateUser</span>(user: <span class="code-func">User</span>, name: <span class="code-func">string</span>): <span class="code-func">User</span> {</div>
+      <div class="code-line visible">&nbsp;&nbsp;<span style="color:#22c55e">// ✅ immutable 模式</span></div>
+      <div class="code-line visible">&nbsp;&nbsp;<span class="code-keyword">return</span> { ...user, name }</div>
+      <div class="code-line visible">&nbsp;&nbsp;<span style="color:#22c55e">// ✅ 删除了 console.log</span></div>
+      <div class="code-line visible">}</div>
+    </div>`});
+  await delay(300);good.classList.add('visible');
+  await delay(400);
+  const bb2=ce('div',{className:'bubble tail-left',style:{left:'20px',bottom:'80px',maxWidth:'160px'},innerHTML:'<span style="color:#22c55e;font-weight:700">自动纠正完毕！</span>'});
+  await delay(300);bb2.classList.add('visible');
+  character.className='character-wrapper nod pos-left';
+  await delay(500);character.className='character-wrapper idle pos-left';
+}
+
+async function stepSwitch(){
+  character.className='character-wrapper present pos-left';
+  groundShadow.style.left='35%';
+  stepTitle.textContent=STEPS[5].title;
+  await delay(200);stepTitle.classList.add('visible');
+  const cp=ce('div',{className:'code-panel',style:{right:'20px',top:'45px',width:'300px'},innerHTML:`
+    <div class="code-panel-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div><span class="code-panel-title">新项目 rules.md</span></div>
+    <div class="code-panel-body">
+      <div class="code-line" data-i="0"><span class="code-comment"># AI 聊天应用规则</span></div>
+      <div class="code-line" data-i="1"><span class="code-func">1.</span> 使用 <span class="code-string">Python + FastAPI</span></div>
+      <div class="code-line" data-i="2"><span class="code-func">2.</span> 所有接口需要鉴权</div>
+      <div class="code-line" data-i="3"><span class="code-func">3.</span> 响应格式统一用 JSON</div>
+    </div>`});
+  await delay(400);cp.classList.add('visible');
+  const lines=cp.querySelectorAll('.code-line');
+  for(let i=0;i<lines.length;i++){await delay(350);lines[i].classList.add('visible')}
+  await delay(500);
+  const rp=ce('div',{className:'report-panel',style:{left:'20px',bottom:'40px',width:'280px'},innerHTML:`
+    <div class="report-header">Rules 的本质</div>
+    <div class="report-body">
+      <div class="report-item" data-i="0">📋 Rules = 项目的员工手册</div>
+      <div class="report-item" data-i="1">🔄 换项目就换规则，AI 自动适应</div>
+      <div class="report-item" data-i="2">🛡️ 保证团队代码风格统一</div>
+      <div class="report-item" data-i="3" style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;font-weight:700;color:#2563eb">💡 写一次，所有 AI 工具都遵守</div>
+    </div>`});
+  await delay(400);rp.classList.add('visible');
+  const items=rp.querySelectorAll('.report-item');
+  for(let i=0;i<items.length;i++){await delay(400);items[i].classList.add('visible')}
+  await delay(400);character.className='character-wrapper celebrate pos-left';spawnConfetti();
+  await delay(1500);character.className='character-wrapper idle pos-left';
+}
+
+function spawnConfetti(){const colors=['#2563eb','#22c55e','#eab308','#ef4444','#a855f7','#f97316'];for(let i=0;i<40;i++){const c=document.createElement('div');c.className='confetti';c.style.left=(Math.random()*100)+'%';c.style.top='-10px';c.style.width=(4+Math.random()*6)+'px';c.style.height=(4+Math.random()*6)+'px';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.borderRadius=Math.random()>.5?'50%':'2px';c.style.animationDelay=(Math.random()*.8)+'s';c.style.animationDuration=(1.5+Math.random())+'s';confettiContainer.appendChild(c);setTimeout(()=>c.classList.add('active'),10)}}
+const stepFunctions=[stepEnter,stepDiscover,stepRead,stepFollow,stepCorrect,stepSwitch];
+async function goToStep(step){if(step<0||step>5||step===currentStep)return;currentStep=step;clearDynamic();updateProgress(step);const btn=document.getElementById('btnNext');btn.disabled=false;btn.textContent=step<5?'下一步':'完成';if(step>=5)btn.disabled=true;await stepFunctions[step]()}
+async function nextStep(){if(currentStep>=5)return;await goToStep(currentStep+1)}
+function prevStep(){if(!isAutoPlaying&&currentStep>0)goToStep(currentStep-1)}
+function replay(){stopAutoPlay();currentStep=-1;clearDynamic();updateProgress(0);document.getElementById('btnNext').disabled=false;document.getElementById('btnNext').textContent='下一步';goToStep(0)}
+function toggleAutoPlay(){isAutoPlaying?stopAutoPlay():startAutoPlay()}
+function startAutoPlay(){isAutoPlaying=true;const btn=document.getElementById('btnAuto');btn.textContent='暂停播放';btn.classList.add('playing');document.getElementById('btnNext').disabled=true;currentStep=-1;clearDynamic();updateProgress(0);const adv=async()=>{if(!isAutoPlaying)return;if(currentStep>=5){stopAutoPlay();return}await goToStep(currentStep<0?0:currentStep+1);if(isAutoPlaying)autoPlayInterval=setTimeout(adv,3500)};adv()}
+function stopAutoPlay(){isAutoPlaying=false;if(autoPlayInterval){clearTimeout(autoPlayInterval);autoPlayInterval=null}const btn=document.getElementById('btnAuto');btn.textContent='自动播放';btn.classList.remove('playing');document.getElementById('btnNext').disabled=(currentStep>=5)}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();if(!isAutoPlaying)nextStep()}if(e.key==='ArrowLeft'){e.preventDefault();if(!isAutoPlaying&&currentStep>0)goToStep(currentStep-1)}if(e.key==='r'||e.key==='R')replay()});
+goToStep(0);
+</script>
+</body>
+</html>

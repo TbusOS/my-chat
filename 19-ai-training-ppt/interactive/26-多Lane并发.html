@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多 Lane 并发 — OpenClaw 基于 Promise 链的会话隔离队列</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+.header .subtitle {
+  font-size: 15px;
+  color: #64748b;
+}
+
+/* Stage */
+.stage-wrapper {
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.stage {
+  width: 100%;
+  height: 560px;
+  position: relative;
+}
+
+/* Source icons (top) */
+.sources {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  z-index: 5;
+}
+.source-icon {
+  text-align: center;
+  opacity: 0.5;
+  transition: opacity 0.4s, transform 0.4s;
+}
+.source-icon.active {
+  opacity: 1;
+  transform: scale(1.1);
+}
+.source-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin: 0 auto 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.source-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Gateway bar */
+.gateway-bar {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #059669, #10b981, #34d399);
+  color: white;
+  padding: 10px 32px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(16,185,129,0.25);
+  z-index: 5;
+  white-space: nowrap;
+}
+.gateway-bar .gw-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  animation: gwPulse 1.5s ease-in-out infinite;
+}
+@keyframes gwPulse {
+  0%, 100% { opacity: 0.5; } 50% { opacity: 1; }
+}
+
+/* Lane Queue */
+.lane-queue {
+  position: absolute;
+  top: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 16px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+}
+.queue-slots {
+  display: flex;
+  gap: 4px;
+}
+.queue-slot {
+  width: 24px;
+  height: 16px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: white;
+  transition: background 0.4s, transform 0.3s;
+}
+.queue-slot.filled {
+  transform: scale(1.1);
+}
+
+/* Lanes area */
+.lanes-area {
+  position: absolute;
+  top: 150px;
+  left: 40px;
+  right: 40px;
+  bottom: 90px;
+}
+
+/* Individual lane */
+.lane {
+  position: relative;
+  height: 90px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  border: 2px solid #e2e8f0;
+  background: white;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  transition: border-color 0.4s, box-shadow 0.4s;
+  overflow: hidden;
+}
+.lane.active {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.lane.processing {
+  border-color: #93c5fd;
+}
+
+/* Lane number */
+.lane-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 900;
+  color: #94a3b8;
+  flex-shrink: 0;
+  margin-right: 12px;
+  transition: background 0.4s, color 0.4s;
+}
+.lane.processing .lane-num {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+/* Lane content */
+.lane-content {
+  flex: 1;
+  min-width: 0;
+}
+.lane-user {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lane-user .user-ch {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: white;
+  font-weight: 600;
+}
+.lane-task {
+  font-size: 11px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Lane progress */
+.lane-progress-wrap {
+  width: 120px;
+  flex-shrink: 0;
+  margin: 0 12px;
+}
+.lane-progress-bar {
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.lane-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.6s ease;
+}
+.lane-progress-text {
+  font-size: 9px;
+  color: #94a3b8;
+  margin-top: 2px;
+  text-align: right;
+}
+
+/* Lane Brain indicator */
+.lane-brain {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.4s;
+  position: relative;
+}
+.lane-brain.thinking {
+  background: #dbeafe;
+}
+.lane-brain .brain-emoji {
+  font-size: 22px;
+  transition: transform 0.3s;
+}
+.lane-brain.thinking .brain-emoji {
+  animation: brainThink 0.6s ease-in-out infinite alternate;
+}
+@keyframes brainThink {
+  from { transform: rotate(-5deg) scale(1); }
+  to { transform: rotate(5deg) scale(1.1); }
+}
+
+/* Lane status */
+.lane-status {
+  width: 80px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.status-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+.status-tag.idle { background: #f1f5f9; color: #94a3b8; }
+.status-tag.running { background: #dbeafe; color: #2563eb; }
+.status-tag.tool { background: #fef3c7; color: #d97706; }
+.status-tag.done { background: #d1fae5; color: #059669; }
+.status-tag.queued { background: #fef9c3; color: #a16207; }
+
+/* Heartbeat dashboard */
+.hb-dashboard {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 2px solid #e2e8f0;
+  border-radius: 0 0 16px 16px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 5;
+}
+.hb-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ef4444;
+}
+.hb-pulse {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: hbPulse 1s ease-in-out infinite;
+}
+@keyframes hbPulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+.hb-stats {
+  display: flex;
+  gap: 20px;
+}
+.hb-stat {
+  font-size: 11px;
+  color: #64748b;
+}
+.hb-stat b {
+  color: #0f172a;
+}
+
+/* Phase description */
+.phase-desc {
+  text-align: center;
+  margin-bottom: 16px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.phase-desc .phase-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+.phase-desc .phase-text {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 650px;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.btn {
+  border: none;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: #2563eb; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: #f1f5f9; color: #475569; }
+.btn-secondary:hover { background: #e2e8f0; }
+.btn-success { background: #10b981; color: white; }
+.btn-success:hover { background: #059669; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Message fly-in animation */
+@keyframes flyIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.fly-in {
+  animation: flyIn 0.4s ease-out;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>多 Lane 并发处理</h1>
+    <p class="subtitle">Lane = 基于 Promise 链的 FIFO 队列 | Session Lane 并发=1 | Main Lane 并发=4 | 纯 TypeScript 实现</p>
+  </div>
+
+  <div class="stage-wrapper">
+    <div class="stage" id="stage">
+      <!-- Sources -->
+      <div class="sources" id="sources">
+        <div class="source-icon" id="src-slack" data-src="slack">
+          <div class="source-badge" style="background:#4A154B; color:white;">💬</div>
+          <div class="source-name">Slack</div>
+        </div>
+        <div class="source-icon" id="src-wechat" data-src="wechat">
+          <div class="source-badge" style="background:#07C160; color:white;">💚</div>
+          <div class="source-name">微信</div>
+        </div>
+        <div class="source-icon" id="src-api" data-src="api">
+          <div class="source-badge" style="background:#2563eb; color:white;">⚡</div>
+          <div class="source-name">API</div>
+        </div>
+        <div class="source-icon" id="src-web" data-src="web">
+          <div class="source-badge" style="background:#f59e0b; color:white;">🌐</div>
+          <div class="source-name">Web</div>
+        </div>
+      </div>
+
+      <!-- Gateway Bar -->
+      <div class="gateway-bar" id="gatewayBar">
+        <span class="gw-dot"></span>
+        Gateway — Channel Bridge · Session Resolution · enqueueCommandInLane
+      </div>
+
+      <!-- Lane Queue (command-queue.ts) -->
+      <div class="lane-queue" id="laneQueue">
+        <span>Lane Queue (FIFO):</span>
+        <div class="queue-slots" id="queueSlots">
+          <div class="queue-slot" id="qs0"></div>
+          <div class="queue-slot" id="qs1"></div>
+          <div class="queue-slot" id="qs2"></div>
+          <div class="queue-slot" id="qs3"></div>
+          <div class="queue-slot" id="qs4"></div>
+        </div>
+        <span id="queueCount" style="font-size:10px; color:#94a3b8;">空</span>
+      </div>
+
+      <!-- Lanes -->
+      <div class="lanes-area" id="lanesArea">
+        <div class="lane" id="lane0">
+          <div class="lane-num" title="session:zhang3">S1</div>
+          <div class="lane-content">
+            <div class="lane-user" id="lane0-user">空闲</div>
+            <div class="lane-task" id="lane0-task">等待分配任务...</div>
+          </div>
+          <div class="lane-progress-wrap">
+            <div class="lane-progress-bar"><div class="lane-progress-fill" id="lane0-progress" style="background:#2563eb;"></div></div>
+            <div class="lane-progress-text" id="lane0-ptext"></div>
+          </div>
+          <div class="lane-brain" id="lane0-brain"><span class="brain-emoji">🧠</span></div>
+          <div class="lane-status"><span class="status-tag idle" id="lane0-status">空闲</span></div>
+        </div>
+
+        <div class="lane" id="lane1">
+          <div class="lane-num" title="session:li4">S2</div>
+          <div class="lane-content">
+            <div class="lane-user" id="lane1-user">空闲</div>
+            <div class="lane-task" id="lane1-task">等待分配任务...</div>
+          </div>
+          <div class="lane-progress-wrap">
+            <div class="lane-progress-bar"><div class="lane-progress-fill" id="lane1-progress" style="background:#7c3aed;"></div></div>
+            <div class="lane-progress-text" id="lane1-ptext"></div>
+          </div>
+          <div class="lane-brain" id="lane1-brain"><span class="brain-emoji">🧠</span></div>
+          <div class="lane-status"><span class="status-tag idle" id="lane1-status">空闲</span></div>
+        </div>
+
+        <div class="lane" id="lane2">
+          <div class="lane-num" title="session:api-bot">S3</div>
+          <div class="lane-content">
+            <div class="lane-user" id="lane2-user">空闲</div>
+            <div class="lane-task" id="lane2-task">等待分配任务...</div>
+          </div>
+          <div class="lane-progress-wrap">
+            <div class="lane-progress-bar"><div class="lane-progress-fill" id="lane2-progress" style="background:#f59e0b;"></div></div>
+            <div class="lane-progress-text" id="lane2-ptext"></div>
+          </div>
+          <div class="lane-brain" id="lane2-brain"><span class="brain-emoji">🧠</span></div>
+          <div class="lane-status"><span class="status-tag idle" id="lane2-status">空闲</span></div>
+        </div>
+
+        <div class="lane" id="lane3">
+          <div class="lane-num" title="session:wang5">S4</div>
+          <div class="lane-content">
+            <div class="lane-user" id="lane3-user">空闲</div>
+            <div class="lane-task" id="lane3-task">等待分配任务...</div>
+          </div>
+          <div class="lane-progress-wrap">
+            <div class="lane-progress-bar"><div class="lane-progress-fill" id="lane3-progress" style="background:#10b981;"></div></div>
+            <div class="lane-progress-text" id="lane3-ptext"></div>
+          </div>
+          <div class="lane-brain" id="lane3-brain"><span class="brain-emoji">🧠</span></div>
+          <div class="lane-status"><span class="status-tag idle" id="lane3-status">空闲</span></div>
+        </div>
+      </div>
+
+      <!-- Heartbeat Dashboard (runs on Cron Lane) -->
+      <div class="hb-dashboard" id="hbDashboard">
+        <div class="hb-left">
+          <span class="hb-pulse"></span>
+          Heartbeat <span style="font-size:10px; font-weight:400; color:#fca5a5; margin-left:4px;">(Cron Lane)</span>
+        </div>
+        <div class="hb-stats">
+          <div class="hb-stat">Session Lane: <b id="hbActive">0</b>/4</div>
+          <div class="hb-stat">Main并发: <b>4</b></div>
+          <div class="hb-stat">Token: <b id="hbTokens">0</b></div>
+          <div class="hb-stat">工具: <b id="hbTools">0</b></div>
+          <div class="hb-stat">状态: <b id="hbStatus" style="color:#10b981;">正常</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase-desc" id="phaseDesc">
+    <div class="phase-title">Lane Queue：基于 Promise 链的会话隔离队列</div>
+    <div class="phase-text">Lane 不是线程/进程，而是纯 TypeScript + Promise 实现的 FIFO 队列。每个 Session Lane 并发=1（严格串行），Main Lane 并发=4（全局上限），实现在 command-queue.ts 的 enqueueCommandInLane 中</div>
+  </div>
+
+  <!-- Technical architecture reference -->
+  <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:16px;">
+    <span style="font-size:10px; padding:4px 10px; border-radius:6px; background:#dbeafe; color:#1d4ed8; font-weight:600;">Session Lane 并发=1</span>
+    <span style="font-size:10px; padding:4px 10px; border-radius:6px; background:#d1fae5; color:#059669; font-weight:600;">Main Lane 并发=4</span>
+    <span style="font-size:10px; padding:4px 10px; border-radius:6px; background:#fef3c7; color:#d97706; font-weight:600;">Subagent Lane 并发=8</span>
+    <span style="font-size:10px; padding:4px 10px; border-radius:6px; background:#fee2e2; color:#dc2626; font-weight:600;">Cron Lane 与 Main 并行</span>
+    <span style="font-size:10px; padding:4px 10px; border-radius:6px; background:#f1f5f9; color:#475569; font-weight:600;">实现: command-queue.ts</span>
+    <span style="font-size:10px; padding:4px 10px; border-radius:6px; background:#f1f5f9; color:#475569; font-weight:600;">队列模式: collect / steer / followup / steer-backlog</span>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-secondary" id="btnReplay"><span>↺</span> 重播</button>
+    <button class="btn btn-secondary" id="btnPrev"><span>←</span> 上一步</button>
+    <button class="btn btn-primary" id="btnNext">下一步 <span>→</span></button>
+    <button class="btn btn-success" id="btnAuto"><span>▶</span> 自动播放</button>
+  </div>
+</div>
+
+<script>
+// Lane task definitions
+const tasks = [
+  { user: '张三', channel: 'slack', chColor: '#4A154B', task: '帮我搜索项目里所有 TODO', srcId: 'src-slack', rounds: 2, tools: 1 },
+  { user: '李四', channel: '微信', chColor: '#07C160', task: '翻译这段英文文档为中文', srcId: 'src-wechat', rounds: 1, tools: 0 },
+  { user: 'API-Bot', channel: 'API', chColor: '#2563eb', task: '分析最近 7 天的错误日志', srcId: 'src-api', rounds: 3, tools: 2 },
+  { user: '王五', channel: 'Web', chColor: '#f59e0b', task: '生成用户活跃度报表', srcId: 'src-web', rounds: 2, tools: 1 },
+];
+
+let currentStep = 0;
+const totalSteps = 8;
+let autoTimer = null;
+let isAuto = false;
+
+// Stats
+let statTokens = 0;
+let statTools = 0;
+
+const phaseInfo = [
+  { title: 'Lane Queue：基于 Promise 链的会话隔离队列', text: 'Lane 不是线程/进程，而是纯 TypeScript + Promise 实现的 FIFO 队列。每个 Session Lane 并发=1（严格串行），Main Lane 并发=4（全局上限），实现在 command-queue.ts 的 enqueueCommandInLane 中' },
+  { title: '第 1 步：4 条消息同时到达 Gateway', text: '来自 Slack、微信、API、Web 四个渠道的消息几乎同时到达 Gateway，经过 Channel Bridge 标准化消息格式' },
+  { title: '第 2 步：Session Resolution + 入队', text: 'Gateway 通过 Session Resolution（按 dmScope 规则：主共享 / per-peer / per-channel-peer）分配会话 ID，调用 enqueueCommandInLane 放入 Lane Queue' },
+  { title: '第 3 步：分配到独立 Session Lane', text: '每条消息按 session:<key> 路由到独立的 Session Lane（并发=1），再排入 Main Lane（并发=4）。两层队列：Session 层防止同一会话内消息交错，Main 层控制全局并行数' },
+  { title: '第 4 步：4 个 Brain 实例并行执行', text: 'Main Lane 允许最多 4 个 Session 同时跑，每个 Session Lane 内的 Brain 是 single-writer 模式 — 不需要分布式锁即可安全读写会话状态' },
+  { title: '第 5 步：各自执行 Agentic Loop', text: '不同 Session Lane 的 Brain 独立运行 Agentic Loop（LLM ↔ 工具循环），张三搜 TODO（Grep）、李四翻译（纯 LLM）、API-Bot 查日志（SQL）、王五做报表（HTTP）' },
+  { title: '第 6 步：先完成的先返回', text: 'Session Lane 之间互不阻塞 — 李四的翻译只需 1 轮就完成返回，而 API-Bot 的日志分析需要 3 轮循环还在进行中。如果张三此时又发了新消息，会以 collect 模式合并到他的队列末尾' },
+  { title: '第 7 步：全部完成', text: '所有 Session Lane 的任务完成，结果通过各自的 Channel Bridge 返回原始渠道。Heartbeat 运行在独立的 Cron Lane 上（与 Main Lane 并行），全程监控不阻塞主流程' },
+  { title: '技术总结：Lane 的 4 层设计', text: '① Session Lane（并发=1）防竞态 ② Main Lane（并发=4）控全局 ③ Subagent Lane（并发=8）跑子agent ④ Cron Lane（并行）跑定时任务 | 队列模式：collect / steer / followup / steer-backlog' },
+];
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function updateDesc() {
+  const info = phaseInfo[currentStep];
+  document.getElementById('phaseDesc').innerHTML = `
+    <div class="phase-title">${info.title}</div>
+    <div class="phase-text">${info.text}</div>
+  `;
+}
+
+function updateButtons() {
+  document.getElementById('btnPrev').disabled = currentStep <= 0;
+  document.getElementById('btnNext').disabled = currentStep >= totalSteps;
+}
+
+function resetAll() {
+  statTokens = 0;
+  statTools = 0;
+  // Reset sources
+  document.querySelectorAll('.source-icon').forEach(el => el.classList.remove('active'));
+  // Reset queue
+  for (let i = 0; i < 5; i++) {
+    const qs = document.getElementById('qs' + i);
+    qs.textContent = '';
+    qs.style.background = '#e2e8f0';
+    qs.classList.remove('filled');
+  }
+  document.getElementById('queueCount').textContent = '空';
+  // Reset lanes
+  for (let i = 0; i < 4; i++) {
+    const lane = document.getElementById('lane' + i);
+    lane.classList.remove('active', 'processing');
+    document.getElementById(`lane${i}-user`).textContent = '空闲';
+    document.getElementById(`lane${i}-task`).textContent = '等待分配任务...';
+    document.getElementById(`lane${i}-progress`).style.width = '0%';
+    document.getElementById(`lane${i}-ptext`).textContent = '';
+    document.getElementById(`lane${i}-brain`).classList.remove('thinking');
+    const st = document.getElementById(`lane${i}-status`);
+    st.textContent = '空闲';
+    st.className = 'status-tag idle';
+  }
+  // Reset HB
+  document.getElementById('hbActive').textContent = '0';
+  document.getElementById('hbTokens').textContent = '0';
+  document.getElementById('hbTools').textContent = '0';
+}
+
+function setLane(idx, user, channel, chColor, task, statusText, statusClass, progress, ptext, thinking) {
+  const lane = document.getElementById('lane' + idx);
+  lane.classList.add('active');
+  if (statusClass === 'running' || statusClass === 'tool') lane.classList.add('processing');
+  else lane.classList.remove('processing');
+
+  const userEl = document.getElementById(`lane${idx}-user`);
+  userEl.innerHTML = `${user} <span class="user-ch" style="background:${chColor};">${channel}</span>`;
+  document.getElementById(`lane${idx}-task`).textContent = task;
+  document.getElementById(`lane${idx}-progress`).style.width = progress + '%';
+  document.getElementById(`lane${idx}-ptext`).textContent = ptext;
+
+  const brain = document.getElementById(`lane${idx}-brain`);
+  if (thinking) brain.classList.add('thinking');
+  else brain.classList.remove('thinking');
+
+  const st = document.getElementById(`lane${idx}-status`);
+  st.textContent = statusText;
+  st.className = 'status-tag ' + statusClass;
+}
+
+function updateHB(active, tokens, tools) {
+  document.getElementById('hbActive').textContent = active;
+  document.getElementById('hbTokens').textContent = tokens.toLocaleString();
+  document.getElementById('hbTools').textContent = tools;
+}
+
+function fillQueue(slots) {
+  const colors = ['#4A154B', '#07C160', '#2563eb', '#f59e0b'];
+  const labels = ['张', '李', 'A', '王'];
+  for (let i = 0; i < 5; i++) {
+    const qs = document.getElementById('qs' + i);
+    if (i < slots.length) {
+      qs.textContent = labels[slots[i]];
+      qs.style.background = colors[slots[i]];
+      qs.classList.add('filled');
+    } else {
+      qs.textContent = '';
+      qs.style.background = '#e2e8f0';
+      qs.classList.remove('filled');
+    }
+  }
+  document.getElementById('queueCount').textContent = slots.length > 0 ? slots.length + ' 条待处理' : '空';
+}
+
+async function showStep(step) {
+  if (step === 0) return;
+
+  if (step >= 1) await doStep1();
+  if (step >= 2) await doStep2();
+  if (step >= 3) await doStep3();
+  if (step >= 4) await doStep4();
+  if (step >= 5) await doStep5();
+  if (step >= 6) await doStep6();
+  if (step >= 7) await doStep7();
+  if (step >= 8) await doStep8();
+}
+
+async function doStep1() {
+  // All sources light up
+  document.querySelectorAll('.source-icon').forEach(el => el.classList.add('active'));
+}
+
+async function doStep2() {
+  fillQueue([0, 1, 2, 3]);
+}
+
+async function doStep3() {
+  fillQueue([]);
+  tasks.forEach((t, i) => {
+    setLane(i, t.user, t.channel, t.chColor, t.task, '已分配', 'queued', 0, '', false);
+  });
+  updateHB(4, 0, 0);
+}
+
+async function doStep4() {
+  tasks.forEach((t, i) => {
+    setLane(i, t.user, t.channel, t.chColor, t.task, 'LLM 思考', 'running', 20, 'Round 1/' + t.rounds, true);
+  });
+  statTokens = 2400;
+  updateHB(4, statTokens, 0);
+}
+
+async function doStep5() {
+  // Lane 0: Grep tool
+  setLane(0, tasks[0].user, tasks[0].channel, tasks[0].chColor, tasks[0].task, '工具: Grep', 'tool', 50, 'Round 1/2', true);
+  // Lane 1: No tool needed, just LLM
+  setLane(1, tasks[1].user, tasks[1].channel, tasks[1].chColor, tasks[1].task, 'LLM 生成', 'running', 70, 'Round 1/1', true);
+  // Lane 2: SQL tool
+  setLane(2, tasks[2].user, tasks[2].channel, tasks[2].chColor, tasks[2].task, '工具: SQL', 'tool', 35, 'Round 1/3', true);
+  // Lane 3: HTTP tool
+  setLane(3, tasks[3].user, tasks[3].channel, tasks[3].chColor, tasks[3].task, '工具: HTTP', 'tool', 45, 'Round 1/2', true);
+  statTokens = 4800;
+  statTools = 3;
+  updateHB(4, statTokens, statTools);
+}
+
+async function doStep6() {
+  // Lane 1 done first (simple task)
+  setLane(1, tasks[1].user, tasks[1].channel, tasks[1].chColor, tasks[1].task, '✓ 完成', 'done', 100, '1 轮完成', false);
+  // Lane 0 progress
+  setLane(0, tasks[0].user, tasks[0].channel, tasks[0].chColor, tasks[0].task, 'LLM 总结', 'running', 80, 'Round 2/2', true);
+  // Lane 2 still working
+  setLane(2, tasks[2].user, tasks[2].channel, tasks[2].chColor, tasks[2].task, '工具: HTTP', 'tool', 55, 'Round 2/3', true);
+  // Lane 3 progress
+  setLane(3, tasks[3].user, tasks[3].channel, tasks[3].chColor, tasks[3].task, 'LLM 总结', 'running', 75, 'Round 2/2', true);
+  statTokens = 8200;
+  statTools = 5;
+  updateHB(3, statTokens, statTools);
+}
+
+async function doStep7() {
+  // All done
+  tasks.forEach((t, i) => {
+    setLane(i, t.user, t.channel, t.chColor, t.task, '✓ 完成', 'done', 100, t.rounds + ' 轮完成', false);
+  });
+  statTokens = 12400;
+  statTools = 7;
+  updateHB(0, statTokens, statTools);
+  // Sources pulse
+  document.querySelectorAll('.source-icon').forEach(el => el.classList.add('active'));
+}
+
+async function doStep8() {
+  // Summary
+  document.getElementById('hbStatus').textContent = '全部完成';
+  document.getElementById('hbStatus').style.color = '#10b981';
+}
+
+async function goToStep(step) {
+  if (step < 0) step = 0;
+  if (step > totalSteps) step = totalSteps;
+  resetAll();
+  currentStep = step;
+  updateDesc();
+  updateButtons();
+  await showStep(step);
+}
+
+// Controls
+document.getElementById('btnNext').addEventListener('click', () => {
+  if (currentStep < totalSteps) { stopAuto(); goToStep(currentStep + 1); }
+});
+document.getElementById('btnPrev').addEventListener('click', () => {
+  if (currentStep > 0) { stopAuto(); goToStep(currentStep - 1); }
+});
+document.getElementById('btnReplay').addEventListener('click', () => {
+  stopAuto(); goToStep(0);
+});
+document.getElementById('btnAuto').addEventListener('click', () => {
+  if (isAuto) stopAuto(); else startAuto();
+});
+
+function startAuto() {
+  isAuto = true;
+  const btn = document.getElementById('btnAuto');
+  btn.innerHTML = '<span>⏸</span> 暂停';
+  btn.classList.remove('btn-success');
+  btn.classList.add('btn-secondary');
+  if (currentStep >= totalSteps) goToStep(0);
+  autoTick();
+}
+function autoTick() {
+  if (!isAuto || currentStep >= totalSteps) { stopAuto(); return; }
+  autoTimer = setTimeout(async () => {
+    if (!isAuto) return;
+    await goToStep(currentStep + 1);
+    autoTick();
+  }, 2500);
+}
+function stopAuto() {
+  isAuto = false;
+  if (autoTimer) clearTimeout(autoTimer);
+  autoTimer = null;
+  const btn = document.getElementById('btnAuto');
+  btn.innerHTML = '<span>▶</span> 自动播放';
+  btn.classList.remove('btn-secondary');
+  btn.classList.add('btn-success');
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); if (currentStep < totalSteps) { stopAuto(); goToStep(currentStep + 1); } }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); if (currentStep > 0) { stopAuto(); goToStep(currentStep - 1); } }
+});
+
+// Init
+updateDesc();
+updateButtons();
+</script>
+</body>
+</html>

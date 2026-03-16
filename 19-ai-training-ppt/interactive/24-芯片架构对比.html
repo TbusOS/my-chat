@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三种芯片架构对比</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 32px 20px 16px;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 .nvidia { color: #22c55e; }
+.header h1 .apple { color: #2563eb; }
+.header h1 .pim { color: #7c3aed; }
+
+.header p {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 16px 0 8px;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.progress-dot.active {
+  background: #2563eb;
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.progress-dot.completed {
+  background: #2563eb;
+}
+
+.progress-line {
+  width: 16px;
+  height: 2px;
+  background: #e2e8f0;
+  transition: background 0.4s ease;
+}
+
+.progress-line.completed {
+  background: #2563eb;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.step-label strong {
+  color: #2563eb;
+}
+
+/* Stage */
+.stage-container {
+  position: relative;
+  width: 680px;
+  height: 440px;
+  margin: 12px 0 16px;
+  background: #f8fafc;
+  border-radius: 20px;
+  border: 2px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Step title inside stage */
+.step-title {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 18px;
+  border-radius: 20px;
+  z-index: 20;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.step-title.visible {
+  opacity: 1;
+}
+
+/* Character */
+.character-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 12%;
+  transform: translateX(-50%);
+  z-index: 10;
+  transition: left 0.8s ease, transform 0.8s ease;
+}
+
+.character-wrapper.idle {
+  animation: bobbing 2s ease-in-out infinite;
+}
+
+.character-wrapper.nod {
+  animation: nod 0.5s ease-in-out 2;
+}
+
+.character-wrapper.thinking {
+  animation: thinking-bob 2.5s ease-in-out infinite;
+}
+
+.character-wrapper.eureka {
+  animation: eureka 0.6s ease-out;
+}
+
+.character-wrapper.celebrate {
+  animation: celebrate 0.5s ease-in-out 3;
+}
+
+.character-wrapper.point {
+  /* no extra animation, just arm pose */
+}
+
+.character-wrapper.present {
+  /* presentation pose */
+}
+
+@keyframes bobbing {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+@keyframes nod {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  30% { transform: translateX(-50%) rotate(8deg); }
+  60% { transform: translateX(-50%) rotate(-4deg); }
+}
+
+@keyframes thinking-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  30% { transform: translateX(-50%) translateY(-4px) rotate(-2deg); }
+  70% { transform: translateX(-50%) translateY(-2px) rotate(2deg); }
+}
+
+@keyframes eureka {
+  0% { transform: translateX(-50%) translateY(0) scale(1); }
+  40% { transform: translateX(-50%) translateY(-20px) scale(1.1); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes celebrate {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  25% { transform: translateX(-50%) translateY(-15px) rotate(-8deg); }
+  75% { transform: translateX(-50%) translateY(-15px) rotate(8deg); }
+}
+
+/* Character SVG parts */
+.char-arm-left, .char-arm-right {
+  transition: transform 0.4s ease;
+  transform-origin: center top;
+}
+
+.character-wrapper.wave .char-arm-right {
+  animation: wave-arm 0.6s ease-in-out 2;
+}
+
+.character-wrapper.reach .char-arm-right {
+  transform: rotate(-60deg) translateX(5px);
+}
+
+.character-wrapper.point .char-arm-right {
+  transform: rotate(-45deg) translateX(10px) translateY(-10px);
+}
+
+.character-wrapper.chin .char-arm-right {
+  transform: rotate(-70deg) translateX(2px) translateY(-15px);
+}
+
+.character-wrapper.present .char-arm-left,
+.character-wrapper.present .char-arm-right {
+  transform: rotate(-40deg);
+}
+
+@keyframes wave-arm {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+}
+
+/* Character eyes */
+.char-eye {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.look-right .char-eye {
+  transform: translateX(2px);
+}
+
+/* Character mouth */
+.char-mouth {
+  transition: all 0.3s ease;
+}
+
+/* Lightbulb */
+.lightbulb {
+  position: absolute;
+  top: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.lightbulb.on {
+  opacity: 1;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4)); }
+  50% { filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.8)); }
+}
+
+/* Ground shadow */
+.ground-shadow {
+  position: absolute;
+  bottom: 32px;
+  left: 12%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 8px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.08) 0%, transparent 70%);
+  z-index: 5;
+  transition: left 0.8s ease;
+}
+
+/* Speech Bubbles */
+.bubble {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  max-width: 120px;
+}
+
+.bubble.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.bubble.tail-top::after {
+  top: -10px;
+  left: 20px;
+  border-bottom: 10px solid #ffffff;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+/* Architecture boxes */
+.arch-panel {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.85) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+  overflow: hidden;
+}
+
+.arch-panel.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.arch-panel-header {
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  color: white;
+}
+
+.arch-panel-body {
+  padding: 10px 14px;
+}
+
+.arch-panel-header.nvidia { background: #22c55e; }
+.arch-panel-header.apple { background: #2563eb; }
+.arch-panel-header.pim { background: #7c3aed; }
+
+/* Diagram boxes */
+.dia-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  text-align: center;
+}
+
+.dia-box.cpu { background: #3b82f6; }
+.dia-box.gpu { background: #22c55e; }
+.dia-box.mem { background: #f59e0b; }
+.dia-box.npu { background: #a855f7; }
+.dia-box.pcie { background: #ef4444; }
+.dia-box.unified { background: #2563eb; border: 2px dashed #93c5fd; }
+.dia-box.pim-chip { background: #7c3aed; }
+
+/* Comparison table */
+.comp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.comp-table th {
+  padding: 3px 5px;
+  font-weight: 700;
+  text-align: center;
+  color: white;
+  font-size: 10px;
+}
+
+.comp-table th.nvidia-th { background: #22c55e; }
+.comp-table th.apple-th { background: #2563eb; }
+.comp-table th.pim-th { background: #7c3aed; }
+.comp-table th.label-th { background: #64748b; color: white; }
+
+.comp-table td {
+  padding: 2px 5px;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: center;
+  font-size: 10px;
+}
+
+.comp-table td:first-child {
+  font-weight: 600;
+  text-align: left;
+  color: #475569;
+  background: #f8fafc;
+}
+
+.comp-table tr:nth-child(even) td {
+  background: #fafbfc;
+}
+.comp-table tr:nth-child(even) td:first-child {
+  background: #f1f5f9;
+}
+
+/* Bottom breadcrumb */
+.arch-breadcrumb {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 18;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.arch-breadcrumb.visible {
+  opacity: 1;
+}
+
+.arch-chip {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  opacity: 0.35;
+  transition: all 0.3s ease;
+}
+
+.arch-chip.active {
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.arch-chip.nvidia { background: #22c55e; }
+.arch-chip.apple { background: #2563eb; }
+.arch-chip.pim { background: #7c3aed; }
+
+/* Confetti */
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+.confetti.active {
+  animation: confetti-fall 2s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translateY(-20px) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translateY(400px) rotate(720deg) scale(0.5); }
+}
+
+/* Arrow connector */
+.arrow-connector {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.arrow-connector.visible {
+  opacity: 1;
+}
+
+/* Key insight box */
+.insight-box {
+  position: absolute;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 16;
+}
+
+.insight-box.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 32px;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.btn-auto {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-auto:hover {
+  background: #dcfce7;
+}
+
+.btn-auto.playing {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .stage-container {
+    width: 95vw;
+    height: 380px;
+  }
+  .header h1 { font-size: 22px; }
+  .bubble { font-size: 11px; max-width: 100px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>三种芯片架构对比 — <span class="nvidia">分离式</span> vs <span class="apple">统一内存</span> vs <span class="pim">算存一体</span></h1>
+  <p>同一个模型，不同硬件设计，资源占用天差地别</p>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-dot active" data-step="0" onclick="goToStep(0)"></div>
+  <div class="progress-line" data-line="0"></div>
+  <div class="progress-dot" data-step="1" onclick="goToStep(1)"></div>
+  <div class="progress-line" data-line="1"></div>
+  <div class="progress-dot" data-step="2" onclick="goToStep(2)"></div>
+  <div class="progress-line" data-line="2"></div>
+  <div class="progress-dot" data-step="3" onclick="goToStep(3)"></div>
+  <div class="progress-line" data-line="3"></div>
+  <div class="progress-dot" data-step="4" onclick="goToStep(4)"></div>
+  <div class="progress-line" data-line="4"></div>
+  <div class="progress-dot" data-step="5" onclick="goToStep(5)"></div>
+  <div class="progress-line" data-line="5"></div>
+  <div class="progress-dot" data-step="6" onclick="goToStep(6)"></div>
+  <div class="progress-line" data-line="6"></div>
+  <div class="progress-dot" data-step="7" onclick="goToStep(7)"></div>
+</div>
+<div class="step-label" id="stepLabel">步骤 <strong>1</strong> / 8</div>
+
+<div class="stage-container">
+  <div class="stage" id="stage">
+    <div class="step-title" id="stepTitle"></div>
+
+    <!-- Ground shadow -->
+    <div class="ground-shadow" id="groundShadow"></div>
+
+    <!-- Character -->
+    <div class="character-wrapper idle" id="character">
+      <!-- Lightbulb above head -->
+      <div class="lightbulb" id="lightbulb">
+        <svg width="30" height="36" viewBox="0 0 30 36">
+          <ellipse cx="15" cy="14" rx="11" ry="12" fill="#fbbf24" opacity="0.3"/>
+          <path d="M15 2 C8 2 3 7.5 3 14 C3 19 6 22 9 24 L9 28 L21 28 L21 24 C24 22 27 19 27 14 C27 7.5 22 2 15 2Z" fill="#fbbf24"/>
+          <rect x="10" y="28" width="10" height="3" rx="1" fill="#d4a017"/>
+          <rect x="11" y="31" width="8" height="2" rx="1" fill="#d4a017"/>
+          <path d="M15 8 L15 18 M10 13 L20 13" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+
+      <!-- SVG Character -->
+      <svg width="80" height="112" viewBox="0 0 100 140" id="charSvg">
+        <!-- Body -->
+        <rect class="char-body" x="30" y="62" width="40" height="45" rx="12" fill="#2563eb"/>
+        <!-- Legs -->
+        <rect x="35" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <rect x="53" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <!-- Shoes -->
+        <ellipse cx="41" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <ellipse cx="59" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <!-- Arms -->
+        <g class="char-arm-left">
+          <rect x="17" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="24" cy="98" r="6" fill="#fde68a"/>
+        </g>
+        <g class="char-arm-right">
+          <rect x="69" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="76" cy="98" r="6" fill="#fde68a"/>
+        </g>
+        <!-- Head -->
+        <circle cx="50" cy="36" r="28" fill="#fde68a"/>
+        <!-- Hat -->
+        <path d="M25 32 Q25 14 50 10 Q75 14 75 32 Z" fill="#2563eb"/>
+        <rect x="20" y="30" width="60" height="6" rx="3" fill="#1d4ed8"/>
+        <!-- Face -->
+        <g class="char-face">
+          <circle class="char-eye" cx="40" cy="38" r="3.5" fill="#1e293b"/>
+          <circle class="char-eye" cx="60" cy="38" r="3.5" fill="#1e293b"/>
+          <circle cx="41.5" cy="36.5" r="1.2" fill="white"/>
+          <circle cx="61.5" cy="36.5" r="1.2" fill="white"/>
+          <ellipse class="char-mouth" cx="50" cy="50" rx="6" ry="3" fill="#1e293b"/>
+          <ellipse cx="34" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+          <ellipse cx="66" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Confetti container -->
+    <div class="confetti-container" id="confettiContainer"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-secondary" id="btnReplay" onclick="replay()">重播</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+</div>
+
+<script>
+const STEPS = [
+  { title: '第一步：传统分离式架构 (NVIDIA)', key: 'nvidia' },
+  { title: '第二步：苹果统一内存架构 (Apple Silicon)', key: 'apple' },
+  { title: '第三步：算存一体架构 (PIM/CIM)', key: 'pim' },
+  { title: '第四步：同一个模型，三种体验', key: 'compare' },
+  { title: '第五步：为什么苹果能装更大的模型？', key: 'why' },
+  { title: '第六步：MLX vs CUDA — 软件如何适配', key: 'software' },
+  { title: '第七步：三种架构优缺点', key: 'table' },
+  { title: '第八步：选哪个？', key: 'choose' }
+];
+
+let currentStep = -1;
+let autoPlayInterval = null;
+let dynamicElements = [];
+
+const stage = document.getElementById('stage');
+const character = document.getElementById('character');
+const stepTitle = document.getElementById('stepTitle');
+const lightbulb = document.getElementById('lightbulb');
+const groundShadow = document.getElementById('groundShadow');
+const confettiContainer = document.getElementById('confettiContainer');
+
+function clearDynamic() {
+  dynamicElements.forEach(el => {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  dynamicElements = [];
+
+  character.className = 'character-wrapper idle';
+  groundShadow.style.left = '12%';
+  stepTitle.classList.remove('visible');
+  lightbulb.classList.remove('on');
+  confettiContainer.innerHTML = '';
+}
+
+function createElement(tag, attrs, parent) {
+  const el = document.createElement(tag);
+  if (attrs) {
+    Object.keys(attrs).forEach(k => {
+      if (k === 'style' && typeof attrs[k] === 'object') {
+        Object.assign(el.style, attrs[k]);
+      } else if (k === 'className') {
+        el.className = attrs[k];
+      } else if (k === 'innerHTML') {
+        el.innerHTML = attrs[k];
+      } else if (k === 'textContent') {
+        el.textContent = attrs[k];
+      } else {
+        el.setAttribute(k, attrs[k]);
+      }
+    });
+  }
+  (parent || stage).appendChild(el);
+  dynamicElements.push(el);
+  return el;
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function updateProgress(step) {
+  document.querySelectorAll('.progress-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === step);
+    dot.classList.toggle('completed', i < step);
+  });
+  document.querySelectorAll('.progress-line').forEach((line, i) => {
+    line.classList.toggle('completed', i < step);
+  });
+  document.getElementById('stepLabel').innerHTML = '步骤 <strong>' + (step + 1) + '</strong> / 8';
+}
+
+function createBreadcrumb(activeArch) {
+  const bc = createElement('div', {
+    className: 'arch-breadcrumb',
+    innerHTML:
+      '<div class="arch-chip nvidia ' + (activeArch === 'nvidia' ? 'active' : '') + '">NVIDIA</div>' +
+      '<div class="arch-chip apple ' + (activeArch === 'apple' ? 'active' : '') + '">Apple</div>' +
+      '<div class="arch-chip pim ' + (activeArch === 'pim' ? 'active' : '') + '">PIM</div>'
+  });
+  setTimeout(() => bc.classList.add('visible'), 100);
+  return bc;
+}
+
+function createBreadcrumbMulti(activeArchs) {
+  const bc = createElement('div', {
+    className: 'arch-breadcrumb',
+    innerHTML:
+      '<div class="arch-chip nvidia ' + (activeArchs.includes('nvidia') ? 'active' : '') + '">NVIDIA</div>' +
+      '<div class="arch-chip apple ' + (activeArchs.includes('apple') ? 'active' : '') + '">Apple</div>' +
+      '<div class="arch-chip pim ' + (activeArchs.includes('pim') ? 'active' : '') + '">PIM</div>'
+  });
+  setTimeout(() => bc.classList.add('visible'), 100);
+  return bc;
+}
+
+/* ===== STEP 0: Traditional Separated Architecture (NVIDIA) ===== */
+async function stepNvidia() {
+  character.className = 'character-wrapper idle look-right';
+  stepTitle.textContent = STEPS[0].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+  createBreadcrumb('nvidia');
+
+  // Main architecture diagram panel
+  const panel = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '130px', top: '48px', width: '530px', height: '340px' },
+    innerHTML:
+      '<div class="arch-panel-header nvidia">NVIDIA 传统分离式架构</div>' +
+      '<div class="arch-panel-body" style="position:relative;height:290px;padding:12px 16px">' +
+
+        // CPU side
+        '<div style="position:absolute;left:16px;top:14px;width:170px;height:130px;border:2px solid #3b82f6;border-radius:12px;background:#eff6ff;padding:10px">' +
+          '<div style="text-align:center;font-weight:700;color:#3b82f6;font-size:13px;margin-bottom:8px">CPU 侧</div>' +
+          '<div style="display:flex;flex-direction:column;gap:6px;align-items:center">' +
+            '<div class="dia-box cpu" style="width:120px;padding:6px">CPU 处理器</div>' +
+            '<div style="font-size:18px;color:#3b82f6">&#8597;</div>' +
+            '<div class="dia-box mem" style="width:120px;padding:6px;font-size:10px">DDR 内存 64-512GB</div>' +
+          '</div>' +
+        '</div>' +
+
+        // PCIe bottleneck arrow in the middle
+        '<div style="position:absolute;left:196px;top:45px;width:130px;text-align:center">' +
+          '<div style="display:flex;align-items:center;justify-content:center;gap:4px">' +
+            '<div style="flex:1;height:4px;background:linear-gradient(90deg,#3b82f6,#ef4444);border-radius:2px"></div>' +
+            '<div style="font-size:18px">&#9654;</div>' +
+            '<div style="flex:1;height:4px;background:linear-gradient(90deg,#ef4444,#22c55e);border-radius:2px"></div>' +
+          '</div>' +
+          '<div style="margin-top:4px;padding:4px 8px;background:#fef2f2;border:2px solid #ef4444;border-radius:8px;font-size:11px;font-weight:700;color:#dc2626">' +
+            '&#9888; PCIe 总线 ~64GB/s' +
+          '</div>' +
+          '<div style="font-size:10px;color:#ef4444;margin-top:2px;font-weight:500">&#8592; 瓶颈！ &#8594;</div>' +
+        '</div>' +
+
+        // GPU side
+        '<div style="position:absolute;right:16px;top:14px;width:170px;height:130px;border:2px solid #22c55e;border-radius:12px;background:#f0fdf4;padding:10px">' +
+          '<div style="text-align:center;font-weight:700;color:#22c55e;font-size:13px;margin-bottom:8px">GPU 侧</div>' +
+          '<div style="display:flex;flex-direction:column;gap:6px;align-items:center">' +
+            '<div class="dia-box gpu" style="width:120px;padding:6px">GPU 处理器</div>' +
+            '<div style="font-size:18px;color:#22c55e">&#8597;</div>' +
+            '<div class="dia-box mem" style="width:120px;padding:6px;font-size:10px;background:#22c55e">VRAM/HBM 24-80GB</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Representatives
+        '<div style="position:absolute;left:16px;top:156px;width:100%;padding-right:32px">' +
+          '<div style="background:#f1f5f9;border-radius:10px;padding:8px 14px;font-size:11px;color:#475569;line-height:1.7">' +
+            '<div style="font-weight:700;color:#22c55e;font-size:12px;margin-bottom:4px">&#127937; 代表产品</div>' +
+            '<div>NVIDIA RTX 4090 / A100 / H100</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Key point
+        '<div style="position:absolute;left:16px;top:216px;width:100%;padding-right:32px">' +
+          '<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:8px 14px;font-size:11px;color:#991b1b;line-height:1.6">' +
+            '<span style="font-weight:700">&#128270; 关键：</span>内存和显存是分开的，数据要通过 PCIe 搬运。CPU 不能直接用 VRAM，GPU 不能直接用 DDR。' +
+          '</div>' +
+        '</div>' +
+
+      '</div>'
+  });
+
+  await delay(400);
+  panel.classList.add('visible');
+
+  // Character bubble
+  const bubble = createElement('div', {
+    className: 'bubble tail-top',
+    style: { left: '14px', bottom: '42px', maxWidth: '115px', fontSize: '11px' },
+    innerHTML: '<span style="font-weight:700;color:#22c55e">传统方案：</span>CPU 和 GPU 各管各的内存'
+  });
+  await delay(600);
+  bubble.classList.add('visible');
+  character.className = 'character-wrapper point look-right';
+}
+
+/* ===== STEP 1: Apple Unified Memory ===== */
+async function stepApple() {
+  character.className = 'character-wrapper idle look-right';
+  stepTitle.textContent = STEPS[1].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+  createBreadcrumb('apple');
+
+  const panel = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '130px', top: '48px', width: '530px', height: '340px' },
+    innerHTML:
+      '<div class="arch-panel-header apple">Apple Silicon 统一内存架构</div>' +
+      '<div class="arch-panel-body" style="position:relative;height:290px;padding:12px 16px">' +
+
+        // Big unified memory box
+        '<div style="position:absolute;left:16px;top:10px;right:16px;height:170px;border:3px solid #2563eb;border-radius:16px;background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);padding:12px">' +
+          '<div style="text-align:center;font-weight:900;color:#2563eb;font-size:14px;margin-bottom:10px">&#127760; 统一内存 (Unified Memory) 16-192GB</div>' +
+
+          // Three inner boxes
+          '<div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px">' +
+            '<div style="flex:1;background:white;border:2px solid #3b82f6;border-radius:10px;padding:8px;text-align:center">' +
+              '<div style="font-size:20px;margin-bottom:2px">&#9881;</div>' +
+              '<div style="font-weight:700;color:#3b82f6;font-size:12px">CPU 核心</div>' +
+            '</div>' +
+            '<div style="flex:1;background:white;border:2px solid #22c55e;border-radius:10px;padding:8px;text-align:center">' +
+              '<div style="font-size:20px;margin-bottom:2px">&#127918;</div>' +
+              '<div style="font-weight:700;color:#22c55e;font-size:12px">GPU 核心</div>' +
+            '</div>' +
+            '<div style="flex:1;background:white;border:2px solid #a855f7;border-radius:10px;padding:8px;text-align:center">' +
+              '<div style="font-size:20px;margin-bottom:2px">&#129504;</div>' +
+              '<div style="font-weight:700;color:#a855f7;font-size:12px">NPU 神经引擎</div>' +
+            '</div>' +
+          '</div>' +
+
+          // Shared access label
+          '<div style="text-align:center;font-size:11px;color:#1d4ed8;font-weight:600">&#8593; 共享访问，无需搬运 &#8593;</div>' +
+        '</div>' +
+
+        // Zero-copy highlight
+        '<div style="position:absolute;left:16px;top:190px;right:16px">' +
+          '<div style="background:#dcfce7;border:2px solid #22c55e;border-radius:10px;padding:8px 14px;text-align:center;font-size:12px;font-weight:700;color:#166534">' +
+            '&#9989; 零拷贝！CPU / GPU / NPU 看到的是同一份数据，无 PCIe 瓶颈' +
+          '</div>' +
+        '</div>' +
+
+        // Representatives
+        '<div style="position:absolute;left:16px;top:235px;right:16px">' +
+          '<div style="background:#f1f5f9;border-radius:10px;padding:8px 14px;font-size:11px;color:#475569;line-height:1.6">' +
+            '<div style="font-weight:700;color:#2563eb;font-size:12px;margin-bottom:2px">&#127937; 代表产品</div>' +
+            'M4 Max (最高128GB) / M3 Ultra (最高512GB 统一内存)' +
+          '</div>' +
+        '</div>' +
+
+      '</div>'
+  });
+
+  await delay(400);
+  panel.classList.add('visible');
+
+  const bubble = createElement('div', {
+    className: 'bubble tail-top',
+    style: { left: '14px', bottom: '42px', maxWidth: '115px', fontSize: '11px' },
+    innerHTML: '<span style="font-weight:700;color:#2563eb">苹果的秘密：</span>所有芯片共用一个大内存池！'
+  });
+  await delay(600);
+  bubble.classList.add('visible');
+  character.className = 'character-wrapper eureka look-right';
+  await delay(600);
+  character.className = 'character-wrapper idle look-right';
+}
+
+/* ===== STEP 2: PIM/CIM Architecture ===== */
+async function stepPim() {
+  character.className = 'character-wrapper thinking look-right';
+  stepTitle.textContent = STEPS[2].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+  createBreadcrumb('pim');
+
+  const panel = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '130px', top: '48px', width: '530px', height: '340px' },
+    innerHTML:
+      '<div class="arch-panel-header pim">算存一体架构 (PIM / CIM)</div>' +
+      '<div class="arch-panel-body" style="position:relative;height:290px;padding:12px 16px">' +
+
+        // Memory chip with embedded compute
+        '<div style="position:absolute;left:16px;top:10px;right:16px;height:120px;border:3px solid #7c3aed;border-radius:16px;background:linear-gradient(135deg,#f5f3ff 0%,#ede9fe 100%);padding:12px;display:flex;gap:10px;align-items:center;justify-content:center">' +
+          // Memory block with processors inside
+          '<div style="flex:1;background:white;border:2px solid #7c3aed;border-radius:12px;padding:8px;position:relative;text-align:center;min-height:85px">' +
+            '<div style="font-weight:700;color:#7c3aed;font-size:11px;margin-bottom:6px">HBM / DRAM 内存颗粒</div>' +
+            '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">' +
+              '<div style="width:30px;height:30px;background:#7c3aed;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px">&#9881;</div>' +
+              '<div style="width:30px;height:30px;background:#7c3aed;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px">&#9881;</div>' +
+              '<div style="width:30px;height:30px;background:#7c3aed;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px">&#9881;</div>' +
+              '<div style="width:30px;height:30px;background:#7c3aed;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px">&#9881;</div>' +
+            '</div>' +
+            '<div style="font-size:9px;color:#6d28d9;margin-top:4px">&#8593; 计算单元嵌入内存中</div>' +
+          '</div>' +
+          // Arrow
+          '<div style="font-size:14px;color:#7c3aed;font-weight:900;text-align:center;line-height:1.4;min-width:100px">' +
+            '&#10132; 数据不搬出<br>就地计算' +
+          '</div>' +
+        '</div>' +
+
+        // Comparison: traditional vs PIM
+        '<div style="position:absolute;left:16px;top:142px;right:16px;display:flex;gap:10px">' +
+          '<div style="flex:1;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:8px 10px;font-size:11px;color:#991b1b;line-height:1.5">' +
+            '<div style="font-weight:700;margin-bottom:2px">&#10060; 传统方式</div>' +
+            '数据搬到 GPU &#8594; 计算 &#8594; 搬回内存<br>' +
+            '<span style="color:#dc2626;font-weight:600">大量时间浪费在搬运上</span>' +
+          '</div>' +
+          '<div style="flex:1;background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px;padding:8px 10px;font-size:11px;color:#4c1d95;line-height:1.5">' +
+            '<div style="font-weight:700;margin-bottom:2px">&#9989; PIM 方式</div>' +
+            '直接在内存里计算 &#8594; 结果就在原地<br>' +
+            '<span style="color:#7c3aed;font-weight:600">零搬运，极低延迟</span>' +
+          '</div>' +
+        '</div>' +
+
+        // Representatives
+        '<div style="position:absolute;left:16px;top:220px;right:16px">' +
+          '<div style="background:#f1f5f9;border-radius:10px;padding:6px 14px;font-size:11px;color:#475569;line-height:1.5">' +
+            '<span style="font-weight:700;color:#7c3aed">&#127937; 代表：</span>Samsung HBM-PIM / UPMEM / 各大学研究项目' +
+          '</div>' +
+        '</div>' +
+
+        // Warning
+        '<div style="position:absolute;left:16px;top:258px;right:16px">' +
+          '<div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:10px;padding:6px 14px;font-size:11px;color:#92400e;line-height:1.5;font-weight:600">' +
+            '&#9888;&#65039; 仍在研究/早期阶段，尚未大规模商用，软件生态几乎为零' +
+          '</div>' +
+        '</div>' +
+
+      '</div>'
+  });
+
+  await delay(400);
+  panel.classList.add('visible');
+
+  const bubble = createElement('div', {
+    className: 'bubble tail-top',
+    style: { left: '14px', bottom: '42px', maxWidth: '115px', fontSize: '11px' },
+    innerHTML: '<span style="font-weight:700;color:#7c3aed">终极方案：</span>别搬数据了，直接在内存里算！'
+  });
+  await delay(600);
+  bubble.classList.add('visible');
+  await delay(400);
+  lightbulb.classList.add('on');
+}
+
+/* ===== STEP 3: Same Model, Different Experience ===== */
+async function stepCompare() {
+  character.className = 'character-wrapper idle look-right';
+  stepTitle.textContent = STEPS[3].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+  createBreadcrumbMulti(['nvidia', 'apple']);
+
+  // Panel 1: NVIDIA
+  const panel1 = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '130px', top: '48px', width: '250px', height: '340px' },
+    innerHTML:
+      '<div class="arch-panel-header nvidia">&#128994; NVIDIA H100 x2 跑 70B</div>' +
+      '<div class="arch-panel-body" style="padding:10px 14px;font-size:11px;line-height:1.8;color:#334155">' +
+        '<div style="margin-bottom:6px">' +
+          '<div style="font-weight:700;color:#1e293b;font-size:12px;margin-bottom:4px">&#128187; 硬件配置</div>' +
+          '<div>&#8226; 模型 140GB (FP16)</div>' +
+          '<div>&#8226; 需要 2 张 H100（各 80GB VRAM）</div>' +
+          '<div>&#8226; 通过 NVLink 两卡同步</div>' +
+        '</div>' +
+        '<div style="margin-bottom:6px">' +
+          '<div style="font-weight:700;color:#1e293b;font-size:12px;margin-bottom:4px">&#9889; 推理速度</div>' +
+          '<div style="font-size:16px;letter-spacing:2px">&#9889;&#9889;&#9889;&#9889;&#9889;</div>' +
+          '<div style="color:#16a34a;font-weight:600">最快！~40 tokens/s</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-weight:700;color:#1e293b;font-size:12px;margin-bottom:4px">&#128176; 成本</div>' +
+          '<div style="font-size:16px;letter-spacing:2px">&#128176;&#128176;&#128176;&#128176;&#128176;</div>' +
+          '<div style="color:#dc2626;font-weight:600">~$50,000-70,000（2张H100 SXM）</div>' +
+        '</div>' +
+      '</div>'
+  });
+
+  // Panel 2: Apple
+  const panel2 = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '400px', top: '48px', width: '260px', height: '340px' },
+    innerHTML:
+      '<div class="arch-panel-header apple">&#127822; Mac Studio M3 Ultra 跑 70B</div>' +
+      '<div class="arch-panel-body" style="padding:10px 14px;font-size:11px;line-height:1.8;color:#334155">' +
+        '<div style="margin-bottom:6px">' +
+          '<div style="font-weight:700;color:#1e293b;font-size:12px;margin-bottom:4px">&#128187; 硬件配置</div>' +
+          '<div>&#8226; 模型 140GB (FP16)</div>' +
+          '<div>&#8226; 192GB 统一内存直接装下</div>' +
+          '<div>&#8226; 无需多卡，一台机器搞定</div>' +
+        '</div>' +
+        '<div style="margin-bottom:6px">' +
+          '<div style="font-weight:700;color:#1e293b;font-size:12px;margin-bottom:4px">&#9889; 推理速度</div>' +
+          '<div style="font-size:16px;letter-spacing:2px">&#9889;&#9889;</div>' +
+          '<div style="color:#f59e0b;font-weight:600">慢，~8 tokens/s（GPU 算力弱）</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-weight:700;color:#1e293b;font-size:12px;margin-bottom:4px">&#128176; 成本</div>' +
+          '<div style="font-size:16px;letter-spacing:2px">&#128176;&#128176;</div>' +
+          '<div style="color:#2563eb;font-weight:600">~$5,999-7,000（Mac Studio 整机）</div>' +
+        '</div>' +
+      '</div>'
+  });
+
+  await delay(300);
+  panel1.classList.add('visible');
+  await delay(300);
+  panel2.classList.add('visible');
+
+  const bubble = createElement('div', {
+    className: 'bubble tail-top',
+    style: { left: '14px', bottom: '42px', maxWidth: '115px', fontSize: '11px' },
+    innerHTML: '同一个 70B 模型，<span style="font-weight:700;color:#dc2626">价格差 8-10 倍，速度差 5 倍</span>'
+  });
+  await delay(600);
+  bubble.classList.add('visible');
+  character.className = 'character-wrapper nod look-right';
+  await delay(500);
+  character.className = 'character-wrapper idle look-right';
+}
+
+/* ===== STEP 4: Why Apple Fits Bigger Models ===== */
+async function stepWhy() {
+  character.className = 'character-wrapper idle look-right';
+  stepTitle.textContent = STEPS[4].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+  createBreadcrumbMulti(['nvidia', 'apple']);
+
+  // Panel 1: NVIDIA limitation
+  const panel1 = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '130px', top: '48px', width: '250px', height: '200px' },
+    innerHTML:
+      '<div class="arch-panel-header nvidia">NVIDIA 的限制</div>' +
+      '<div class="arch-panel-body" style="padding:10px 14px;font-size:11px;line-height:1.8;color:#334155">' +
+        '<div>&#128308; RTX 5090：<span style="font-weight:700">32GB GDDR7</span>（$2,000）</div>' +
+        '<div>&#128308; RTX 4090：<span style="font-weight:700">24GB GDDR6X</span>（$1,600）</div>' +
+        '<div>&#8594; 最大跑 <span style="font-weight:700;color:#dc2626">~14B-20B</span> 模型</div>' +
+        '<div style="margin-top:6px;padding:6px 8px;background:#fef2f2;border-radius:8px;font-size:10px;color:#991b1b;line-height:1.5">' +
+          '<div style="font-weight:700">&#9888; 模型必须完整装进 VRAM</div>' +
+          '<div>DDR 内存再大也没用</div>' +
+          '<div>（CPU 不能帮 GPU 跑推理）</div>' +
+        '</div>' +
+      '</div>'
+  });
+
+  // Panel 2: Apple advantage
+  const panel2 = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '400px', top: '48px', width: '260px', height: '200px' },
+    innerHTML:
+      '<div class="arch-panel-header apple">Apple 的优势</div>' +
+      '<div class="arch-panel-body" style="padding:10px 14px;font-size:11px;line-height:1.8;color:#334155">' +
+        '<div>&#128309; M4 Max：<span style="font-weight:700">128GB 统一内存</span>（MacBook $3,999起）</div>' +
+        '<div>&#128309; M3 Ultra：<span style="font-weight:700">最高512GB</span>（Mac Studio $3,999起）</div>' +
+        '<div>&#8594; 轻松跑 <span style="font-weight:700;color:#2563eb">70B-405B</span> 模型！</div>' +
+        '<div style="margin-top:6px;padding:6px 8px;background:#eff6ff;border-radius:8px;font-size:10px;color:#1e40af;line-height:1.5">' +
+          '<div style="font-weight:700">&#9989; CPU 和 GPU 看到同一份内存</div>' +
+          '<div>模型不需要"搬进显存"</div>' +
+          '<div>（它本来就在那里！）</div>' +
+        '</div>' +
+      '</div>'
+  });
+
+  await delay(300);
+  panel1.classList.add('visible');
+  await delay(300);
+  panel2.classList.add('visible');
+
+  // Key insight at bottom
+  const insight = createElement('div', {
+    className: 'insight-box',
+    style: { left: '130px', top: '268px', width: '530px', textAlign: 'center', lineHeight: '1.8' },
+    innerHTML:
+      '&#128161; 同样花 ~$2,000：RTX 5090 最大跑 20B，M4 Max 能跑 <span style="color:#dc2626">70B</span>！<br>' +
+      '但推理速度：NVIDIA 比苹果<span style="color:#dc2626">快 3-5 倍</span>（GPU 算力差距）'
+  });
+  await delay(600);
+  insight.classList.add('visible');
+
+  const bubble = createElement('div', {
+    className: 'bubble tail-top',
+    style: { left: '14px', bottom: '42px', maxWidth: '115px', fontSize: '11px' },
+    innerHTML: '关键区别：<span style="font-weight:700">内存共享</span>让苹果能装更大模型'
+  });
+  await delay(400);
+  bubble.classList.add('visible');
+  character.className = 'character-wrapper eureka look-right';
+  await delay(600);
+  character.className = 'character-wrapper idle look-right';
+}
+
+/* ===== STEP 5: MLX vs CUDA ===== */
+async function stepSoftware() {
+  character.className = 'character-wrapper idle look-right';
+  stepTitle.textContent = STEPS[5].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+  createBreadcrumbMulti(['nvidia', 'apple']);
+
+  // Panel 1: NVIDIA Stack
+  const panel1 = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '130px', top: '48px', width: '250px', height: '340px' },
+    innerHTML:
+      '<div class="arch-panel-header nvidia">NVIDIA 软件栈</div>' +
+      '<div class="arch-panel-body" style="padding:10px 14px;font-size:11px;line-height:1.7;color:#334155">' +
+        // Stack layers
+        '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">' +
+          '<div style="background:#22c55e;color:white;padding:5px 10px;border-radius:8px;text-align:center;font-weight:700;font-size:12px">CUDA</div>' +
+          '<div style="text-align:center;font-size:10px;color:#94a3b8">&#9660;</div>' +
+          '<div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:4px 8px;border-radius:6px;text-align:center;font-size:10px">PyTorch / vLLM / TensorRT-LLM</div>' +
+        '</div>' +
+        '<div style="border-top:1px solid #e2e8f0;padding-top:6px;font-size:10px;line-height:1.7">' +
+          '<div>&#128190; <span style="font-weight:600">显存管理：</span>手动分配 GPU 内存</div>' +
+          '<div>&#128279; <span style="font-weight:600">多卡通信：</span>NCCL / NVLink</div>' +
+          '<div style="margin-top:6px;padding:5px 8px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0">' +
+            '<div style="font-weight:700;color:#16a34a">&#9989; 优势</div>' +
+            '<div>生态最成熟，工具最多</div>' +
+            '<div>几乎所有 AI 框架都支持</div>' +
+          '</div>' +
+          '<div style="margin-top:4px;padding:5px 8px;background:#fef2f2;border-radius:6px;border:1px solid #fecaca">' +
+            '<div style="font-weight:700;color:#dc2626">&#10060; 劣势</div>' +
+            '<div>受 VRAM 容量限制</div>' +
+            '<div>多卡配置复杂</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+  });
+
+  // Panel 2: Apple Stack
+  const panel2 = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '400px', top: '48px', width: '260px', height: '340px' },
+    innerHTML:
+      '<div class="arch-panel-header apple">Apple 软件栈</div>' +
+      '<div class="arch-panel-body" style="padding:10px 14px;font-size:11px;line-height:1.7;color:#334155">' +
+        // Stack layers
+        '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">' +
+          '<div style="background:#2563eb;color:white;padding:5px 10px;border-radius:8px;text-align:center;font-weight:700;font-size:12px">MLX</div>' +
+          '<div style="text-align:center;font-size:10px;color:#94a3b8">&#9660;</div>' +
+          '<div style="background:#eff6ff;border:1px solid #bfdbfe;padding:4px 8px;border-radius:6px;text-align:center;font-size:10px">Apple 专属 ML 框架</div>' +
+        '</div>' +
+        '<div style="border-top:1px solid #e2e8f0;padding-top:6px;font-size:10px;line-height:1.7">' +
+          '<div>&#128190; <span style="font-weight:600">内存管理：</span>懒计算 (lazy eval)，零拷贝</div>' +
+          '<div>&#128260; <span style="font-weight:600">调度：</span>CPU/GPU 自动调度</div>' +
+          '<div style="margin-top:6px;padding:5px 8px;background:#eff6ff;border-radius:6px;border:1px solid #bfdbfe">' +
+            '<div style="font-weight:700;color:#2563eb">&#9989; 优势</div>' +
+            '<div>简单，模型加载秒完成</div>' +
+            '<div>（因为无需搬运到显存）</div>' +
+          '</div>' +
+          '<div style="margin-top:4px;padding:5px 8px;background:#fef2f2;border-radius:6px;border:1px solid #fecaca">' +
+            '<div style="font-weight:700;color:#dc2626">&#10060; 劣势</div>' +
+            '<div>生态小，只支持 Apple 硬件</div>' +
+            '<div>第三方库支持较少</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+  });
+
+  await delay(300);
+  panel1.classList.add('visible');
+  await delay(300);
+  panel2.classList.add('visible');
+
+  const bubble = createElement('div', {
+    className: 'bubble tail-top',
+    style: { left: '14px', bottom: '42px', maxWidth: '115px', fontSize: '11px' },
+    innerHTML: '硬件不同，<span style="font-weight:700">软件生态</span>也完全不同'
+  });
+  await delay(600);
+  bubble.classList.add('visible');
+  character.className = 'character-wrapper nod look-right';
+  await delay(500);
+  character.className = 'character-wrapper idle look-right';
+}
+
+/* ===== STEP 6: Comparison Table ===== */
+async function stepTable() {
+  character.className = 'character-wrapper idle look-right';
+  stepTitle.textContent = STEPS[6].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+  createBreadcrumbMulti(['nvidia', 'apple', 'pim']);
+
+  const panel = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '130px', top: '46px', width: '530px', height: '348px' },
+    innerHTML:
+      '<div style="background:#1e293b;color:white;padding:6px 14px;font-weight:700;font-size:13px;text-align:center">三种架构全面对比</div>' +
+      '<div style="padding:6px 10px;overflow:hidden">' +
+        '<table class="comp-table">' +
+          '<thead>' +
+            '<tr>' +
+              '<th class="label-th" style="width:80px"></th>' +
+              '<th class="nvidia-th">NVIDIA 分离式</th>' +
+              '<th class="apple-th">Apple 统一内存</th>' +
+              '<th class="pim-th">算存一体 PIM</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' +
+            '<tr>' +
+              '<td>内存模型</td>' +
+              '<td>CPU+DDR / GPU+VRAM</td>' +
+              '<td>共享统一内存</td>' +
+              '<td>计算嵌入内存</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td>主要瓶颈</td>' +
+              '<td style="color:#dc2626">PCIe 搬运</td>' +
+              '<td style="color:#f59e0b">GPU 算力弱</td>' +
+              '<td style="color:#7c3aed">尚未成熟</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td>推理速度</td>' +
+              '<td>&#9889;&#9889;&#9889;&#9889;&#9889;</td>' +
+              '<td>&#9889;&#9889;</td>' +
+              '<td>&#9889;&#9889;&#9889;（理论）</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td>可跑模型</td>' +
+              '<td>受 VRAM 限制</td>' +
+              '<td style="color:#2563eb;font-weight:600">内存多大跑多大</td>' +
+              '<td>取决于内存容量</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td>成本</td>' +
+              '<td style="color:#dc2626;font-weight:600">极高</td>' +
+              '<td style="color:#22c55e;font-weight:600">中等</td>' +
+              '<td>未知</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td>功耗</td>' +
+              '<td>高 (300W+/卡)</td>' +
+              '<td style="color:#22c55e;font-weight:600">低 (~60W)</td>' +
+              '<td>极低（理论）</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td>软件生态</td>' +
+              '<td style="color:#22c55e;font-weight:600">CUDA 最成熟</td>' +
+              '<td>MLX 较新</td>' +
+              '<td style="color:#dc2626">几乎没有</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td>适合场景</td>' +
+              '<td>数据中心生产</td>' +
+              '<td>本地开发/体验</td>' +
+              '<td>未来边缘 AI</td>' +
+            '</tr>' +
+          '</tbody>' +
+        '</table>' +
+      '</div>'
+  });
+
+  await delay(400);
+  panel.classList.add('visible');
+
+  const bubble = createElement('div', {
+    className: 'bubble tail-top',
+    style: { left: '14px', bottom: '42px', maxWidth: '115px', fontSize: '11px' },
+    innerHTML: '各有优劣，<span style="font-weight:700">没有完美方案</span>，只有取舍'
+  });
+  await delay(600);
+  bubble.classList.add('visible');
+  character.className = 'character-wrapper point look-right';
+}
+
+/* ===== STEP 7: Final Recommendation ===== */
+async function stepChoose() {
+  character.className = 'character-wrapper present look-right';
+  stepTitle.textContent = STEPS[7].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+  createBreadcrumbMulti(['nvidia', 'apple', 'pim']);
+
+  const panel = createElement('div', {
+    className: 'arch-panel',
+    style: { left: '130px', top: '48px', width: '530px', height: '340px' },
+    innerHTML:
+      '<div style="background:linear-gradient(135deg,#1e293b,#334155);color:white;padding:8px 14px;font-weight:700;font-size:14px;text-align:center">&#127775; 选择建议</div>' +
+      '<div class="arch-panel-body" style="padding:12px 16px">' +
+
+        '<div style="display:flex;flex-direction:column;gap:8px">' +
+          // Option 1
+          '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px">' +
+            '<div style="font-size:22px;flex-shrink:0">&#127981;</div>' +
+            '<div style="font-size:11px;line-height:1.6">' +
+              '<div style="font-weight:700;color:#16a34a;font-size:12px">要速度和生产部署</div>' +
+              '<div style="color:#334155">&#8594; NVIDIA GPU (H100 / A100)</div>' +
+              '<div style="color:#64748b;font-size:10px">数据中心、大规模推理、训练微调</div>' +
+            '</div>' +
+          '</div>' +
+
+          // Option 2
+          '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px">' +
+            '<div style="font-size:22px;flex-shrink:0">&#128421;</div>' +
+            '<div style="font-size:11px;line-height:1.6">' +
+              '<div style="font-weight:700;color:#2563eb;font-size:12px">本地跑大模型体验</div>' +
+              '<div style="color:#334155">&#8594; Mac Studio M3 Ultra (最高512GB)</div>' +
+              '<div style="color:#64748b;font-size:10px">静音、低功耗，70B 模型轻松跑</div>' +
+            '</div>' +
+          '</div>' +
+
+          // Option 3
+          '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px">' +
+            '<div style="font-size:22px;flex-shrink:0">&#128176;</div>' +
+            '<div style="font-size:11px;line-height:1.6">' +
+              '<div style="font-weight:700;color:#d97706;font-size:12px">预算有限跑小模型</div>' +
+              '<div style="color:#334155">&#8594; RTX 5090 ($2,000) 或 Mac Mini M4 Pro ($1,399起)</div>' +
+              '<div style="color:#64748b;font-size:10px">性价比之选，7-14B 模型流畅运行</div>' +
+            '</div>' +
+          '</div>' +
+
+          // Option 4
+          '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px">' +
+            '<div style="font-size:22px;flex-shrink:0">&#128302;</div>' +
+            '<div style="font-size:11px;line-height:1.6">' +
+              '<div style="font-weight:700;color:#7c3aed;font-size:12px">未来值得关注</div>' +
+              '<div style="color:#334155">&#8594; 算存一体 PIM 架构</div>' +
+              '<div style="color:#64748b;font-size:10px">从根本上解决数据搬运问题，关注学术进展</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+      '</div>'
+  });
+
+  await delay(400);
+  panel.classList.add('visible');
+
+  // Final message bubble
+  const bubble = createElement('div', {
+    className: 'bubble tail-top',
+    style: { left: '10px', bottom: '42px', maxWidth: '118px', fontSize: '11px' },
+    innerHTML: '<span style="font-weight:700;color:#2563eb">没有最好的架构，只有最适合的场景！</span>'
+  });
+  await delay(800);
+  bubble.classList.add('visible');
+
+  // Celebration
+  await delay(500);
+  character.className = 'character-wrapper celebrate look-right';
+  spawnConfetti();
+
+  await delay(1500);
+  character.className = 'character-wrapper idle look-right';
+}
+
+function spawnConfetti() {
+  const colors = ['#22c55e', '#2563eb', '#7c3aed', '#eab308', '#ef4444', '#f97316'];
+  for (let i = 0; i < 40; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = (Math.random() * 100) + '%';
+    confetti.style.top = '-10px';
+    confetti.style.width = (4 + Math.random() * 6) + 'px';
+    confetti.style.height = (4 + Math.random() * 6) + 'px';
+    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    confetti.style.animationDelay = (Math.random() * 0.8) + 's';
+    confetti.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+    confettiContainer.appendChild(confetti);
+    setTimeout(() => confetti.classList.add('active'), 10);
+  }
+}
+
+/* ===== Navigation ===== */
+const stepFunctions = [stepNvidia, stepApple, stepPim, stepCompare, stepWhy, stepSoftware, stepTable, stepChoose];
+
+async function goToStep(step) {
+  if (step < 0 || step >= 8) return;
+  if (step === currentStep) return;
+
+  currentStep = step;
+  clearDynamic();
+  updateProgress(step);
+
+  const btnNext = document.getElementById('btnNext');
+  const btnPrev = document.getElementById('btnPrev');
+  btnNext.disabled = false;
+  btnNext.textContent = step < 7 ? '下一步' : '完成';
+  if (step >= 7) {
+    btnNext.disabled = true;
+  }
+  btnPrev.disabled = (step <= 0);
+
+  await stepFunctions[step]();
+}
+
+async function nextStep() {
+  if (currentStep >= 7) return;
+  await goToStep(currentStep + 1);
+}
+
+async function prevStep() {
+  if (currentStep <= 0) return;
+  await goToStep(currentStep - 1);
+}
+
+function replay() {
+  stopAutoPlay();
+  currentStep = -1;
+  clearDynamic();
+  updateProgress(0);
+  document.getElementById('btnNext').disabled = false;
+  document.getElementById('btnNext').textContent = '下一步';
+  document.getElementById('btnPrev').disabled = true;
+  goToStep(0);
+}
+
+let isAutoPlaying = false;
+
+function toggleAutoPlay() {
+  if (isAutoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  isAutoPlaying = true;
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = '暂停播放';
+  btn.classList.add('playing');
+  document.getElementById('btnNext').disabled = true;
+  document.getElementById('btnPrev').disabled = true;
+
+  const advanceStep = async () => {
+    if (!isAutoPlaying) return;
+    if (currentStep >= 7) {
+      // Reset to beginning
+      currentStep = -1;
+      clearDynamic();
+      updateProgress(0);
+      stopAutoPlay();
+      return;
+    }
+    await goToStep(currentStep < 0 ? 0 : currentStep + 1);
+    if (isAutoPlaying) {
+      autoPlayInterval = setTimeout(advanceStep, 4000);
+    }
+  };
+
+  advanceStep();
+}
+
+function stopAutoPlay() {
+  isAutoPlaying = false;
+  if (autoPlayInterval) {
+    clearTimeout(autoPlayInterval);
+    autoPlayInterval = null;
+  }
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = '自动播放';
+  btn.classList.remove('playing');
+  document.getElementById('btnNext').disabled = (currentStep >= 7);
+  document.getElementById('btnPrev').disabled = (currentStep <= 0);
+}
+
+// Keyboard support
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    if (!isAutoPlaying) nextStep();
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (!isAutoPlaying) prevStep();
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    replay();
+  }
+});
+
+// Start at step 0
+goToStep(0);
+</script>
+</body>
+</html>

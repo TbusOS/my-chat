@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP 万能插座 — AI 的即插即用接口</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 32px 20px 16px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 span {
+  color: #2563eb;
+}
+
+.header p {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.progress-dot.active {
+  background: #2563eb;
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.progress-dot.completed {
+  background: #2563eb;
+}
+
+.progress-line {
+  width: 24px;
+  height: 2px;
+  background: #e2e8f0;
+  transition: background 0.4s ease;
+}
+
+.progress-line.completed {
+  background: #2563eb;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.step-label strong {
+  color: #2563eb;
+}
+
+/* Stage */
+.stage-container {
+  position: relative;
+  width: 680px;
+  height: 440px;
+  margin: 12px 0 16px;
+  background: #f8fafc;
+  border-radius: 20px;
+  border: 2px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Step title inside stage */
+.step-title {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 18px;
+  border-radius: 20px;
+  z-index: 20;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.step-title.visible {
+  opacity: 1;
+}
+
+/* Character */
+.character-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  transition: left 0.8s ease, transform 0.8s ease, bottom 0.8s ease;
+}
+
+.character-wrapper.idle {
+  animation: bobbing 2s ease-in-out infinite;
+}
+
+.character-wrapper.nod {
+  animation: nod 0.5s ease-in-out 2;
+}
+
+.character-wrapper.thinking {
+  animation: thinking-bob 2.5s ease-in-out infinite;
+}
+
+.character-wrapper.eureka {
+  animation: eureka 0.6s ease-out;
+}
+
+.character-wrapper.celebrate {
+  animation: celebrate 0.5s ease-in-out 3;
+}
+
+.character-wrapper.sad {
+  animation: sad-shake 1.5s ease-in-out infinite;
+}
+
+.character-wrapper.powerup {
+  animation: powerup-glow 0.8s ease-out;
+}
+
+.character-wrapper.proud {
+  animation: proud-bounce 0.6s ease-in-out 2;
+}
+
+.character-wrapper.pos-right {
+  left: 62%;
+}
+
+.character-wrapper.pos-center {
+  left: 50%;
+}
+
+.character-wrapper.pos-left {
+  left: 40%;
+}
+
+.character-wrapper.pos-hub {
+  left: 50%;
+  bottom: 160px;
+}
+
+@keyframes bobbing {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+@keyframes nod {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  30% { transform: translateX(-50%) rotate(8deg); }
+  60% { transform: translateX(-50%) rotate(-4deg); }
+}
+
+@keyframes thinking-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  30% { transform: translateX(-50%) translateY(-4px) rotate(-2deg); }
+  70% { transform: translateX(-50%) translateY(-2px) rotate(2deg); }
+}
+
+@keyframes eureka {
+  0% { transform: translateX(-50%) translateY(0) scale(1); }
+  40% { transform: translateX(-50%) translateY(-20px) scale(1.1); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes celebrate {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  25% { transform: translateX(-50%) translateY(-15px) rotate(-8deg); }
+  75% { transform: translateX(-50%) translateY(-15px) rotate(8deg); }
+}
+
+@keyframes sad-shake {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  25% { transform: translateX(-50%) translateY(2px) rotate(-3deg); }
+  75% { transform: translateX(-50%) translateY(2px) rotate(3deg); }
+}
+
+@keyframes powerup-glow {
+  0% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+  50% { transform: translateX(-50%) scale(1.15); filter: brightness(1.4) drop-shadow(0 0 20px rgba(37, 99, 235, 0.6)); }
+  100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+}
+
+@keyframes proud-bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+  50% { transform: translateX(-50%) translateY(-10px) scale(1.05); }
+}
+
+/* Character SVG parts */
+.char-arm-left, .char-arm-right {
+  transition: transform 0.4s ease;
+  transform-origin: center top;
+}
+
+.character-wrapper.wave .char-arm-right {
+  animation: wave-arm 0.6s ease-in-out 2;
+}
+
+.character-wrapper.reach .char-arm-right {
+  transform: rotate(-60deg) translateX(5px);
+}
+
+.character-wrapper.reach-left .char-arm-left {
+  transform: rotate(60deg) translateX(-5px);
+}
+
+.character-wrapper.point .char-arm-right {
+  transform: rotate(-45deg) translateX(10px) translateY(-10px);
+}
+
+.character-wrapper.chin .char-arm-right {
+  transform: rotate(-70deg) translateX(2px) translateY(-15px);
+}
+
+.character-wrapper.present .char-arm-left,
+.character-wrapper.present .char-arm-right {
+  transform: rotate(-40deg);
+}
+
+.character-wrapper.arms-up .char-arm-left {
+  transform: rotate(40deg);
+}
+
+.character-wrapper.arms-up .char-arm-right {
+  transform: rotate(-40deg);
+}
+
+@keyframes wave-arm {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+}
+
+/* Character eyes */
+.char-eye {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.look-left .char-eye {
+  transform: translateX(-2px);
+}
+
+/* Character mouth */
+.char-mouth {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.surprise .char-mouth {
+  rx: 4;
+  ry: 4;
+}
+
+/* Lightbulb */
+.lightbulb {
+  position: absolute;
+  top: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.lightbulb.on {
+  opacity: 1;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4)); }
+  50% { filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.8)); }
+}
+
+/* Exclamation */
+.exclamation {
+  position: absolute;
+  top: -40px;
+  right: -30px;
+  font-size: 32px;
+  font-weight: 900;
+  color: #ef4444;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+}
+
+.exclamation.visible {
+  opacity: 1;
+  transform: scale(1);
+  animation: exclaim-pop 0.5s ease-out;
+}
+
+@keyframes exclaim-pop {
+  0% { transform: scale(0) rotate(-20deg); }
+  60% { transform: scale(1.3) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Speech Bubbles */
+.bubble {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  max-width: 240px;
+}
+
+.bubble.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.bubble.tail-right::after {
+  bottom: 20px;
+  right: -10px;
+  border-left: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-left::after {
+  bottom: 20px;
+  left: -10px;
+  border-right: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-bottom::after {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: 10px solid #ffffff;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+/* Service icons */
+.service-icon {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 8;
+  opacity: 0;
+  transform: scale(0);
+}
+
+.service-icon.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.service-icon .icon-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  position: relative;
+  transition: all 0.5s ease;
+  border: 3px solid #d1d5db;
+  background: #f1f5f9;
+}
+
+.service-icon.locked .icon-circle {
+  filter: grayscale(0.8) opacity(0.6);
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.service-icon.unlocked .icon-circle {
+  filter: none;
+  background: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 0 16px rgba(37, 99, 235, 0.25);
+  animation: icon-unlock 0.6s ease-out;
+}
+
+.service-icon .lock-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.service-icon.unlocked .lock-badge {
+  opacity: 0;
+  transform: scale(0);
+}
+
+.service-icon .icon-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  transition: color 0.5s ease;
+}
+
+.service-icon.unlocked .icon-label {
+  color: #2563eb;
+}
+
+@keyframes icon-unlock {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); box-shadow: 0 0 24px rgba(37, 99, 235, 0.5); }
+  100% { transform: scale(1); }
+}
+
+/* Connection lines */
+.connection-line {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.connection-line.visible {
+  opacity: 1;
+}
+
+.connection-line line {
+  stroke: #2563eb;
+  stroke-width: 2;
+  stroke-dasharray: 8 4;
+  animation: dash-flow 1s linear infinite;
+}
+
+@keyframes dash-flow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -12; }
+}
+
+/* MCP Badge */
+.mcp-badge {
+  position: absolute;
+  z-index: 25;
+  opacity: 0;
+  transition: all 0.5s ease;
+}
+
+.mcp-badge.visible {
+  opacity: 1;
+}
+
+.mcp-badge .badge-inner {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+  padding: 10px 22px;
+  border-radius: 30px;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4);
+  letter-spacing: 2px;
+}
+
+@keyframes badge-descend {
+  0% { transform: translateY(-80px) scale(0.5); opacity: 0; }
+  60% { transform: translateY(10px) scale(1.1); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes badge-flash {
+  0%, 100% { box-shadow: 0 4px 20px rgba(37, 99, 235, 0.4); }
+  50% { box-shadow: 0 4px 40px rgba(37, 99, 235, 0.8), 0 0 60px rgba(124, 58, 237, 0.4); }
+}
+
+/* Glow ports on character */
+.glow-port {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.8);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 11;
+}
+
+.glow-port.visible {
+  opacity: 1;
+  animation: port-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes port-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(37, 99, 235, 0.6); }
+  50% { box-shadow: 0 0 12px rgba(37, 99, 235, 1); }
+}
+
+/* Result mini-panel */
+.result-mini {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #22c55e;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #16a34a;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+  opacity: 0;
+  transform: scale(0.7) translateY(5px);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 16;
+  white-space: nowrap;
+}
+
+.result-mini.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* MCP label */
+.mcp-label {
+  position: absolute;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.08);
+  padding: 3px 12px;
+  border-radius: 12px;
+  opacity: 0;
+  transition: all 0.5s ease;
+  z-index: 16;
+  white-space: nowrap;
+}
+
+.mcp-label.visible {
+  opacity: 1;
+}
+
+/* Summary panel */
+.summary-panel {
+  position: absolute;
+  background: #ffffff;
+  border: 3px solid #2563eb;
+  border-radius: 20px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1.9;
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.12);
+  opacity: 0;
+  transform: scale(0.5) rotate(-3deg);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  overflow: hidden;
+}
+
+.summary-panel.visible {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.summary-header {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+  padding: 14px 28px;
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.summary-body {
+  padding: 20px 28px;
+}
+
+.summary-item {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.4s ease;
+  padding: 2px 0;
+}
+
+.summary-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Insight text */
+.insight-text {
+  position: absolute;
+  font-size: 14px;
+  font-weight: 700;
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.06);
+  padding: 6px 16px;
+  border-radius: 12px;
+  border: 1px dashed #7c3aed;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 16;
+  white-space: nowrap;
+}
+
+.insight-text.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* User query bubble */
+.user-query {
+  position: absolute;
+  background: #eff6ff;
+  border: 2px solid #bfdbfe;
+  border-radius: 16px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #1e40af;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 16;
+  max-width: 220px;
+}
+
+.user-query.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.user-query::before {
+  content: '👤';
+  margin-right: 6px;
+}
+
+/* Confetti */
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+.confetti.active {
+  animation: confetti-fall 2s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translateY(-20px) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translateY(400px) rotate(720deg) scale(0.5); }
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 32px;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.btn-auto {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-auto:hover {
+  background: #dcfce7;
+}
+
+.btn-auto.playing {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Ground shadow */
+.ground-shadow {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 8px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.08) 0%, transparent 70%);
+  z-index: 5;
+  transition: left 0.8s ease, bottom 0.8s ease;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .stage-container {
+    width: 95vw;
+    height: 380px;
+  }
+  .header h1 { font-size: 24px; }
+  .bubble, .summary-panel { font-size: 12px; max-width: 180px; }
+  .service-icon .icon-circle { width: 44px; height: 44px; font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>MCP 万能插座</span> — AI 的即插即用接口</h1>
+  <p>一个协议，让 AI 连接一切外部服务</p>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-dot active" data-step="0" onclick="goToStep(0)"></div>
+  <div class="progress-line" data-line="0"></div>
+  <div class="progress-dot" data-step="1" onclick="goToStep(1)"></div>
+  <div class="progress-line" data-line="1"></div>
+  <div class="progress-dot" data-step="2" onclick="goToStep(2)"></div>
+  <div class="progress-line" data-line="2"></div>
+  <div class="progress-dot" data-step="3" onclick="goToStep(3)"></div>
+  <div class="progress-line" data-line="3"></div>
+  <div class="progress-dot" data-step="4" onclick="goToStep(4)"></div>
+  <div class="progress-line" data-line="4"></div>
+  <div class="progress-dot" data-step="5" onclick="goToStep(5)"></div>
+</div>
+<div class="step-label" id="stepLabel">步骤 <strong>1</strong> / 6</div>
+
+<div class="stage-container">
+  <div class="stage" id="stage">
+    <div class="step-title" id="stepTitle"></div>
+
+    <!-- Ground shadow -->
+    <div class="ground-shadow" id="groundShadow"></div>
+
+    <!-- Character -->
+    <div class="character-wrapper idle" id="character">
+      <!-- Lightbulb above head -->
+      <div class="lightbulb" id="lightbulb">
+        <svg width="30" height="36" viewBox="0 0 30 36">
+          <ellipse cx="15" cy="14" rx="11" ry="12" fill="#fbbf24" opacity="0.3"/>
+          <path d="M15 2 C8 2 3 7.5 3 14 C3 19 6 22 9 24 L9 28 L21 28 L21 24 C24 22 27 19 27 14 C27 7.5 22 2 15 2Z" fill="#fbbf24"/>
+          <rect x="10" y="28" width="10" height="3" rx="1" fill="#d4a017"/>
+          <rect x="11" y="31" width="8" height="2" rx="1" fill="#d4a017"/>
+          <path d="M15 8 L15 18 M10 13 L20 13" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+
+      <!-- Exclamation mark -->
+      <div class="exclamation" id="exclamation">!</div>
+
+      <!-- SVG Character -->
+      <svg width="100" height="140" viewBox="0 0 100 140" id="charSvg">
+        <!-- Body -->
+        <rect class="char-body" x="30" y="62" width="40" height="45" rx="12" fill="#2563eb"/>
+
+        <!-- Legs -->
+        <rect x="35" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <rect x="53" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+
+        <!-- Shoes -->
+        <ellipse cx="41" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <ellipse cx="59" cy="126" rx="9" ry="5" fill="#1e293b"/>
+
+        <!-- Arms -->
+        <g class="char-arm-left">
+          <rect x="17" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="24" cy="98" r="6" fill="#fde68a"/>
+        </g>
+        <g class="char-arm-right">
+          <rect x="69" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="76" cy="98" r="6" fill="#fde68a"/>
+        </g>
+
+        <!-- Head -->
+        <circle cx="50" cy="36" r="28" fill="#fde68a"/>
+
+        <!-- Hat -->
+        <path d="M25 32 Q25 14 50 10 Q75 14 75 32 Z" fill="#2563eb"/>
+        <rect x="20" y="30" width="60" height="6" rx="3" fill="#1d4ed8"/>
+
+        <!-- Face -->
+        <g class="char-face">
+          <!-- Eyes -->
+          <circle class="char-eye" cx="40" cy="38" r="3.5" fill="#1e293b"/>
+          <circle class="char-eye" cx="60" cy="38" r="3.5" fill="#1e293b"/>
+          <!-- Eye shine -->
+          <circle cx="41.5" cy="36.5" r="1.2" fill="white"/>
+          <circle cx="61.5" cy="36.5" r="1.2" fill="white"/>
+          <!-- Mouth -->
+          <ellipse class="char-mouth" cx="50" cy="50" rx="6" ry="3" fill="#1e293b"/>
+          <!-- Blush -->
+          <ellipse cx="34" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+          <ellipse cx="66" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Confetti container -->
+    <div class="confetti-container" id="confettiContainer"></div>
+
+    <!-- SVG layer for connection lines -->
+    <svg id="lineLayer" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:6;pointer-events:none;"></svg>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-secondary" id="btnReplay" onclick="replay()">重播</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+</div>
+
+<script>
+const STEPS = [
+  { title: '第一步：孤立的 AI', key: 'isolated' },
+  { title: '第二步：MCP 来了', key: 'mcp-arrives' },
+  { title: '第三步：连接数据库', key: 'connect-db' },
+  { title: '第四步：连接更多服务', key: 'connect-more' },
+  { title: '第五步：即插即用', key: 'plug-and-play' },
+  { title: '第六步：MCP 的意义', key: 'meaning' }
+];
+
+/* Service icon positions in a semi-circle around center-top */
+const SERVICE_DEFS = [
+  { emoji: '\u{1F5C4}\uFE0F', label: '数据库', x: 90, y: 60 },
+  { emoji: '\u{1F4AC}', label: '飞书', x: 530, y: 60 },
+  { emoji: '\u{1F310}', label: '浏览器', x: 590, y: 190 },
+  { emoji: '\u{1F4C1}', label: '文件系统', x: 30, y: 190 },
+  { emoji: '\u{1F419}', label: 'GitHub', x: 560, y: 340 }
+];
+
+let currentStep = -1;
+let autoPlayInterval = null;
+let dynamicElements = [];
+let serviceIconEls = [];
+
+const stage = document.getElementById('stage');
+const character = document.getElementById('character');
+const stepTitle = document.getElementById('stepTitle');
+const lightbulb = document.getElementById('lightbulb');
+const exclamation = document.getElementById('exclamation');
+const groundShadow = document.getElementById('groundShadow');
+const confettiContainer = document.getElementById('confettiContainer');
+const lineLayer = document.getElementById('lineLayer');
+
+function clearDynamic() {
+  dynamicElements.forEach(el => {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  dynamicElements = [];
+  serviceIconEls = [];
+
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '40px';
+  groundShadow.style.left = '50%';
+  groundShadow.style.bottom = '32px';
+  stepTitle.classList.remove('visible');
+  lightbulb.classList.remove('on');
+  exclamation.classList.remove('visible');
+  confettiContainer.innerHTML = '';
+  lineLayer.innerHTML = '';
+}
+
+function createElement(tag, attrs, parent) {
+  const el = document.createElement(tag);
+  if (attrs) {
+    Object.keys(attrs).forEach(k => {
+      if (k === 'style' && typeof attrs[k] === 'object') {
+        Object.assign(el.style, attrs[k]);
+      } else if (k === 'className') {
+        el.className = attrs[k];
+      } else if (k === 'innerHTML') {
+        el.innerHTML = attrs[k];
+      } else if (k === 'textContent') {
+        el.textContent = attrs[k];
+      } else {
+        el.setAttribute(k, attrs[k]);
+      }
+    });
+  }
+  (parent || stage).appendChild(el);
+  dynamicElements.push(el);
+  return el;
+}
+
+function createSVGLine(x1, y1, x2, y2) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const g = document.createElementNS(ns, 'g');
+  g.style.opacity = '0';
+  g.style.transition = 'opacity 0.5s ease';
+
+  const line = document.createElementNS(ns, 'line');
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+  line.setAttribute('stroke', '#2563eb');
+  line.setAttribute('stroke-width', '2.5');
+  line.setAttribute('stroke-dasharray', '8 4');
+  line.style.animation = 'dash-flow 1s linear infinite';
+
+  /* Glow pulse circle at end */
+  const pulse = document.createElementNS(ns, 'circle');
+  pulse.setAttribute('cx', x2);
+  pulse.setAttribute('cy', y2);
+  pulse.setAttribute('r', '4');
+  pulse.setAttribute('fill', '#2563eb');
+  pulse.style.animation = 'port-pulse 1.5s ease-in-out infinite';
+
+  g.appendChild(line);
+  g.appendChild(pulse);
+  lineLayer.appendChild(g);
+  dynamicElements.push(g);
+  return g;
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function updateProgress(step) {
+  document.querySelectorAll('.progress-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === step);
+    dot.classList.toggle('completed', i < step);
+  });
+  document.querySelectorAll('.progress-line').forEach((line, i) => {
+    line.classList.toggle('completed', i < step);
+  });
+  document.getElementById('stepLabel').innerHTML = `步骤 <strong>${step + 1}</strong> / 6`;
+}
+
+function createServiceIcon(def, locked) {
+  const el = createElement('div', {
+    className: 'service-icon ' + (locked ? 'locked' : ''),
+    style: { left: def.x + 'px', top: def.y + 'px' },
+    innerHTML: `
+      <div class="icon-circle">
+        <span>${def.emoji}</span>
+        <span class="lock-badge">${locked ? '\u{1F512}' : ''}</span>
+      </div>
+      <span class="icon-label">${def.label}</span>
+    `
+  });
+  serviceIconEls.push({ el, def });
+  return el;
+}
+
+/* Character center position for line drawing */
+function charCenter() {
+  /* Character is at left:50%, bottom:40px. SVG is 100x140.
+     The body center is roughly at 50,80 within SVG = stage center x, stage.height - 40 - 140 + 80 */
+  const cEl = character;
+  const rect = cEl.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
+  return {
+    x: rect.left - stageRect.left + rect.width / 2,
+    y: rect.top - stageRect.top + rect.height * 0.4
+  };
+}
+
+function iconCenter(def) {
+  return { x: def.x + 28, y: def.y + 28 };
+}
+
+/* ===== STEP 0: Isolated AI ===== */
+async function stepIsolated() {
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+  groundShadow.style.left = '50%';
+  groundShadow.style.bottom = '92px';
+
+  stepTitle.textContent = STEPS[0].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  /* Create locked service icons */
+  for (let i = 0; i < SERVICE_DEFS.length; i++) {
+    const icon = createServiceIcon(SERVICE_DEFS[i], true);
+    await delay(150);
+    icon.classList.add('visible');
+  }
+
+  /* Character tries to reach */
+  await delay(600);
+  character.className = 'character-wrapper reach pos-center';
+  character.style.bottom = '100px';
+
+  await delay(500);
+  exclamation.classList.add('visible');
+
+  await delay(400);
+  exclamation.classList.remove('visible');
+  character.className = 'character-wrapper sad pos-center';
+  character.style.bottom = '100px';
+
+  /* Speech bubble */
+  const bubble = createElement('div', {
+    className: 'bubble tail-bottom',
+    style: { left: '210px', bottom: '60px', maxWidth: '260px' },
+    innerHTML: '我能思考，但<strong style="color:#ef4444">无法连接</strong>外部世界...'
+  });
+
+  await delay(400);
+  bubble.classList.add('visible');
+}
+
+/* ===== STEP 1: MCP Arrives ===== */
+async function stepMCPArrives() {
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+  groundShadow.style.left = '50%';
+  groundShadow.style.bottom = '92px';
+
+  stepTitle.textContent = STEPS[1].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  /* Show locked icons faintly */
+  for (let i = 0; i < SERVICE_DEFS.length; i++) {
+    const icon = createServiceIcon(SERVICE_DEFS[i], true);
+    icon.classList.add('visible');
+  }
+
+  /* MCP badge descends from top */
+  const badge = createElement('div', {
+    className: 'mcp-badge',
+    style: { left: '50%', top: '50px', transform: 'translateX(-50%) translateY(-80px) scale(0.5)' },
+    innerHTML: '<div class="badge-inner">MCP</div>'
+  });
+
+  await delay(500);
+  badge.style.transition = 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+  badge.style.transform = 'translateX(-50%) translateY(0) scale(1)';
+  badge.classList.add('visible');
+
+  await delay(900);
+  /* Flash effect - badge moves to character */
+  badge.style.transition = 'all 0.5s ease';
+  badge.style.top = '150px';
+  badge.style.transform = 'translateX(-50%) scale(0.6)';
+
+  await delay(500);
+  badge.style.opacity = '0';
+
+  /* Flash on character */
+  character.className = 'character-wrapper powerup pos-center';
+  character.style.bottom = '100px';
+
+  await delay(800);
+
+  /* Add glow ports on character body */
+  const ports = [
+    { left: '16px', top: '78px' },
+    { left: '82px', top: '78px' },
+    { left: '16px', top: '100px' },
+    { left: '82px', top: '100px' },
+    { left: '49px', top: '62px' }
+  ];
+
+  for (const p of ports) {
+    const port = createElement('div', {
+      className: 'glow-port',
+      style: { ...p }
+    }, character);
+    await delay(100);
+    port.classList.add('visible');
+  }
+
+  /* Eureka */
+  character.className = 'character-wrapper eureka pos-center';
+  character.style.bottom = '100px';
+
+  await delay(600);
+  lightbulb.classList.add('on');
+
+  /* Speech bubble */
+  const bubble = createElement('div', {
+    className: 'bubble tail-bottom',
+    style: { left: '230px', bottom: '60px', maxWidth: '220px' },
+    innerHTML: '<strong style="color:#2563eb">MCP</strong> 就是我的万能接口！'
+  });
+  await delay(300);
+  bubble.classList.add('visible');
+
+  /* Label */
+  const label = createElement('div', {
+    className: 'mcp-label',
+    style: { left: '50%', bottom: '25px', transform: 'translateX(-50%)' },
+    textContent: 'MCP = Model Context Protocol'
+  });
+  await delay(500);
+  label.classList.add('visible');
+
+  await delay(400);
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+}
+
+/* ===== STEP 2: Connect Database ===== */
+async function stepConnectDB() {
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+  groundShadow.style.left = '50%';
+  groundShadow.style.bottom = '92px';
+
+  stepTitle.textContent = STEPS[2].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  /* Show glow ports */
+  const ports = [
+    { left: '16px', top: '78px' },
+    { left: '82px', top: '78px' },
+    { left: '49px', top: '62px' }
+  ];
+  for (const p of ports) {
+    const port = createElement('div', {
+      className: 'glow-port visible',
+      style: { ...p }
+    }, character);
+  }
+
+  /* Show all service icons (locked except DB) */
+  for (let i = 0; i < SERVICE_DEFS.length; i++) {
+    const icon = createServiceIcon(SERVICE_DEFS[i], true);
+    icon.classList.add('visible');
+  }
+
+  await delay(400);
+
+  /* Character points to DB */
+  character.className = 'character-wrapper reach pos-center';
+  character.style.bottom = '100px';
+
+  /* Draw connection line to DB */
+  const cCenter = { x: 340, y: 230 };
+  const dbCenter = iconCenter(SERVICE_DEFS[0]);
+  const line = createSVGLine(cCenter.x, cCenter.y, dbCenter.x, dbCenter.y);
+  await delay(300);
+  line.style.opacity = '1';
+
+  /* Unlock DB icon */
+  await delay(500);
+  const dbIcon = serviceIconEls[0].el;
+  dbIcon.classList.remove('locked');
+  dbIcon.classList.add('unlocked');
+
+  await delay(400);
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+
+  /* User query */
+  const userQuery = createElement('div', {
+    className: 'user-query',
+    style: { left: '30px', bottom: '50px' },
+    textContent: '查一下上个月的销售数据'
+  });
+  await delay(400);
+  userQuery.classList.add('visible');
+
+  /* Result panel */
+  await delay(800);
+  const result = createElement('div', {
+    className: 'result-mini',
+    style: { left: '30px', top: '120px', fontSize: '14px', padding: '10px 18px' },
+    innerHTML: '\u{1F4CA} 上月销售额：<strong style="color:#1e293b;font-size:16px">\u00A52,380,000</strong>'
+  });
+  await delay(300);
+  result.classList.add('visible');
+
+  /* Character happy */
+  const bubble = createElement('div', {
+    className: 'bubble tail-bottom',
+    style: { right: '80px', bottom: '60px', maxWidth: '180px' },
+    innerHTML: '<strong style="color:#2563eb">直接查到了！</strong>'
+  });
+  await delay(500);
+  bubble.classList.add('visible');
+  character.className = 'character-wrapper nod pos-center';
+  character.style.bottom = '100px';
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+}
+
+/* ===== STEP 3: Connect More Services ===== */
+async function stepConnectMore() {
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+  groundShadow.style.left = '50%';
+  groundShadow.style.bottom = '92px';
+
+  stepTitle.textContent = STEPS[3].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  /* Show glow ports */
+  const ports = [
+    { left: '16px', top: '78px' },
+    { left: '82px', top: '78px' },
+    { left: '16px', top: '100px' },
+    { left: '82px', top: '100px' },
+    { left: '49px', top: '62px' }
+  ];
+  for (const p of ports) {
+    const port = createElement('div', {
+      className: 'glow-port visible',
+      style: { ...p }
+    }, character);
+  }
+
+  /* Create all service icons - DB already unlocked */
+  for (let i = 0; i < SERVICE_DEFS.length; i++) {
+    const icon = createServiceIcon(SERVICE_DEFS[i], i !== 0);
+    icon.classList.add('visible');
+    if (i === 0) {
+      icon.classList.remove('locked');
+      icon.classList.add('unlocked');
+    }
+  }
+
+  /* Existing DB line */
+  const cCenter = { x: 340, y: 230 };
+  const dbCenter = iconCenter(SERVICE_DEFS[0]);
+  const dbLine = createSVGLine(cCenter.x, cCenter.y, dbCenter.x, dbCenter.y);
+  dbLine.style.opacity = '1';
+
+  await delay(500);
+
+  /* Connect to 飞书 (index 1) */
+  const fsCenter = iconCenter(SERVICE_DEFS[1]);
+  const fsLine = createSVGLine(cCenter.x, cCenter.y, fsCenter.x, fsCenter.y);
+  character.className = 'character-wrapper reach pos-center';
+  character.style.bottom = '100px';
+  await delay(300);
+  fsLine.style.opacity = '1';
+  await delay(400);
+  serviceIconEls[1].el.classList.remove('locked');
+  serviceIconEls[1].el.classList.add('unlocked');
+
+  const r1 = createElement('div', {
+    className: 'result-mini',
+    style: { right: '30px', top: '110px' },
+    textContent: '\u2705 已发送周报'
+  });
+  await delay(300);
+  r1.classList.add('visible');
+
+  await delay(600);
+
+  /* Connect to 浏览器 (index 2) */
+  const brCenter = iconCenter(SERVICE_DEFS[2]);
+  const brLine = createSVGLine(cCenter.x, cCenter.y, brCenter.x, brCenter.y);
+  await delay(300);
+  brLine.style.opacity = '1';
+  await delay(400);
+  serviceIconEls[2].el.classList.remove('locked');
+  serviceIconEls[2].el.classList.add('unlocked');
+
+  const r2 = createElement('div', {
+    className: 'result-mini',
+    style: { right: '20px', top: '250px' },
+    textContent: '\u2705 搜索到 React 19 文档'
+  });
+  await delay(300);
+  r2.classList.add('visible');
+
+  await delay(600);
+
+  /* Connect to GitHub (index 4) */
+  const ghCenter = iconCenter(SERVICE_DEFS[4]);
+  const ghLine = createSVGLine(cCenter.x, cCenter.y, ghCenter.x, ghCenter.y);
+  await delay(300);
+  ghLine.style.opacity = '1';
+  await delay(400);
+  serviceIconEls[4].el.classList.remove('locked');
+  serviceIconEls[4].el.classList.add('unlocked');
+
+  const r3 = createElement('div', {
+    className: 'result-mini',
+    style: { right: '30px', bottom: '50px' },
+    textContent: '\u2705 已创建 PR #42'
+  });
+  await delay(300);
+  r3.classList.add('visible');
+
+  /* Also unlock 文件系统 (index 3) */
+  await delay(400);
+  const fileCenter = iconCenter(SERVICE_DEFS[3]);
+  const fileLine = createSVGLine(cCenter.x, cCenter.y, fileCenter.x, fileCenter.y);
+  fileLine.style.opacity = '1';
+  await delay(300);
+  serviceIconEls[3].el.classList.remove('locked');
+  serviceIconEls[3].el.classList.add('unlocked');
+
+  /* Character proud */
+  await delay(400);
+  character.className = 'character-wrapper proud pos-center';
+  character.style.bottom = '100px';
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+}
+
+/* ===== STEP 4: Plug and Play ===== */
+async function stepPlugAndPlay() {
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+  groundShadow.style.left = '50%';
+  groundShadow.style.bottom = '92px';
+
+  stepTitle.textContent = STEPS[4].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  /* Show glow ports */
+  const portPositions = [
+    { left: '16px', top: '78px' },
+    { left: '82px', top: '78px' },
+    { left: '16px', top: '100px' },
+    { left: '82px', top: '100px' },
+    { left: '49px', top: '62px' }
+  ];
+  for (const p of portPositions) {
+    const port = createElement('div', {
+      className: 'glow-port visible',
+      style: { ...p }
+    }, character);
+  }
+
+  /* Show existing services (all unlocked) with lines */
+  const cCenter = { x: 340, y: 230 };
+  for (let i = 0; i < SERVICE_DEFS.length; i++) {
+    const icon = createServiceIcon(SERVICE_DEFS[i], false);
+    icon.classList.add('visible');
+    icon.classList.add('unlocked');
+    const ic = iconCenter(SERVICE_DEFS[i]);
+    const line = createSVGLine(cCenter.x, cCenter.y, ic.x, ic.y);
+    line.style.opacity = '1';
+  }
+
+  await delay(800);
+
+  /* NEW service: 邮件 slides in from right */
+  const mailDef = { emoji: '\u{1F4E7}', label: '邮件', x: 600, y: 130 };
+  const mailIcon = createServiceIcon(mailDef, false);
+  mailIcon.style.transform = 'translateX(60px) scale(0)';
+  mailIcon.classList.add('visible');
+
+  await delay(100);
+  mailIcon.style.transition = 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+  mailIcon.style.transform = 'translateX(0) scale(1)';
+  mailIcon.classList.add('unlocked');
+
+  /* Connect line */
+  await delay(500);
+  character.className = 'character-wrapper reach pos-center';
+  character.style.bottom = '100px';
+
+  const mailCenter = iconCenter(mailDef);
+  const mailLine = createSVGLine(cCenter.x, cCenter.y, mailCenter.x, mailCenter.y);
+  await delay(300);
+  mailLine.style.opacity = '1';
+
+  const r1 = createElement('div', {
+    className: 'result-mini',
+    style: { right: '20px', top: '110px' },
+    textContent: '\u{1F4E8} 已读取 3 封重要邮件'
+  });
+  await delay(400);
+  r1.classList.add('visible');
+
+  await delay(800);
+
+  /* ANOTHER new: 监控 */
+  const monDef = { emoji: '\u{1F4CA}', label: '监控', x: 40, y: 330 };
+  const monIcon = createServiceIcon(monDef, false);
+  monIcon.style.transform = 'translateX(-60px) scale(0)';
+  monIcon.classList.add('visible');
+
+  await delay(100);
+  monIcon.style.transition = 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+  monIcon.style.transform = 'translateX(0) scale(1)';
+  monIcon.classList.add('unlocked');
+
+  /* Connect */
+  await delay(400);
+  character.className = 'character-wrapper reach-left pos-center';
+  character.style.bottom = '100px';
+
+  const monCenter = iconCenter(monDef);
+  const monLine = createSVGLine(cCenter.x, cCenter.y, monCenter.x, monCenter.y);
+  await delay(300);
+  monLine.style.opacity = '1';
+
+  const r2 = createElement('div', {
+    className: 'result-mini',
+    style: { left: '20px', bottom: '50px' },
+    textContent: '\u2705 API 延迟正常，P99: 120ms'
+  });
+  await delay(400);
+  r2.classList.add('visible');
+
+  /* Key insight */
+  await delay(600);
+  const insight = createElement('div', {
+    className: 'insight-text',
+    style: { left: '50%', bottom: '15px', transform: 'translateX(-50%) scale(0.8)' },
+    textContent: '\u{1F50C} 不需要重新训练，插上就能用！'
+  });
+  await delay(300);
+  insight.classList.add('visible');
+
+  character.className = 'character-wrapper nod pos-center';
+  character.style.bottom = '100px';
+  await delay(600);
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+}
+
+/* ===== STEP 5: Meaning of MCP ===== */
+async function stepMeaning() {
+  character.className = 'character-wrapper present pos-center';
+  character.style.bottom = '100px';
+  groundShadow.style.left = '50%';
+  groundShadow.style.bottom = '92px';
+
+  stepTitle.textContent = STEPS[5].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  /* Show glow ports */
+  const portPositions = [
+    { left: '16px', top: '78px' },
+    { left: '82px', top: '78px' },
+    { left: '16px', top: '100px' },
+    { left: '82px', top: '100px' },
+    { left: '49px', top: '62px' }
+  ];
+  for (const p of portPositions) {
+    const port = createElement('div', {
+      className: 'glow-port visible',
+      style: { ...p }
+    }, character);
+  }
+
+  /* Show all services in star pattern connected */
+  const allDefs = [
+    ...SERVICE_DEFS,
+    { emoji: '\u{1F4E7}', label: '邮件', x: 600, y: 130 },
+    { emoji: '\u{1F4CA}', label: '监控', x: 40, y: 330 }
+  ];
+  const cCenter = { x: 340, y: 230 };
+  for (let i = 0; i < allDefs.length; i++) {
+    const icon = createServiceIcon(allDefs[i], false);
+    icon.classList.add('visible', 'unlocked');
+    const ic = iconCenter(allDefs[i]);
+    const line = createSVGLine(cCenter.x, cCenter.y, ic.x, ic.y);
+    line.style.opacity = '1';
+  }
+
+  await delay(500);
+
+  /* Summary panel */
+  const summary = createElement('div', {
+    className: 'summary-panel',
+    style: { left: '50%', top: '30px', transform: 'translateX(-50%) scale(0.5) rotate(-3deg)', width: '500px' },
+    innerHTML: `
+      <div class="summary-header">\u{1F50C} MCP \u2014 AI \u4E16\u754C\u7684 USB \u63A5\u53E3</div>
+      <div class="summary-body">
+        <div class="summary-item" data-idx="0">\u{1F310} \u4E00\u4E2A\u6807\u51C6\u534F\u8BAE\uFF0C\u8FDE\u63A5\u6240\u6709\u670D\u52A1</div>
+        <div class="summary-item" data-idx="1">\u{1F527} \u5373\u63D2\u5373\u7528\uFF0C\u65E0\u9700\u91CD\u65B0\u8BAD\u7EC3\u6A21\u578B</div>
+        <div class="summary-item" data-idx="2">\u{1F4E1} Claude / GPT / Gemini \u90FD\u5728\u652F\u6301</div>
+        <div class="summary-item" data-idx="3">\u267E\uFE0F \u65E0\u9650\u6269\u5C55 AI \u7684\u80FD\u529B\u8FB9\u754C</div>
+      </div>
+    `
+  });
+
+  await delay(300);
+  summary.classList.add('visible');
+
+  const items = summary.querySelectorAll('.summary-item');
+  for (let i = 0; i < items.length; i++) {
+    await delay(500);
+    items[i].classList.add('visible');
+  }
+
+  /* Celebration */
+  await delay(500);
+  character.className = 'character-wrapper celebrate pos-center';
+  character.style.bottom = '100px';
+
+  spawnConfetti();
+
+  await delay(1500);
+  character.className = 'character-wrapper idle pos-center';
+  character.style.bottom = '100px';
+}
+
+function spawnConfetti() {
+  const colors = ['#2563eb', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#f97316'];
+  for (let i = 0; i < 40; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = (Math.random() * 100) + '%';
+    confetti.style.top = '-10px';
+    confetti.style.width = (4 + Math.random() * 6) + 'px';
+    confetti.style.height = (4 + Math.random() * 6) + 'px';
+    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    confetti.style.animationDelay = (Math.random() * 0.8) + 's';
+    confetti.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+    confettiContainer.appendChild(confetti);
+    setTimeout(() => confetti.classList.add('active'), 10);
+  }
+}
+
+/* ===== Navigation ===== */
+const stepFunctions = [stepIsolated, stepMCPArrives, stepConnectDB, stepConnectMore, stepPlugAndPlay, stepMeaning];
+
+async function goToStep(step) {
+  if (step < 0 || step > 5) return;
+  if (step === currentStep) return;
+
+  currentStep = step;
+  clearDynamic();
+  updateProgress(step);
+
+  const btnNext = document.getElementById('btnNext');
+  btnNext.disabled = false;
+  btnNext.textContent = step < 5 ? '下一步' : '完成';
+  if (step >= 5) {
+    btnNext.disabled = true;
+  }
+
+  await stepFunctions[step]();
+}
+
+async function nextStep() {
+  if (currentStep >= 5) return;
+  await goToStep(currentStep + 1);
+}
+
+function prevStep(){if(!isAutoPlaying&&currentStep>0)goToStep(currentStep-1)}
+function replay() {
+  stopAutoPlay();
+  currentStep = -1;
+  clearDynamic();
+  updateProgress(0);
+  document.getElementById('btnNext').disabled = false;
+  document.getElementById('btnNext').textContent = '下一步';
+  goToStep(0);
+}
+
+let isAutoPlaying = false;
+
+function toggleAutoPlay() {
+  if (isAutoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  isAutoPlaying = true;
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = '暂停播放';
+  btn.classList.add('playing');
+  document.getElementById('btnNext').disabled = true;
+  currentStep = -1; clearDynamic(); updateProgress(0);
+
+  const advanceStep = async () => {
+    if (!isAutoPlaying) return;
+    if (currentStep >= 5) {
+      stopAutoPlay();
+      return;
+    }
+    await goToStep(currentStep < 0 ? 0 : currentStep + 1);
+    if (isAutoPlaying) {
+      autoPlayInterval = setTimeout(advanceStep, 4500);
+    }
+  };
+
+  advanceStep();
+}
+
+function stopAutoPlay() {
+  isAutoPlaying = false;
+  if (autoPlayInterval) {
+    clearTimeout(autoPlayInterval);
+    autoPlayInterval = null;
+  }
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = '自动播放';
+  btn.classList.remove('playing');
+  document.getElementById('btnNext').disabled = (currentStep >= 5);
+}
+
+// Keyboard support
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    if (!isAutoPlaying) nextStep();
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (!isAutoPlaying && currentStep > 0) goToStep(currentStep - 1);
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    replay();
+  }
+});
+
+// Start at step 0
+goToStep(0);
+</script>
+</body>
+</html>

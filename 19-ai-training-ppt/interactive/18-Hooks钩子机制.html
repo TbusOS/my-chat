@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hooks 钩子机制 — 自动化的质量关卡</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 32px 20px 16px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 span {
+  color: #2563eb;
+}
+
+.header p {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.progress-dot.active {
+  background: #2563eb;
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.progress-dot.completed {
+  background: #2563eb;
+}
+
+.progress-line {
+  width: 24px;
+  height: 2px;
+  background: #e2e8f0;
+  transition: background 0.4s ease;
+}
+
+.progress-line.completed {
+  background: #2563eb;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.step-label strong {
+  color: #2563eb;
+}
+
+/* Stage */
+.stage-container {
+  position: relative;
+  width: 680px;
+  height: 440px;
+  margin: 12px 0 16px;
+  background: #f8fafc;
+  border-radius: 20px;
+  border: 2px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Step title inside stage */
+.step-title {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 18px;
+  border-radius: 20px;
+  z-index: 20;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.step-title.visible {
+  opacity: 1;
+}
+
+/* Character */
+.character-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  transition: left 0.8s ease, transform 0.8s ease;
+}
+
+.character-wrapper.idle {
+  animation: bobbing 2s ease-in-out infinite;
+}
+
+.character-wrapper.nod {
+  animation: nod 0.5s ease-in-out 2;
+}
+
+.character-wrapper.thinking {
+  animation: thinking-bob 2.5s ease-in-out infinite;
+}
+
+.character-wrapper.eureka {
+  animation: eureka 0.6s ease-out;
+}
+
+.character-wrapper.celebrate {
+  animation: celebrate 0.5s ease-in-out 3;
+}
+
+.character-wrapper.walk {
+  animation: walking 0.4s ease-in-out infinite;
+}
+
+.character-wrapper.surprised {
+  animation: surprise-jump 0.5s ease-out;
+}
+
+.character-wrapper.pos-right {
+  left: 62%;
+}
+
+.character-wrapper.pos-center {
+  left: 50%;
+}
+
+.character-wrapper.pos-left {
+  left: 25%;
+}
+
+.character-wrapper.pos-far-left {
+  left: 15%;
+}
+
+.character-wrapper.pos-mid-left {
+  left: 30%;
+}
+
+.character-wrapper.pos-mid-right {
+  left: 65%;
+}
+
+.character-wrapper.pos-far-right {
+  left: 78%;
+}
+
+@keyframes bobbing {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+@keyframes nod {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  30% { transform: translateX(-50%) rotate(8deg); }
+  60% { transform: translateX(-50%) rotate(-4deg); }
+}
+
+@keyframes thinking-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  30% { transform: translateX(-50%) translateY(-4px) rotate(-2deg); }
+  70% { transform: translateX(-50%) translateY(-2px) rotate(2deg); }
+}
+
+@keyframes eureka {
+  0% { transform: translateX(-50%) translateY(0) scale(1); }
+  40% { transform: translateX(-50%) translateY(-20px) scale(1.1); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes celebrate {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  25% { transform: translateX(-50%) translateY(-15px) rotate(-8deg); }
+  75% { transform: translateX(-50%) translateY(-15px) rotate(8deg); }
+}
+
+@keyframes walking {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  25% { transform: translateX(-50%) translateY(-4px) rotate(-3deg); }
+  75% { transform: translateX(-50%) translateY(-4px) rotate(3deg); }
+}
+
+@keyframes surprise-jump {
+  0% { transform: translateX(-50%) translateY(0) scale(1); }
+  30% { transform: translateX(-50%) translateY(-25px) scale(1.1); }
+  60% { transform: translateX(-50%) translateY(-10px) scale(1.05); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+/* Character SVG parts */
+.char-arm-left, .char-arm-right {
+  transition: transform 0.4s ease;
+  transform-origin: center top;
+}
+
+.character-wrapper.wave .char-arm-right {
+  animation: wave-arm 0.6s ease-in-out 2;
+}
+
+.character-wrapper.reach .char-arm-right {
+  transform: rotate(-60deg) translateX(5px);
+}
+
+.character-wrapper.point .char-arm-right {
+  transform: rotate(-45deg) translateX(10px) translateY(-10px);
+}
+
+.character-wrapper.chin .char-arm-right {
+  transform: rotate(-70deg) translateX(2px) translateY(-15px);
+}
+
+.character-wrapper.present .char-arm-left,
+.character-wrapper.present .char-arm-right {
+  transform: rotate(-40deg);
+}
+
+@keyframes wave-arm {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+}
+
+/* Character eyes */
+.char-eye {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.look-left .char-eye {
+  transform: translateX(-2px);
+}
+
+.character-wrapper.look-right .char-eye {
+  transform: translateX(2px);
+}
+
+/* Character mouth */
+.char-mouth {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.surprise .char-mouth {
+  rx: 4;
+  ry: 4;
+}
+
+/* Lightbulb */
+.lightbulb {
+  position: absolute;
+  top: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.lightbulb.on {
+  opacity: 1;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4)); }
+  50% { filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.8)); }
+}
+
+/* Exclamation */
+.exclamation {
+  position: absolute;
+  top: -40px;
+  right: -30px;
+  font-size: 32px;
+  font-weight: 900;
+  color: #ef4444;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+}
+
+.exclamation.visible {
+  opacity: 1;
+  transform: scale(1);
+  animation: exclaim-pop 0.5s ease-out;
+}
+
+@keyframes exclaim-pop {
+  0% { transform: scale(0) rotate(-20deg); }
+  60% { transform: scale(1.3) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Speech Bubbles */
+.bubble {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  max-width: 240px;
+}
+
+.bubble.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.bubble.tail-right::after {
+  bottom: 20px;
+  right: -10px;
+  border-left: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-left::after {
+  bottom: 20px;
+  left: -10px;
+  border-right: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-bottom::after {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: 10px solid #ffffff;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+/* Gate / Checkpoint structure */
+.gate {
+  position: absolute;
+  bottom: 0;
+  width: 80px;
+  z-index: 6;
+  opacity: 0;
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.gate.gate-left {
+  left: -80px;
+  transform: translateX(-20px);
+}
+
+.gate.gate-right {
+  right: -80px;
+  transform: translateX(20px);
+}
+
+.gate.visible.gate-left {
+  opacity: 1;
+  left: 60px;
+  transform: translateX(0);
+}
+
+.gate.visible.gate-right {
+  opacity: 1;
+  right: 60px;
+  transform: translateX(0);
+}
+
+.gate-label {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+  white-space: nowrap;
+  background: white;
+  padding: 3px 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  z-index: 7;
+}
+
+/* Problem badge */
+.problem-badge {
+  position: absolute;
+  background: #fef2f2;
+  border: 2px solid #fecaca;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #dc2626;
+  opacity: 0;
+  transform: scale(0.5) translateY(10px);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+  white-space: nowrap;
+}
+
+.problem-badge.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* Check panel */
+.check-panel {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 16;
+  overflow: hidden;
+}
+
+.check-panel.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.check-panel-header {
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.check-panel-header.danger {
+  background: #ef4444;
+  color: white;
+}
+
+.check-panel-header.success {
+  background: #22c55e;
+  color: white;
+}
+
+.check-panel-body {
+  padding: 10px 16px;
+}
+
+.check-item {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.4s ease;
+  margin: 3px 0;
+}
+
+.check-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Flow arrow */
+.flow-arrow {
+  position: absolute;
+  opacity: 0;
+  transition: all 0.5s ease;
+  z-index: 5;
+}
+
+.flow-arrow.visible {
+  opacity: 1;
+}
+
+/* Code panel */
+.code-panel {
+  position: absolute;
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #e2e8f0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  opacity: 0;
+  transform: scale(0.9) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+  overflow: hidden;
+}
+
+.code-panel.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.code-panel-header {
+  background: #334155;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.code-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.code-dot.red { background: #ef4444; }
+.code-dot.yellow { background: #eab308; }
+.code-dot.green { background: #22c55e; }
+
+.code-panel-title {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-left: 6px;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.code-panel-body {
+  padding: 12px 16px;
+}
+
+.code-line {
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.code-line.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.code-comment { color: #64748b; }
+.code-keyword { color: #818cf8; }
+.code-func { color: #38bdf8; }
+.code-string { color: #34d399; }
+.code-warning { color: #fbbf24; }
+
+/* Summary panel */
+.summary-panel {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #2563eb;
+  border-radius: 16px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.12);
+  opacity: 0;
+  transform: scale(0.5) rotate(-5deg);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  overflow: hidden;
+}
+
+.summary-panel.visible {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.summary-header {
+  background: #2563eb;
+  color: white;
+  padding: 8px 18px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.summary-body {
+  padding: 12px 16px;
+}
+
+.summary-item {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.4s ease;
+  margin: 2px 0;
+}
+
+.summary-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Action badge */
+.action-badge {
+  position: absolute;
+  background: #eff6ff;
+  border: 2px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+  white-space: nowrap;
+}
+
+.action-badge.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Green / Red light */
+.green-light {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 12px rgba(34,197,94,0.6);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 8;
+}
+
+.green-light.on {
+  opacity: 1;
+  animation: light-glow-green 1s ease-in-out infinite;
+}
+
+.red-light {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 12px rgba(239,68,68,0.6);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 8;
+}
+
+.red-light.on {
+  opacity: 1;
+  animation: light-glow-red 1s ease-in-out infinite;
+}
+
+@keyframes light-glow-green {
+  0%, 100% { box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+  50% { box-shadow: 0 0 20px rgba(34,197,94,0.8); }
+}
+
+@keyframes light-glow-red {
+  0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.4); }
+  50% { box-shadow: 0 0 20px rgba(239,68,68,0.8); }
+}
+
+/* File save animation */
+.file-save {
+  position: absolute;
+  z-index: 12;
+  opacity: 0;
+  transition: all 0.5s ease;
+}
+
+.file-save.visible {
+  opacity: 1;
+  animation: file-save-anim 0.8s ease-out;
+}
+
+@keyframes file-save-anim {
+  0% { transform: scale(0.5) translateY(20px); }
+  50% { transform: scale(1.1) translateY(-5px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* Confetti */
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+.confetti.active {
+  animation: confetti-fall 2s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translateY(-20px) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translateY(400px) rotate(720deg) scale(0.5); }
+}
+
+/* Held tool */
+.held-tool {
+  position: absolute;
+  top: 10px;
+  right: -20px;
+  font-size: 20px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 11;
+}
+
+.held-tool.visible {
+  opacity: 1;
+  animation: tool-held-bounce 0.5s ease-out;
+}
+
+@keyframes tool-held-bounce {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Ground shadow */
+.ground-shadow {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 8px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.08) 0%, transparent 70%);
+  z-index: 5;
+  transition: left 0.8s ease;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 32px;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.btn-auto {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-auto:hover {
+  background: #dcfce7;
+}
+
+.btn-auto.playing {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .stage-container {
+    width: 95vw;
+    height: 380px;
+  }
+  .header h1 { font-size: 24px; }
+  .bubble, .check-panel, .summary-panel { font-size: 12px; max-width: 180px; }
+  .code-panel { font-size: 10px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>Hooks 钩子机制</span> — 自动化的质量关卡</h1>
+  <p>在 AI 每次操作前后，自动执行检查和处理</p>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-dot active" data-step="0" onclick="goToStep(0)"></div>
+  <div class="progress-line" data-line="0"></div>
+  <div class="progress-dot" data-step="1" onclick="goToStep(1)"></div>
+  <div class="progress-line" data-line="1"></div>
+  <div class="progress-dot" data-step="2" onclick="goToStep(2)"></div>
+  <div class="progress-line" data-line="2"></div>
+  <div class="progress-dot" data-step="3" onclick="goToStep(3)"></div>
+  <div class="progress-line" data-line="3"></div>
+  <div class="progress-dot" data-step="4" onclick="goToStep(4)"></div>
+  <div class="progress-line" data-line="4"></div>
+  <div class="progress-dot" data-step="5" onclick="goToStep(5)"></div>
+</div>
+<div class="step-label" id="stepLabel">步骤 <strong>1</strong> / 6</div>
+
+<div class="stage-container">
+  <div class="stage" id="stage">
+    <div class="step-title" id="stepTitle"></div>
+
+    <!-- Ground shadow -->
+    <div class="ground-shadow" id="groundShadow"></div>
+
+    <!-- Character -->
+    <div class="character-wrapper idle" id="character">
+      <!-- Lightbulb above head -->
+      <div class="lightbulb" id="lightbulb">
+        <svg width="30" height="36" viewBox="0 0 30 36">
+          <ellipse cx="15" cy="14" rx="11" ry="12" fill="#fbbf24" opacity="0.3"/>
+          <path d="M15 2 C8 2 3 7.5 3 14 C3 19 6 22 9 24 L9 28 L21 28 L21 24 C24 22 27 19 27 14 C27 7.5 22 2 15 2Z" fill="#fbbf24"/>
+          <rect x="10" y="28" width="10" height="3" rx="1" fill="#d4a017"/>
+          <rect x="11" y="31" width="8" height="2" rx="1" fill="#d4a017"/>
+          <path d="M15 8 L15 18 M10 13 L20 13" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+
+      <!-- Exclamation mark -->
+      <div class="exclamation" id="exclamation">!</div>
+
+      <!-- Held tool -->
+      <div class="held-tool" id="heldTool"></div>
+
+      <!-- SVG Character -->
+      <svg width="100" height="140" viewBox="0 0 100 140" id="charSvg">
+        <!-- Body -->
+        <rect class="char-body" x="30" y="62" width="40" height="45" rx="12" fill="#2563eb"/>
+
+        <!-- Legs -->
+        <rect x="35" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <rect x="53" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+
+        <!-- Shoes -->
+        <ellipse cx="41" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <ellipse cx="59" cy="126" rx="9" ry="5" fill="#1e293b"/>
+
+        <!-- Arms -->
+        <g class="char-arm-left">
+          <rect x="17" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="24" cy="98" r="6" fill="#fde68a"/>
+        </g>
+        <g class="char-arm-right">
+          <rect x="69" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="76" cy="98" r="6" fill="#fde68a"/>
+        </g>
+
+        <!-- Head -->
+        <circle cx="50" cy="36" r="28" fill="#fde68a"/>
+
+        <!-- Hat -->
+        <path d="M25 32 Q25 14 50 10 Q75 14 75 32 Z" fill="#2563eb"/>
+        <rect x="20" y="30" width="60" height="6" rx="3" fill="#1d4ed8"/>
+
+        <!-- Face -->
+        <g class="char-face">
+          <!-- Eyes -->
+          <circle class="char-eye" cx="40" cy="38" r="3.5" fill="#1e293b"/>
+          <circle class="char-eye" cx="60" cy="38" r="3.5" fill="#1e293b"/>
+          <!-- Eye shine -->
+          <circle cx="41.5" cy="36.5" r="1.2" fill="white"/>
+          <circle cx="61.5" cy="36.5" r="1.2" fill="white"/>
+          <!-- Mouth -->
+          <ellipse class="char-mouth" cx="50" cy="50" rx="6" ry="3" fill="#1e293b"/>
+          <!-- Blush -->
+          <ellipse cx="34" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+          <ellipse cx="66" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Confetti container -->
+    <div class="confetti-container" id="confettiContainer"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-secondary" id="btnReplay" onclick="replay()">重播</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+</div>
+
+<script>
+var STEPS = [
+  { title: '第一步：没有钩子时', key: 'noHooks' },
+  { title: '第二步：安装钩子', key: 'installHooks' },
+  { title: '第三步：Pre Hook — 执行前拦截', key: 'preHook' },
+  { title: '第四步：正常通过', key: 'normalPass' },
+  { title: '第五步：Post Hook — 执行后处理', key: 'postHook' },
+  { title: '第六步：钩子的力量', key: 'summary' }
+];
+
+var currentStep = -1;
+var autoPlayInterval = null;
+var dynamicElements = [];
+
+var stage = document.getElementById('stage');
+var character = document.getElementById('character');
+var stepTitle = document.getElementById('stepTitle');
+var lightbulb = document.getElementById('lightbulb');
+var exclamation = document.getElementById('exclamation');
+var heldTool = document.getElementById('heldTool');
+var groundShadow = document.getElementById('groundShadow');
+var confettiContainer = document.getElementById('confettiContainer');
+
+function clearDynamic() {
+  dynamicElements.forEach(function(el) {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  dynamicElements = [];
+
+  character.className = 'character-wrapper idle pos-center';
+  groundShadow.style.left = '50%';
+  stepTitle.classList.remove('visible');
+  lightbulb.classList.remove('on');
+  exclamation.classList.remove('visible');
+  heldTool.classList.remove('visible');
+  heldTool.textContent = '';
+  confettiContainer.innerHTML = '';
+}
+
+function createElement(tag, attrs, parent) {
+  var el = document.createElement(tag);
+  if (attrs) {
+    Object.keys(attrs).forEach(function(k) {
+      if (k === 'style' && typeof attrs[k] === 'object') {
+        Object.assign(el.style, attrs[k]);
+      } else if (k === 'className') {
+        el.className = attrs[k];
+      } else if (k === 'innerHTML') {
+        el.innerHTML = attrs[k];
+      } else if (k === 'textContent') {
+        el.textContent = attrs[k];
+      } else {
+        el.setAttribute(k, attrs[k]);
+      }
+    });
+  }
+  (parent || stage).appendChild(el);
+  dynamicElements.push(el);
+  return el;
+}
+
+function delay(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}
+
+function updateProgress(step) {
+  document.querySelectorAll('.progress-dot').forEach(function(dot, i) {
+    dot.classList.toggle('active', i === step);
+    dot.classList.toggle('completed', i < step);
+  });
+  document.querySelectorAll('.progress-line').forEach(function(line, i) {
+    line.classList.toggle('completed', i < step);
+  });
+  document.getElementById('stepLabel').innerHTML = '步骤 <strong>' + (step + 1) + '</strong> / 6';
+}
+
+/* Helper: create gate SVG */
+function createGateSVG(color) {
+  return '<svg width="80" height="160" viewBox="0 0 80 160">' +
+    '<rect x="5" y="10" width="12" height="150" rx="4" fill="' + color + '"/>' +
+    '<rect x="63" y="10" width="12" height="150" rx="4" fill="' + color + '"/>' +
+    '<path d="M5 14 Q40 -10 75 14" stroke="' + color + '" stroke-width="8" fill="none" stroke-linecap="round"/>' +
+    '<rect x="14" y="80" width="52" height="6" rx="3" fill="' + color + '" opacity="0.7"/>' +
+    '<circle cx="11" cy="10" r="6" fill="' + color + '"/>' +
+    '<circle cx="69" cy="10" r="6" fill="' + color + '"/>' +
+    '</svg>';
+}
+
+/* Helper: create guard SVG */
+function createGuardSVG(direction) {
+  var flip = direction === 'right' ? ' transform="scale(-1,1) translate(-36,0)"' : '';
+  return '<svg width="36" height="50" viewBox="0 0 36 50"' + flip + '>' +
+    '<rect x="8" y="22" width="20" height="20" rx="6" fill="#475569"/>' +
+    '<circle cx="18" cy="14" r="10" fill="#fde68a"/>' +
+    '<rect x="8" y="4" width="20" height="8" rx="3" fill="#475569"/>' +
+    '<rect x="6" y="10" width="24" height="4" rx="2" fill="#334155"/>' +
+    '<circle cx="14" cy="14" r="1.5" fill="#1e293b"/>' +
+    '<circle cx="22" cy="14" r="1.5" fill="#1e293b"/>' +
+    '<rect x="11" y="40" width="6" height="8" rx="3" fill="#475569"/>' +
+    '<rect x="19" y="40" width="6" height="8" rx="3" fill="#475569"/>' +
+    '</svg>';
+}
+
+/* ===== STEP 0: No Hooks ===== */
+async function stepNoHooks() {
+  character.className = 'character-wrapper idle pos-center';
+  groundShadow.style.left = '50%';
+
+  stepTitle.textContent = STEPS[0].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Character coding with tool
+  heldTool.textContent = '\uD83D\uDCBB';
+  heldTool.classList.add('visible');
+
+  // Code panel
+  var codePanel = createElement('div', {
+    className: 'code-panel',
+    style: { right: '40px', top: '50px', width: '260px' },
+    innerHTML: '<div class="code-panel-header">' +
+      '<div class="code-dot red"></div>' +
+      '<div class="code-dot yellow"></div>' +
+      '<div class="code-dot green"></div>' +
+      '<span class="code-panel-title">app.ts</span>' +
+      '</div>' +
+      '<div class="code-panel-body">' +
+      '<div class="code-line" data-idx="0"><span class="code-keyword">function</span> <span class="code-func">save</span>() {</div>' +
+      '<div class="code-line" data-idx="1">&nbsp;&nbsp;console.log(<span class="code-string">"debug"</span>)</div>' +
+      '<div class="code-line" data-idx="2">&nbsp;&nbsp;<span class="code-keyword">const</span> x:any = data</div>' +
+      '<div class="code-line" data-idx="3">}</div>' +
+      '</div>'
+  });
+
+  await delay(400);
+  codePanel.classList.add('visible');
+
+  var codeLines = codePanel.querySelectorAll('.code-line');
+  for (var i = 0; i < codeLines.length; i++) {
+    await delay(250);
+    codeLines[i].classList.add('visible');
+  }
+
+  await delay(500);
+
+  // Problems appear
+  var problems = [
+    { text: '\u274C 代码没格式化', top: '180px', left: '30px' },
+    { text: '\u274C TypeScript 类型错误', top: '220px', left: '30px' },
+    { text: '\u274C 留了 console.log', top: '260px', left: '30px' }
+  ];
+
+  for (var j = 0; j < problems.length; j++) {
+    var badge = createElement('div', {
+      className: 'problem-badge',
+      style: { top: problems[j].top, left: problems[j].left },
+      textContent: problems[j].text
+    });
+    await delay(500);
+    badge.classList.add('visible');
+  }
+
+  // Character panicked
+  await delay(400);
+  character.className = 'character-wrapper surprised pos-center';
+  exclamation.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-center';
+
+  // Bubble
+  var bubble = createElement('div', {
+    className: 'bubble tail-left',
+    style: { right: '40px', bottom: '180px', maxWidth: '220px' },
+    innerHTML: '又出问题了...<br>每次都忘检查 \uD83D\uDE31'
+  });
+
+  await delay(400);
+  bubble.classList.add('visible');
+}
+
+/* ===== STEP 1: Install Hooks ===== */
+async function stepInstallHooks() {
+  character.className = 'character-wrapper idle pos-center';
+  groundShadow.style.left = '50%';
+
+  stepTitle.textContent = STEPS[1].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Left gate
+  var leftGate = createElement('div', {
+    className: 'gate gate-left',
+    innerHTML: createGateSVG('#f59e0b') +
+      '<div class="gate-label">\uD83D\uDEAA Pre Hook（执行前）</div>' +
+      '<div style="position:absolute;left:50%;transform:translateX(-50%);top:95px">' + createGuardSVG('right') + '</div>'
+  });
+
+  // Right gate
+  var rightGate = createElement('div', {
+    className: 'gate gate-right',
+    innerHTML: createGateSVG('#22c55e') +
+      '<div class="gate-label">\uD83D\uDEAA Post Hook（执行后）</div>' +
+      '<div style="position:absolute;left:50%;transform:translateX(-50%);top:95px">' + createGuardSVG('left') + '</div>'
+  });
+
+  await delay(500);
+  leftGate.classList.add('visible');
+  await delay(400);
+  rightGate.classList.add('visible');
+
+  // Flow arrow
+  await delay(500);
+  var flowArrow = createElement('div', {
+    className: 'flow-arrow',
+    style: {
+      top: '200px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      textAlign: 'center',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#64748b',
+      whiteSpace: 'nowrap'
+    },
+    innerHTML: '<div style="display:flex;align-items:center;gap:8px;justify-content:center">' +
+      '<span style="color:#f59e0b">Pre Hook</span>' +
+      '<span style="font-size:18px">\u2192</span>' +
+      '<span style="color:#2563eb;background:#eff6ff;padding:3px 10px;border-radius:8px">执行操作</span>' +
+      '<span style="font-size:18px">\u2192</span>' +
+      '<span style="color:#22c55e">Post Hook</span>' +
+      '</div>'
+  });
+
+  await delay(400);
+  flowArrow.classList.add('visible');
+
+  // Character nods
+  await delay(400);
+  character.className = 'character-wrapper nod pos-center';
+
+  var bubble = createElement('div', {
+    className: 'bubble tail-bottom',
+    style: { left: '50%', bottom: '180px', transform: 'translateX(-50%)', maxWidth: '240px' },
+    innerHTML: '有了<span style="font-weight:700;color:#2563eb">质检关卡</span>，再也不怕了！'
+  });
+
+  await delay(500);
+  bubble.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-center';
+}
+
+/* ===== STEP 2: Pre Hook — Block Dangerous ===== */
+async function stepPreHook() {
+  character.className = 'character-wrapper idle pos-far-left';
+  groundShadow.style.left = '15%';
+
+  stepTitle.textContent = STEPS[2].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Show left gate
+  var leftGate = createElement('div', {
+    className: 'gate gate-left',
+    innerHTML: createGateSVG('#f59e0b') +
+      '<div class="gate-label">\uD83D\uDEAA Pre Hook</div>' +
+      '<div style="position:absolute;left:50%;transform:translateX(-50%);top:95px">' + createGuardSVG('right') + '</div>'
+  });
+  leftGate.classList.add('visible');
+
+  // Dangerous action badge
+  var dangerBadge = createElement('div', {
+    className: 'action-badge',
+    style: {
+      top: '80px', left: '20px',
+      background: '#fef2f2', borderColor: '#fecaca', color: '#dc2626'
+    },
+    innerHTML: '\u26A1 git push --force main'
+  });
+
+  await delay(400);
+  dangerBadge.classList.add('visible');
+
+  // Character walks toward gate
+  await delay(600);
+  character.className = 'character-wrapper walk pos-mid-left';
+  groundShadow.style.left = '30%';
+
+  await delay(800);
+  character.className = 'character-wrapper idle pos-mid-left';
+
+  // Guard stop
+  var stopBubble = createElement('div', {
+    className: 'bubble',
+    style: { left: '90px', top: '55px', maxWidth: '120px', fontSize: '18px', fontWeight: '700', textAlign: 'center' },
+    innerHTML: '\uD83D\uDED1 等等！'
+  });
+
+  await delay(400);
+  stopBubble.classList.add('visible');
+
+  // Red light
+  var redLight = createElement('div', {
+    className: 'red-light',
+    style: { left: '94px', bottom: '100px' }
+  });
+  await delay(300);
+  redLight.classList.add('on');
+
+  // Check panel
+  var checkPanel = createElement('div', {
+    className: 'check-panel',
+    style: { right: '40px', top: '50px', width: '280px' },
+    innerHTML: '<div class="check-panel-header danger">Pre Hook 安全检查</div>' +
+      '<div class="check-panel-body">' +
+      '<div class="check-item" data-idx="0" style="color:#dc2626">\u26A0\uFE0F 检测到 force push</div>' +
+      '<div class="check-item" data-idx="1" style="color:#dc2626">\u26A0\uFE0F 目标是 main 分支</div>' +
+      '<div class="check-item" data-idx="2" style="color:#ef4444;font-weight:700">\u274C 已拦截！请确认后再操作</div>' +
+      '</div>'
+  });
+
+  await delay(500);
+  checkPanel.classList.add('visible');
+
+  var checkItems = checkPanel.querySelectorAll('.check-item');
+  for (var i = 0; i < checkItems.length; i++) {
+    await delay(500);
+    checkItems[i].classList.add('visible');
+  }
+
+  // Character nods
+  await delay(600);
+  character.className = 'character-wrapper nod pos-mid-left';
+
+  var charBubble = createElement('div', {
+    className: 'bubble tail-left',
+    style: { left: '200px', bottom: '160px', maxWidth: '200px' },
+    innerHTML: '还好被拦下来了！'
+  });
+
+  await delay(400);
+  charBubble.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-mid-left';
+}
+
+/* ===== STEP 3: Normal Pass ===== */
+async function stepNormalPass() {
+  character.className = 'character-wrapper idle pos-far-left';
+  groundShadow.style.left = '15%';
+
+  stepTitle.textContent = STEPS[3].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Both gates
+  var leftGate = createElement('div', {
+    className: 'gate gate-left',
+    innerHTML: createGateSVG('#f59e0b') +
+      '<div class="gate-label">\uD83D\uDEAA Pre Hook</div>' +
+      '<div style="position:absolute;left:50%;transform:translateX(-50%);top:95px">' + createGuardSVG('right') + '</div>'
+  });
+  leftGate.classList.add('visible');
+
+  var rightGate = createElement('div', {
+    className: 'gate gate-right',
+    innerHTML: createGateSVG('#22c55e') +
+      '<div class="gate-label">\uD83D\uDEAA Post Hook</div>' +
+      '<div style="position:absolute;left:50%;transform:translateX(-50%);top:95px">' + createGuardSVG('left') + '</div>'
+  });
+  rightGate.classList.add('visible');
+
+  // Normal action badge
+  var actionBadge = createElement('div', {
+    className: 'action-badge',
+    style: { top: '80px', left: '20px' },
+    innerHTML: '\uD83D\uDCDD Edit \u2192 保存文件 app.ts'
+  });
+
+  await delay(400);
+  actionBadge.classList.add('visible');
+
+  // Walk to Pre Hook
+  await delay(500);
+  character.className = 'character-wrapper walk pos-mid-left';
+  groundShadow.style.left = '30%';
+
+  await delay(700);
+  character.className = 'character-wrapper idle pos-mid-left';
+
+  // Guard approves
+  var approveBubble = createElement('div', {
+    className: 'bubble',
+    style: { left: '80px', top: '55px', maxWidth: '200px', fontSize: '13px', fontWeight: '600' },
+    innerHTML: '\u2705 普通文件编辑，放行！'
+  });
+
+  await delay(400);
+  approveBubble.classList.add('visible');
+
+  // Green light
+  var greenLight = createElement('div', {
+    className: 'green-light',
+    style: { left: '94px', bottom: '100px' }
+  });
+  await delay(300);
+  greenLight.classList.add('on');
+
+  // Pass through
+  await delay(600);
+  character.className = 'character-wrapper walk pos-center';
+  groundShadow.style.left = '50%';
+
+  // File save in center
+  await delay(500);
+  var fileSave = createElement('div', {
+    className: 'file-save',
+    style: { left: '315px', top: '180px' },
+    innerHTML: '<svg width="50" height="60" viewBox="0 0 50 60">' +
+      '<rect x="5" y="2" width="40" height="52" rx="4" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>' +
+      '<rect x="12" y="10" width="26" height="3" rx="1" fill="#bfdbfe"/>' +
+      '<rect x="12" y="18" width="20" height="3" rx="1" fill="#bfdbfe"/>' +
+      '<rect x="12" y="26" width="24" height="3" rx="1" fill="#bfdbfe"/>' +
+      '<text x="25" y="44" text-anchor="middle" font-size="10" fill="#2563eb" font-weight="700">app.ts</text>' +
+      '</svg>'
+  });
+  fileSave.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-center';
+
+  // Walk to Post Hook
+  await delay(400);
+  character.className = 'character-wrapper walk pos-mid-right';
+  groundShadow.style.left = '65%';
+
+  await delay(700);
+  character.className = 'character-wrapper idle pos-mid-right';
+
+  var charBubble = createElement('div', {
+    className: 'bubble tail-left',
+    style: { right: '30px', bottom: '180px', maxWidth: '200px' },
+    innerHTML: '顺利通过了！<br>接下来到 Post Hook'
+  });
+
+  await delay(400);
+  charBubble.classList.add('visible');
+}
+
+/* ===== STEP 4: Post Hook ===== */
+async function stepPostHook() {
+  character.className = 'character-wrapper idle pos-mid-right';
+  groundShadow.style.left = '65%';
+
+  stepTitle.textContent = STEPS[4].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Right gate
+  var rightGate = createElement('div', {
+    className: 'gate gate-right',
+    innerHTML: createGateSVG('#22c55e') +
+      '<div class="gate-label">\uD83D\uDEAA Post Hook</div>' +
+      '<div style="position:absolute;left:50%;transform:translateX(-50%);top:95px">' + createGuardSVG('left') + '</div>'
+  });
+  rightGate.classList.add('visible');
+
+  // Walk to gate
+  await delay(400);
+  character.className = 'character-wrapper walk pos-far-right';
+  groundShadow.style.left = '78%';
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-far-right';
+
+  // Green light
+  var greenLight = createElement('div', {
+    className: 'green-light',
+    style: { right: '94px', bottom: '100px' }
+  });
+  await delay(300);
+  greenLight.classList.add('on');
+
+  // Post Hook checks
+  var checkPanel = createElement('div', {
+    className: 'check-panel',
+    style: { left: '30px', top: '50px', width: '300px' },
+    innerHTML: '<div class="check-panel-header success">Post Hook 自动处理</div>' +
+      '<div class="check-panel-body">' +
+      '<div class="check-item" data-idx="0">\uD83C\uDFA8 Prettier 自动格式化...</div>' +
+      '<div class="check-item" data-idx="1">\uD83D\uDCDD TypeScript 类型检查...</div>' +
+      '<div class="check-item" data-idx="2">\uD83D\uDD0D 检查 console.log...</div>' +
+      '</div>'
+  });
+
+  await delay(500);
+  checkPanel.classList.add('visible');
+
+  var checkItems = checkPanel.querySelectorAll('.check-item');
+
+  // Check 1
+  await delay(500);
+  checkItems[0].classList.add('visible');
+  await delay(600);
+  checkItems[0].innerHTML = '\uD83C\uDFA8 Prettier 自动格式化 <span style="color:#22c55e;font-weight:700">\u2705 完成</span>';
+
+  // Check 2
+  await delay(400);
+  checkItems[1].classList.add('visible');
+  await delay(600);
+  checkItems[1].innerHTML = '\uD83D\uDCDD TypeScript 类型检查 <span style="color:#22c55e;font-weight:700">\u2705 通过</span>';
+
+  // Check 3
+  await delay(400);
+  checkItems[2].classList.add('visible');
+  await delay(600);
+  checkItems[2].innerHTML = '\uD83D\uDD0D 检查 console.log <span style="color:#f59e0b;font-weight:700">\u26A1 已自动移除</span>';
+
+  // Character happy
+  await delay(500);
+  character.className = 'character-wrapper nod pos-far-right';
+
+  var charBubble = createElement('div', {
+    className: 'bubble tail-left',
+    style: { right: '20px', bottom: '180px', maxWidth: '220px' },
+    innerHTML: '<span style="font-weight:700;color:#22c55e">自动检查完毕</span>，全部通过！'
+  });
+
+  await delay(400);
+  charBubble.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-far-right';
+}
+
+/* ===== STEP 5: Summary ===== */
+async function stepSummary() {
+  character.className = 'character-wrapper present pos-left';
+  groundShadow.style.left = '25%';
+
+  stepTitle.textContent = STEPS[5].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Summary panel
+  var summary = createElement('div', {
+    className: 'summary-panel',
+    style: { right: '30px', top: '40px', width: '320px' },
+    innerHTML: '<div class="summary-header">\uD83E\uDE9D Hooks 钩子机制总结</div>' +
+      '<div class="summary-body">' +
+      '<div class="summary-item" data-idx="0">\uD83E\uDE9D Hook = 自动触发的检查/处理程序</div>' +
+      '<div class="summary-item" data-idx="1">\uD83D\uDEAA PreToolUse：执行前拦截危险操作</div>' +
+      '<div class="summary-item" data-idx="2">\uD83D\uDEAA PostToolUse：执行后自动格式化、检查</div>' +
+      '<div class="summary-item" data-idx="3">\uD83D\uDED1 Stop Hook：会话结束时最终审查</div>' +
+      '<div class="summary-item" data-idx="4" style="margin-top:6px;padding-top:6px;border-top:1px dashed #e2e8f0;color:#2563eb;font-weight:700">\uD83E\uDD16 Claude Code / Git Hooks / CI 都用类似机制</div>' +
+      '</div>'
+  });
+
+  await delay(400);
+  summary.classList.add('visible');
+
+  var items = summary.querySelectorAll('.summary-item');
+  for (var i = 0; i < items.length; i++) {
+    await delay(400);
+    items[i].classList.add('visible');
+  }
+
+  // Flow diagram
+  await delay(400);
+  var flowDiagram = createElement('div', {
+    className: 'flow-arrow',
+    style: {
+      bottom: '30px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      textAlign: 'center',
+      whiteSpace: 'nowrap'
+    },
+    innerHTML: '<div style="display:flex;align-items:center;gap:6px;justify-content:center;font-size:12px;font-weight:700">' +
+      '<span style="background:#fef3c7;color:#f59e0b;padding:4px 10px;border-radius:8px;border:1px solid #fcd34d">Pre Hook</span>' +
+      '<span style="font-size:16px;color:#94a3b8">\u2192</span>' +
+      '<span style="background:#eff6ff;color:#2563eb;padding:4px 10px;border-radius:8px;border:1px solid #bfdbfe">Action</span>' +
+      '<span style="font-size:16px;color:#94a3b8">\u2192</span>' +
+      '<span style="background:#f0fdf4;color:#22c55e;padding:4px 10px;border-radius:8px;border:1px solid #bbf7d0">Post Hook</span>' +
+      '<span style="font-size:16px;color:#94a3b8">\u2192</span>' +
+      '<span style="background:#fef2f2;color:#ef4444;padding:4px 10px;border-radius:8px;border:1px solid #fecaca">Stop Hook</span>' +
+      '</div>'
+  });
+
+  await delay(400);
+  flowDiagram.classList.add('visible');
+
+  // Celebration
+  await delay(500);
+  character.className = 'character-wrapper celebrate pos-left';
+
+  spawnConfetti();
+
+  await delay(1500);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+function spawnConfetti() {
+  var colors = ['#2563eb', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#f97316'];
+  for (var i = 0; i < 40; i++) {
+    var confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = (Math.random() * 100) + '%';
+    confetti.style.top = '-10px';
+    confetti.style.width = (4 + Math.random() * 6) + 'px';
+    confetti.style.height = (4 + Math.random() * 6) + 'px';
+    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    confetti.style.animationDelay = (Math.random() * 0.8) + 's';
+    confetti.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+    confettiContainer.appendChild(confetti);
+    (function(c) { setTimeout(function() { c.classList.add('active'); }, 10); })(confetti);
+  }
+}
+
+/* ===== Navigation ===== */
+var stepFunctions = [stepNoHooks, stepInstallHooks, stepPreHook, stepNormalPass, stepPostHook, stepSummary];
+
+async function goToStep(step) {
+  if (step < 0 || step > 5) return;
+  if (step === currentStep) return;
+
+  currentStep = step;
+  clearDynamic();
+  updateProgress(step);
+
+  var btnNext = document.getElementById('btnNext');
+  btnNext.disabled = false;
+  btnNext.textContent = step < 5 ? '下一步' : '完成';
+  if (step >= 5) {
+    btnNext.disabled = true;
+  }
+
+  await stepFunctions[step]();
+}
+
+async function nextStep() {
+  if (currentStep >= 5) return;
+  await goToStep(currentStep + 1);
+}
+
+function prevStep(){if(!isAutoPlaying&&currentStep>0)goToStep(currentStep-1)}
+function replay() {
+  stopAutoPlay();
+  currentStep = -1;
+  clearDynamic();
+  updateProgress(0);
+  document.getElementById('btnNext').disabled = false;
+  document.getElementById('btnNext').textContent = '下一步';
+  goToStep(0);
+}
+
+var isAutoPlaying = false;
+
+function toggleAutoPlay() {
+  if (isAutoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  isAutoPlaying = true;
+  var btn = document.getElementById('btnAuto');
+  btn.textContent = '暂停播放';
+  btn.classList.add('playing');
+  document.getElementById('btnNext').disabled = true;
+  currentStep = -1; clearDynamic(); updateProgress(0);
+
+  var advanceStep = async function() {
+    if (!isAutoPlaying) return;
+    if (currentStep >= 5) {
+      stopAutoPlay();
+      return;
+    }
+    await goToStep(currentStep < 0 ? 0 : currentStep + 1);
+    if (isAutoPlaying) {
+      autoPlayInterval = setTimeout(advanceStep, 4500);
+    }
+  };
+
+  advanceStep();
+}
+
+function stopAutoPlay() {
+  isAutoPlaying = false;
+  if (autoPlayInterval) {
+    clearTimeout(autoPlayInterval);
+    autoPlayInterval = null;
+  }
+  var btn = document.getElementById('btnAuto');
+  btn.textContent = '自动播放';
+  btn.classList.remove('playing');
+  document.getElementById('btnNext').disabled = (currentStep >= 5);
+}
+
+// Keyboard support
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    if (!isAutoPlaying) nextStep();
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (!isAutoPlaying && currentStep > 0) goToStep(currentStep - 1);
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    replay();
+  }
+});
+
+// Start at step 0
+goToStep(0);
+</script>
+</body>
+</html>
