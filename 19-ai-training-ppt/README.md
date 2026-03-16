@@ -54,12 +54,19 @@ marp slides/01-mindset-shift.md --theme theme/ai-training.css --html --preview
 │   ├── 05-agents-ecosystem.md    # Agent 生态（15 页）
 │   ├── 06-tools-practice.md      # 实战工具链（10 页）
 │   └── 07-reflection.md          # 冷思考（6 页）
-├── interactive/                   # HTML 交互演示（5 个）
-│   ├── temperature-playground.html
-│   ├── agent-flow.html
-│   ├── mcp-architecture.html
-│   ├── llm-api-compare.html
-│   └── openclaw-os-analogy.html
+├── interactive/                   # HTML 交互动画（12 个）
+│   ├── 01-AI进化之路.html
+│   ├── 02-AI语言探索.html
+│   ├── 03-大模型参数实验室.html
+│   ├── 04-大模型API对比.html
+│   ├── 05-Agent工作故事.html
+│   ├── 06-Agent工作流程.html
+│   ├── 07-多Agent协作.html
+│   ├── 08-MCP架构.html
+│   ├── 09-OpenClaw智能手机类比.html
+│   ├── 10-OpenClaw组件协作.html
+│   ├── 11-AI编程工具对比.html
+│   └── 12-提示词注入攻击.html
 ├── demos/                         # 现场演示脚本
 │   ├── 01-curl-api-call.sh
 │   ├── 02-python-api.py
@@ -102,7 +109,7 @@ python demos/02-python-api.py --test
 交互页为独立 HTML 文件，直接用浏览器打开即可，无需服务器：
 
 ```bash
-open interactive/temperature-playground.html
+open interactive/03-大模型参数实验室.html
 ```
 
 演示时建议用全屏浏览器展示（F11 或 Cmd+Shift+F）。

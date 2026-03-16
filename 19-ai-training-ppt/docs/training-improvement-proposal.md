@@ -50,23 +50,24 @@
 
 ## 4. 互动动画（HTML）清单
 
-当前共 11 个交互式 HTML 动画，均位于 `interactive/` 目录：
+当前共 12 个交互式 HTML 动画，均位于 `interactive/` 目录，按演示顺序编号：
 
-| # | 文件名 | 动画标题 | 用途说明 | 对应章节 | 交互控制 |
-|---|--------|---------|---------|---------|---------|
-| 1 | `ai-evolution.html` | AI 进化之路：从语言模型到超级智能 | 演绎 AI 从 LLM → Agent → AGI → ASI 的四阶段进化，配角色动画和能力标签 | 01 认知颠覆 | 点击时间轴节点，逐阶段推进 |
-| 2 | `ai-language-stack.html` | AI 说什么「语言」？ | 多标签页探索 AI 语言概念：语言对比、Token 分词、Agent 通信、通信协议 | 03 API 与参数 | 标签切换 + Token 输入框 + Agent 对话步进 |
-| 3 | `agent-character-story.html` | AI Agent 是怎么工作的？ | 6 步叙事展示 Agent 工作流：接收任务→分析→规划→执行→反馈→完成 | 05 Agent 生态 | 进度点导航 / 自动播放 / 回放 |
-| 4 | `agent-flow.html` | Agent 工作流程 | Agent 决策循环流程图的逐步可视化 | 05 Agent 生态 | 上一步/下一步 + 自动播放 + 重置 |
-| 5 | `llm-api-compare.html` | 大模型 API 对比 — GPT vs Claude vs Gemini | 三大主流 API 的请求/响应/工具调用/流式输出对比 | 03 API 与参数 | 4 标签页切换 + 代码复制 |
-| 6 | `mcp-architecture.html` | MCP 架构 | 模型上下文协议（MCP）的分层架构：Host/Client/Server | 05 Agent 生态 | 传统/MCP 切换开关 + 可展开层级 |
-| 7 | `multi-agent-collab.html` | 多 Agent 协作动画 | 多角色协作可视化：User/Planner/Coder/Reviewer 分阶段配合 | 05 Agent 生态 | 步进控制 + 自动播放 + 角色卡展开 |
-| 8 | `openclaw-os-analogy.html` | OpenClaw = AI 的智能手机 | 用智能手机类比解释 OpenClaw 架构的 7 个组件 | 05 Agent 生态 | 7 标签页切换 + 组件点击展开 |
-| 9 | `openclaw-team.html` | OpenClaw 五大组件协作动画 | 5 组件（Gateway/Brain/Memory/Skills/Heartbeat）分 5 阶段协作 | 05 Agent 生态 | 进度条 + 步进 + 自动播放 + 角色卡 |
-| 10 | `prompt-injection-attack.html` | 提示词注入：AI 最大的安全威胁 | 交互式安全演示：攻击场景 + 防御场景 | 06 工具实践 | 攻击/防御标签 + 步进 + 自动播放 |
-| 11 | `temperature-playground.html` | 大模型参数实验室 | 4 个参数滑块（temperature/top_p/top_k/max_tokens）实时调整输出 | 03 API 与参数 | 滑块拖拽 + 生成按钮 + 3 输出卡对比 |
+| # | 文件名 | 动画标题 | 用途说明 | 交互控制 |
+|---|--------|---------|---------|---------|
+| 01 | `01-AI进化之路.html` | AI 进化之路：从语言模型到超级智能 | 演绎 AI 从 LLM → Agent → AGI → ASI 的四阶段进化，配角色动画和能力标签 | 点击时间轴节点，逐阶段推进 |
+| 02 | `02-AI语言探索.html` | AI 说什么「语言」？ | 多标签页探索 AI 语言概念：语言对比、Token 分词、Agent 通信、通信协议 | 标签切换 + Token 输入框 + Agent 对话步进 |
+| 03 | `03-大模型参数实验室.html` | 大模型参数实验室 | 4 个参数滑块（temperature/top_p/top_k/max_tokens）实时调整输出 | 滑块拖拽 + 生成按钮 + 3 输出卡对比 |
+| 04 | `04-大模型API对比.html` | 大模型 API 对比 — GPT vs Claude vs Gemini | 三大主流 API 的请求/响应/工具调用/流式输出对比 | 4 标签页切换 + 代码复制 |
+| 05 | `05-Agent工作故事.html` | AI Agent 是怎么工作的？ | 6 步叙事展示 Agent 工作流：接收任务→分析→规划→执行→反馈→完成 | 进度点导航 / 自动播放 / 回放 |
+| 06 | `06-Agent工作流程.html` | Agent 工作流程 | Agent 决策循环流程图的逐步可视化 | 上一步/下一步 + 自动播放 + 重置 |
+| 07 | `07-多Agent协作.html` | 多 Agent 协作动画 | 多角色协作可视化：User/Planner/Coder/Reviewer 分阶段配合 | 步进控制 + 自动播放 + 角色卡展开 |
+| 08 | `08-MCP架构.html` | MCP 架构 | 模型上下文协议（MCP）的分层架构：Host/Client/Server | 传统/MCP 切换开关 + 可展开层级 |
+| 09 | `09-OpenClaw智能手机类比.html` | OpenClaw = AI 的智能手机 | 用智能手机类比解释 OpenClaw 架构的 7 个组件 | 7 标签页切换 + 组件点击展开 |
+| 10 | `10-OpenClaw组件协作.html` | OpenClaw 五大组件协作动画 | 5 组件（Gateway/Brain/Memory/Skills/Heartbeat）分 5 阶段协作 | 进度条 + 步进 + 自动播放 + 角色卡 |
+| 11 | `11-AI编程工具对比.html` | AI 编程工具对比 | Cursor / Trae / Kiro / Claude Code 等 AI 编程工具对比 | 标签页切换 + 对比表 |
+| 12 | `12-提示词注入攻击.html` | 提示词注入：AI 最大的安全威胁 | 交互式安全演示：攻击场景 + 防御场景 | 攻击/防御标签 + 步进 + 自动播放 |
 
-**交互能力总结**：全部 11 个动画均支持鼠标点击交互，其中 7 个支持单步/自动播放切换，4 个为标签页/滑块式交互。所有动画使用中文（zh-CN）。
+**交互能力总结**：全部 12 个动画均支持鼠标点击交互，其中 8 个支持单步/自动播放切换，4 个为标签页/滑块式交互。所有动画使用中文（zh-CN）。
 
 ---
 

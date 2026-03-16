@@ -26,7 +26,7 @@ footer: '第六部分：实战工具链'
 | **Copilot** | 插件 + CLI + Agent | GitHub 生态，Copilot CLI GA | $0-39/月 |
 
 > **它们不是竞争关系，而是互补的。**
-> 不同场景用不同工具 — 详细对比见 `interactive/coding-tools-compare.html`。
+> 不同场景用不同工具 — 详细对比见 `interactive/11-AI编程工具对比.html`。
 
 ---
 
@@ -209,7 +209,7 @@ $ claude   # 启动一个 AI 工程师会话
 
 <div class="callout">
 
-**一句话选型：** 功能全面选 Cursor，零成本入门选 Trae，需求驱动选 Kiro，终端/CI 选 Claude Code。最佳实践是 **IDE + CLI 组合**。详细对比动画见 `interactive/coding-tools-compare.html`。
+**一句话选型：** 功能全面选 Cursor，零成本入门选 Trae，需求驱动选 Kiro，终端/CI 选 Claude Code。最佳实践是 **IDE + CLI 组合**。详细对比动画见 `interactive/11-AI编程工具对比.html`。
 
 </div>
 

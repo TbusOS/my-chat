@@ -42,12 +42,19 @@
 │   ├── 05-agents-ecosystem.md   # 第五部分：Agent 生态
 │   ├── 06-tools-practice.md     # 第六部分：实战工具链
 │   └── 07-reflection.md         # 第七部分：冷思考
-├── interactive/                  # HTML 交互演示页
-│   ├── temperature-playground.html
-│   ├── agent-flow.html
-│   ├── mcp-architecture.html
-│   ├── llm-api-compare.html
-│   └── openclaw-os-analogy.html
+├── interactive/                  # HTML 交互动画（12 个）
+│   ├── 01-AI进化之路.html
+│   ├── 02-AI语言探索.html
+│   ├── 03-大模型参数实验室.html
+│   ├── 04-大模型API对比.html
+│   ├── 05-Agent工作故事.html
+│   ├── 06-Agent工作流程.html
+│   ├── 07-多Agent协作.html
+│   ├── 08-MCP架构.html
+│   ├── 09-OpenClaw智能手机类比.html
+│   ├── 10-OpenClaw组件协作.html
+│   ├── 11-AI编程工具对比.html
+│   └── 12-提示词注入攻击.html
 ├── demos/                        # 现场动手演示脚本
 │   ├── 01-curl-api-call.sh
 │   ├── 02-python-api.py
@@ -188,15 +195,22 @@
 
 ## HTML 交互页面清单
 
-共 5 个独立 HTML 页面，嵌入幻灯片对应位置。
+共 12 个独立 HTML 页面，按演示顺序编号。
 
 | 文件名 | 对应页码 | 交互效果 |
 |--------|---------|---------|
-| `temperature-playground.html` | 36-37 | 左侧：滑块控制 temperature / top_p / top_k；右侧：同一提示词的输出结果实时变化。用预设数据模拟，不需要真实 API |
-| `agent-flow.html` | 58 | 步骤式动画：用户输入 → Agent 思考（思考链气泡）→ 选择工具 → 执行 → 返回结果。每步可点击展开细节 |
-| `mcp-architecture.html` | 61 | MCP 四层架构图：Host / Client / Server / Tools。悬停显示数据流方向，点击组件展开协议细节 |
-| `llm-api-compare.html` | 41 | 三栏并排：GPT / Claude / Gemini。可切换查看：请求格式 / 响应格式 / 工具调用 / 流式输出。代码高亮 |
-| `openclaw-os-analogy.html` | 65-66 | 分屏动画。左侧：Linux 内核（进程调度、内存管理、系统调用）。右侧：OpenClaw（Agent 调度、上下文管理、工具调用）。同步动画展示对应关系 |
+| `01-AI进化之路.html` | — | AI 从 LLM → Agent → AGI → ASI 的四阶段进化动画 |
+| `02-AI语言探索.html` | — | 多标签页探索 AI 语言概念：语言对比、Token 分词、Agent 通信 |
+| `03-大模型参数实验室.html` | 36-37 | 左侧：滑块控制 temperature / top_p / top_k；右侧：同一提示词的输出结果实时变化。用预设数据模拟，不需要真实 API |
+| `04-大模型API对比.html` | 41 | 三栏并排：GPT / Claude / Gemini。可切换查看：请求格式 / 响应格式 / 工具调用 / 流式输出。代码高亮 |
+| `05-Agent工作故事.html` | — | 6 步叙事展示 Agent 工作流：接收任务→分析→规划→执行→反馈→完成 |
+| `06-Agent工作流程.html` | 58 | 步骤式动画：用户输入 → Agent 思考（思考链气泡）→ 选择工具 → 执行 → 返回结果。每步可点击展开细节 |
+| `07-多Agent协作.html` | — | 多角色协作可视化：User/Planner/Coder/Reviewer 分阶段配合 |
+| `08-MCP架构.html` | 61 | MCP 四层架构图：Host / Client / Server / Tools。悬停显示数据流方向，点击组件展开协议细节 |
+| `09-OpenClaw智能手机类比.html` | 65-66 | 用智能手机类比解释 OpenClaw 架构的 7 个组件 |
+| `10-OpenClaw组件协作.html` | — | 5 组件（Gateway/Brain/Memory/Skills/Heartbeat）分 5 阶段协作 |
+| `11-AI编程工具对比.html` | — | Cursor / Trae / Kiro / Claude Code 等 AI 编程工具对比 |
+| `12-提示词注入攻击.html` | — | 交互式安全演示：攻击场景 + 防御场景 |
 
 ---
 
@@ -218,7 +232,7 @@
 | 总页数 | 84 页 |
 | 总时长 | 约 3 小时（含动手实操） |
 | Marp 页面 | 74 页 |
-| HTML 交互页 | 5 个 |
+| HTML 交互页 | 12 个 |
 | 现场演示 | 4 个脚本 |
 | 目标受众 | 软件 / 硬件 / 系统工程师（AI 小白） |
 | 风格要求 | 通俗类比 + 精准技术点，不讲公式讲直觉 |
@@ -247,7 +261,7 @@
 ## 待确认事项
 
 - [ ] 84 页 / 3 小时的规模是否合适？
-- [ ] 5 个 HTML 交互页的选择是否覆盖了最重要的点？
+- [ ] 12 个 HTML 交互页的选择是否覆盖了最重要的点？
 - [ ] 现场 Demo 网络环境：能调外部 API（OpenAI / Anthropic）还是只用本地 Ollama？
 - [ ] Marp 主题风格偏好：深色科技风 / 简洁白底 / 公司品牌色？
 - [ ] 内容顺序和侧重有无需要调整的地方？

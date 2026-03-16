@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型参数实验室</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Sans SC', 'Inter', system-ui, sans-serif;
+  background: #f8fafc; color: #1e293b; line-height: 1.6; min-height: 100vh;
+}
+.container { max-width: 1340px; margin: 0 auto; padding: 32px 28px; }
+header { text-align: center; margin-bottom: 36px; }
+header h1 { font-size: 34px; font-weight: 700; color: #0f172a; margin-bottom: 6px; letter-spacing: -0.5px; }
+header .subtitle { font-size: 15px; color: #64748b; }
+.main-layout { display: flex; gap: 28px; margin-bottom: 40px; }
+.left-panel { width: 38%; flex-shrink: 0; }
+.right-panel { width: 62%; flex-shrink: 0; }
+.card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+  padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.card-title {
+  font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title .icon {
+  width: 30px; height: 30px; background: #eff6ff; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+
+/* Prompt chips */
+.prompt-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.prompt-chip {
+  padding: 7px 14px; border-radius: 20px; font-size: 13px; cursor: pointer;
+  border: 1.5px solid #e2e8f0; background: #fff; color: #475569;
+  transition: all 0.2s; white-space: nowrap;
+}
+.prompt-chip:hover { border-color: #93c5fd; background: #f0f9ff; }
+.prompt-chip.active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+
+/* Scenario buttons */
+.scenario-btns { display: flex; gap: 8px; margin-bottom: 18px; }
+.scenario-btn {
+  flex: 1; padding: 8px 6px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid #e2e8f0; background: #fff; color: #475569;
+  transition: all 0.25s; text-align: center; font-family: inherit;
+}
+.scenario-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.scenario-btn.precise { border-color: #bfdbfe; }
+.scenario-btn.precise:hover, .scenario-btn.precise.active { background: #dbeafe; color: #1e40af; border-color: #60a5fa; }
+.scenario-btn.balanced { border-color: #c4b5fd; }
+.scenario-btn.balanced:hover, .scenario-btn.balanced.active { background: #ede9fe; color: #5b21b6; border-color: #8b5cf6; }
+.scenario-btn.crazy { border-color: #fbcfe8; }
+.scenario-btn.crazy:hover, .scenario-btn.crazy.active { background: #fce7f3; color: #9d174d; border-color: #ec4899; }
+
+/* Sliders */
+.param-group { margin-bottom: 18px; }
+.param-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.param-name { font-size: 13px; font-weight: 600; color: #1e293b; font-family: 'Inter', monospace; }
+.param-value {
+  font-size: 13px; font-weight: 600; color: #2563eb; background: #eff6ff;
+  padding: 1px 8px; border-radius: 5px; min-width: 42px; text-align: center;
+}
+.param-desc { font-size: 11px; color: #94a3b8; margin-top: 6px; line-height: 1.5; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 5px;
+  background: #e2e8f0; border-radius: 3px; outline: none; cursor: pointer;
+  transition: background 0.2s;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; background: #2563eb;
+  border-radius: 50%; cursor: pointer; box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+  transition: transform 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; background: #2563eb; border-radius: 50%;
+  cursor: pointer; border: none; box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+}
+
+/* Generate button */
+.generate-btn {
+  width: 100%; padding: 12px 20px; background: #2563eb; color: #fff; border: none;
+  border-radius: 10px; font-size: 15px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: all 0.2s; display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+}
+.generate-btn:hover { background: #1d4ed8; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+.generate-btn:active { transform: scale(0.98); }
+.generate-btn .spinner {
+  display: none; width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+.generate-btn.loading .spinner { display: block; }
+.generate-btn.loading .btn-text { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Output cards */
+.output-cards { display: flex; flex-direction: column; gap: 14px; }
+.output-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px;
+  transition: all 0.3s;
+}
+.output-card.active { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.1), 0 4px 12px rgba(0,0,0,0.06); }
+.output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
+.output-label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+  padding: 3px 10px; border-radius: 6px; background: #f1f5f9; color: #475569;
+}
+.style-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.style-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500;
+}
+.style-tag.temp-low { background: #dbeafe; color: #1e40af; }
+.style-tag.temp-mid { background: #ede9fe; color: #5b21b6; }
+.style-tag.temp-high { background: #fce7f3; color: #9d174d; }
+.style-tag.div-low { background: #f1f5f9; color: #475569; }
+.style-tag.div-high { background: #fef3c7; color: #92400e; }
+.output-text {
+  font-size: 14px; line-height: 1.75; color: #334155; min-height: 40px;
+  white-space: pre-wrap;
+}
+.output-text .cursor {
+  display: inline-block; width: 2px; height: 16px; background: #2563eb;
+  margin-left: 2px; animation: blink 0.8s infinite; vertical-align: text-bottom;
+}
+@keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+.truncated {
+  color: #dc2626; font-weight: 600; font-size: 12px;
+  background: #fef2f2; padding: 1px 6px; border-radius: 4px; margin-left: 4px;
+}
+.output-meta {
+  display: flex; gap: 14px; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid #f1f5f9; flex-wrap: wrap;
+}
+.meta-item { font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 3px; }
+.meta-item .value { font-weight: 600; color: #64748b; }
+.meta-item .value.warn { color: #dc2626; }
+.placeholder-text { color: #cbd5e1; font-style: italic; font-size: 13px; }
+
+/* Bottom chart section */
+.chart-section { margin-top: 40px; }
+.chart-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+  padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.chart-title { font-size: 17px; font-weight: 600; color: #0f172a; margin-bottom: 6px; text-align: center; }
+.chart-subtitle { font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 24px; }
+.chart-wrapper { position: relative; }
+.bar-chart {
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: 6px; height: 180px; padding-bottom: 32px; position: relative;
+}
+.bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 72px; }
+.bar {
+  width: 100%; border-radius: 5px 5px 0 0; transition: height 0.5s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s, background 0.3s;
+  position: relative; min-height: 2px;
+}
+.bar.active { background: #3b82f6; }
+.bar.filtered {
+  background: #e2e8f0;
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.5) 3px, rgba(255,255,255,0.5) 6px);
+}
+.bar-pct {
+  position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-weight: 600; white-space: nowrap; transition: color 0.3s;
+}
+.bar.active .bar-pct { color: #1e40af; }
+.bar.filtered .bar-pct { color: #cbd5e1; }
+.bar-label {
+  margin-top: 8px; font-size: 11px; color: #64748b; white-space: nowrap;
+  transition: color 0.3s;
+}
+.bar-col.filtered-col .bar-label { color: #cbd5e1; }
+
+/* Filter annotations */
+.chart-annotations {
+  display: flex; justify-content: center; gap: 24px; margin-top: 20px;
+  flex-wrap: wrap;
+}
+.annotation {
+  display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569;
+}
+.annotation .dot {
+  width: 12px; height: 12px; border-radius: 3px;
+}
+.annotation .dot.active-dot { background: #3b82f6; }
+.annotation .dot.filtered-dot {
+  background: #e2e8f0;
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.6) 2px, rgba(255,255,255,0.6) 4px);
+}
+
+.chart-info {
+  text-align: center; margin-top: 16px; padding: 10px 16px;
+  background: #f8fafc; border-radius: 8px; font-size: 13px; color: #475569;
+  line-height: 1.6;
+}
+.chart-info strong { color: #1e293b; }
+
+/* Spectrum */
+.spectrum {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 24px; padding: 12px 20px;
+  background: linear-gradient(90deg, #dbeafe 0%, #ede9fe 50%, #fce7f3 100%);
+  border-radius: 10px;
+}
+.spectrum-end { font-size: 13px; font-weight: 600; }
+.spectrum-end.left { color: #1e40af; }
+.spectrum-end.right { color: #9d174d; }
+.spectrum-arrow { font-size: 18px; color: #94a3b8; letter-spacing: 3px; }
+
+@media (max-width: 960px) {
+  .main-layout { flex-direction: column; }
+  .left-panel, .right-panel { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>大模型参数实验室</h1>
+    <p class="subtitle">调整参数，直观感受 AI 输出的变化</p>
+  </header>
+
+  <div class="main-layout">
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-title"><div class="icon">💬</div>选择 Prompt</div>
+        <div class="prompt-chips">
+          <div class="prompt-chip active" data-prompt="happy">描述'快乐'的感觉</div>
+          <div class="prompt-chip" data-prompt="linux">Linux open() 原理</div>
+          <div class="prompt-chip" data-prompt="cat">给猫写一首诗</div>
+        </div>
+
+        <div class="card-title" style="margin-top:8px"><div class="icon">🎯</div>快速预设</div>
+        <div class="scenario-btns">
+          <button class="scenario-btn precise" onclick="applyScenario('precise')">🧊 精确模式</button>
+          <button class="scenario-btn balanced" onclick="applyScenario('balanced')">⚖️ 平衡模式</button>
+          <button class="scenario-btn crazy" onclick="applyScenario('crazy')">🔥 疯狂模式</button>
+        </div>
+
+        <div class="card-title" style="margin-top:8px"><div class="icon">⚙️</div>参数调节</div>
+
+        <div class="param-group">
+          <div class="param-header">
+            <span class="param-name">temperature</span>
+            <span class="param-value" id="temp-val">0.7</span>
+          </div>
+          <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+          <p class="param-desc">创造力旋钮：越低越确定，越高越发散。</p>
+        </div>
+        <div class="param-group">
+          <div class="param-header">
+            <span class="param-name">top_p</span>
+            <span class="param-value" id="topp-val">0.90</span>
+          </div>
+          <input type="range" id="top_p" min="0.05" max="1" step="0.05" value="0.9">
+          <p class="param-desc">核采样：仅从累积概率达 top_p 的高频词中选。越小用词越保守。</p>
+        </div>
+        <div class="param-group">
+          <div class="param-header">
+            <span class="param-name">top_k</span>
+            <span class="param-value" id="topk-val">40</span>
+          </div>
+          <input type="range" id="top_k" min="1" max="100" step="1" value="40">
+          <p class="param-desc">候选词上限：只从概率最高的 K 个词中选。越小输出越集中。</p>
+        </div>
+        <div class="param-group">
+          <div class="param-header">
+            <span class="param-name">max_tokens</span>
+            <span class="param-value" id="maxt-val">200</span>
+          </div>
+          <input type="range" id="max_tokens" min="50" max="500" step="25" value="200">
+          <p class="param-desc">回复长度上限：超过则截断。越短越省钱，但可能答不完整。</p>
+        </div>
+
+        <button class="generate-btn" id="generate-btn" onclick="generate()">
+          <span class="btn-text">生成 Generate</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-title"><div class="icon">📝</div>模拟输出（同一参数，三次独立采样）</div>
+        <div class="output-cards" id="output-cards">
+          <div class="output-card" id="out-0">
+            <div class="output-header">
+              <span class="output-label">采样 #1</span>
+              <div class="style-tags" id="tags-0"></div>
+            </div>
+            <div class="output-text" id="text-0"><span class="placeholder-text">调整参数后点击"生成"查看效果 ↙</span></div>
+            <div class="output-meta" id="meta-0" style="display:none">
+              <div class="meta-item">Tokens: <span class="value" id="tok-0">—</span></div>
+              <div class="meta-item">预估成本: <span class="value" id="cost-0">—</span></div>
+              <div class="meta-item">耗时: <span class="value" id="time-0">—</span></div>
+            </div>
+          </div>
+          <div class="output-card" id="out-1">
+            <div class="output-header">
+              <span class="output-label">采样 #2</span>
+              <div class="style-tags" id="tags-1"></div>
+            </div>
+            <div class="output-text" id="text-1"><span class="placeholder-text">同一参数下每次生成结果不同——这就是"采样"</span></div>
+            <div class="output-meta" id="meta-1" style="display:none">
+              <div class="meta-item">Tokens: <span class="value" id="tok-1">—</span></div>
+              <div class="meta-item">预估成本: <span class="value" id="cost-1">—</span></div>
+              <div class="meta-item">耗时: <span class="value" id="time-1">—</span></div>
+            </div>
+          </div>
+          <div class="output-card" id="out-2">
+            <div class="output-header">
+              <span class="output-label">采样 #3</span>
+              <div class="style-tags" id="tags-2"></div>
+            </div>
+            <div class="output-text" id="text-2"><span class="placeholder-text">试试点击上方的"精确 / 平衡 / 疯狂"预设按钮</span></div>
+            <div class="output-meta" id="meta-2" style="display:none">
+              <div class="meta-item">Tokens: <span class="value" id="tok-2">—</span></div>
+              <div class="meta-item">预估成本: <span class="value" id="cost-2">—</span></div>
+              <div class="meta-item">耗时: <span class="value" id="time-2">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-card">
+      <div class="chart-title">参数如何影响下一个词的选择？</div>
+      <div class="chart-subtitle">模型正在预测「快乐是___」的下一个词</div>
+      <div class="chart-wrapper">
+        <div class="bar-chart" id="prob-chart"></div>
+      </div>
+      <div class="chart-annotations">
+        <div class="annotation"><div class="dot active-dot"></div>可采样（通过 top_k 和 top_p 筛选）</div>
+        <div class="annotation"><div class="dot filtered-dot"></div>已过滤（被参数排除）</div>
+      </div>
+      <div class="chart-info" id="chart-info"></div>
+      <div class="spectrum">
+        <span class="spectrum-end left">🧊 确定性 Deterministic</span>
+        <span class="spectrum-arrow">← ─ ─ ─ ─ ─ ─ →</span>
+        <span class="spectrum-end right">🔥 创造性 Creative</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Response library: [prompt][tempLevel_divLevel] = [variant1, variant2]
+// tempLevel: low(≤0.3), mid(0.3-1.0), high(>1.0)
+// divLevel:  low(top_p*0.5+top_k/100*0.5 < 0.45), high(≥0.45)
+// ============================================================
+var R = {
+happy: {
+low_low: [
+"快乐是一种正面情绪，由满足感引发。表现为心情愉悦、精神振奋，伴随微笑和放松的状态。它与多巴胺释放相关，是人类基本情感之一，对心理健康有积极作用。",
+"快乐是人类的基本情感。当需求得到满足时，大脑释放多巴胺，产生愉悦体验。表现包括微笑、放松、积极社交。它是正面情绪的核心成分。"
+],
+low_high: [
+"快乐是一种积极的情绪体验，源于需求满足或社交纽带的强化。神经科学层面，前额叶皮层与边缘系统协同激活，促使多巴胺和内啡肽分泌。从进化心理学视角审视，快乐具有显著的适应性价值——它正向强化了有利于物种存续的行为模式。",
+"快乐作为正性情感频谱的核心成分，其产生涉及多巴胺能通路与前额叶评估系统的协同运作。Fredrickson 的拓展-建构理论指出，快乐不仅是即时感受，更是拓宽注意力广度、促进认知灵活性和社会资本积累的催化剂。"
+],
+mid_low: [
+"快乐就像冬天捧着一杯热水，暖意从手心到心里。是下班路上听到好听的歌，脚步变轻了。是周五下午最后一个会取消，整个人松了一口气。快乐不一定是大事，就是那些让你忍不住笑出来的小时刻——打开外卖发现多送了一份小菜，或者闹钟响了发现今天是周末。",
+"快乐像口袋里突然发现的一张忘掉的钞票——暖暖的小惊喜。是加班结束推开门，闻到家里饭菜的香味。是老朋友突然发消息说想你了。快乐不需要什么大理由，有时候阳光刚好照在脸上，风刚好不冷不热，就够了。"
+],
+mid_high: [
+"快乐是一种温煦的悸动，如冬日暖阳透过霜花斑驳的窗棂，在心尖酿出蜂蜜色的光。它是尘嚣退场后残留的那缕馥郁，是疲惫长途尽头映入眼帘的那盏氤氲的灯。快乐无需仪式感——一杯恰好的拿铁、一本翻到高潮处的小说，便足以让灵魂哼起不成调的歌。",
+"快乐是灵魂深处某根琴弦被恰好的频率拨动时的共鸣。它未必磅礴，更多时候是一种温润的光泽，像雨后青石板上折射的天光。你在地铁里翻开一本旧书，扉页上有多年前自己写的批注，过去的自己和现在的自己隔空相视而笑——这就是快乐最隐秘的样子。"
+],
+high_low: [
+"快乐就是心里突然放烟花了！砰！🎆 你笑得停不下来，肚子都笑疼了，眼泪都出来了！整个人像被使劲摇过的汽水，气泡全往外冲！你想喊想跳想转圈圈，觉得自己能飞！所有颜色都变亮了，所有声音都变成了音乐！你就是全宇宙最开心的那个人！🎉🌈",
+"快乐？？？就是你的心长出了翅膀，扑棱棱地在胸口飞！🦋 走路想蹦跳，看谁都好看，听什么歌都想唱！连红灯都在对你眨眼睛！你傻笑着，别人以为你疯了——但你不在乎！因为你快乐啊！世界都是粉红色的！如果快乐有重量你现在能飘起来！🌸✨"
+],
+high_high: [
+"快乐是灵魂在跳一支未经编排的塔兰泰拉舞，每个细胞化作旖旎的焰火此起彼伏地绽放——那是一场静默却盛大的狂欢节！🎆 你的心脏变成了振翅的蜂鸟，在肋骨的笼子里震颤，撞得胸腔嗡嗡作响。快乐是宇宙偷偷塞给你的琥珀色的糖——含在舌尖，甜味幻化成光，从瞳孔里氤氲弥散出去，照亮旁边三个陌生人的整个下午... ✨🍬",
+"快乐是多巴胺和内啡肽联袂导演的赛博朋克烟花秀！🧠💥 神经突触以每秒万次的频率互相击掌，像微观世界的墨西哥人浪！血液里流淌的不再是红细胞，而是液态香槟，每一个气泡都载着尚未谱写的交响曲。你的瞳孔扩张到可以装下整个银河系，世界变成莫奈式的光影拼贴... 🌌🎨"
+]
+},
+
+linux: {
+low_low: [
+"open() 是系统调用，用于打开文件并返回文件描述符（fd）。调用过程：进程执行 open(path, flags, mode) → 陷入内核态 → 内核查找文件 inode → 权限检查 → 分配 fd → 返回给进程。fd 是一个非负整数，用于后续 read/write 操作。",
+"open() 用于打开文件。函数签名：int open(const char *path, int flags, mode_t mode)。内核处理流程：路径解析 → 查找 inode → 权限验证 → 分配 struct file → 找到最小可用 fd → 返回。fd 是进程级的文件句柄，后续所有 I/O 操作通过 fd 进行。"
+],
+low_high: [
+"open() 是 POSIX 标准定义的系统调用，函数签名为 int open(const char *pathname, int flags, mode_t mode)。执行流程：用户态进程发起调用 → 通过 syscall 指令触发陷阱（x86_64 下 syscall 号为 2）→ 内核 sys_open() 入口 → namei 路径解析沿 dentry 树逐级查找 → 抵达目标 inode 后执行 DAC/MAC 权限校验 → 分配 struct file 并初始化 f_op 函数指针表 → 在 files_struct→fd_array 中寻找最小可用槽位 → 将 fd 通过 rax 寄存器返回用户空间。",
+"open() 的完整内核路径：sys_open → do_sys_open → do_filp_open → path_openat。其中 path_openat 是核心，执行 link_path_walk() 逐组件解析路径名，每个分量触发 dentry cache 查询（__d_lookup_rcu），未命中则回退至底层文件系统的 .lookup() 方法。最终 vfs_open() 调用 inode→f_op→open() 完成文件系统特定初始化，fd_install() 将 struct file 指针安装至 fdtable。"
+],
+mid_low: [
+"你可以把 open() 想象成去图书馆借书：\n\n1. 你告诉管理员书名（文件路径）\n2. 管理员检查你的借书证（权限检查）\n3. 管理员去书架找书（查找 inode）\n4. 给你一个座位号（文件描述符 fd）\n\n以后你只说「3号座翻一页」（read(3, buf, n)），不用每次重新找。座位号从小到大分配，用完最小的给你。close(fd) 就是还书。",
+"把内核想象成一家大酒店：\n\n- open() 就是去前台办入住\n- 你报上名字和房间号（路径+权限）\n- 前台查电脑确认预订（查 inode、验权限）\n- 给你一张房卡，上面有编号（fd = 3）\n\n之后拿房卡就能开门（read/write），不用每次都跑前台。checkout（close）归还房卡，编号空出来给下一位客人。"
+],
+mid_high: [
+"open() 的本质是一次精妙的「握手协议」。进程向内核递交一份访问请愿——路径名是收件地址，flags 是意图声明（O_RDONLY 意为谦卑的只读；O_RDWR|O_CREAT|O_TRUNC 则是霸道的「不在就创建，在就清空」），mode 是安全等级标注。\n\n内核收到后，VFS 这位老到的档案管理员启动精密查找：沿目录树逐级解析，穿越 dentry 缓存的快速通道（命中则省去磁盘 I/O），直至定位 inode——文件的「内核身份证」。审查权限后，分配 struct file 档案，并在进程的 fd 表中觅得最小空位，返回编号——此后一切读写，凭号即可。",
+"open() 是用户态与内核态之间一次优雅的「接力赛」。起跑的是进程——它将路径名、标志位和权限掩码打包，通过 syscall 指令将接力棒交给内核。内核第一棒交给 VFS 层：这位「翻译官」不关心底层是 ext4 还是 NFS，只负责将路径拆解为目录分量，逐级在 dentry 缓存中搜寻。命中缓存如同搭上特快列车，未命中则向实际文件系统「问路」。最终锚定 inode 后，内核完成权限审计，为此次访问颁发「通行证」——struct file，并在进程的 fd 表上找到最近的空座。"
+],
+high_low: [
+"想象内核是一个超级大图书馆 📚\n\n你（进程）冲进去大喊：'我要看 /home/sky/secret.txt！'\n\n管理员（内核）先看了看你的脸：'嗯，长得像有权限的样子...' 😏\n\n然后他钻进迷宫一样的书架——左拐右拐翻箱倒柜... VFS 在前面带路，dentry 缓存是贴在墙上的小纸条：'ext4 的书往左走！'\n\n终于找到了！管理员给你小纸条，写着 '3'——你的座位号（fd）🎫\n\n从此你喊'3号座翻页！'就行。简单吧？其实不简单，内核在背后累死了 😅",
+"open() 就像你去超级复杂的自助餐厅 🍽️\n\n首先！你得排队！（系统调用陷入内核）\n然后！出示会员卡！（权限检查）\n接着！服务员拿你的菜单去后厨跑了一圈又一圈！（VFS 路径解析，各个目录间找来找去）\n终于！找到了你的菜！（inode）\n最后给你取餐号码——'3号窗口取餐' 📋\n\n这个号码就是 fd！以后加菜（read/write）直接报号！\n\n对了，你走的时候记得说一声（close），不然号码牌就浪费了！🎉"
+],
+high_high: [
+"open() 是进程向内核递交的一封情书 💌\n\n'亲爱的文件系统，请允许我窥探 /home/sky/secret.txt 的秘密...'\n\n内核这位严肃的档案馆长收到后，先审视你的身份徽章（DAC 权限矩阵），确认你不是来搞事情的。\n\n然后开始史诗级寻宝之旅 🗺️——沿目录树的藤蔓攀缘而上，每级 dentry 都是需要敲门的大门。运气好的话，dentry cache 这位热心门房会指路：'inode 在那边，第三个架子！'\n\n最终抵达 inode 居所，馆长掏出崭新的 struct file 档案卡，在你的私人文件柜（fd table）找到最靠门口的空抽屉，贴上编号——这就是你的文件描述符！\n\n从此你只需喊'3号抽屉再翻一页！'（read(3, buf, 4096)），而那扇曾经遥远的门，已为你虚掩着... 📖✨",
+"在内核深处，有一座巴别塔式档案馆 🏛️\n\nopen() 是你向这座档案馆递交的用 C 语言写成的请愿书。馆长 sys_open 唤醒了他最得力的助手—— path_openat，一位精通路径拓扑学的老学究。\n\n老学究戴上单片眼镜 🧐，在 dentry 的迷宫中穿行。每个 '/' 都是旋转门，每级目录都是密室。他念念有词：'link_path_walk... step... lookup... 啊哈！'\n\n当 inode 真容浮现——整个 VFS 层都安静了。权限审查如中世纪骑士加冕，通过 DAC 三重门后，一枚崭新的 struct file 被铸造出来，镌刻着 f_op 的神圣函数指针。\n\n最后，fd_install 将通行证放入你灵魂的第三个口袋... 📜✨"
+]
+},
+
+cat: {
+low_low: [
+"小猫咪，真可爱，\n毛茸茸，惹人爱。\n白天睡，晚上玩，\n是我最好的伙伴。\n喜欢鱼，爱吃虾，\n蜷在窝里打个盹，\n做梦也要抓尾巴。",
+"你是一只猫，\n喜欢睡在阳光下。\n我叫你你不理，\n但你饿了会找我。\n你的毛很软，\n你的眼睛很圆，\n你是我的好朋友。"
+],
+low_high: [
+"晨曦微露推窗棂，\n阶前已卧玳瑁猫。\n金瞳半阖如凝思，\n尾尖轻叩石板桥。\n日暮衔回一片叶，\n权当今日猎物交。\n主人笑抚颔下绒，\n一室清风自逍遥。",
+"一团茸雪卧书帏，\n琥珀双瞳映烛辉。\n夜半忽闻窸窣响，\n竟是探爪拨流萤。\n晨起不见踪与影，\n唯余蒲团凹痕微。\n推窗日暖寻芳处，\n阶下蜷成半月眉。"
+],
+mid_low: [
+"你踩着月光来，\n四只爪子不出声。\n在我的键盘上走过，\n留下一串乱码情书。\n\n我叫你的名字，\n你假装没听见。\n转身露出肚皮——\n这是你最大的信任。\n\n你的世界很小，\n一个纸箱就是城堡。\n但你把整个城堡，\n都分给了我。",
+"你的一天是这样的：\n吃饭，睡觉，看窗外。\n再吃饭，再睡觉。\n\n偶尔追自己的尾巴，\n假装不认识它。\n偶尔把杯子推下桌，\n假装不是你干的。\n\n但每天晚上，\n你都跳上我的床，\n在我脚边转三圈，\n然后重重躺下——\n像是说：我今天也辛苦了。"
+],
+mid_high: [
+"你是一团会呼吸的云，\n蜷在膝头酿造温柔。\n尾巴是未写完的诗句，\n在空气中画着慵懒的省略号……\n\n你用绒毛接住我的疲惫，\n用呼噜声碾碎我的焦虑。\n世界兵荒马乱，\n你只管把自己团成一个句号。\n\n晨光里你踮起脚尖，\n像矜持的芭蕾舞者，\n在窗台演完一整出独幕剧，\n观众只有一缕穿堂风。",
+"你是黄昏调色盘上\n不慎滴落的一滴琥珀，\n凝固在沙发的褶皱里，\n散发着慵懒的松脂芬芳。\n\n你的呼噜是一首低音提琴曲，\n在月光的五线谱上缓缓流淌。\n你翻个身，把四只爪子\n朝天摊开——\n像一朵倒挂的莲花，\n在梦的池塘里随波荡漾。"
+],
+high_low: [
+"你！就是你！那个毛球！🐱\n\n你以为你是谁？\n——是全宇宙最可爱的小怪兽！\n\n你的爪子是世上最软的按钮，\n按一下，输出一个呼噜噜 🎵\n再按一下，输出一个咬人 😼\n\n你睡觉像一块面包 🍞\n跑起来像一阵疯风 🌪️\n盯着墙角看的时候...\n我真怕你看到了什么 👻\n\n没关系！你是我的猫！全都是我的！💕",
+"致我亲爱的毛孩子：🐾\n\n第一条：不许再踩我的脸叫我起床！\n第二条：不许再把杯子推下桌子！\n第三条：不许在凌晨三点跑酷！\n\n...好吧你全部都可以 😭\n\n因为你对我眨眼睛的时候，\n全世界都停电了 💡\n只剩你的眼睛在发光 ✨\n\n我认输了。你赢了。\n这个家是你的。我只是铲屎的。🏳️"
+],
+high_high: [
+"你是一尾毛茸茸的量子涟漪，\n同时存在于沙发、书桌和灵魂的褶皱深处 🌌\n薛定谔说你半死半活，\n但我知道你只是在叠加态里优雅地摸鱼。\n\n你的呼噜是 25Hz 加密的情诗，\n恰好与第四根肋骨共振，\n震碎所有坏心情和 deadline 焦虑 💫\n\n尾巴扫过桌面——啪嗒——\n玻璃杯殉职。\n你的眼神写着：\n'那是我为混沌理论做的行为艺术。'\n\n亲爱的毛球阁下，\n你是宇宙源代码里最可爱的 bug，\n我永远不会提 fix 的 PR 🐱‍💻✨",
+"如果将你的存在编译为诗，\n编译器会报错——\n你的可爱溢出了 int 上限 🐱💥\n\n你是薛定谔方程中\n拒绝坍缩的波函数：\n既在盒子里又在盒子外，\n还在我刚洗好的衣服上。\n\n你的瞳孔是两个平行宇宙入口，\n一个通往鱼罐头星云，\n一个通往永恒午睡银河 🌙\n\n我是你的观测者，\n每次看向你，\n你就从「液体」坍缩为「猫」\n——但你更偏爱前者。\n\n谨以此诗献给我的量子毛球 💝"
+]
+}
+};
+
+// ============================================================
+// Chart config
+// ============================================================
+var chartConfig = {
+  happy: {
+    tokens: ["一种", "像", "内心", "当", "就像", "仿佛", "人们", "心中", "那种", "世界"],
+    logits: [5.0, 3.8, 3.2, 2.8, 2.4, 2.0, 1.6, 1.2, 0.8, 0.4],
+    subtitle: "模型正在预测「快乐是___」的下一个词"
+  },
+  linux: {
+    tokens: ["一个", "系统", "POSIX", "用于", "Linux", "打开", "文件", "C语言", "内核", "进程"],
+    logits: [4.8, 4.2, 3.6, 3.4, 3.0, 2.6, 2.2, 1.6, 1.0, 0.5],
+    subtitle: "模型正在预测「open()是___」的下一个词"
+  },
+  cat: {
+    tokens: ["你", "小", "一", "毛茸茸", "亲爱", "喵", "我", "窗台", "月光", "可爱"],
+    logits: [4.5, 4.0, 3.5, 3.2, 2.8, 2.4, 2.0, 1.5, 1.0, 0.6],
+    subtitle: "模型正在预测「猫咪诗歌」的第一个词"
+  }
+};
+var chartTokens = chartConfig.happy.tokens;
+var baseLogits = chartConfig.happy.logits;
+
+// ============================================================
+// Scenarios
+// ============================================================
+var scenarios = {
+  precise:  { temperature: 0.0, top_p: 0.10, top_k: 5,   max_tokens: 100 },
+  balanced: { temperature: 0.7, top_p: 0.90, top_k: 40,  max_tokens: 200 },
+  crazy:    { temperature: 1.8, top_p: 1.00, top_k: 100, max_tokens: 500 }
+};
+
+// ============================================================
+// State
+// ============================================================
+var currentPrompt = 'happy';
+var isGenerating = false;
+
+// ============================================================
+// Helpers
+// ============================================================
+function getParams() {
+  return {
+    temperature: parseFloat(document.getElementById('temperature').value),
+    top_p: parseFloat(document.getElementById('top_p').value),
+    top_k: parseInt(document.getElementById('top_k').value),
+    max_tokens: parseInt(document.getElementById('max_tokens').value)
+  };
+}
+
+function getTempLevel(t) {
+  if (t <= 0.3) return 'low';
+  if (t <= 1.0) return 'mid';
+  return 'high';
+}
+
+function getDivLevel(top_p, top_k) {
+  var score = top_p * 0.5 + (top_k / 100) * 0.5;
+  return score < 0.45 ? 'low' : 'high';
+}
+
+function softmax(logits, temp) {
+  var t = Math.max(temp, 0.01);
+  var scaled = logits.map(function(l) { return l / t; });
+  var maxV = Math.max.apply(null, scaled);
+  var exps = scaled.map(function(s) { return Math.exp(s - maxV); });
+  var sum = exps.reduce(function(a, b) { return a + b; }, 0);
+  return exps.map(function(e) { return e / sum; });
+}
+
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function pick3(promptKey, tempLevel, divLevel) {
+  var key = tempLevel + '_' + divLevel;
+  var pool = (R[promptKey][key] || []).slice();
+  var altDiv = divLevel === 'low' ? 'high' : 'low';
+  var altKey = tempLevel + '_' + altDiv;
+  var altPool = (R[promptKey][altKey] || []).slice();
+
+  pool = shuffle(pool);
+  altPool = shuffle(altPool);
+
+  var result = [];
+  for (var i = 0; i < pool.length && result.length < 3; i++) result.push(pool[i]);
+  for (var j = 0; j < altPool.length && result.length < 3; j++) result.push(altPool[j]);
+  while (result.length < 3) result.push(result[0] || '（无可用文本）');
+  return result;
+}
+
+function truncateText(text, maxTokens) {
+  var maxChars = Math.floor(maxTokens * 1.4);
+  if (text.length <= maxChars) return { text: text, truncated: false, chars: text.length };
+  return { text: text.substring(0, maxChars), truncated: true, chars: maxChars };
+}
+
+function tempLabel(level) {
+  if (level === 'low') return { text: '🧊 教科书', cls: 'temp-low' };
+  if (level === 'mid') return { text: '⚖️ 自然对话', cls: 'temp-mid' };
+  return { text: '🔥 创意发散', cls: 'temp-high' };
+}
+function divLabel(level) {
+  if (level === 'low') return { text: '简洁用词', cls: 'div-low' };
+  return { text: '丰富词汇', cls: 'div-high' };
+}
+
+// ============================================================
+// Typewriter
+// ============================================================
+function typeText(elId, text, speed, cb) {
+  var el = document.getElementById(elId);
+  el.innerHTML = '<span class="cursor"></span>';
+  var i = 0;
+  function step() {
+    if (i < text.length) {
+      var chunk = text.substring(0, i + 1);
+      el.innerHTML = chunk.replace(/\n/g, '<br>') + '<span class="cursor"></span>';
+      i++;
+      setTimeout(step, speed);
+    } else {
+      el.innerHTML = text.replace(/\n/g, '<br>');
+      if (cb) cb();
+    }
+  }
+  step();
+}
+
+// ============================================================
+// Generate
+// ============================================================
+function generate() {
+  if (isGenerating) return;
+  isGenerating = true;
+  var btn = document.getElementById('generate-btn');
+  btn.classList.add('loading');
+
+  var p = getParams();
+  var tLevel = getTempLevel(p.temperature);
+  var dLevel = getDivLevel(p.top_p, p.top_k);
+  var texts = pick3(currentPrompt, tLevel, dLevel);
+
+  var tl = tempLabel(tLevel);
+  var dl = divLabel(dLevel);
+
+  for (var c = 0; c < 3; c++) {
+    document.getElementById('text-' + c).innerHTML = '<span class="placeholder-text">生成中...</span>';
+    document.getElementById('meta-' + c).style.display = 'none';
+    document.getElementById('out-' + c).classList.remove('active');
+    document.getElementById('tags-' + c).innerHTML =
+      '<span class="style-tag ' + tl.cls + '">' + tl.text + '</span>' +
+      '<span class="style-tag ' + dl.cls + '">' + dl.text + '</span>';
+  }
+
+  var completed = 0;
+  for (var i = 0; i < 3; i++) {
+    (function(idx) {
+      var result = truncateText(texts[idx], p.max_tokens);
+      var displayText = result.text;
+      var tokenCount = Math.round(result.chars / 1.4);
+      var maxT = p.max_tokens;
+      var costPer1k = 0.015;
+      var cost = (tokenCount / 1000 * costPer1k).toFixed(5);
+      var baseTime = tLevel === 'low' ? 0.2 : tLevel === 'mid' ? 0.4 : 0.7;
+      var time = (baseTime + tokenCount * 0.003 + Math.random() * 0.2).toFixed(2);
+      var speed = tLevel === 'low' ? 20 : tLevel === 'mid' ? 30 : 40;
+
+      setTimeout(function() {
+        document.getElementById('out-' + idx).classList.add('active');
+        typeText('text-' + idx, displayText, speed, function() {
+          if (result.truncated) {
+            var el = document.getElementById('text-' + idx);
+            el.innerHTML += '<span class="truncated">... ⚠️ 已达 token 上限</span>';
+          }
+          var tokEl = document.getElementById('tok-' + idx);
+          tokEl.textContent = tokenCount + '/' + maxT;
+          tokEl.className = 'value' + (result.truncated ? ' warn' : '');
+          document.getElementById('cost-' + idx).textContent = '$' + cost;
+          document.getElementById('time-' + idx).textContent = time + 's';
+          document.getElementById('meta-' + idx).style.display = 'flex';
+          completed++;
+          if (completed === 3) {
+            btn.classList.remove('loading');
+            isGenerating = false;
+          }
+        });
+      }, idx * 500);
+    })(i);
+  }
+}
+
+// ============================================================
+// Prompt chips
+// ============================================================
+document.querySelectorAll('.prompt-chip').forEach(function(chip) {
+  chip.addEventListener('click', function() {
+    document.querySelectorAll('.prompt-chip').forEach(function(c) { c.classList.remove('active'); });
+    this.classList.add('active');
+    currentPrompt = this.getAttribute('data-prompt');
+    switchChartPrompt(currentPrompt);
+  });
+});
+
+function switchChartPrompt(promptKey) {
+  var cfg = chartConfig[promptKey];
+  if (!cfg) return;
+  chartTokens = cfg.tokens;
+  baseLogits = cfg.logits;
+  document.querySelector('.chart-subtitle').textContent = cfg.subtitle;
+  initChart();
+}
+
+// ============================================================
+// Scenario presets with smooth animation
+// ============================================================
+function applyScenario(name) {
+  var s = scenarios[name];
+  document.querySelectorAll('.scenario-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelector('.scenario-btn.' + name).classList.add('active');
+  animateSlider('temperature', s.temperature, 400);
+  animateSlider('top_p', s.top_p, 400);
+  animateSlider('top_k', s.top_k, 400);
+  animateSlider('max_tokens', s.max_tokens, 400);
+  setTimeout(function() { generate(); }, 500);
+}
+
+function animateSlider(id, target, duration) {
+  var slider = document.getElementById(id);
+  var start = parseFloat(slider.value);
+  var diff = target - start;
+  var startTime = null;
+  function frame(ts) {
+    if (!startTime) startTime = ts;
+    var elapsed = ts - startTime;
+    var progress = Math.min(elapsed / duration, 1);
+    var ease = 1 - Math.pow(1 - progress, 3);
+    var val = start + diff * ease;
+    slider.value = val;
+    slider.dispatchEvent(new Event('input'));
+    if (progress < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// Slider listeners
+// ============================================================
+document.getElementById('temperature').addEventListener('input', function() {
+  document.getElementById('temp-val').textContent = parseFloat(this.value).toFixed(1);
+  updateChart();
+});
+document.getElementById('top_p').addEventListener('input', function() {
+  document.getElementById('topp-val').textContent = parseFloat(this.value).toFixed(2);
+  updateChart();
+});
+document.getElementById('top_k').addEventListener('input', function() {
+  document.getElementById('topk-val').textContent = this.value;
+  updateChart();
+});
+document.getElementById('max_tokens').addEventListener('input', function() {
+  document.getElementById('maxt-val').textContent = this.value;
+});
+
+// ============================================================
+// Probability distribution chart
+// ============================================================
+function initChart() {
+  var chart = document.getElementById('prob-chart');
+  chart.innerHTML = '';
+  for (var i = 0; i < chartTokens.length; i++) {
+    var col = document.createElement('div');
+    col.className = 'bar-col';
+    col.id = 'col-' + i;
+
+    var bar = document.createElement('div');
+    bar.className = 'bar active';
+    bar.id = 'bar-' + i;
+    bar.style.height = '4px';
+
+    var pct = document.createElement('span');
+    pct.className = 'bar-pct';
+    pct.id = 'pct-' + i;
+    pct.textContent = '';
+    bar.appendChild(pct);
+
+    var label = document.createElement('span');
+    label.className = 'bar-label';
+    label.textContent = chartTokens[i];
+
+    col.appendChild(bar);
+    col.appendChild(label);
+    chart.appendChild(col);
+  }
+  updateChart();
+}
+
+function updateChart() {
+  var p = getParams();
+  var probs = softmax(baseLogits, p.temperature);
+
+  var cumSum = 0;
+  var topPCutoff = probs.length;
+  for (var i = 0; i < probs.length; i++) {
+    cumSum += probs[i];
+    if (cumSum >= p.top_p && topPCutoff === probs.length) {
+      topPCutoff = i + 1;
+    }
+  }
+
+  var topKCutoff = Math.min(p.top_k, probs.length);
+  var effectiveCutoff = Math.min(topPCutoff, topKCutoff);
+  var maxProb = Math.max.apply(null, probs);
+
+  for (var j = 0; j < probs.length; j++) {
+    var bar = document.getElementById('bar-' + j);
+    var pctEl = document.getElementById('pct-' + j);
+    var col = document.getElementById('col-' + j);
+    var isActive = j < effectiveCutoff;
+
+    var height = Math.max((probs[j] / maxProb) * 140, 3);
+    bar.style.height = height + 'px';
+    bar.className = 'bar ' + (isActive ? 'active' : 'filtered');
+    col.className = 'bar-col' + (isActive ? '' : ' filtered-col');
+    pctEl.textContent = (probs[j] * 100).toFixed(1) + '%';
+  }
+
+  var filterReasons = [];
+  if (topKCutoff < probs.length) filterReasons.push('top_k=' + p.top_k + ' 保留前 ' + topKCutoff + ' 个');
+  if (topPCutoff < probs.length) filterReasons.push('top_p=' + p.top_p.toFixed(2) + ' 保留累积达 ' + (p.top_p * 100).toFixed(0) + '% 的前 ' + topPCutoff + ' 个');
+
+  var infoEl = document.getElementById('chart-info');
+  if (filterReasons.length === 0) {
+    infoEl.innerHTML = '当前设置下，模型从全部 <strong>' + probs.length + '</strong> 个候选词中按概率采样。temperature=<strong>' + p.temperature.toFixed(1) + '</strong> 使概率分布' + (p.temperature <= 0.3 ? '高度集中（几乎总选第一个词）' : p.temperature <= 1.0 ? '相对均匀' : '非常平坦（各词机会接近）') + '。';
+  } else {
+    infoEl.innerHTML = '从 <strong>' + probs.length + '</strong> 个候选词中，' + filterReasons.join('，') + '，最终从 <strong>' + effectiveCutoff + '</strong> 个词中按概率采样。temperature=<strong>' + p.temperature.toFixed(1) + '</strong> 控制分布形状。';
+  }
+}
+
+// ============================================================
+// Init
+// ============================================================
+initChart();
+</script>
+</body>
+</html>
