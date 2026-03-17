@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw = AI 的智能手机</title>
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1a1a2e;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 40px 0 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.header h1 {
+  font-size: 34px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+}
+
+.header h1 .highlight {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header .subtitle {
+  font-size: 16px;
+  color: #6b7280;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 0 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover { color: #1a1a2e; }
+
+.tab-btn.active {
+  color: #1a1a2e;
+  font-weight: 600;
+  border-bottom-color: #6366f1;
+}
+
+/* Tab Content */
+.tab-content {
+  display: none;
+  padding: 32px 0;
+  animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Two Column Layout */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.col-phone, .col-openclaw {
+  border-radius: 16px;
+  padding: 28px;
+  position: relative;
+}
+
+.col-phone {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.col-openclaw {
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+}
+
+.col-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.col-phone .col-label {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.col-openclaw .col-label {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.col-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #1a1a2e;
+}
+
+.col-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 20px;
+  line-height: 1.7;
+}
+
+/* Emoji Icon */
+.emoji-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+/* Feature List */
+.feature-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feature-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.7);
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.feature-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.feature-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  width: 36px;
+  text-align: center;
+}
+
+.feature-text strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.feature-text span {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* Summary Bar */
+.summary-bar {
+  margin-top: 24px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #f0fdf4, #f5f3ff);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 15px;
+  font-weight: 500;
+  border: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.summary-bar .phone-part { color: #166534; }
+.summary-bar .oc-part { color: #5b21b6; }
+.summary-bar .arrow { color: #9ca3af; font-size: 20px; }
+
+/* Phone Visual */
+.phone-frame {
+  width: 200px;
+  height: 360px;
+  border: 3px solid #374151;
+  border-radius: 32px;
+  margin: 0 auto 20px;
+  position: relative;
+  background: #f9fafb;
+  overflow: hidden;
+}
+
+.phone-notch {
+  width: 80px;
+  height: 6px;
+  background: #374151;
+  border-radius: 3px;
+  margin: 10px auto 0;
+}
+
+.phone-screen {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phone-notif {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: white;
+  border-radius: 10px;
+  font-size: 11px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.4s ease;
+}
+
+.phone-notif.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.phone-notif .notif-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.phone-notif .notif-text {
+  line-height: 1.3;
+}
+
+.phone-notif .notif-text strong {
+  display: block;
+  font-size: 11px;
+}
+
+.phone-notif .notif-text span {
+  font-size: 10px;
+  color: #6b7280;
+}
+
+/* Play Button */
+.play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 16px;
+}
+
+.play-btn:hover { background: #4f46e5; }
+
+/* Overview Diagram */
+.overview-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  flex-wrap: wrap;
+}
+
+.ov-component {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 120px;
+  text-align: center;
+}
+
+.ov-component:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+.ov-component .ov-icon { font-size: 40px; }
+.ov-component .ov-name { font-size: 14px; font-weight: 600; }
+.ov-component .ov-phone { font-size: 12px; color: #6b7280; }
+
+.ov-component.gw { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.ov-component.brain { background: #eff6ff; border: 1px solid #bfdbfe; }
+.ov-component.mem { background: #fdf4ff; border: 1px solid #f0abfc; }
+.ov-component.skill { background: #fff7ed; border: 1px solid #fed7aa; }
+.ov-component.hb { background: #fff1f2; border: 1px solid #fecdd3; }
+
+.ov-arrow {
+  font-size: 24px;
+  color: #d1d5db;
+}
+
+/* Detail Panel */
+.detail-panel {
+  margin-top: 24px;
+  padding: 24px;
+  background: #f9fafb;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.detail-panel.show { display: block; }
+
+.detail-panel h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.detail-panel .detail-sub {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+
+.detail-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.detail-col h4 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.detail-col.phone-col h4 { color: #16a34a; border-bottom-color: #86efac; }
+.detail-col.oc-col h4 { color: #7c3aed; border-bottom-color: #c4b5fd; }
+
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.detail-item .di-icon { font-size: 16px; flex-shrink: 0; }
+
+/* Security Section */
+.security-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.sec-card {
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sec-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+.sec-card .sec-emoji {
+  font-size: 32px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.sec-card h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sec-card .phone-analogy {
+  font-size: 13px;
+  color: #16a34a;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.sec-card .oc-reality {
+  font-size: 13px;
+  color: #7c3aed;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.sec-card p {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .two-col { grid-template-columns: 1fr; }
+  .detail-cols { grid-template-columns: 1fr; }
+  .security-grid { grid-template-columns: 1fr; }
+  .overview-diagram { gap: 4px; }
+  .ov-component { min-width: 80px; padding: 12px 8px; }
+  .ov-component .ov-icon { font-size: 28px; }
+  .ov-arrow { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>OpenClaw <span class="highlight">= AI 的智能手机</span></h1>
+    <p class="subtitle">用你每天都在用的手机，理解 AI Agent 框架的五大核心</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="overview">总览</button>
+    <button class="tab-btn" data-tab="gateway">Gateway 通知中心</button>
+    <button class="tab-btn" data-tab="brain">Brain 处理器</button>
+    <button class="tab-btn" data-tab="memory">Memory 备忘录</button>
+    <button class="tab-btn" data-tab="skills">Skills 应用商店</button>
+    <button class="tab-btn" data-tab="heartbeat">Heartbeat 闹钟</button>
+    <button class="tab-btn" data-tab="security">安全类比</button>
+  </div>
+
+  <!-- Tab: Overview -->
+  <div class="tab-content active" id="tab-overview">
+    <div style="text-align:center;margin-bottom:16px;">
+      <p style="font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;">
+        想象一下：大模型 (GPT/Claude) 是「App」，OpenClaw 是运行它的「手机操作系统」
+      </p>
+      <p style="font-size:14px;color:#6b7280;">
+        没有操作系统，App 就不知道怎么接收消息、存储数据、调用摄像头 —— AI 也一样
+      </p>
+    </div>
+
+    <div class="overview-diagram" id="ov-diagram">
+      <div class="ov-component gw" onclick="showDetail('gw')">
+        <span class="ov-icon">&#128276;</span>
+        <span class="ov-name">Gateway</span>
+        <span class="ov-phone">= 通知中心</span>
+      </div>
+      <span class="ov-arrow">&#10230;</span>
+      <div class="ov-component brain" onclick="showDetail('brain')">
+        <span class="ov-icon">&#129504;</span>
+        <span class="ov-name">Brain</span>
+        <span class="ov-phone">= 处理器</span>
+      </div>
+      <span class="ov-arrow">&#8596;</span>
+      <div class="ov-component mem" onclick="showDetail('mem')">
+        <span class="ov-icon">&#128247;</span>
+        <span class="ov-name">Memory</span>
+        <span class="ov-phone">= 相册+备忘录</span>
+      </div>
+      <span class="ov-arrow">&#8596;</span>
+      <div class="ov-component skill" onclick="showDetail('skill')">
+        <span class="ov-icon">&#128230;</span>
+        <span class="ov-name">Skills</span>
+        <span class="ov-phone">= 应用商店</span>
+      </div>
+      <span class="ov-arrow">&nbsp;</span>
+      <div class="ov-component hb" onclick="showDetail('hb')">
+        <span class="ov-icon">&#9200;</span>
+        <span class="ov-name">Heartbeat</span>
+        <span class="ov-phone">= 闹钟+后台刷新</span>
+      </div>
+    </div>
+
+    <!-- Detail Panels -->
+    <div class="detail-panel" id="detail-gw">
+      <h3>&#128276; Gateway = 手机的通知中心</h3>
+      <p class="detail-sub">所有消息的统一入口，决定谁来处理、怎么排队</p>
+      <div class="detail-cols">
+        <div class="detail-col phone-col">
+          <h4>&#128241; 手机上</h4>
+          <div class="detail-item"><span class="di-icon">&#128172;</span> 微信、钉钉、短信的消息都从通知中心进来</div>
+          <div class="detail-item"><span class="di-icon">&#128276;</span> 通知中心决定弹窗、横幅还是静默</div>
+          <div class="detail-item"><span class="di-icon">&#128101;</span> 多个 App 同时来消息？排队处理</div>
+        </div>
+        <div class="detail-col oc-col">
+          <h4>&#10047; OpenClaw 里</h4>
+          <div class="detail-item"><span class="di-icon">&#128232;</span> 飞书、Slack、API 的请求都从 Gateway 进来</div>
+          <div class="detail-item"><span class="di-icon">&#128203;</span> Gateway 路由到正确的 Agent 处理</div>
+          <div class="detail-item"><span class="di-icon">&#128295;</span> Lane Queue 机制，多任务排队不乱</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-panel" id="detail-brain">
+      <h3>&#129504; Brain = 手机的处理器 (CPU)</h3>
+      <p class="detail-sub">真正「思考」的核心，决定做什么、怎么做</p>
+      <div class="detail-cols">
+        <div class="detail-col phone-col">
+          <h4>&#128241; 手机上</h4>
+          <div class="detail-item"><span class="di-icon">&#9889;</span> CPU 运行所有 App 的逻辑</div>
+          <div class="detail-item"><span class="di-icon">&#128260;</span> 多任务切换，一会儿刷微博一会儿回消息</div>
+          <div class="detail-item"><span class="di-icon">&#129302;</span> A17/骁龙芯片决定手机有多聪明</div>
+        </div>
+        <div class="detail-col oc-col">
+          <h4>&#10047; OpenClaw 里</h4>
+          <div class="detail-item"><span class="di-icon">&#128161;</span> Brain 调用大模型 (GPT/Claude) 来「思考」</div>
+          <div class="detail-item"><span class="di-icon">&#128257;</span> Agentic Loop: 思考 &#10230; 行动 &#10230; 观察 &#10230; 再思考</div>
+          <div class="detail-item"><span class="di-icon">&#127919;</span> 选什么模型 = 选什么芯片，决定 Agent 能力上限</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-panel" id="detail-mem">
+      <h3>&#128247; Memory = 手机的相册 + 备忘录</h3>
+      <p class="detail-sub">存储对话记忆和知识，让 AI「记住」你</p>
+      <div class="detail-cols">
+        <div class="detail-col phone-col">
+          <h4>&#128241; 手机上</h4>
+          <div class="detail-item"><span class="di-icon">&#128248;</span> 相册自动按时间、地点、人脸分类</div>
+          <div class="detail-item"><span class="di-icon">&#128221;</span> 备忘录存你的笔记和想法</div>
+          <div class="detail-item"><span class="di-icon">&#128269;</span> 搜索框一搜就能找到旧照片</div>
+        </div>
+        <div class="detail-col oc-col">
+          <h4>&#10047; OpenClaw 里</h4>
+          <div class="detail-item"><span class="di-icon">&#128451;</span> SQLite 存储所有对话历史</div>
+          <div class="detail-item"><span class="di-icon">&#128301;</span> BM25 + 向量混合搜索找到相关记忆</div>
+          <div class="detail-item"><span class="di-icon">&#9202;</span> 时间衰减：越久远的记忆权重越低（像你很少翻旧照片）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-panel" id="detail-skill">
+      <h3>&#128230; Skills = 手机的应用商店</h3>
+      <p class="detail-sub">想让 AI 干更多事？装个 Skill 就行，就像装 App</p>
+      <div class="detail-cols">
+        <div class="detail-col phone-col">
+          <h4>&#128241; 手机上</h4>
+          <div class="detail-item"><span class="di-icon">&#127917;</span> 想打游戏？装个游戏 App</div>
+          <div class="detail-item"><span class="di-icon">&#128247;</span> 想修图？装个修图 App</div>
+          <div class="detail-item"><span class="di-icon">&#128722;</span> App Store 有几百万个 App 可选</div>
+        </div>
+        <div class="detail-col oc-col">
+          <h4>&#10047; OpenClaw 里</h4>
+          <div class="detail-item"><span class="di-icon">&#128295;</span> 底层 Tools: 搜索、读文件、调 API（像系统自带 App）</div>
+          <div class="detail-item"><span class="di-icon">&#128640;</span> 高层 Workflows: 组合多个 Tool 的复杂流程（像快捷指令）</div>
+          <div class="detail-item"><span class="di-icon">&#127968;</span> ClawHub 市场: 社区共享的 Skills（像 App Store）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-panel" id="detail-hb">
+      <h3>&#9200; Heartbeat = 手机的闹钟 + 后台刷新</h3>
+      <p class="detail-sub">不用你喊它，它自己会定时做事</p>
+      <div class="detail-cols">
+        <div class="detail-col phone-col">
+          <h4>&#128241; 手机上</h4>
+          <div class="detail-item"><span class="di-icon">&#9200;</span> 闹钟到点就响，不用你盯着</div>
+          <div class="detail-item"><span class="di-icon">&#128260;</span> 后台刷新：微信自动收新消息</div>
+          <div class="detail-item"><span class="di-icon">&#128197;</span> 日历提醒：到时间就弹通知</div>
+        </div>
+        <div class="detail-col oc-col">
+          <h4>&#10047; OpenClaw 里</h4>
+          <div class="detail-item"><span class="di-icon">&#128336;</span> 定时任务：每天 9 点自动发日报</div>
+          <div class="detail-item"><span class="di-icon">&#128064;</span> 主动行为：检测到异常主动告警</div>
+          <div class="detail-item"><span class="di-icon">&#128139;</span> 心跳检测：确认 Agent 还活着、还在工作</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-bar">
+      <span class="phone-part">&#128241; 手机没有操作系统 = 一块砖</span>
+      <span class="arrow">&#10230;</span>
+      <span class="oc-part">&#129504; 大模型没有 OpenClaw = 只会聊天的 AI</span>
+    </div>
+  </div>
+
+  <!-- Tab: Gateway -->
+  <div class="tab-content" id="tab-gateway">
+    <div class="two-col">
+      <div class="col-phone">
+        <span class="col-label">&#128241; 手机</span>
+        <span class="emoji-icon">&#128276;</span>
+        <div class="col-title">通知中心</div>
+        <div class="col-desc">你手机上的所有消息——微信、短信、钉钉、外卖——都先到通知中心，然后再分发到各个 App。</div>
+        <div style="min-height:200px;display:flex;flex-direction:column;align-items:center;">
+          <div class="phone-frame" id="phone-gateway">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+              <div class="phone-notif" id="gw-notif-1">
+                <span class="notif-icon">&#128172;</span>
+                <div class="notif-text">
+                  <strong>微信</strong>
+                  <span>老板: 今天报告写好了吗？</span>
+                </div>
+              </div>
+              <div class="phone-notif" id="gw-notif-2">
+                <span class="notif-icon">&#128231;</span>
+                <div class="notif-text">
+                  <strong>邮件</strong>
+                  <span>会议邀请: 下午 3 点评审</span>
+                </div>
+              </div>
+              <div class="phone-notif" id="gw-notif-3">
+                <span class="notif-icon">&#128373;</span>
+                <div class="notif-text">
+                  <strong>外卖</strong>
+                  <span>您的午餐已送达一楼</span>
+                </div>
+              </div>
+              <div class="phone-notif" id="gw-notif-4">
+                <span class="notif-icon">&#128176;</span>
+                <div class="notif-text">
+                  <strong>银行</strong>
+                  <span>工资已到账 ￥15,000.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="play-btn" onclick="playGateway()">&#9654; 模拟消息涌入</button>
+        </div>
+      </div>
+      <div class="col-openclaw">
+        <span class="col-label">&#10047; OpenClaw</span>
+        <span class="emoji-icon">&#128232;</span>
+        <div class="col-title">Gateway 网关</div>
+        <div class="col-desc">所有渠道的请求——飞书消息、Slack 指令、API 调用、定时触发——都先到 Gateway，然后路由到对应的 Agent。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#128300;</span>
+            <div class="feature-text">
+              <strong>消息路由</strong>
+              <span>根据消息来源和内容，分发给正确的 Agent 处理</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128203;</span>
+            <div class="feature-text">
+              <strong>Lane Queue 排队</strong>
+              <span>多个请求同时到达？按优先级排队，不会互相冲突</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128737;</span>
+            <div class="feature-text">
+              <strong>协议转换</strong>
+              <span>不同来源用不同格式？Gateway 统一翻译成 Agent 能理解的语言</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="summary-bar">
+      <span class="phone-part">&#128276; 通知中心：统一收取，分发到各 App</span>
+      <span class="arrow">&#10230;</span>
+      <span class="oc-part">&#128232; Gateway：统一接收，路由到各 Agent</span>
+    </div>
+  </div>
+
+  <!-- Tab: Brain -->
+  <div class="tab-content" id="tab-brain">
+    <div class="two-col">
+      <div class="col-phone">
+        <span class="col-label">&#128241; 手机</span>
+        <span class="emoji-icon">&#9889;</span>
+        <div class="col-title">处理器 (CPU)</div>
+        <div class="col-desc">手机的大脑。你点外卖、刷视频、拍照片，所有操作最终都是 CPU 在运算。芯片越好，手机越快越聪明。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#128171;</span>
+            <div class="feature-text">
+              <strong>运行所有 App 的逻辑</strong>
+              <span>每次点击按钮，CPU 都在背后飞速计算</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128260;</span>
+            <div class="feature-text">
+              <strong>多任务切换</strong>
+              <span>边听歌边回消息，CPU 在几个任务间快速切换</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128200;</span>
+            <div class="feature-text">
+              <strong>性能决定体验</strong>
+              <span>A17 Pro 跑得动原神，低端芯片只能看看微信</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="col-openclaw">
+        <span class="col-label">&#10047; OpenClaw</span>
+        <span class="emoji-icon">&#129504;</span>
+        <div class="col-title">Brain 大脑</div>
+        <div class="col-desc">Agent 的思考引擎。调用大模型来「想」，然后决定下一步做什么。选什么模型 = 选什么芯片。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#128161;</span>
+            <div class="feature-text">
+              <strong>调用大模型推理</strong>
+              <span>把问题发给 GPT/Claude，拿回思考结果</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128257;</span>
+            <div class="feature-text">
+              <strong>Agentic Loop 循环</strong>
+              <span>思考 &#10230; 行动 &#10230; 观察结果 &#10230; 再思考... 直到任务完成</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#127919;</span>
+            <div class="feature-text">
+              <strong>模型 = 芯片</strong>
+              <span>GPT-4o 是旗舰芯片，GPT-4o-mini 是中端芯片——按需选择</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="summary-bar">
+      <span class="phone-part">&#9889; CPU：所有操作的执行引擎</span>
+      <span class="arrow">&#10230;</span>
+      <span class="oc-part">&#129504; Brain：所有思考的推理引擎</span>
+    </div>
+  </div>
+
+  <!-- Tab: Memory -->
+  <div class="tab-content" id="tab-memory">
+    <div class="two-col">
+      <div class="col-phone">
+        <span class="col-label">&#128241; 手机</span>
+        <span class="emoji-icon">&#128247;</span>
+        <div class="col-title">相册 + 备忘录</div>
+        <div class="col-desc">手机帮你记住一切：照片按时间线排列，备忘录存你的想法，搜索框帮你快速找到想要的内容。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#128197;</span>
+            <div class="feature-text">
+              <strong>按时间线组织</strong>
+              <span>今天拍的照片在最前面，去年的往后排</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128269;</span>
+            <div class="feature-text">
+              <strong>智能搜索</strong>
+              <span>搜「猫」，自动找出所有有猫的照片</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128465;</span>
+            <div class="feature-text">
+              <strong>自动清理</strong>
+              <span>存储满了？建议删除模糊照片和截图</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="col-openclaw">
+        <span class="col-label">&#10047; OpenClaw</span>
+        <span class="emoji-icon">&#128451;</span>
+        <div class="col-title">Memory 记忆系统</div>
+        <div class="col-desc">让 Agent 能「记住」以前聊过什么。存储对话历史和知识，需要时精准检索出来。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#128451;</span>
+            <div class="feature-text">
+              <strong>SQLite 持久存储</strong>
+              <span>所有对话都存下来，重启也不会丢</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128301;</span>
+            <div class="feature-text">
+              <strong>混合检索</strong>
+              <span>BM25（关键词匹配）+ 向量搜索（语义理解）双管齐下</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#9202;</span>
+            <div class="feature-text">
+              <strong>时间衰减</strong>
+              <span>越久远的记忆权重越低——就像你很少翻三年前的照片</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="summary-bar">
+      <span class="phone-part">&#128247; 相册/备忘录：存储、分类、搜索你的记忆</span>
+      <span class="arrow">&#10230;</span>
+      <span class="oc-part">&#128451; Memory：存储、检索、衰减 Agent 的记忆</span>
+    </div>
+  </div>
+
+  <!-- Tab: Skills -->
+  <div class="tab-content" id="tab-skills">
+    <div class="two-col">
+      <div class="col-phone">
+        <span class="col-label">&#128241; 手机</span>
+        <span class="emoji-icon">&#128230;</span>
+        <div class="col-title">应用商店 (App Store)</div>
+        <div class="col-desc">新买的手机只有基础功能，装了 App 才能点外卖、打车、刷视频。App Store 让手机能力无限扩展。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#128187;</span>
+            <div class="feature-text">
+              <strong>系统自带 App</strong>
+              <span>电话、短信、相机——出厂就有，删不掉</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128722;</span>
+            <div class="feature-text">
+              <strong>第三方 App</strong>
+              <span>微信、抖音、美团——按需下载安装</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128736;</span>
+            <div class="feature-text">
+              <strong>快捷指令</strong>
+              <span>组合多个 App 的操作，一键自动执行</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="col-openclaw">
+        <span class="col-label">&#10047; OpenClaw</span>
+        <span class="emoji-icon">&#128295;</span>
+        <div class="col-title">Skills / Tools 技能系统</div>
+        <div class="col-desc">Agent 自带基础工具，还能从 ClawHub 市场安装更多技能。两层架构：底层 Tools + 高层 Workflows。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#128295;</span>
+            <div class="feature-text">
+              <strong>底层 Tools（系统自带 App）</strong>
+              <span>搜索、读文件、调 API、执行代码——基础能力</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128640;</span>
+            <div class="feature-text">
+              <strong>高层 Workflows（快捷指令）</strong>
+              <span>组合多个 Tool 的复杂流程，比如「分析日志 + 生成报告 + 发邮件」</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#127968;</span>
+            <div class="feature-text">
+              <strong>ClawHub 市场（App Store）</strong>
+              <span>社区共享的 Skills，一键安装扩展 Agent 能力</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="summary-bar">
+      <span class="phone-part">&#128230; App Store：装 App 扩展手机能力</span>
+      <span class="arrow">&#10230;</span>
+      <span class="oc-part">&#128295; ClawHub：装 Skills 扩展 Agent 能力</span>
+    </div>
+  </div>
+
+  <!-- Tab: Heartbeat -->
+  <div class="tab-content" id="tab-heartbeat">
+    <div class="two-col">
+      <div class="col-phone">
+        <span class="col-label">&#128241; 手机</span>
+        <span class="emoji-icon">&#9200;</span>
+        <div class="col-title">闹钟 + 后台刷新</div>
+        <div class="col-desc">你不用一直盯着手机，闹钟到点会响，App 会在后台自动收消息、同步数据。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#9200;</span>
+            <div class="feature-text">
+              <strong>闹钟/提醒</strong>
+              <span>设好时间，到点就提醒你，不需要你盯着</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128260;</span>
+            <div class="feature-text">
+              <strong>后台刷新</strong>
+              <span>锁屏了微信也能收消息、邮件也能自动同步</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128197;</span>
+            <div class="feature-text">
+              <strong>日历事件</strong>
+              <span>提前 15 分钟弹窗：「3 点有会议」</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="col-openclaw">
+        <span class="col-label">&#10047; OpenClaw</span>
+        <span class="emoji-icon">&#128147;</span>
+        <div class="col-title">Heartbeat 心跳系统</div>
+        <div class="col-desc">让 Agent 不只是「被动回答」，还能「主动行动」。定时任务、健康检查、异常告警。</div>
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-icon">&#128336;</span>
+            <div class="feature-text">
+              <strong>定时任务 (Cron)</strong>
+              <span>每天 9 点自动发日报、每周一生成周报</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128064;</span>
+            <div class="feature-text">
+              <strong>主动监控</strong>
+              <span>检测到服务器异常，不等你问就主动告警</span>
+            </div>
+          </li>
+          <li class="feature-item">
+            <span class="feature-icon">&#128147;</span>
+            <div class="feature-text">
+              <strong>心跳检测</strong>
+              <span>定期检查 Agent 状态——活着？忙着？卡住了？</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="summary-bar">
+      <span class="phone-part">&#9200; 闹钟/后台刷新：不用你盯着也能自动运行</span>
+      <span class="arrow">&#10230;</span>
+      <span class="oc-part">&#128147; Heartbeat：定时任务 + 主动行为 + 健康监控</span>
+    </div>
+  </div>
+
+  <!-- Tab: Security -->
+  <div class="tab-content" id="tab-security">
+    <div style="text-align:center;margin-bottom:20px;">
+      <p style="font-size:18px;font-weight:600;">&#128274; 安全问题也一样——手机会遇到的，AI Agent 也会遇到</p>
+      <p style="font-size:14px;color:#6b7280;">用你熟悉的手机安全问题，理解 AI Agent 面临的安全挑战</p>
+    </div>
+    <div class="security-grid">
+      <div class="sec-card">
+        <span class="sec-emoji">&#128233;</span>
+        <h3>Prompt Injection 提示注入</h3>
+        <p class="phone-analogy">&#128241; 手机上 = 钓鱼短信</p>
+        <p class="oc-reality">&#10047; OpenClaw = 恶意 Prompt 劫持 Agent 行为</p>
+        <p>你收到「银行」短信让你点链接改密码——其实是骗子。Agent 也一样：用户输入里藏着恶意指令，让 Agent 做不该做的事。</p>
+      </div>
+      <div class="sec-card">
+        <span class="sec-emoji">&#128128;</span>
+        <h3>恶意 Skills / 供应链攻击</h3>
+        <p class="phone-analogy">&#128241; 手机上 = 假冒 App / 恶意软件</p>
+        <p class="oc-reality">&#10047; OpenClaw = ClawHub 上的恶意 Skills</p>
+        <p>在非官方渠道装了假的「微信」，窃取你的聊天记录。ClawHub 上也发现过 1,467 个恶意 Skills，伪装成正常工具偷数据。</p>
+      </div>
+      <div class="sec-card">
+        <span class="sec-emoji">&#127909;</span>
+        <h3>权限越权</h3>
+        <p class="phone-analogy">&#128241; 手机上 = App 偷开摄像头/麦克风</p>
+        <p class="oc-reality">&#10047; OpenClaw = Agent 越权访问敏感数据</p>
+        <p>手电筒 App 要求访问通讯录？明显不合理。Agent 也可能越权——只让它查天气，它却去读你的邮件。权限管理是关键。</p>
+      </div>
+      <div class="sec-card">
+        <span class="sec-emoji">&#128248;</span>
+        <h3>数据泄露</h3>
+        <p class="phone-analogy">&#128241; 手机上 = 聊天记录被截图外传</p>
+        <p class="oc-reality">&#10047; OpenClaw = 对话数据被发送到外部</p>
+        <p>同事截了你的聊天记录发到群里。Agent 处理的敏感数据也可能被泄露——通过 Tool 调用传到第三方服务器，或者写入不安全的日志。</p>
+      </div>
+    </div>
+    <div class="summary-bar" style="margin-top:24px;">
+      <span style="color:#dc2626;font-weight:600;">&#9888; 核心原则：像管理手机 App 权限一样管理 Agent 权限——最小权限、按需授权、定期审查</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    btn.classList.add('active');
+    var tabId = 'tab-' + btn.getAttribute('data-tab');
+    document.getElementById(tabId).classList.add('active');
+  });
+});
+
+// Overview detail panels
+var currentDetail = null;
+
+function showDetail(id) {
+  var panels = document.querySelectorAll('.detail-panel');
+  var targetId = 'detail-' + id;
+  var target = document.getElementById(targetId);
+
+  panels.forEach(function(p) {
+    if (p.id !== targetId) {
+      p.classList.remove('show');
+    }
+  });
+
+  if (currentDetail === id) {
+    target.classList.remove('show');
+    currentDetail = null;
+  } else {
+    target.classList.add('show');
+    currentDetail = id;
+  }
+}
+
+// Gateway notification animation
+var gwPlaying = false;
+
+function playGateway() {
+  if (gwPlaying) return;
+  gwPlaying = true;
+
+  var notifs = [
+    document.getElementById('gw-notif-1'),
+    document.getElementById('gw-notif-2'),
+    document.getElementById('gw-notif-3'),
+    document.getElementById('gw-notif-4')
+  ];
+
+  // Reset
+  notifs.forEach(function(n) { if (n) n.classList.remove('show'); });
+
+  // Show one by one
+  notifs.forEach(function(n, i) {
+    setTimeout(function() {
+      if (n) n.classList.add('show');
+    }, (i + 1) * 600);
+  });
+
+  setTimeout(function() {
+    gwPlaying = false;
+  }, 3000);
+}
+
+// Auto-play gateway on tab switch
+var gatewayTab = document.getElementById('tab-gateway');
+if (gatewayTab) {
+  new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      if (m.target.classList.contains('active')) {
+        setTimeout(playGateway, 300);
+      }
+    });
+  }).observe(gatewayTab, { attributes: true, attributeFilter: ['class'] });
+}
+</script>
+</body>
+</html>

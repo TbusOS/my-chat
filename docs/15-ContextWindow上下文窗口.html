@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Context Window 上下文窗口 — AI 的记忆鱼缸</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 32px 20px 16px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 span {
+  color: #2563eb;
+}
+
+.header p {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.progress-dot.active {
+  background: #2563eb;
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.progress-dot.completed {
+  background: #2563eb;
+}
+
+.progress-line {
+  width: 24px;
+  height: 2px;
+  background: #e2e8f0;
+  transition: background 0.4s ease;
+}
+
+.progress-line.completed {
+  background: #2563eb;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.step-label strong {
+  color: #2563eb;
+}
+
+/* Stage */
+.stage-container {
+  position: relative;
+  width: 680px;
+  height: 440px;
+  margin: 12px 0 16px;
+  background: #f8fafc;
+  border-radius: 20px;
+  border: 2px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Step title inside stage */
+.step-title {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 18px;
+  border-radius: 20px;
+  z-index: 20;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.step-title.visible {
+  opacity: 1;
+}
+
+/* Character */
+.character-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  transition: left 0.8s ease, transform 0.8s ease;
+}
+
+.character-wrapper.idle {
+  animation: bobbing 2s ease-in-out infinite;
+}
+
+.character-wrapper.nod {
+  animation: nod 0.5s ease-in-out 2;
+}
+
+.character-wrapper.thinking {
+  animation: thinking-bob 2.5s ease-in-out infinite;
+}
+
+.character-wrapper.eureka {
+  animation: eureka 0.6s ease-out;
+}
+
+.character-wrapper.celebrate {
+  animation: celebrate 0.5s ease-in-out 3;
+}
+
+.character-wrapper.worried {
+  animation: worried-shake 0.4s ease-in-out infinite;
+}
+
+.character-wrapper.confused {
+  animation: confused-bob 1.5s ease-in-out infinite;
+}
+
+.character-wrapper.pos-right {
+  left: 62%;
+}
+
+.character-wrapper.pos-center {
+  left: 50%;
+}
+
+.character-wrapper.pos-left {
+  left: 25%;
+}
+
+.character-wrapper.pos-far-left {
+  left: 18%;
+}
+
+@keyframes bobbing {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+@keyframes nod {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  30% { transform: translateX(-50%) rotate(8deg); }
+  60% { transform: translateX(-50%) rotate(-4deg); }
+}
+
+@keyframes thinking-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  30% { transform: translateX(-50%) translateY(-4px) rotate(-2deg); }
+  70% { transform: translateX(-50%) translateY(-2px) rotate(2deg); }
+}
+
+@keyframes eureka {
+  0% { transform: translateX(-50%) translateY(0) scale(1); }
+  40% { transform: translateX(-50%) translateY(-20px) scale(1.1); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes celebrate {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  25% { transform: translateX(-50%) translateY(-15px) rotate(-8deg); }
+  75% { transform: translateX(-50%) translateY(-15px) rotate(8deg); }
+}
+
+@keyframes worried-shake {
+  0%, 100% { transform: translateX(-50%) translateX(0); }
+  25% { transform: translateX(-50%) translateX(-3px); }
+  75% { transform: translateX(-50%) translateX(3px); }
+}
+
+@keyframes confused-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  25% { transform: translateX(-50%) translateY(-3px) rotate(-5deg); }
+  75% { transform: translateX(-50%) translateY(-3px) rotate(5deg); }
+}
+
+/* Character SVG parts */
+.char-arm-left, .char-arm-right {
+  transition: transform 0.4s ease;
+  transform-origin: center top;
+}
+
+.character-wrapper.wave .char-arm-right {
+  animation: wave-arm 0.6s ease-in-out 2;
+}
+
+.character-wrapper.reach .char-arm-right {
+  transform: rotate(-60deg) translateX(5px);
+}
+
+.character-wrapper.point .char-arm-right {
+  transform: rotate(-45deg) translateX(10px) translateY(-10px);
+}
+
+.character-wrapper.chin .char-arm-right {
+  transform: rotate(-70deg) translateX(2px) translateY(-15px);
+}
+
+.character-wrapper.present .char-arm-left,
+.character-wrapper.present .char-arm-right {
+  transform: rotate(-40deg);
+}
+
+@keyframes wave-arm {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+}
+
+/* Character eyes */
+.char-eye {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.look-left .char-eye {
+  transform: translateX(-2px);
+}
+
+.character-wrapper.look-right .char-eye {
+  transform: translateX(2px);
+}
+
+/* Character mouth */
+.char-mouth {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.surprise .char-mouth {
+  rx: 4;
+  ry: 4;
+}
+
+/* Sweat drop */
+.sweat-drop {
+  position: absolute;
+  top: 25px;
+  right: 12px;
+  width: 8px;
+  height: 12px;
+  background: #60a5fa;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  opacity: 0;
+  z-index: 11;
+}
+
+.sweat-drop.visible {
+  opacity: 1;
+  animation: sweat-drip 1s ease-in infinite;
+}
+
+@keyframes sweat-drip {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(15px); }
+}
+
+/* Lightbulb */
+.lightbulb {
+  position: absolute;
+  top: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.lightbulb.on {
+  opacity: 1;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4)); }
+  50% { filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.8)); }
+}
+
+/* Exclamation */
+.exclamation {
+  position: absolute;
+  top: -40px;
+  right: -30px;
+  font-size: 32px;
+  font-weight: 900;
+  color: #ef4444;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+}
+
+.exclamation.visible {
+  opacity: 1;
+  transform: scale(1);
+  animation: exclaim-pop 0.5s ease-out;
+}
+
+@keyframes exclaim-pop {
+  0% { transform: scale(0) rotate(-20deg); }
+  60% { transform: scale(1.3) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Speech Bubbles */
+.bubble {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  max-width: 240px;
+}
+
+.bubble.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.bubble.tail-right::after {
+  bottom: 20px;
+  right: -10px;
+  border-left: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-left::after {
+  bottom: 20px;
+  left: -10px;
+  border-right: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-bottom::after {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: 10px solid #ffffff;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+/* Fishbowl / Context Window Container */
+.fishbowl {
+  position: absolute;
+  border: 3px solid rgba(96, 165, 250, 0.5);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.3) 0%, rgba(191, 219, 254, 0.15) 50%, rgba(219, 234, 254, 0.3) 100%);
+  backdrop-filter: blur(2px);
+  box-shadow:
+    inset 0 2px 20px rgba(96, 165, 250, 0.1),
+    0 4px 24px rgba(96, 165, 250, 0.08),
+    inset -2px -2px 8px rgba(255, 255, 255, 0.4);
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 6;
+}
+
+.fishbowl.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.fishbowl-label {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  background: rgba(239, 246, 255, 0.9);
+  padding: 2px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  z-index: 7;
+}
+
+.fishbowl-glass-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(120deg, rgba(255,255,255,0.4) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.15) 100%);
+  pointer-events: none;
+  border-radius: 14px;
+  z-index: 8;
+}
+
+/* Capacity Meter */
+.capacity-meter {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 85%;
+  z-index: 7;
+}
+
+.meter-bar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 4px;
+  transition: width 0.8s ease, background 0.5s ease;
+  width: 0%;
+}
+
+.meter-fill.warning {
+  background: #f59e0b;
+}
+
+.meter-fill.danger {
+  background: #ef4444;
+}
+
+.meter-text {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Message cards */
+.msg-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: 3px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.4s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msg-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.msg-card.user {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.msg-card.ai {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.msg-card.faded {
+  opacity: 0.2;
+  filter: blur(0.5px);
+  transition: opacity 0.5s ease, filter 0.5s ease;
+}
+
+.msg-card.dissolve {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.9);
+  transition: all 0.6s ease;
+}
+
+.msg-card .msg-icon {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.msg-card .msg-text {
+  flex: 1;
+  color: #334155;
+  font-weight: 500;
+}
+
+.msg-card.highlight {
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+  border-color: #2563eb;
+  animation: msg-glow 0.8s ease-in-out 2;
+}
+
+@keyframes msg-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(37, 99, 235, 0.3); }
+  50% { box-shadow: 0 0 14px rgba(37, 99, 235, 0.6); }
+}
+
+/* Fishbowl warning glow */
+.fishbowl.warning-glow {
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow:
+    inset 0 2px 20px rgba(245, 158, 11, 0.15),
+    0 0 20px rgba(245, 158, 11, 0.15);
+  animation: bowl-pulse-warn 1.5s ease-in-out infinite;
+}
+
+.fishbowl.danger-glow {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow:
+    inset 0 2px 20px rgba(239, 68, 68, 0.15),
+    0 0 20px rgba(239, 68, 68, 0.2);
+  animation: bowl-pulse-danger 1s ease-in-out infinite;
+}
+
+@keyframes bowl-pulse-warn {
+  0%, 100% { box-shadow: inset 0 2px 20px rgba(245, 158, 11, 0.15), 0 0 20px rgba(245, 158, 11, 0.1); }
+  50% { box-shadow: inset 0 2px 20px rgba(245, 158, 11, 0.25), 0 0 30px rgba(245, 158, 11, 0.2); }
+}
+
+@keyframes bowl-pulse-danger {
+  0%, 100% { box-shadow: inset 0 2px 20px rgba(239, 68, 68, 0.15), 0 0 20px rgba(239, 68, 68, 0.15); }
+  50% { box-shadow: inset 0 2px 20px rgba(239, 68, 68, 0.3), 0 0 35px rgba(239, 68, 68, 0.25); }
+}
+
+/* Result badges */
+.result-badge {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 20px;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 16;
+  white-space: nowrap;
+}
+
+.result-badge.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.result-badge.success {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 2px solid #bbf7d0;
+}
+
+.result-badge.error {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 2px solid #fecaca;
+}
+
+/* User avatar */
+.user-avatar {
+  position: absolute;
+  z-index: 10;
+  opacity: 0;
+  transform: translateX(-30px);
+  transition: all 0.5s ease;
+}
+
+.user-avatar.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Strategy panel */
+.strategy-panel {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #2563eb;
+  border-radius: 16px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.12);
+  opacity: 0;
+  transform: scale(0.5) rotate(-3deg);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  overflow: hidden;
+}
+
+.strategy-panel.visible {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.strategy-header {
+  background: #2563eb;
+  color: white;
+  padding: 8px 18px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.strategy-body {
+  padding: 12px 16px;
+}
+
+.strategy-item {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.4s ease;
+  padding: 2px 0;
+  font-size: 12px;
+  color: #334155;
+}
+
+.strategy-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Confetti */
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+.confetti.active {
+  animation: confetti-fall 2s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translateY(-20px) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translateY(400px) rotate(720deg) scale(0.5); }
+}
+
+/* Ground shadow */
+.ground-shadow {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 8px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.08) 0%, transparent 70%);
+  z-index: 5;
+  transition: left 0.8s ease;
+}
+
+/* Question mark animation */
+.question-marks {
+  position: absolute;
+  top: -35px;
+  right: -25px;
+  font-size: 22px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 11;
+}
+
+.question-marks.visible {
+  opacity: 1;
+  animation: question-float 1.5s ease-in-out infinite;
+}
+
+@keyframes question-float {
+  0%, 100% { transform: translateY(0) rotate(-5deg); }
+  50% { transform: translateY(-6px) rotate(5deg); }
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 32px;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.btn-auto {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-auto:hover {
+  background: #dcfce7;
+}
+
+.btn-auto.playing {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .stage-container {
+    width: 95vw;
+    height: 380px;
+  }
+  .header h1 { font-size: 24px; }
+  .bubble { font-size: 12px; max-width: 180px; }
+  .strategy-panel { font-size: 11px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>Context Window</span> 上下文窗口</h1>
+  <p>为什么 AI 有时候会"忘记"你说过的话？</p>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-dot active" data-step="0" onclick="goToStep(0)"></div>
+  <div class="progress-line" data-line="0"></div>
+  <div class="progress-dot" data-step="1" onclick="goToStep(1)"></div>
+  <div class="progress-line" data-line="1"></div>
+  <div class="progress-dot" data-step="2" onclick="goToStep(2)"></div>
+  <div class="progress-line" data-line="2"></div>
+  <div class="progress-dot" data-step="3" onclick="goToStep(3)"></div>
+  <div class="progress-line" data-line="3"></div>
+  <div class="progress-dot" data-step="4" onclick="goToStep(4)"></div>
+  <div class="progress-line" data-line="4"></div>
+  <div class="progress-dot" data-step="5" onclick="goToStep(5)"></div>
+</div>
+<div class="step-label" id="stepLabel">步骤 <strong>1</strong> / 6</div>
+
+<div class="stage-container">
+  <div class="stage" id="stage">
+    <div class="step-title" id="stepTitle"></div>
+
+    <!-- Ground shadow -->
+    <div class="ground-shadow" id="groundShadow"></div>
+
+    <!-- Character -->
+    <div class="character-wrapper idle" id="character">
+      <!-- Lightbulb above head -->
+      <div class="lightbulb" id="lightbulb">
+        <svg width="30" height="36" viewBox="0 0 30 36">
+          <ellipse cx="15" cy="14" rx="11" ry="12" fill="#fbbf24" opacity="0.3"/>
+          <path d="M15 2 C8 2 3 7.5 3 14 C3 19 6 22 9 24 L9 28 L21 28 L21 24 C24 22 27 19 27 14 C27 7.5 22 2 15 2Z" fill="#fbbf24"/>
+          <rect x="10" y="28" width="10" height="3" rx="1" fill="#d4a017"/>
+          <rect x="11" y="31" width="8" height="2" rx="1" fill="#d4a017"/>
+          <path d="M15 8 L15 18 M10 13 L20 13" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+
+      <!-- Exclamation mark -->
+      <div class="exclamation" id="exclamation">!</div>
+
+      <!-- Question marks -->
+      <div class="question-marks" id="questionMarks">?</div>
+
+      <!-- Sweat drop -->
+      <div class="sweat-drop" id="sweatDrop"></div>
+
+      <!-- SVG Character -->
+      <svg width="100" height="140" viewBox="0 0 100 140" id="charSvg">
+        <!-- Body -->
+        <rect class="char-body" x="30" y="62" width="40" height="45" rx="12" fill="#2563eb"/>
+
+        <!-- Legs -->
+        <rect x="35" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <rect x="53" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+
+        <!-- Shoes -->
+        <ellipse cx="41" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <ellipse cx="59" cy="126" rx="9" ry="5" fill="#1e293b"/>
+
+        <!-- Arms -->
+        <g class="char-arm-left">
+          <rect x="17" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="24" cy="98" r="6" fill="#fde68a"/>
+        </g>
+        <g class="char-arm-right">
+          <rect x="69" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="76" cy="98" r="6" fill="#fde68a"/>
+        </g>
+
+        <!-- Head -->
+        <circle cx="50" cy="36" r="28" fill="#fde68a"/>
+
+        <!-- Hat -->
+        <path d="M25 32 Q25 14 50 10 Q75 14 75 32 Z" fill="#2563eb"/>
+        <rect x="20" y="30" width="60" height="6" rx="3" fill="#1d4ed8"/>
+
+        <!-- Face -->
+        <g class="char-face">
+          <!-- Eyes -->
+          <circle class="char-eye" cx="40" cy="38" r="3.5" fill="#1e293b"/>
+          <circle class="char-eye" cx="60" cy="38" r="3.5" fill="#1e293b"/>
+          <!-- Eye shine -->
+          <circle cx="41.5" cy="36.5" r="1.2" fill="white"/>
+          <circle cx="61.5" cy="36.5" r="1.2" fill="white"/>
+          <!-- Mouth -->
+          <ellipse class="char-mouth" cx="50" cy="50" rx="6" ry="3" fill="#1e293b"/>
+          <!-- Blush -->
+          <ellipse cx="34" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+          <ellipse cx="66" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Confetti container -->
+    <div class="confetti-container" id="confettiContainer"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-secondary" id="btnReplay" onclick="replay()">重播</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+</div>
+
+<script>
+var STEPS = [
+  { title: '第一步：AI 的记忆空间', key: 'memory' },
+  { title: '第二步：对话填入记忆', key: 'fill' },
+  { title: '第三步：记忆充足时', key: 'recall' },
+  { title: '第四步：记忆快满了', key: 'filling' },
+  { title: '第五步：遗忘发生了', key: 'forget' },
+  { title: '第六步：应对策略', key: 'strategy' }
+];
+
+var currentStep = -1;
+var autoPlayInterval = null;
+var dynamicElements = [];
+
+var stage = document.getElementById('stage');
+var character = document.getElementById('character');
+var stepTitle = document.getElementById('stepTitle');
+var lightbulb = document.getElementById('lightbulb');
+var exclamation = document.getElementById('exclamation');
+var questionMarks = document.getElementById('questionMarks');
+var sweatDrop = document.getElementById('sweatDrop');
+var groundShadow = document.getElementById('groundShadow');
+var confettiContainer = document.getElementById('confettiContainer');
+
+function clearDynamic() {
+  dynamicElements.forEach(function(el) {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  dynamicElements = [];
+
+  character.className = 'character-wrapper idle pos-center';
+  groundShadow.style.left = '50%';
+  stepTitle.classList.remove('visible');
+  lightbulb.classList.remove('on');
+  exclamation.classList.remove('visible');
+  questionMarks.classList.remove('visible');
+  sweatDrop.classList.remove('visible');
+  confettiContainer.innerHTML = '';
+}
+
+function createElement(tag, attrs, parent) {
+  var el = document.createElement(tag);
+  if (attrs) {
+    Object.keys(attrs).forEach(function(k) {
+      if (k === 'style' && typeof attrs[k] === 'object') {
+        Object.assign(el.style, attrs[k]);
+      } else if (k === 'className') {
+        el.className = attrs[k];
+      } else if (k === 'innerHTML') {
+        el.innerHTML = attrs[k];
+      } else if (k === 'textContent') {
+        el.textContent = attrs[k];
+      } else {
+        el.setAttribute(k, attrs[k]);
+      }
+    });
+  }
+  (parent || stage).appendChild(el);
+  dynamicElements.push(el);
+  return el;
+}
+
+function delay(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}
+
+function updateProgress(step) {
+  document.querySelectorAll('.progress-dot').forEach(function(dot, i) {
+    dot.classList.toggle('active', i === step);
+    dot.classList.toggle('completed', i < step);
+  });
+  document.querySelectorAll('.progress-line').forEach(function(line, i) {
+    line.classList.toggle('completed', i < step);
+  });
+  document.getElementById('stepLabel').innerHTML = '步骤 <strong>' + (step + 1) + '</strong> / 6';
+}
+
+function createFishbowl(opts) {
+  var bowl = createElement('div', {
+    className: 'fishbowl',
+    style: {
+      left: opts.left || '340px',
+      top: opts.top || '55px',
+      width: opts.width || '300px',
+      height: opts.height || '340px'
+    },
+    innerHTML: '<div class="fishbowl-label">上下文窗口</div>' +
+      '<div class="fishbowl-glass-shine"></div>' +
+      '<div class="fishbowl-messages" style="position:absolute;top:26px;left:0;right:0;bottom:30px;overflow:hidden;padding:2px 0;"></div>' +
+      '<div class="capacity-meter">' +
+        '<div class="meter-bar"><div class="meter-fill" style="width:0%"></div></div>' +
+        '<div class="meter-text">0 / 128K tokens</div>' +
+      '</div>'
+  });
+  return bowl;
+}
+
+function updateMeter(bowl, percent, text, level) {
+  var fill = bowl.querySelector('.meter-fill');
+  var meterText = bowl.querySelector('.meter-text');
+  fill.style.width = percent + '%';
+  fill.classList.remove('warning', 'danger');
+  if (level === 'warning') fill.classList.add('warning');
+  if (level === 'danger') fill.classList.add('danger');
+  meterText.textContent = text;
+}
+
+function addMessage(bowl, icon, text, type) {
+  var container = bowl.querySelector('.fishbowl-messages');
+  var card = document.createElement('div');
+  card.className = 'msg-card ' + type;
+  card.innerHTML = '<span class="msg-icon">' + icon + '</span><span class="msg-text">' + text + '</span>';
+  container.appendChild(card);
+  dynamicElements.push(card);
+  return card;
+}
+
+function createUserAvatar(left, bottom) {
+  return createElement('div', {
+    className: 'user-avatar',
+    style: { left: left, bottom: bottom },
+    innerHTML: '<svg width="50" height="70" viewBox="0 0 60 80">' +
+      '<circle cx="30" cy="26" r="20" fill="#e2e8f0"/>' +
+      '<circle cx="30" cy="26" r="16" fill="#fde68a"/>' +
+      '<circle cx="24" cy="24" r="2" fill="#1e293b"/>' +
+      '<circle cx="36" cy="24" r="2" fill="#1e293b"/>' +
+      '<path d="M26 32 Q30 36 34 32" stroke="#1e293b" fill="none" stroke-width="1.5" stroke-linecap="round"/>' +
+      '<rect x="15" y="44" width="30" height="30" rx="10" fill="#64748b"/>' +
+      '<rect x="10" y="70" width="16" height="10" rx="5" fill="#64748b"/>' +
+      '<rect x="34" y="70" width="16" height="10" rx="5" fill="#64748b"/>' +
+    '</svg>'
+  });
+}
+
+/* ===== STEP 0: AI Memory Space ===== */
+async function stepMemory() {
+  character.className = 'character-wrapper idle pos-far-left point';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[0].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  var bowl = createFishbowl({ left: '300px', top: '50px', width: '320px', height: '350px' });
+
+  await delay(400);
+  bowl.classList.add('visible');
+
+  updateMeter(bowl, 0, '0 / 128K tokens', 'normal');
+
+  await delay(600);
+  character.className = 'character-wrapper point pos-far-left look-right';
+
+  var charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '20px', top: '70px', maxWidth: '200px' },
+    innerHTML: '这是我的<span style="font-weight:700;color:#2563eb">记忆空间</span>，所有对话都在这里！'
+  });
+
+  await delay(600);
+  charBubble.classList.add('visible');
+
+  await delay(800);
+  character.className = 'character-wrapper idle pos-far-left look-right';
+}
+
+/* ===== STEP 1: Fill Memory ===== */
+async function stepFill() {
+  character.className = 'character-wrapper idle pos-far-left look-right';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[1].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  var bowl = createFishbowl({ left: '300px', top: '50px', width: '320px', height: '350px' });
+  await delay(300);
+  bowl.classList.add('visible');
+
+  var messages = [
+    { icon: '\uD83E\uDDD1', text: '帮我分析这段代码', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '好的，我来看看...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '这里有个 bug', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '找到了，是空指针...', type: 'ai' }
+  ];
+
+  var percents = [3, 6, 9, 12];
+  var texts = ['4K / 128K', '8K / 128K', '11K / 128K', '15K / 128K'];
+
+  for (var i = 0; i < messages.length; i++) {
+    await delay(600);
+    var card = addMessage(bowl, messages[i].icon, messages[i].text, messages[i].type);
+    await delay(50);
+    card.classList.add('visible');
+    updateMeter(bowl, percents[i], texts[i], 'normal');
+  }
+
+  await delay(400);
+  character.className = 'character-wrapper nod pos-far-left look-right';
+
+  var charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '20px', top: '100px', maxWidth: '180px' },
+    innerHTML: '<span style="font-weight:700;color:#2563eb">记得清清楚楚！</span>'
+  });
+
+  await delay(400);
+  charBubble.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-far-left look-right';
+}
+
+/* ===== STEP 2: Recall Successfully ===== */
+async function stepRecall() {
+  character.className = 'character-wrapper idle pos-far-left look-right';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[2].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  var bowl = createFishbowl({ left: '300px', top: '50px', width: '320px', height: '350px' });
+  await delay(200);
+  bowl.classList.add('visible');
+
+  var existingMsgs = [
+    { icon: '\uD83E\uDDD1', text: '帮我分析这段代码', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '好的，我来看看...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '这里有个 bug', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '找到了，是空指针...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '还有其他问题吗？', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '建议加上单元测试', type: 'ai' }
+  ];
+
+  for (var m = 0; m < existingMsgs.length; m++) {
+    var c = addMessage(bowl, existingMsgs[m].icon, existingMsgs[m].text, existingMsgs[m].type);
+    c.classList.add('visible');
+  }
+
+  updateMeter(bowl, 23, '30K / 128K', 'normal');
+
+  var userAvatar = createUserAvatar('20px', '40px');
+
+  await delay(400);
+  userAvatar.classList.add('visible');
+
+  var userBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '75px', bottom: '85px', maxWidth: '220px' },
+    textContent: '刚才那个 bug 是什么原因？'
+  });
+
+  await delay(400);
+  userBubble.classList.add('visible');
+
+  await delay(800);
+  character.className = 'character-wrapper reach pos-far-left look-right';
+
+  await delay(500);
+  var allCards = bowl.querySelectorAll('.msg-card');
+  if (allCards[3]) {
+    allCards[3].classList.add('highlight');
+  }
+
+  await delay(700);
+  character.className = 'character-wrapper nod pos-far-left';
+
+  var charBubble = createElement('div', {
+    className: 'bubble tail-left',
+    style: { left: '120px', top: '65px', maxWidth: '240px' },
+    innerHTML: '是第 42 行的<span style="font-weight:700;color:#2563eb">空指针问题</span>，因为没有判空检查'
+  });
+
+  await delay(400);
+  charBubble.classList.add('visible');
+
+  var badge = createElement('div', {
+    className: 'result-badge success',
+    style: { right: '40px', top: '62px' },
+    innerHTML: '\u2705 准确回忆'
+  });
+
+  await delay(600);
+  badge.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-far-left';
+}
+
+/* ===== STEP 3: Memory Almost Full ===== */
+async function stepFilling() {
+  character.className = 'character-wrapper idle pos-far-left look-right';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[3].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  var bowl = createFishbowl({ left: '300px', top: '50px', width: '320px', height: '350px' });
+  await delay(200);
+  bowl.classList.add('visible');
+
+  var initialMsgs = [
+    { icon: '\uD83E\uDDD1', text: '帮我分析这段代码', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '好的，我来看看...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '这里有个 bug', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '找到了，是空指针...', type: 'ai' }
+  ];
+
+  for (var j = 0; j < initialMsgs.length; j++) {
+    var ic = addMessage(bowl, initialMsgs[j].icon, initialMsgs[j].text, initialMsgs[j].type);
+    ic.classList.add('visible');
+  }
+
+  updateMeter(bowl, 23, '30K / 128K', 'normal');
+
+  await delay(600);
+
+  var floodMsgs = [
+    { icon: '\uD83E\uDDD1', text: '帮我写一个排序算法', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '用快速排序实现...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '解释一下闭包', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '闭包是指函数...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '数据库怎么优化？', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '加索引，分页查询...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '写一段 API 接口', type: 'user' },
+    { icon: '\uD83E\uDD16', text: 'router.get("/api"...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: 'Docker 部署教程', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '先写 Dockerfile...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '性能测试怎么做？', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '用 k6 或 Artillery...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: 'Redis 缓存策略', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '推荐用 LRU 策略...', type: 'ai' }
+  ];
+
+  var percentStages = [30, 38, 45, 52, 58, 65, 72, 78, 84, 88, 91, 93, 95, 98];
+  var textStages = ['38K', '49K', '58K', '66K', '74K', '83K', '92K', '100K', '107K', '113K', '117K', '120K', '123K', '126K'];
+
+  for (var i = 0; i < floodMsgs.length; i++) {
+    await delay(200);
+    var card = addMessage(bowl, floodMsgs[i].icon, floodMsgs[i].text, floodMsgs[i].type);
+    await delay(30);
+    card.classList.add('visible');
+
+    var pct = percentStages[i];
+    var level = pct > 90 ? 'danger' : (pct > 70 ? 'warning' : 'normal');
+    updateMeter(bowl, pct, textStages[i] + ' / 128K', level);
+
+    if (pct > 70 && pct <= 90) {
+      bowl.classList.add('warning-glow');
+      bowl.classList.remove('danger-glow');
+    }
+    if (pct > 90) {
+      bowl.classList.remove('warning-glow');
+      bowl.classList.add('danger-glow');
+    }
+  }
+
+  await delay(300);
+  var allCards = bowl.querySelectorAll('.msg-card');
+  for (var f = 0; f < Math.min(4, allCards.length); f++) {
+    allCards[f].classList.add('faded');
+  }
+
+  character.className = 'character-wrapper worried pos-far-left look-right';
+  sweatDrop.classList.add('visible');
+
+  var warnBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '15px', top: '80px', maxWidth: '200px' },
+    innerHTML: '<span style="color:#f59e0b;font-weight:700">\u26A0\uFE0F 记忆空间快满了！</span>'
+  });
+
+  await delay(400);
+  warnBubble.classList.add('visible');
+}
+
+/* ===== STEP 4: Forgetting Happens ===== */
+async function stepForget() {
+  character.className = 'character-wrapper idle pos-far-left look-right';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[4].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  var bowl = createFishbowl({ left: '300px', top: '50px', width: '320px', height: '350px' });
+  await delay(200);
+  bowl.classList.add('visible');
+  bowl.classList.add('danger-glow');
+
+  var allMsgs = [
+    { icon: '\uD83E\uDDD1', text: '帮我分析这段代码', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '好的，我来看看...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '这里有个 bug', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '找到了，是空指针...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '帮我写一个排序算法', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '用快速排序实现...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '解释一下闭包', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '闭包是指函数...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '数据库怎么优化？', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '加索引，分页查询...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: 'Redis 缓存策略', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '推荐用 LRU 策略...', type: 'ai' },
+    { icon: '\uD83E\uDDD1', text: '性能测试怎么做？', type: 'user' },
+    { icon: '\uD83E\uDD16', text: '用 k6 或 Artillery...', type: 'ai' }
+  ];
+
+  for (var m = 0; m < allMsgs.length; m++) {
+    var mc = addMessage(bowl, allMsgs[m].icon, allMsgs[m].text, allMsgs[m].type);
+    mc.classList.add('visible');
+  }
+
+  updateMeter(bowl, 100, '128K / 128K', 'danger');
+
+  await delay(600);
+  var cards = bowl.querySelectorAll('.msg-card');
+  for (var d = 0; d < 4; d++) {
+    await delay(300);
+    if (cards[d]) {
+      cards[d].classList.add('dissolve');
+    }
+  }
+
+  await delay(500);
+  var userAvatar = createUserAvatar('20px', '40px');
+
+  await delay(300);
+  userAvatar.classList.add('visible');
+
+  var userBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '75px', bottom: '85px', maxWidth: '240px' },
+    textContent: '最开始那段代码是什么语言的？'
+  });
+
+  await delay(400);
+  userBubble.classList.add('visible');
+
+  await delay(700);
+  character.className = 'character-wrapper confused chin pos-far-left look-right';
+  questionMarks.classList.add('visible');
+
+  await delay(600);
+  var confusedBubble = createElement('div', {
+    className: 'bubble tail-left',
+    style: { left: '120px', top: '65px', maxWidth: '240px' },
+    innerHTML: 'emmm...好像是...我不太确定了 \uD83D\uDE05'
+  });
+
+  await delay(400);
+  confusedBubble.classList.add('visible');
+
+  var badge = createElement('div', {
+    className: 'result-badge error',
+    style: { right: '40px', top: '62px' },
+    innerHTML: '\u274C 早期对话已被遗忘'
+  });
+
+  await delay(600);
+  badge.classList.add('visible');
+}
+
+/* ===== STEP 5: Strategies ===== */
+async function stepStrategy() {
+  character.className = 'character-wrapper eureka pos-far-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[5].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  await delay(300);
+  lightbulb.classList.add('on');
+
+  await delay(400);
+  character.className = 'character-wrapper present pos-far-left';
+
+  var panel = createElement('div', {
+    className: 'strategy-panel',
+    style: { right: '40px', top: '55px', width: '340px' },
+    innerHTML: '<div class="strategy-header">\uD83D\uDCA1 Context Window 使用策略</div>' +
+      '<div class="strategy-body">' +
+        '<div class="strategy-item" data-idx="0">\uD83D\uDC1F Context Window = AI 的记忆鱼缸</div>' +
+        '<div class="strategy-item" data-idx="1">\uD83D\uDCCF 大小有限：GPT-4 128K | Claude 200K</div>' +
+        '<div class="strategy-item" data-idx="2">\uD83D\uDCCC 重要信息放在开头或结尾（最不容易忘）</div>' +
+        '<div class="strategy-item" data-idx="3">\uD83D\uDCDD 长对话时主动总结，别让关键信息被挤走</div>' +
+        '<div class="strategy-item" data-idx="4">\uD83D\uDD04 必要时开新对话，重新提供关键上下文</div>' +
+      '</div>'
+  });
+
+  await delay(400);
+  panel.classList.add('visible');
+
+  var items = panel.querySelectorAll('.strategy-item');
+  for (var i = 0; i < items.length; i++) {
+    await delay(500);
+    items[i].classList.add('visible');
+  }
+
+  await delay(400);
+  character.className = 'character-wrapper nod pos-far-left';
+
+  await delay(500);
+  character.className = 'character-wrapper celebrate pos-far-left';
+  spawnConfetti();
+
+  await delay(1500);
+  character.className = 'character-wrapper idle pos-far-left';
+}
+
+function spawnConfetti() {
+  var colors = ['#2563eb', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#f97316'];
+  for (var i = 0; i < 40; i++) {
+    var confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = (Math.random() * 100) + '%';
+    confetti.style.top = '-10px';
+    confetti.style.width = (4 + Math.random() * 6) + 'px';
+    confetti.style.height = (4 + Math.random() * 6) + 'px';
+    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    confetti.style.animationDelay = (Math.random() * 0.8) + 's';
+    confetti.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+    confettiContainer.appendChild(confetti);
+    (function(c) { setTimeout(function() { c.classList.add('active'); }, 10); })(confetti);
+  }
+}
+
+/* ===== Navigation ===== */
+var stepFunctions = [stepMemory, stepFill, stepRecall, stepFilling, stepForget, stepStrategy];
+
+async function goToStep(step) {
+  if (step < 0 || step > 5) return;
+  if (step === currentStep) return;
+
+  currentStep = step;
+  clearDynamic();
+  updateProgress(step);
+
+  var btnNext = document.getElementById('btnNext');
+  btnNext.disabled = false;
+  btnNext.textContent = step < 5 ? '下一步' : '完成';
+  if (step >= 5) {
+    btnNext.disabled = true;
+  }
+
+  await stepFunctions[step]();
+}
+
+async function nextStep() {
+  if (currentStep >= 5) return;
+  await goToStep(currentStep + 1);
+}
+
+function prevStep(){if(!isAutoPlaying&&currentStep>0)goToStep(currentStep-1)}
+function replay() {
+  stopAutoPlay();
+  currentStep = -1;
+  clearDynamic();
+  updateProgress(0);
+  document.getElementById('btnNext').disabled = false;
+  document.getElementById('btnNext').textContent = '下一步';
+  goToStep(0);
+}
+
+var isAutoPlaying = false;
+
+function toggleAutoPlay() {
+  if (isAutoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  isAutoPlaying = true;
+  var btn = document.getElementById('btnAuto');
+  btn.textContent = '暂停播放';
+  btn.classList.add('playing');
+  document.getElementById('btnNext').disabled = true;
+  currentStep = -1; clearDynamic(); updateProgress(0);
+
+  var advanceStep = async function() {
+    if (!isAutoPlaying) return;
+    if (currentStep >= 5) {
+      stopAutoPlay();
+      return;
+    }
+    await goToStep(currentStep < 0 ? 0 : currentStep + 1);
+    if (isAutoPlaying) {
+      autoPlayInterval = setTimeout(advanceStep, 4500);
+    }
+  };
+
+  advanceStep();
+}
+
+function stopAutoPlay() {
+  isAutoPlaying = false;
+  if (autoPlayInterval) {
+    clearTimeout(autoPlayInterval);
+    autoPlayInterval = null;
+  }
+  var btn = document.getElementById('btnAuto');
+  btn.textContent = '自动播放';
+  btn.classList.remove('playing');
+  document.getElementById('btnNext').disabled = (currentStep >= 5);
+}
+
+// Keyboard support
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    if (!isAutoPlaying) nextStep();
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (!isAutoPlaying && currentStep > 0) goToStep(currentStep - 1);
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    replay();
+  }
+});
+
+// Start at step 0
+goToStep(0);
+</script>
+</body>
+</html>

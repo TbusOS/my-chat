@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw 五大组件协作动画</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+.header .subtitle {
+  font-size: 15px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.progress-section {
+  margin-bottom: 20px;
+}
+.phase-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+.phase-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.3s;
+  text-align: center;
+  flex: 1;
+}
+.phase-label.active {
+  color: #2563eb;
+  font-weight: 700;
+}
+.phase-label.completed {
+  color: #10b981;
+}
+.progress-track {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #2563eb, #7c3aed, #f59e0b, #ef4444);
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 0%;
+}
+
+/* Stage */
+.stage-wrapper {
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.stage {
+  width: 100%;
+  height: 420px;
+  position: relative;
+}
+
+/* Characters */
+.character {
+  position: absolute;
+  bottom: 60px;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+.character:hover {
+  transform: scale(1.05);
+}
+.character svg {
+  overflow: visible;
+}
+.char-label {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+.char-sublabel {
+  text-align: center;
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* Idle bounce */
+@keyframes idleBounce0 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes idleBounce1 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes idleBounce2 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes idleBounce3 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes idleBounce4 { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+.char-body-0 { animation: idleBounce0 2s ease-in-out infinite; animation-delay: 0s; }
+.char-body-1 { animation: idleBounce1 2s ease-in-out infinite; animation-delay: 0.4s; }
+.char-body-2 { animation: idleBounce2 2s ease-in-out infinite; animation-delay: 0.8s; }
+.char-body-3 { animation: idleBounce3 2s ease-in-out infinite; animation-delay: 1.2s; }
+.char-body-4 { animation: idleBounce4 2s ease-in-out infinite; animation-delay: 1.6s; }
+
+/* Character highlight */
+.character.active-char .char-glow {
+  opacity: 0.3;
+}
+.char-glow {
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+/* Speech Bubbles */
+.speech-bubble {
+  position: absolute;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 220px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transform: scale(0);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+  z-index: 10;
+  pointer-events: none;
+}
+.speech-bubble.visible {
+  transform: scale(1);
+  opacity: 1;
+}
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 30px;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-right: 2px solid #e2e8f0;
+  border-bottom: 2px solid #e2e8f0;
+  transform: rotate(45deg);
+}
+.bubble-title {
+  font-weight: 700;
+  font-size: 11px;
+  margin-bottom: 4px;
+  display: block;
+}
+
+/* Message bubble (chat style) */
+.chat-msg {
+  position: absolute;
+  background: #2563eb;
+  color: white;
+  border-radius: 16px 16px 16px 4px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 260px;
+  box-shadow: 0 4px 16px rgba(37,99,235,0.25);
+  opacity: 0;
+  transition: opacity 0.5s, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: translateX(-60px);
+  z-index: 10;
+}
+.chat-msg.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+.chat-msg .msg-source {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 4px;
+  display: block;
+}
+.chat-msg.response {
+  background: #10b981;
+  border-radius: 16px 16px 4px 16px;
+  transform: translateX(60px);
+}
+.chat-msg.response.visible {
+  transform: translateX(0);
+}
+
+/* Glowing Orb */
+.orb {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  opacity: 0;
+  z-index: 8;
+  pointer-events: none;
+  filter: blur(0.5px);
+}
+@keyframes orbPulse {
+  0%, 100% { box-shadow: 0 0 8px 3px currentColor; transform: scale(1); }
+  50% { box-shadow: 0 0 16px 6px currentColor; transform: scale(1.15); }
+}
+.orb.visible {
+  opacity: 1;
+  animation: orbPulse 1s ease-in-out infinite;
+}
+
+/* Dotted path */
+.flow-path {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Queue visualization */
+.queue-vis {
+  position: absolute;
+  bottom: 15px;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.5s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 6;
+}
+.queue-vis.visible { opacity: 1; }
+.queue-item {
+  width: 28px;
+  height: 18px;
+  border-radius: 4px;
+  background: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 8px;
+  font-weight: 700;
+}
+.queue-item.new {
+  animation: queuePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes queuePop { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* Terminal animation */
+.terminal {
+  position: absolute;
+  background: #1e293b;
+  color: #a5f3fc;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  line-height: 1.6;
+  max-width: 240px;
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: 10;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+.terminal.visible { opacity: 1; }
+.terminal .cmd { color: #34d399; }
+.terminal .result { color: #fbbf24; }
+
+/* Cloud icon */
+.cloud-icon {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.5s, transform 0.5s;
+  transform: translateY(10px);
+  z-index: 10;
+}
+.cloud-icon.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Monitor stats */
+.monitor-stats {
+  position: absolute;
+  background: white;
+  border: 2px solid #fecaca;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 10px;
+  line-height: 1.8;
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: 10;
+}
+.monitor-stats.visible { opacity: 1; }
+.stat-row { display: flex; align-items: center; gap: 4px; }
+.stat-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  display: inline-block;
+}
+.stat-dot.green { background: #10b981; }
+.stat-dot.blue { background: #2563eb; }
+.stat-dot.yellow { background: #f59e0b; }
+
+/* Summary bar */
+.summary-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, #10b981, #2563eb, #7c3aed, #f59e0b, #ef4444);
+  color: white;
+  text-align: center;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 0 0 16px 16px;
+  opacity: 0;
+  transition: opacity 0.6s;
+  z-index: 10;
+}
+.summary-bar.visible { opacity: 1; }
+
+/* Celebration */
+@keyframes celebrate {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-16px); }
+  60% { transform: translateY(-4px); }
+}
+
+/* Phase description */
+.phase-desc {
+  text-align: center;
+  margin-bottom: 20px;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.phase-desc .phase-num {
+  display: inline-block;
+  background: #2563eb;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+}
+.phase-desc .phase-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+.phase-desc .phase-text {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 600px;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.btn {
+  border: none;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:active { transform: scale(0.96); }
+.btn-primary {
+  background: #2563eb;
+  color: white;
+}
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+}
+.btn-secondary:hover { background: #e2e8f0; }
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+.btn-success:hover { background: #059669; }
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Character detail card */
+.char-card-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.char-card-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+.char-card {
+  background: white;
+  border-radius: 20px;
+  padding: 28px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-align: center;
+}
+.char-card-overlay.visible .char-card {
+  transform: scale(1);
+}
+.char-card .card-name {
+  font-size: 22px;
+  font-weight: 900;
+  margin: 12px 0 4px;
+}
+.char-card .card-role {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+.char-card .card-desc {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #475569;
+  text-align: left;
+}
+.char-card .card-close {
+  margin-top: 16px;
+  background: #f1f5f9;
+  border: none;
+  padding: 8px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  color: #475569;
+}
+.char-card .card-close:hover { background: #e2e8f0; }
+.card-svg-container {
+  display: flex;
+  justify-content: center;
+}
+
+/* Thought bubble (multi-line code style) */
+.thought-bubble {
+  position: absolute;
+  background: #fffbeb;
+  border: 2px solid #fde68a;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 11px;
+  line-height: 1.7;
+  max-width: 220px;
+  opacity: 0;
+  transform: scale(0);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+  z-index: 10;
+  font-family: 'Courier New', monospace;
+}
+.thought-bubble.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.thought-bubble::before {
+  content: '💡';
+  position: absolute;
+  top: -12px;
+  left: 10px;
+  font-size: 16px;
+}
+
+/* Memory search vis */
+.memory-search {
+  position: absolute;
+  background: #f5f3ff;
+  border: 2px solid #c4b5fd;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 11px;
+  line-height: 1.7;
+  max-width: 240px;
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: 10;
+}
+.memory-search.visible { opacity: 1; }
+.search-tag {
+  display: inline-block;
+  background: #7c3aed;
+  color: white;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+  font-weight: 700;
+}
+
+/* Scroll item */
+.scroll-item {
+  position: absolute;
+  background: #fefce8;
+  border: 2px solid #fde68a;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.4s;
+  z-index: 10;
+  white-space: nowrap;
+}
+.scroll-item.visible { opacity: 1; }
+
+/* Thumbs up */
+.thumbs-up {
+  position: absolute;
+  font-size: 28px;
+  opacity: 0;
+  transition: opacity 0.4s, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(0);
+  z-index: 10;
+}
+.thumbs-up.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>OpenClaw 五大组件如何协作？</h1>
+    <p class="subtitle">看五个小伙伴如何处理一条消息</p>
+  </div>
+
+  <div class="progress-section">
+    <div class="phase-labels" id="phaseLabels">
+      <span class="phase-label active" data-phase="0">准备</span>
+      <span class="phase-label" data-phase="1">消息到达</span>
+      <span class="phase-label" data-phase="2">大脑接管</span>
+      <span class="phase-label" data-phase="3">查询记忆</span>
+      <span class="phase-label" data-phase="4">调用工具</span>
+      <span class="phase-label" data-phase="5">心跳监控</span>
+      <span class="phase-label" data-phase="6">返回结果</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <div class="stage-wrapper">
+    <div class="stage" id="stage">
+      <!-- SVG flow paths -->
+      <svg class="flow-path" id="flowPaths">
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+      </svg>
+
+      <!-- Characters will be placed by JS -->
+      <!-- Overlays (bubbles, orbs, etc.) will be managed by JS -->
+    </div>
+  </div>
+
+  <div class="phase-desc" id="phaseDesc">
+    <span class="phase-num">准备就绪</span>
+    <div class="phase-title">五位小伙伴已就位</div>
+    <div class="phase-text">点击"自动播放"或"下一步"开始观看 OpenClaw 如何处理一条用户消息</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-secondary" id="btnReplay"><span class="btn-icon">↺</span> 重播</button>
+    <button class="btn btn-secondary" id="btnPrev"><span class="btn-icon">←</span> 上一步</button>
+    <button class="btn btn-primary" id="btnNext">下一步 <span class="btn-icon">→</span></button>
+    <button class="btn btn-success" id="btnAuto"><span class="btn-icon">▶</span> 自动播放</button>
+  </div>
+</div>
+
+<!-- Character Detail Card Overlay -->
+<div class="char-card-overlay" id="charCardOverlay">
+  <div class="char-card">
+    <div class="card-svg-container" id="cardSvg"></div>
+    <div class="card-name" id="cardName"></div>
+    <div class="card-role" id="cardRole"></div>
+    <div class="card-desc" id="cardDesc"></div>
+    <button class="card-close" onclick="closeCard()">关闭</button>
+  </div>
+</div>
+
+<script>
+// ─── Character Definitions ───
+const characters = [
+  {
+    id: 'gateway',
+    name: 'Gateway',
+    cnName: '网关小哥',
+    color: '#10b981',
+    lightColor: '#d1fae5',
+    role: '接收和路由消息',
+    desc: 'Gateway 是 OpenClaw 的"前台接待"。它负责接收来自各个渠道（Slack、微信、API）的消息，进行初步处理后分配会话 ID，并放入 Lane Queue 排队。它还负责将最终结果发送回用户所在的渠道。',
+    x: 80
+  },
+  {
+    id: 'brain',
+    name: 'Brain',
+    cnName: '大脑博士',
+    color: '#2563eb',
+    lightColor: '#dbeafe',
+    role: '思考和编排任务',
+    desc: 'Brain 是 OpenClaw 的"总指挥"。它分析用户意图，决定需要哪些工具和记忆，构建上下文发送给 LLM，并协调其他组件完成任务。每个 Lane 都有一个独立的 Brain 实例在运行。',
+    x: 270
+  },
+  {
+    id: 'memory',
+    name: 'Memory',
+    cnName: '记忆管理员',
+    color: '#7c3aed',
+    lightColor: '#ede9fe',
+    role: '存储和检索信息',
+    desc: 'Memory 是 OpenClaw 的"图书管理员"。它使用 BM25 关键词搜索和向量语义搜索两种方式检索历史信息，确保 Brain 可以获取相关的上下文记忆，让对话更加连贯。',
+    x: 460
+  },
+  {
+    id: 'skills',
+    name: 'Skills',
+    cnName: '工具达人',
+    color: '#f59e0b',
+    lightColor: '#fef3c7',
+    role: '执行工具调用',
+    desc: 'Skills 是 OpenClaw 的"万能技工"。它管理所有可用工具（Grep、HTTP、数据库查询等），接收 Brain 的调用请求，执行具体操作，并将结果返回。每个工具都有权限控制和超时保护。',
+    x: 650
+  },
+  {
+    id: 'heartbeat',
+    name: 'Heartbeat',
+    cnName: '心跳值班员',
+    color: '#ef4444',
+    lightColor: '#fee2e2',
+    role: '监控和调度',
+    desc: 'Heartbeat 是 OpenClaw 的"安全员"。它持续监控所有会话的健康状态，记录 Token 用量、响应时间等指标，检测异常并触发告警。它还负责定时任务（Cron）的调度。',
+    x: 840
+  }
+];
+
+// Character positions (center x of each character on stage)
+const charPositions = characters.map(c => ({ x: c.x, y: 280 }));
+
+// ─── SVG Character Generators ───
+function createGatewaySVG(scale) {
+  const s = scale || 1;
+  return `<svg width="${80*s}" height="${100*s}" viewBox="0 0 80 100" fill="none">
+    <!-- Glow -->
+    <circle class="char-glow" cx="40" cy="50" r="48" fill="#10b981" opacity="0"/>
+    <!-- Body -->
+    <rect x="20" y="45" width="40" height="38" rx="12" fill="#10b981"/>
+    <rect x="24" y="49" width="32" height="30" rx="8" fill="#059669"/>
+    <!-- Head -->
+    <circle cx="40" cy="30" r="18" fill="#10b981"/>
+    <circle cx="40" cy="30" r="14" fill="#d1fae5"/>
+    <!-- Eyes -->
+    <circle cx="34" cy="28" r="2.5" fill="#065f46"/>
+    <circle cx="46" cy="28" r="2.5" fill="#065f46"/>
+    <!-- Smile -->
+    <path d="M35 34 Q40 38 45 34" stroke="#065f46" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- Headset -->
+    <path d="M22 24 Q22 14 40 14 Q58 14 58 24" stroke="#065f46" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <rect x="17" y="22" width="8" height="10" rx="3" fill="#065f46"/>
+    <rect x="55" y="22" width="8" height="10" rx="3" fill="#065f46"/>
+    <circle cx="21" cy="27" r="2" fill="#34d399"/>
+    <!-- Clipboard -->
+    <rect x="54" y="52" width="16" height="20" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+    <rect x="56" y="48" width="12" height="6" rx="2" fill="#f59e0b"/>
+    <line x1="57" y1="58" x2="67" y2="58" stroke="#d97706" stroke-width="1" stroke-linecap="round"/>
+    <line x1="57" y1="62" x2="64" y2="62" stroke="#d97706" stroke-width="1" stroke-linecap="round"/>
+    <line x1="57" y1="66" x2="66" y2="66" stroke="#d97706" stroke-width="1" stroke-linecap="round"/>
+    <!-- Arms -->
+    <line x1="22" y1="55" x2="12" y2="68" stroke="#10b981" stroke-width="4" stroke-linecap="round"/>
+    <line x1="58" y1="55" x2="62" y2="58" stroke="#10b981" stroke-width="4" stroke-linecap="round"/>
+    <!-- Legs -->
+    <line x1="33" y1="82" x2="30" y2="96" stroke="#10b981" stroke-width="4" stroke-linecap="round"/>
+    <line x1="47" y1="82" x2="50" y2="96" stroke="#10b981" stroke-width="4" stroke-linecap="round"/>
+    <!-- Feet -->
+    <ellipse cx="28" cy="97" rx="6" ry="3" fill="#059669"/>
+    <ellipse cx="52" cy="97" rx="6" ry="3" fill="#059669"/>
+  </svg>`;
+}
+
+function createBrainSVG(scale) {
+  const s = scale || 1;
+  return `<svg width="${80*s}" height="${100*s}" viewBox="0 0 80 100" fill="none">
+    <circle class="char-glow" cx="40" cy="50" r="48" fill="#2563eb" opacity="0"/>
+    <!-- Body -->
+    <rect x="22" y="48" width="36" height="36" rx="12" fill="#2563eb"/>
+    <rect x="26" y="52" width="28" height="28" rx="8" fill="#1d4ed8"/>
+    <!-- Big Head -->
+    <circle cx="40" cy="28" r="22" fill="#2563eb"/>
+    <circle cx="40" cy="28" r="18" fill="#dbeafe"/>
+    <!-- Graduation Cap -->
+    <polygon points="40,2 18,14 40,22 62,14" fill="#1e3a5f"/>
+    <rect x="37" y="6" width="6" height="10" fill="#1e3a5f"/>
+    <line x1="58" y1="14" x2="58" y2="24" stroke="#1e3a5f" stroke-width="1.5"/>
+    <circle cx="58" cy="25" r="2" fill="#fbbf24"/>
+    <!-- Glasses -->
+    <circle cx="33" cy="27" r="7" stroke="#1e3a5f" stroke-width="2" fill="none"/>
+    <circle cx="47" cy="27" r="7" stroke="#1e3a5f" stroke-width="2" fill="none"/>
+    <line x1="40" y1="27" x2="40" y2="27" stroke="#1e3a5f" stroke-width="2"/>
+    <path d="M40 27 L40 27" stroke="#1e3a5f" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="38" y="25.5" width="4" height="3" rx="1" fill="#1e3a5f"/>
+    <!-- Eyes behind glasses -->
+    <circle cx="33" cy="27" r="2" fill="#1e3a5f"/>
+    <circle cx="47" cy="27" r="2" fill="#1e3a5f"/>
+    <!-- Glasses shine -->
+    <circle cx="30" cy="24" r="1.5" fill="white" opacity="0.6"/>
+    <circle cx="44" cy="24" r="1.5" fill="white" opacity="0.6"/>
+    <!-- Smile -->
+    <path d="M35 35 Q40 39 45 35" stroke="#1e3a5f" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- Arms -->
+    <line x1="24" y1="58" x2="14" y2="72" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+    <line x1="56" y1="58" x2="66" y2="72" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+    <!-- Legs -->
+    <line x1="33" y1="83" x2="30" y2="96" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+    <line x1="47" y1="83" x2="50" y2="96" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="28" cy="97" rx="6" ry="3" fill="#1d4ed8"/>
+    <ellipse cx="52" cy="97" rx="6" ry="3" fill="#1d4ed8"/>
+  </svg>`;
+}
+
+function createMemorySVG(scale) {
+  const s = scale || 1;
+  return `<svg width="${80*s}" height="${100*s}" viewBox="0 0 80 100" fill="none">
+    <circle class="char-glow" cx="40" cy="50" r="48" fill="#7c3aed" opacity="0"/>
+    <!-- Backpack -->
+    <rect x="12" y="42" width="18" height="28" rx="6" fill="#5b21b6"/>
+    <rect x="50" y="42" width="18" height="28" rx="6" fill="#5b21b6"/>
+    <!-- Books in backpack -->
+    <rect x="14" y="46" width="4" height="18" rx="1" fill="#fbbf24"/>
+    <rect x="19" y="44" width="4" height="20" rx="1" fill="#34d399"/>
+    <rect x="24" y="48" width="3" height="16" rx="1" fill="#f87171"/>
+    <rect x="53" y="46" width="4" height="18" rx="1" fill="#60a5fa"/>
+    <rect x="58" y="44" width="4" height="20" rx="1" fill="#a78bfa"/>
+    <rect x="63" y="48" width="3" height="16" rx="1" fill="#fbbf24"/>
+    <!-- Body -->
+    <rect x="22" y="46" width="36" height="36" rx="12" fill="#7c3aed"/>
+    <rect x="26" y="50" width="28" height="28" rx="8" fill="#6d28d9"/>
+    <!-- Head -->
+    <circle cx="40" cy="28" r="18" fill="#7c3aed"/>
+    <circle cx="40" cy="28" r="14" fill="#ede9fe"/>
+    <!-- Hat -->
+    <ellipse cx="40" cy="16" rx="20" ry="5" fill="#5b21b6"/>
+    <rect x="30" y="6" width="20" height="12" rx="4" fill="#5b21b6"/>
+    <!-- Eyes -->
+    <circle cx="34" cy="27" r="2.5" fill="#3b0764"/>
+    <circle cx="46" cy="27" r="2.5" fill="#3b0764"/>
+    <!-- Smile -->
+    <path d="M35 33 Q40 37 45 33" stroke="#3b0764" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- Arms -->
+    <line x1="24" y1="56" x2="16" y2="70" stroke="#7c3aed" stroke-width="4" stroke-linecap="round"/>
+    <line x1="56" y1="56" x2="64" y2="70" stroke="#7c3aed" stroke-width="4" stroke-linecap="round"/>
+    <!-- Legs -->
+    <line x1="33" y1="81" x2="30" y2="96" stroke="#7c3aed" stroke-width="4" stroke-linecap="round"/>
+    <line x1="47" y1="81" x2="50" y2="96" stroke="#7c3aed" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="28" cy="97" rx="6" ry="3" fill="#6d28d9"/>
+    <ellipse cx="52" cy="97" rx="6" ry="3" fill="#6d28d9"/>
+  </svg>`;
+}
+
+function createSkillsSVG(scale) {
+  const s = scale || 1;
+  return `<svg width="${80*s}" height="${100*s}" viewBox="0 0 80 100" fill="none">
+    <circle class="char-glow" cx="40" cy="50" r="48" fill="#f59e0b" opacity="0"/>
+    <!-- Body -->
+    <rect x="22" y="46" width="36" height="36" rx="12" fill="#f59e0b"/>
+    <rect x="26" y="50" width="28" height="28" rx="8" fill="#d97706"/>
+    <!-- Tool Belt -->
+    <rect x="20" y="60" width="40" height="8" rx="3" fill="#92400e"/>
+    <rect x="24" y="58" width="6" height="12" rx="2" fill="#78350f"/>
+    <rect x="33" y="58" width="6" height="12" rx="2" fill="#78350f"/>
+    <rect x="42" y="58" width="6" height="12" rx="2" fill="#78350f"/>
+    <rect x="51" y="58" width="6" height="12" rx="2" fill="#78350f"/>
+    <!-- Head -->
+    <circle cx="40" cy="28" r="18" fill="#f59e0b"/>
+    <circle cx="40" cy="28" r="14" fill="#fef3c7"/>
+    <!-- Hard hat brim -->
+    <ellipse cx="40" cy="18" rx="18" ry="4" fill="#d97706"/>
+    <rect x="28" y="10" width="24" height="10" rx="6" fill="#f59e0b"/>
+    <!-- Eyes -->
+    <circle cx="34" cy="27" r="2.5" fill="#78350f"/>
+    <circle cx="46" cy="27" r="2.5" fill="#78350f"/>
+    <!-- Determined mouth -->
+    <path d="M34 34 L46 34" stroke="#78350f" stroke-width="2" stroke-linecap="round"/>
+    <!-- Wrench in hand -->
+    <g transform="translate(60, 48) rotate(30)">
+      <rect x="0" y="0" width="5" height="22" rx="2" fill="#6b7280"/>
+      <circle cx="2.5" cy="-2" r="5" fill="none" stroke="#6b7280" stroke-width="3"/>
+    </g>
+    <!-- Arms -->
+    <line x1="24" y1="55" x2="14" y2="70" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="56" y1="55" x2="62" y2="50" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
+    <!-- Legs -->
+    <line x1="33" y1="81" x2="30" y2="96" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
+    <line x1="47" y1="81" x2="50" y2="96" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="28" cy="97" rx="6" ry="3" fill="#d97706"/>
+    <ellipse cx="52" cy="97" rx="6" ry="3" fill="#d97706"/>
+  </svg>`;
+}
+
+function createHeartbeatSVG(scale) {
+  const s = scale || 1;
+  return `<svg width="${80*s}" height="${100*s}" viewBox="0 0 80 100" fill="none">
+    <circle class="char-glow" cx="40" cy="50" r="48" fill="#ef4444" opacity="0"/>
+    <!-- Body -->
+    <rect x="22" y="46" width="36" height="36" rx="12" fill="#ef4444"/>
+    <rect x="26" y="50" width="28" height="28" rx="8" fill="#dc2626"/>
+    <!-- Heart on chest -->
+    <path d="M36 58 C36 55 40 52 40 56 C40 52 44 55 44 58 L40 64 Z" fill="#fca5a5"/>
+    <!-- Head -->
+    <circle cx="40" cy="28" r="18" fill="#ef4444"/>
+    <circle cx="40" cy="28" r="14" fill="#fee2e2"/>
+    <!-- Eyes -->
+    <circle cx="34" cy="27" r="2.5" fill="#7f1d1d"/>
+    <circle cx="46" cy="27" r="2.5" fill="#7f1d1d"/>
+    <!-- Alert expression -->
+    <circle cx="34" cy="27" r="1" fill="white"/>
+    <circle cx="46" cy="27" r="1" fill="white"/>
+    <!-- Smile -->
+    <path d="M35 34 Q40 37 45 34" stroke="#7f1d1d" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- Watch on wrist -->
+    <circle cx="14" cy="68" r="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+    <line x1="14" y1="64" x2="14" y2="68" stroke="#f59e0b" stroke-width="1.5"/>
+    <line x1="14" y1="68" x2="17" y2="68" stroke="#f59e0b" stroke-width="1.5"/>
+    <!-- Alarm clock in hand -->
+    <g transform="translate(56, 48)">
+      <circle cx="10" cy="10" r="10" fill="#fef3c7" stroke="#ef4444" stroke-width="2"/>
+      <circle cx="10" cy="10" r="7" fill="white"/>
+      <line x1="10" y1="5" x2="10" y2="10" stroke="#ef4444" stroke-width="1.5"/>
+      <line x1="10" y1="10" x2="14" y2="12" stroke="#ef4444" stroke-width="1.5"/>
+      <circle cx="4" cy="2" r="3" fill="#fbbf24"/>
+      <circle cx="16" cy="2" r="3" fill="#fbbf24"/>
+      <rect x="8" y="-4" width="4" height="4" rx="1" fill="#fbbf24"/>
+    </g>
+    <!-- Arms -->
+    <line x1="24" y1="55" x2="14" y2="64" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>
+    <line x1="56" y1="55" x2="62" y2="52" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>
+    <!-- Legs -->
+    <line x1="33" y1="81" x2="30" y2="96" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>
+    <line x1="47" y1="81" x2="50" y2="96" stroke="#ef4444" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="28" cy="97" rx="6" ry="3" fill="#dc2626"/>
+    <ellipse cx="52" cy="97" rx="6" ry="3" fill="#dc2626"/>
+  </svg>`;
+}
+
+const charSVGs = [createGatewaySVG, createBrainSVG, createMemorySVG, createSkillsSVG, createHeartbeatSVG];
+
+// ─── Initialize Stage ───
+const stage = document.getElementById('stage');
+let currentPhase = 0;
+let autoPlayTimer = null;
+let isAutoPlaying = false;
+const overlays = []; // dynamic overlays to clean up
+
+function initStage() {
+  // Place characters
+  characters.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'character';
+    div.id = `char-${c.id}`;
+    div.style.left = (c.x - 40) + 'px';
+    div.innerHTML = `
+      <div class="char-body-${i}">
+        ${charSVGs[i](1)}
+      </div>
+      <div class="char-label" style="color:${c.color}">${c.name}</div>
+      <div class="char-sublabel">${c.cnName}</div>
+    `;
+    div.addEventListener('click', () => showCharCard(i));
+    stage.appendChild(div);
+  });
+}
+
+// ─── Overlay Management ───
+function addOverlay(html, id) {
+  const el = document.createElement('div');
+  el.innerHTML = html;
+  const child = el.firstElementChild;
+  if (id) child.id = id;
+  stage.appendChild(child);
+  overlays.push(child);
+  return child;
+}
+
+function clearOverlays() {
+  overlays.forEach(el => {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  });
+  overlays.length = 0;
+  // Reset character highlights
+  document.querySelectorAll('.character').forEach(c => c.classList.remove('active-char'));
+}
+
+function highlightChar(index) {
+  document.getElementById(`char-${characters[index].id}`).classList.add('active-char');
+}
+
+// ─── Animated Orb Between Characters ───
+function animateOrb(fromIdx, toIdx, color, duration) {
+  return new Promise(resolve => {
+    const orb = addOverlay(`<div class="orb visible" style="background:${color}; color:${color};"></div>`);
+    const fx = characters[fromIdx].x;
+    const fy = 250;
+    const tx = characters[toIdx].x;
+    const ty = 250;
+    orb.style.left = fx + 'px';
+    orb.style.top = fy + 'px';
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      orb.style.left = (fx + (tx - fx) * ease - 10) + 'px';
+      orb.style.top = (fy + Math.sin(t * Math.PI) * -40 - 10) + 'px';
+      if (t < 1) requestAnimationFrame(tick);
+      else resolve();
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+// ─── Draw Dotted Path ───
+function drawDottedPath(fromIdx, toIdx, color) {
+  const svg = document.getElementById('flowPaths');
+  const fx = characters[fromIdx].x;
+  const fy = 260;
+  const tx = characters[toIdx].x;
+  const ty = 260;
+  const mx = (fx + tx) / 2;
+  const my = fy - 50;
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', `M${fx},${fy} Q${mx},${my} ${tx},${ty}`);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-dasharray', '6,4');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('opacity', '0.4');
+  svg.appendChild(path);
+  overlays.push(path);
+}
+
+// ─── Utility ───
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── Phase Descriptions ───
+const phaseInfo = [
+  { num: '准备就绪', title: '五位小伙伴已就位', text: '点击"自动播放"或"下一步"开始观看 OpenClaw 如何处理一条消息' },
+  { num: '阶段 1/6', title: '消息到达', text: '用户从 Slack 发送了一条消息，Gateway 网关小哥负责接收并分配会话' },
+  { num: '阶段 2/6', title: '大脑接管', text: 'Brain 大脑博士分析任务类型，构建上下文，准备调用 LLM' },
+  { num: '阶段 3/6', title: '查询记忆', text: 'Memory 记忆管理员通过 BM25 和向量搜索检索相关的历史信息' },
+  { num: '阶段 4/6', title: '调用工具', text: 'Skills 工具达人使用 Grep 工具搜索代码库中的 TODO 注释' },
+  { num: '阶段 5/6', title: '心跳监控', text: 'Heartbeat 心跳值班员全程监控会话状态、Token 用量和响应时间' },
+  { num: '阶段 6/6', title: '返回结果', text: '处理完成，Gateway 将结果发回 Slack，五个小伙伴齐声庆祝！' },
+];
+
+function updatePhaseDesc() {
+  const info = phaseInfo[currentPhase];
+  document.getElementById('phaseDesc').innerHTML = `
+    <span class="phase-num">${info.num}</span>
+    <div class="phase-title">${info.title}</div>
+    <div class="phase-text">${info.text}</div>
+  `;
+}
+
+function updateProgress() {
+  const pct = (currentPhase / 6) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.querySelectorAll('.phase-label').forEach((el, i) => {
+    el.classList.remove('active', 'completed');
+    if (i === currentPhase) el.classList.add('active');
+    else if (i < currentPhase) el.classList.add('completed');
+  });
+}
+
+function updateButtons() {
+  document.getElementById('btnPrev').disabled = currentPhase <= 0;
+  document.getElementById('btnNext').disabled = currentPhase >= 6;
+}
+
+// ─── Phase Animations ───
+async function playPhase(phase) {
+  clearOverlays();
+  currentPhase = phase;
+  updatePhaseDesc();
+  updateProgress();
+  updateButtons();
+
+  if (phase === 0) return;
+  if (phase >= 1) await showPhase1();
+  if (phase >= 2) await showPhase2();
+  if (phase >= 3) await showPhase3();
+  if (phase >= 4) await showPhase4();
+  if (phase >= 5) await showPhase5();
+  if (phase >= 6) await showPhase6();
+}
+
+async function showPhase1() {
+  highlightChar(0);
+
+  // Chat message flies in
+  const msg = addOverlay(`
+    <div class="chat-msg" style="top:80px; left:10px;">
+      帮我搜索项目里所有的 TODO 注释
+      <span class="msg-source">来自: Slack #dev-team</span>
+    </div>
+  `);
+  await wait(100);
+  msg.classList.add('visible');
+  await wait(400);
+
+  // Gateway speech bubble
+  const bubble = addOverlay(`
+    <div class="speech-bubble" style="top:100px; left:${characters[0].x - 20}px; border-color:#a7f3d0;">
+      <span class="bubble-title" style="color:#10b981;">Gateway 说：</span>
+      收到 Slack 消息，<br>分配到会话 #42，<br>进入 Lane Queue
+    </div>
+  `);
+  await wait(200);
+  bubble.classList.add('visible');
+
+  // Queue visualization
+  const queue = addOverlay(`
+    <div class="queue-vis" style="left:${characters[0].x - 50}px;">
+      <span style="color:#64748b; font-weight:600;">队列:</span>
+      <div class="queue-item" style="background:#94a3b8;">#40</div>
+      <div class="queue-item" style="background:#94a3b8;">#41</div>
+      <div class="queue-item new" style="background:#10b981;">#42</div>
+    </div>
+  `);
+  await wait(200);
+  queue.classList.add('visible');
+}
+
+async function showPhase2() {
+  highlightChar(1);
+  drawDottedPath(0, 1, '#10b981');
+
+  // Orb moves from Gateway to Brain
+  await animateOrb(0, 1, '#10b981', 800);
+
+  // Brain thought bubble
+  const thought = addOverlay(`
+    <div class="thought-bubble" style="top:60px; left:${characters[1].x - 30}px;">
+      分析任务类型: 代码搜索<br>
+      需要工具: Grep<br>
+      不需要记忆检索<br>
+      <span style="color:#2563eb;">构建上下文中...</span>
+    </div>
+  `);
+  await wait(200);
+  thought.classList.add('visible');
+
+  // Cloud icon (LLM)
+  const cloud = addOverlay(`
+    <div class="cloud-icon" style="top:10px; left:${characters[1].x - 30}px;">
+      <svg width="70" height="44" viewBox="0 0 70 44" fill="none">
+        <ellipse cx="35" cy="28" rx="30" ry="14" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+        <ellipse cx="24" cy="22" rx="16" ry="12" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+        <ellipse cx="46" cy="20" rx="14" ry="11" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+        <text x="35" y="32" text-anchor="middle" font-size="10" fill="#2563eb" font-weight="700" font-family="Noto Sans SC">LLM</text>
+      </svg>
+    </div>
+  `);
+  await wait(200);
+  cloud.classList.add('visible');
+}
+
+async function showPhase3() {
+  highlightChar(2);
+  drawDottedPath(1, 2, '#2563eb');
+
+  // Brain asks Memory
+  const ask = addOverlay(`
+    <div class="speech-bubble" style="top:130px; left:${characters[1].x + 30}px; border-color:#bfdbfe; max-width:180px;">
+      <span class="bubble-title" style="color:#2563eb;">Brain 问：</span>
+      有没有这个项目的相关记录？
+    </div>
+  `);
+  await wait(200);
+  ask.classList.add('visible');
+
+  await animateOrb(1, 2, '#2563eb', 700);
+
+  // Memory search visualization
+  const search = addOverlay(`
+    <div class="memory-search" style="top:70px; left:${characters[2].x - 40}px;">
+      <div style="margin-bottom:4px; font-weight:700; color:#7c3aed;">正在检索...</div>
+      <div><span class="search-tag">BM25</span> 'TODO' → 3 条匹配</div>
+      <div><span class="search-tag">向量</span> 语义搜索 → 2 条相关</div>
+    </div>
+  `);
+  await wait(200);
+  search.classList.add('visible');
+
+  await wait(400);
+
+  // Memory returns scroll
+  const scroll = addOverlay(`
+    <div class="scroll-item" style="top:160px; left:${characters[2].x - 40}px;">
+      📜 找到了！上次用户说过要用 // TODO 格式
+    </div>
+  `);
+  await wait(200);
+  scroll.classList.add('visible');
+
+  await animateOrb(2, 1, '#7c3aed', 700);
+}
+
+async function showPhase4() {
+  highlightChar(3);
+  drawDottedPath(1, 3, '#2563eb');
+
+  // Brain tells Skills
+  const tellSkills = addOverlay(`
+    <div class="speech-bubble" style="top:140px; left:${characters[1].x + 20}px; border-color:#bfdbfe; max-width:200px;">
+      <span class="bubble-title" style="color:#2563eb;">Brain 指令：</span>
+      用 Grep 工具搜索所有 TODO
+    </div>
+  `);
+  await wait(200);
+  tellSkills.classList.add('visible');
+
+  await animateOrb(1, 3, '#f59e0b', 800);
+
+  // Terminal animation
+  const terminal = addOverlay(`
+    <div class="terminal" style="top:60px; left:${characters[3].x - 40}px;">
+      <div class="cmd">$ grep -r "TODO" src/</div>
+      <div class="result">... 搜索中 ...</div>
+    </div>
+  `);
+  await wait(200);
+  terminal.classList.add('visible');
+
+  await wait(600);
+
+  // Update terminal with results
+  terminal.innerHTML = `
+    <div class="cmd">$ grep -r "TODO" src/</div>
+    <div style="color:#94a3b8;">src/auth.ts:23:  // TODO: 添加权限校验</div>
+    <div style="color:#94a3b8;">src/api.ts:45:   // TODO: 错误处理</div>
+    <div style="color:#94a3b8;">... 共 23 个匹配</div>
+    <div class="result" style="margin-top:4px;">✓ 找到 23 个 TODO，分布在 8 个文件中</div>
+  `;
+
+  await animateOrb(3, 1, '#f59e0b', 700);
+}
+
+async function showPhase5() {
+  highlightChar(4);
+
+  // Monitor stats
+  const stats = addOverlay(`
+    <div class="monitor-stats" style="top:80px; left:${characters[4].x - 40}px;">
+      <div style="font-weight:700; color:#ef4444; margin-bottom:4px;">实时监控</div>
+      <div class="stat-row"><span class="stat-dot green"></span> 会话时长: 2.3s</div>
+      <div class="stat-row"><span class="stat-dot blue"></span> Token: 1,247</div>
+      <div class="stat-row"><span class="stat-dot yellow"></span> 工具调用: 1 次</div>
+      <div class="stat-row"><span class="stat-dot green"></span> 状态: <b style="color:#10b981;">正常</b></div>
+    </div>
+  `);
+  await wait(200);
+  stats.classList.add('visible');
+
+  // Thumbs up
+  const thumbs = addOverlay(`
+    <div class="thumbs-up" style="top:190px; left:${characters[4].x}px;">👍</div>
+  `);
+  await wait(400);
+  thumbs.classList.add('visible');
+}
+
+async function showPhase6() {
+  highlightChar(0);
+  highlightChar(1);
+  drawDottedPath(1, 0, '#2563eb');
+
+  // Brain passes result to Gateway
+  await animateOrb(1, 0, '#10b981', 800);
+
+  // Response message
+  const resp = addOverlay(`
+    <div class="chat-msg response" style="top:60px; left:${characters[0].x - 80}px; max-width:280px;">
+      找到 23 个 TODO 注释，其中 5 个标记为高优先级。详情已整理为列表，按文件分组展示。
+      <span class="msg-source">发送至: Slack #dev-team</span>
+    </div>
+  `);
+  await wait(200);
+  resp.classList.add('visible');
+
+  await wait(400);
+
+  // Celebration - all characters jump
+  characters.forEach((c, i) => {
+    const charEl = document.getElementById(`char-${c.id}`);
+    const body = charEl.querySelector(`.char-body-${i}`);
+    body.style.animation = 'none';
+    body.offsetHeight; // reflow
+    body.style.animation = `celebrate 0.6s ease-out ${i * 0.1}s`;
+    setTimeout(() => {
+      body.style.animation = `idleBounce${i} 2s ease-in-out infinite ${i * 0.4}s`;
+    }, 800 + i * 100);
+  });
+
+  // Summary bar
+  const summary = addOverlay(`
+    <div class="summary-bar">
+      完整流程: 📨 消息到达 → 🧠 大脑分析 → 📚 检索记忆 → 🔧 调用工具 → 💓 监控状态 → ✅ 返回结果 | 总耗时 2.3s
+    </div>
+  `);
+  await wait(300);
+  summary.classList.add('visible');
+}
+
+// ─── Direct Phase Display (no incremental) ───
+async function goToPhase(phase) {
+  if (phase < 0) phase = 0;
+  if (phase > 6) phase = 6;
+  clearOverlays();
+  currentPhase = phase;
+  updatePhaseDesc();
+  updateProgress();
+  updateButtons();
+
+  // Replay all phases up to current
+  if (phase >= 1) await showPhase1();
+  if (phase >= 2) await showPhase2();
+  if (phase >= 3) await showPhase3();
+  if (phase >= 4) await showPhase4();
+  if (phase >= 5) await showPhase5();
+  if (phase >= 6) await showPhase6();
+}
+
+// ─── Controls ───
+document.getElementById('btnNext').addEventListener('click', () => {
+  if (currentPhase < 6) {
+    stopAutoPlay();
+    goToPhase(currentPhase + 1);
+  }
+});
+
+document.getElementById('btnPrev').addEventListener('click', () => {
+  if (currentPhase > 0) {
+    stopAutoPlay();
+    goToPhase(currentPhase - 1);
+  }
+});
+
+document.getElementById('btnReplay').addEventListener('click', () => {
+  stopAutoPlay();
+  goToPhase(0);
+});
+
+document.getElementById('btnAuto').addEventListener('click', () => {
+  if (isAutoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+});
+
+function startAutoPlay() {
+  isAutoPlaying = true;
+  const btn = document.getElementById('btnAuto');
+  btn.innerHTML = '<span class="btn-icon">⏸</span> 暂停';
+  btn.classList.remove('btn-success');
+  btn.classList.add('btn-secondary');
+
+  // If at end, restart
+  if (currentPhase >= 6) {
+    goToPhase(0);
+  }
+
+  autoPlayTick();
+}
+
+function autoPlayTick() {
+  if (!isAutoPlaying) return;
+  if (currentPhase >= 6) {
+    stopAutoPlay();
+    return;
+  }
+  autoPlayTimer = setTimeout(async () => {
+    if (!isAutoPlaying) return;
+    await goToPhase(currentPhase + 1);
+    autoPlayTick();
+  }, 3000);
+}
+
+function stopAutoPlay() {
+  isAutoPlaying = false;
+  if (autoPlayTimer) clearTimeout(autoPlayTimer);
+  autoPlayTimer = null;
+  const btn = document.getElementById('btnAuto');
+  btn.innerHTML = '<span class="btn-icon">▶</span> 自动播放';
+  btn.classList.remove('btn-secondary');
+  btn.classList.add('btn-success');
+}
+
+// Phase label click
+document.querySelectorAll('.phase-label').forEach(el => {
+  el.addEventListener('click', () => {
+    const phase = parseInt(el.dataset.phase);
+    stopAutoPlay();
+    goToPhase(phase);
+  });
+});
+
+// ─── Character Card ───
+function showCharCard(index) {
+  const c = characters[index];
+  document.getElementById('cardSvg').innerHTML = charSVGs[index](1.5);
+  document.getElementById('cardName').innerHTML = `${c.name} <span style="color:${c.color};">(${c.cnName})</span>`;
+  document.getElementById('cardName').style.color = c.color;
+  document.getElementById('cardRole').textContent = c.role;
+  document.getElementById('cardDesc').textContent = c.desc;
+  document.getElementById('charCardOverlay').classList.add('visible');
+}
+
+function closeCard() {
+  document.getElementById('charCardOverlay').classList.remove('visible');
+}
+
+document.getElementById('charCardOverlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('charCardOverlay')) closeCard();
+});
+
+// ─── Keyboard Navigation ───
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    if (currentPhase < 6) {
+      stopAutoPlay();
+      goToPhase(currentPhase + 1);
+    }
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (currentPhase > 0) {
+      stopAutoPlay();
+      goToPhase(currentPhase - 1);
+    }
+  } else if (e.key === 'Escape') {
+    closeCard();
+  }
+});
+
+// ─── Init ───
+initStage();
+updatePhaseDesc();
+updateProgress();
+updateButtons();
+</script>
+</body>
+</html>

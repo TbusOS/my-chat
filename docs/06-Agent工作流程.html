@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent 工作流程</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+header .subtitle {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.control-btn {
+  padding: 10px 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Noto Sans SC', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.control-btn.primary {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.control-btn.primary:hover {
+  background: #1d4ed8;
+}
+
+.control-btn.playing {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+.control-btn.playing:hover {
+  background: #b91c1c;
+}
+
+/* Flow diagram */
+.flow-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 40px;
+  overflow-x: auto;
+  padding: 20px 0;
+}
+
+.step-wrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.step-card {
+  width: 160px;
+  padding: 20px 16px;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  opacity: 0.5;
+}
+
+.step-card.visited {
+  opacity: 0.75;
+  border-color: #cbd5e1;
+}
+
+.step-card.active {
+  opacity: 1;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1), 0 8px 24px rgba(37, 99, 235, 0.12);
+  transform: translateY(-4px) scale(1.03);
+}
+
+.step-card:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.step-card.active:hover {
+  opacity: 1;
+  transform: translateY(-4px) scale(1.03);
+}
+
+.step-number {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 24px;
+  height: 24px;
+  background: #e2e8f0;
+  color: #64748b;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.step-card.active .step-number {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.step-card.visited .step-number {
+  background: #93c5fd;
+  color: #ffffff;
+}
+
+.step-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.step-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.step-subtitle {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* Arrows */
+.arrow {
+  width: 40px;
+  height: 2px;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+.arrow-line {
+  width: 100%;
+  height: 2px;
+  background: #e2e8f0;
+  position: relative;
+  overflow: hidden;
+}
+
+.arrow-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: #2563eb;
+  transition: left 0.4s ease;
+}
+
+.arrow.active .arrow-line::after {
+  left: 0;
+}
+
+.arrow-head {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid #e2e8f0;
+  transition: border-left-color 0.4s;
+}
+
+.arrow.active .arrow-head {
+  border-left-color: #2563eb;
+}
+
+/* Animated dash for arrows */
+.arrow-line.animating::after {
+  animation: dashFlow 0.6s ease-out forwards;
+}
+
+@keyframes dashFlow {
+  from { left: -100%; }
+  to { left: 0; }
+}
+
+/* Detail panel */
+.detail-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s;
+  margin-bottom: 0;
+}
+
+.detail-panel.open {
+  max-height: 600px;
+  opacity: 1;
+  margin-bottom: 24px;
+}
+
+.detail-header {
+  padding: 20px 28px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-step-badge {
+  background: #2563eb;
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.detail-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.detail-body {
+  padding: 24px 28px;
+}
+
+.detail-content {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #334155;
+}
+
+.detail-content pre {
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detail-content .key {
+  color: #2563eb;
+}
+
+.detail-content .str {
+  color: #059669;
+}
+
+.detail-content .comment {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.detail-content .highlight {
+  background: #fef3c7;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.detail-desc {
+  margin-top: 16px;
+  padding: 16px 20px;
+  background: #eff6ff;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1e40af;
+  line-height: 1.7;
+}
+
+/* Progress bar */
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  margin-bottom: 32px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+  width: 0%;
+}
+
+@media (max-width: 1024px) {
+  .flow-container {
+    padding: 20px 16px;
+  }
+  .step-card {
+    width: 130px;
+    padding: 16px 12px;
+  }
+  .step-icon {
+    font-size: 28px;
+  }
+  .arrow {
+    width: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .flow-container {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .arrow {
+    display: none;
+  }
+  .step-card {
+    width: calc(33.33% - 12px);
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Agent 工作流程</h1>
+    <p class="subtitle">点击每个步骤，查看 Agent 如何思考和行动</p>
+  </header>
+
+  <div class="controls">
+    <button class="control-btn" id="prev-btn" onclick="prevStep()" disabled>
+      &#9664; 上一步
+    </button>
+    <button class="control-btn" id="next-btn" onclick="manualNext()">
+      下一步 &#9654;
+    </button>
+    <button class="control-btn primary" id="autoplay-btn" onclick="toggleAutoPlay()">
+      <span id="autoplay-icon">&#9654;</span>
+      <span id="autoplay-text">自动播放</span>
+    </button>
+    <button class="control-btn" onclick="resetFlow()">
+      &#8635; 重置
+    </button>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+
+  <div class="flow-container" id="flow-container">
+    <!-- Steps and arrows generated by JS -->
+  </div>
+
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-header">
+      <span class="detail-step-badge" id="detail-badge">步骤 1</span>
+      <span class="detail-title" id="detail-title">—</span>
+    </div>
+    <div class="detail-body">
+      <div class="detail-content" id="detail-content"></div>
+      <div class="detail-desc" id="detail-desc"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var steps = [
+  {
+    icon: '\uD83D\uDCAC',
+    title: '用户输入',
+    subtitle: 'User Input',
+    content: '<pre>"帮我分析这个应用的错误日志，找出异常模式"</pre>',
+    desc: 'Agent 接收到用户的自然语言指令。这是整个工作流的起点 -- 用户用日常语言描述需求，Agent 需要理解意图并拆解为可执行的步骤。'
+  },
+  {
+    icon: '\uD83E\uDDE0',
+    title: 'Agent 思考',
+    subtitle: 'Thinking',
+    content: '<pre><span class="comment">// Agent 的内部推理链 (Chain of Thought)</span>\n\n<span class="highlight">思考：用户需要分析应用错误日志，找出异常模式。</span>\n\n我需要按以下步骤执行：\n  1. 首先读取日志文件，了解数据格式\n  2. 理解日志的字段结构（请求ID、时间戳、状态码、响应时间等）\n  3. 定义"异常"的标准：\n     - 响应时间超过 5000ms\n     - 同一接口 1 分钟内大量 5xx 错误\n     - 凌晨 2:00-5:00 的异常请求\n     - 状态码为 500 但无错误堆栈信息\n  4. 逐条扫描并标记异常\n  5. 生成结构化分析报告</pre>',
+    desc: 'Agent 的"思考"阶段类似于人类在接到任务后的规划过程。它会将复杂任务拆解为多个子步骤，并决定需要调用哪些工具来完成任务。这就是 Chain-of-Thought (CoT) 推理。'
+  },
+  {
+    icon: '\uD83D\uDD27',
+    title: '选择工具',
+    subtitle: 'Tool Selection',
+    content: '<pre><span class="comment">// Agent 决定调用哪个工具</span>\n\n{\n  <span class="key">"type"</span>: <span class="str">"tool_use"</span>,\n  <span class="key">"id"</span>: <span class="str">"toolu_01ABC..."</span>,\n  <span class="key">"name"</span>: <span class="str">"read_file"</span>,\n  <span class="key">"input"</span>: {\n    <span class="key">"path"</span>: <span class="str">"/var/log/app/error.log"</span>\n  }\n}</pre>',
+    desc: 'Agent 从可用工具列表中选择最合适的工具。这个过程是自动的 -- Agent 根据任务需求匹配工具的功能描述。工具调用的格式遵循标准的 JSON 结构，包含工具名和输入参数。'
+  },
+  {
+    icon: '\u26A1',
+    title: '执行工具',
+    subtitle: 'Tool Execution',
+    content: '<pre><span class="comment">// 工具执行返回结果</span>\n\n{\n  <span class="key">"type"</span>: <span class="str">"tool_result"</span>,\n  <span class="key">"content"</span>: <span class="str">"2024-01-15 14:23:01 | REQ-8821 | /api/orders  | 200 | 45ms\n2024-01-15 14:23:03 | REQ-8822 | /api/orders  | 500 | 12003ms\n2024-01-15 03:14:22 | REQ-8823 | /api/users   | 500 | 30021ms\n2024-01-15 09:45:11 | REQ-8824 | /api/auth    | 502 | timeout\n..."</span>\n}</pre>',
+    desc: '工具在安全的沙箱环境中执行，并将结果返回给 Agent。Agent 本身不直接操作文件系统或数据库 -- 它通过工具来与外部世界交互。这种设计确保了安全性和可控性。'
+  },
+  {
+    icon: '\uD83D\uDCCA',
+    title: '分析结果',
+    subtitle: 'Analysis',
+    content: '<pre><span class="comment">// Agent 分析工具返回的数据</span>\n\n<span class="highlight">发现以下异常模式：</span>\n\n<span class="key">异常 1:</span> REQ-8822\n  - /api/orders 接口响应时间 12003ms，状态码 500\n  - 判定: <span class="str">接口超时导致服务端错误</span>\n\n<span class="key">异常 2:</span> REQ-8823\n  - 凌晨 3:14 /api/users 响应 30021ms，状态码 500\n  - 判定: <span class="str">非工作时间出现慢查询，可能是数据库连接池耗尽</span>\n\n<span class="key">异常 3:</span> REQ-8824\n  - /api/auth 返回 502 且超时\n  - 判定: <span class="str">上游认证服务不可用，需排查依赖服务状态</span></pre>',
+    desc: 'Agent 运用其推理能力对原始数据进行分析。它能识别出人类分析师需要花费大量时间才能发现的模式和异常。这一步体现了 AI Agent 相比传统脚本的核心优势 -- 理解语境和灵活推理。'
+  },
+  {
+    icon: '\u2705',
+    title: '返回答案',
+    subtitle: 'Response',
+    content: '<pre><span class="comment">// Agent 最终输出结构化报告</span>\n\n<span class="key">📋 应用错误日志异常分析报告</span>\n\n扫描范围: 2024-01-15 全天请求日志\n总请求数: 12,470 条\n异常请求: 3 条 (占比 0.024%)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n<span class="str">🔴 严重</span> | REQ-8823 | /api/users | 30021ms\n   凌晨慢查询，疑似数据库连接池耗尽\n   建议: 检查数据库连接池配置，增加监控告警\n\n<span class="str">🟡 警告</span> | REQ-8822 | /api/orders | 12003ms\n   接口超时导致 500 错误\n   建议: 排查该接口的依赖链路，添加熔断降级\n\n<span class="str">🟢 关注</span> | REQ-8824 | /api/auth | 502\n   上游认证服务不可用\n   建议: 确认认证服务健康状态，检查网络连通性</pre>',
+    desc: 'Agent 将分析结果组织成清晰、专业的报告格式返回给用户。好的 Agent 不仅给出分析结果，还会提供可操作的建议。整个流程从用户提问到最终回答，形成一个完整的"感知-思考-行动"循环。'
+  }
+];
+
+var currentStep = -1;
+var autoPlayTimer = null;
+var isPlaying = false;
+
+function renderFlow() {
+  var container = document.getElementById('flow-container');
+  container.innerHTML = '';
+
+  steps.forEach(function(step, i) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'step-wrapper';
+
+    var card = document.createElement('div');
+    card.className = 'step-card';
+    card.setAttribute('data-step', i);
+    card.onclick = function() { activateStep(i); };
+
+    card.innerHTML =
+      '<div class="step-number">' + (i + 1) + '</div>' +
+      '<span class="step-icon">' + step.icon + '</span>' +
+      '<div class="step-title">' + step.title + '</div>' +
+      '<div class="step-subtitle">' + step.subtitle + '</div>';
+
+    wrapper.appendChild(card);
+
+    if (i < steps.length - 1) {
+      var arrow = document.createElement('div');
+      arrow.className = 'arrow';
+      arrow.setAttribute('data-arrow', i);
+      arrow.innerHTML = '<div class="arrow-line"></div><div class="arrow-head"></div>';
+      wrapper.appendChild(arrow);
+    }
+
+    container.appendChild(wrapper);
+  });
+}
+
+function activateStep(index) {
+  currentStep = index;
+
+  // Update step cards
+  var cards = document.querySelectorAll('.step-card');
+  cards.forEach(function(card, i) {
+    card.classList.remove('active');
+    if (i < index) {
+      card.classList.add('visited');
+    } else if (i === index) {
+      card.classList.add('active');
+      card.classList.add('visited');
+    } else {
+      card.classList.remove('visited');
+    }
+  });
+
+  // Update arrows
+  var arrows = document.querySelectorAll('.arrow');
+  arrows.forEach(function(arrow, i) {
+    if (i < index) {
+      arrow.classList.add('active');
+    } else {
+      arrow.classList.remove('active');
+    }
+  });
+
+  // Update progress
+  var progress = ((index + 1) / steps.length) * 100;
+  document.getElementById('progress-fill').style.width = progress + '%';
+
+  // Update detail panel
+  var panel = document.getElementById('detail-panel');
+  var step = steps[index];
+
+  document.getElementById('detail-badge').textContent = '步骤 ' + (index + 1) + ' / ' + steps.length;
+  document.getElementById('detail-title').textContent = step.icon + ' ' + step.title;
+  document.getElementById('detail-content').innerHTML = step.content;
+  document.getElementById('detail-desc').textContent = step.desc;
+
+  panel.classList.add('open');
+  updateStepButtons();
+}
+
+function updateStepButtons() {
+  var prevBtn = document.getElementById('prev-btn');
+  var nextBtn = document.getElementById('next-btn');
+  prevBtn.disabled = currentStep <= 0;
+  nextBtn.disabled = currentStep >= steps.length - 1;
+}
+
+function manualNext() {
+  stopAutoPlay();
+  if (currentStep < steps.length - 1) {
+    activateStep(currentStep + 1);
+    updateStepButtons();
+  }
+}
+
+function prevStep() {
+  stopAutoPlay();
+  if (currentStep > 0) {
+    activateStep(currentStep - 1);
+    updateStepButtons();
+  }
+}
+
+function toggleAutoPlay() {
+  if (isPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  isPlaying = true;
+  var btn = document.getElementById('autoplay-btn');
+  btn.classList.remove('primary');
+  btn.classList.add('playing');
+  document.getElementById('autoplay-icon').innerHTML = '&#9724;';
+  document.getElementById('autoplay-text').textContent = '停止';
+
+  // Start from beginning or next step
+  var startIndex = currentStep >= steps.length - 1 ? 0 : currentStep + 1;
+  if (currentStep < 0) startIndex = 0;
+
+  if (startIndex === 0) {
+    resetFlow();
+    setTimeout(function() {
+      playStep(0);
+    }, 300);
+  } else {
+    playStep(startIndex);
+  }
+}
+
+function playStep(index) {
+  if (!isPlaying || index >= steps.length) {
+    stopAutoPlay();
+    return;
+  }
+
+  activateStep(index);
+
+  autoPlayTimer = setTimeout(function() {
+    playStep(index + 1);
+  }, 2500);
+}
+
+function stopAutoPlay() {
+  isPlaying = false;
+  if (autoPlayTimer) {
+    clearTimeout(autoPlayTimer);
+    autoPlayTimer = null;
+  }
+  var btn = document.getElementById('autoplay-btn');
+  btn.classList.add('primary');
+  btn.classList.remove('playing');
+  document.getElementById('autoplay-icon').innerHTML = '&#9654;';
+  document.getElementById('autoplay-text').textContent = '自动播放';
+}
+
+function resetFlow() {
+  stopAutoPlay();
+  currentStep = -1;
+
+  var cards = document.querySelectorAll('.step-card');
+  cards.forEach(function(card) {
+    card.classList.remove('active', 'visited');
+  });
+
+  var arrows = document.querySelectorAll('.arrow');
+  arrows.forEach(function(arrow) {
+    arrow.classList.remove('active');
+  });
+
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('detail-panel').classList.remove('open');
+}
+
+// Keyboard support
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    manualNext();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    prevStep();
+  }
+});
+
+// Initialize
+renderFlow();
+
+// Activate first step after a short delay
+setTimeout(function() {
+  activateStep(0);
+}, 500);
+</script>
+</body>
+</html>

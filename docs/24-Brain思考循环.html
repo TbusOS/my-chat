@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain 的思考循环 — OpenClaw 核心机制</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+.header .subtitle {
+  font-size: 15px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Round counter */
+.round-counter {
+  text-align: center;
+  margin-bottom: 16px;
+}
+.round-badge {
+  display: inline-block;
+  background: #2563eb;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 6px 20px;
+  border-radius: 20px;
+  transition: all 0.4s;
+}
+.round-badge.round-done {
+  background: #10b981;
+}
+
+/* Stage */
+.stage-wrapper {
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.stage {
+  width: 100%;
+  height: 520px;
+  position: relative;
+}
+
+/* Central Brain */
+.brain-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+  cursor: pointer;
+}
+.brain-center:hover { transform: translate(-50%, -50%) scale(1.05); }
+.brain-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-top: 4px;
+}
+
+/* LLM Cloud */
+.llm-cloud {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+}
+.llm-cloud svg { filter: drop-shadow(0 4px 12px rgba(37,99,235,0.15)); }
+.llm-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-top: 2px;
+}
+
+/* Side panels */
+.side-panel {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 200px;
+  z-index: 5;
+}
+.side-panel.left { left: 16px; }
+.side-panel.right { right: 16px; }
+
+.panel-box {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  transition: border-color 0.4s, box-shadow 0.4s;
+}
+.panel-box.active {
+  border-color: #7c3aed;
+  box-shadow: 0 4px 20px rgba(124,58,237,0.15);
+}
+.panel-box.active-skills {
+  border-color: #f59e0b;
+  box-shadow: 0 4px 20px rgba(245,158,11,0.15);
+}
+.panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.panel-title .icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: white;
+}
+
+/* User area */
+.user-area {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+}
+.user-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 4px;
+  font-size: 22px;
+}
+.user-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Flow arrows (SVG) */
+.flow-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Message bubbles that appear during animation */
+.msg-float {
+  position: absolute;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  max-width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.4s, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 20;
+  pointer-events: none;
+}
+.msg-float.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.msg-float .tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: white;
+  margin-bottom: 4px;
+}
+
+/* Orb */
+.orb {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  z-index: 15;
+  pointer-events: none;
+  filter: blur(0.5px);
+}
+@keyframes orbGlow {
+  0%, 100% { box-shadow: 0 0 8px 3px currentColor; }
+  50% { box-shadow: 0 0 16px 6px currentColor; }
+}
+
+/* Context window visualization */
+.context-vis {
+  position: absolute;
+  background: #fffbeb;
+  border: 2px solid #fde68a;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 10px;
+  line-height: 1.8;
+  opacity: 0;
+  transition: opacity 0.4s;
+  z-index: 20;
+  font-family: 'Courier New', monospace;
+  max-width: 220px;
+}
+.context-vis.visible { opacity: 1; }
+.ctx-line { color: #92400e; }
+.ctx-line.highlight { color: #2563eb; font-weight: 700; }
+
+/* Tool result */
+.tool-result {
+  position: absolute;
+  background: #1e293b;
+  color: #a5f3fc;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 10px;
+  font-family: 'Courier New', monospace;
+  line-height: 1.6;
+  max-width: 200px;
+  opacity: 0;
+  transition: opacity 0.4s;
+  z-index: 20;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+.tool-result.visible { opacity: 1; }
+
+/* Phase description */
+.phase-desc {
+  text-align: center;
+  margin-bottom: 16px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.phase-desc .phase-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+.phase-desc .phase-text {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 600px;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.btn {
+  border: none;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: #2563eb; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: #f1f5f9; color: #475569; }
+.btn-secondary:hover { background: #e2e8f0; }
+.btn-success { background: #10b981; color: white; }
+.btn-success:hover { background: #059669; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Loop ring animation */
+@keyframes ringPulse {
+  0%, 100% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -60; }
+}
+
+/* Idle bounce */
+@keyframes idleBounce {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+  50% { transform: translate(-50%, -50%) translateY(-5px); }
+}
+.brain-center.idle { animation: idleBounce 2s ease-in-out infinite; }
+
+/* History panel */
+.history-panel {
+  position: absolute;
+  bottom: 70px;
+  right: 16px;
+  width: 200px;
+  z-index: 5;
+}
+.history-box {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.history-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+.history-item {
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  background: #f8fafc;
+  color: #475569;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.history-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+.history-item .round-tag {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 3px;
+  color: white;
+  background: #2563eb;
+  margin-right: 4px;
+}
+.history-item .round-tag.green { background: #10b981; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>Brain 的思考循环</h1>
+    <p class="subtitle">OpenClaw 核心机制：LLM 只输出 JSON 描述"想做什么"，Brain 负责执行并循环喂回结果</p>
+  </div>
+
+  <div class="round-counter">
+    <span class="round-badge" id="roundBadge">准备开始</span>
+  </div>
+
+  <div class="stage-wrapper">
+    <div class="stage" id="stage">
+      <!-- Flow SVG -->
+      <svg class="flow-svg" id="flowSvg" viewBox="0 0 1048 520">
+        <defs>
+          <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#93c5fd"/>
+          </marker>
+          <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#c4b5fd"/>
+          </marker>
+          <marker id="arrowAmber" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#fcd34d"/>
+          </marker>
+          <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#6ee7b7"/>
+          </marker>
+        </defs>
+        <!-- Static guide arrows -->
+        <!-- User → Brain -->
+        <path d="M524,440 L524,340" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowBlue)" opacity="0.3" id="pathUserBrain"/>
+        <!-- Brain → LLM -->
+        <path d="M490,240 L490,100" stroke="#93c5fd" stroke-width="2" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowBlue)" opacity="0.3" id="pathBrainLLM"/>
+        <!-- LLM → Brain -->
+        <path d="M558,100 L558,240" stroke="#93c5fd" stroke-width="2" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowBlue)" opacity="0.3" id="pathLLMBrain"/>
+        <!-- Brain → Memory -->
+        <path d="M420,280 L230,280" stroke="#c4b5fd" stroke-width="2" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowPurple)" opacity="0.3" id="pathBrainMem"/>
+        <!-- Brain → Skills -->
+        <path d="M628,280 L820,280" stroke="#fcd34d" stroke-width="2" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowAmber)" opacity="0.3" id="pathBrainSkill"/>
+        <!-- Brain → User (response) -->
+        <path d="M524,340 L524,440" stroke="#6ee7b7" stroke-width="2" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowGreen)" opacity="0.3" id="pathBrainUser"/>
+      </svg>
+
+      <!-- LLM Cloud -->
+      <div class="llm-cloud" id="llmCloud">
+        <svg width="120" height="70" viewBox="0 0 120 70" fill="none">
+          <ellipse cx="60" cy="44" rx="50" ry="22" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+          <ellipse cx="40" cy="34" rx="28" ry="20" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+          <ellipse cx="80" cy="32" rx="24" ry="18" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+          <ellipse cx="60" cy="26" rx="20" ry="14" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+          <text x="60" y="48" text-anchor="middle" font-size="14" fill="#2563eb" font-weight="900" font-family="Noto Sans SC">LLM</text>
+          <text x="60" y="60" text-anchor="middle" font-size="9" fill="#60a5fa" font-weight="500" font-family="Noto Sans SC">大语言模型</text>
+        </svg>
+      </div>
+
+      <!-- Memory Panel (left) -->
+      <div class="side-panel left">
+        <div class="panel-box" id="memoryPanel">
+          <div class="panel-title">
+            <span class="icon" style="background:#7c3aed;">📚</span>
+            <span style="color:#7c3aed;">Memory 记忆</span>
+          </div>
+          <div style="font-size:11px; color:#64748b; line-height:1.6;" id="memoryContent">
+            <div>BM25 关键词搜索</div>
+            <div>向量语义检索</div>
+            <div style="margin-top:6px; color:#94a3b8;">等待查询...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skills Panel (right) -->
+      <div class="side-panel right" style="top:35%; transform:translateY(-50%);">
+        <div class="panel-box" id="skillsPanel">
+          <div class="panel-title">
+            <span class="icon" style="background:#f59e0b;">🔧</span>
+            <span style="color:#f59e0b;">Skills 工具</span>
+          </div>
+          <div style="font-size:11px; color:#64748b; line-height:1.6;" id="skillsContent">
+            <div>Grep · HTTP · SQL</div>
+            <div>FileRead · Calculate</div>
+            <div style="margin-top:6px; color:#94a3b8;">等待调用...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Panel (right bottom) -->
+      <div class="history-panel" id="historyPanel">
+        <div class="history-box">
+          <div class="history-title">循环历史</div>
+          <div id="historyList"></div>
+        </div>
+      </div>
+
+      <!-- Central Brain -->
+      <div class="brain-center idle" id="brainCenter">
+        <svg width="90" height="110" viewBox="0 0 80 100" fill="none">
+          <circle cx="40" cy="50" r="46" fill="#2563eb" opacity="0.08"/>
+          <rect x="22" y="48" width="36" height="36" rx="12" fill="#2563eb"/>
+          <rect x="26" y="52" width="28" height="28" rx="8" fill="#1d4ed8"/>
+          <circle cx="40" cy="28" r="22" fill="#2563eb"/>
+          <circle cx="40" cy="28" r="18" fill="#dbeafe"/>
+          <polygon points="40,2 18,14 40,22 62,14" fill="#1e3a5f"/>
+          <rect x="37" y="6" width="6" height="10" fill="#1e3a5f"/>
+          <line x1="58" y1="14" x2="58" y2="24" stroke="#1e3a5f" stroke-width="1.5"/>
+          <circle cx="58" cy="25" r="2" fill="#fbbf24"/>
+          <circle cx="33" cy="27" r="7" stroke="#1e3a5f" stroke-width="2" fill="none"/>
+          <circle cx="47" cy="27" r="7" stroke="#1e3a5f" stroke-width="2" fill="none"/>
+          <rect x="38" y="25.5" width="4" height="3" rx="1" fill="#1e3a5f"/>
+          <circle cx="33" cy="27" r="2" fill="#1e3a5f"/>
+          <circle cx="47" cy="27" r="2" fill="#1e3a5f"/>
+          <circle cx="30" cy="24" r="1.5" fill="white" opacity="0.6"/>
+          <circle cx="44" cy="24" r="1.5" fill="white" opacity="0.6"/>
+          <path d="M35 35 Q40 39 45 35" stroke="#1e3a5f" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <line x1="24" y1="58" x2="14" y2="72" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+          <line x1="56" y1="58" x2="66" y2="72" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+          <line x1="33" y1="83" x2="30" y2="96" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+          <line x1="47" y1="83" x2="50" y2="96" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+          <ellipse cx="28" cy="97" rx="6" ry="3" fill="#1d4ed8"/>
+          <ellipse cx="52" cy="97" rx="6" ry="3" fill="#1d4ed8"/>
+        </svg>
+        <div class="brain-label">Brain 大脑</div>
+      </div>
+
+      <!-- User -->
+      <div class="user-area" id="userArea">
+        <div class="user-icon">👤</div>
+        <div class="user-label">用户</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase-desc" id="phaseDesc">
+    <div class="phase-title">Agentic Loop：Brain 的核心工作方式</div>
+    <div class="phase-text">Brain 不是调用一次 LLM 就结束，而是循环调用 LLM → 执行工具 → 再调用 LLM... 直到任务完成。每个 Brain 运行在独立的 Session Lane 中（并发=1，single-writer 模式）</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-secondary" id="btnReplay"><span>↺</span> 重播</button>
+    <button class="btn btn-secondary" id="btnPrev"><span>←</span> 上一步</button>
+    <button class="btn btn-primary" id="btnNext">下一步 <span>→</span></button>
+    <button class="btn btn-success" id="btnAuto"><span>▶</span> 自动播放</button>
+  </div>
+</div>
+
+<script>
+const stage = document.getElementById('stage');
+const overlays = [];
+let currentStep = 0;
+const totalSteps = 10;
+let autoTimer = null;
+let isAuto = false;
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function addOverlay(html) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  const el = wrap.firstElementChild;
+  stage.appendChild(el);
+  overlays.push(el);
+  return el;
+}
+
+function clearOverlays() {
+  overlays.forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
+  overlays.length = 0;
+  document.getElementById('memoryPanel').classList.remove('active');
+  document.getElementById('skillsPanel').classList.remove('active-skills');
+  document.getElementById('memoryContent').innerHTML = '<div>BM25 关键词搜索</div><div>向量语义检索</div><div style="margin-top:6px; color:#94a3b8;">等待查询...</div>';
+  document.getElementById('skillsContent').innerHTML = '<div>Grep · HTTP · SQL</div><div>FileRead · Calculate</div><div style="margin-top:6px; color:#94a3b8;">等待调用...</div>';
+  document.getElementById('historyList').innerHTML = '';
+  // Reset arrow opacity
+  document.querySelectorAll('.flow-svg path').forEach(p => p.setAttribute('opacity', '0.3'));
+}
+
+function highlightPath(id, opacity) {
+  const el = document.getElementById(id);
+  if (el) el.setAttribute('opacity', opacity || '0.8');
+}
+
+function animateOrb(fromX, fromY, toX, toY, color, duration) {
+  return new Promise(resolve => {
+    const orb = addOverlay(`<div class="orb" style="background:${color}; color:${color}; box-shadow:0 0 10px 4px ${color}; opacity:1;"></div>`);
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      orb.style.left = (fromX + (toX - fromX) * ease - 8) + 'px';
+      orb.style.top = (fromY + Math.sin(t * Math.PI) * -30 + (toY - fromY) * ease - 8) + 'px';
+      if (t < 1) requestAnimationFrame(tick);
+      else {
+        if (orb.parentNode) orb.parentNode.removeChild(orb);
+        resolve();
+      }
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+function addHistory(round, text, isGreen) {
+  const list = document.getElementById('historyList');
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  item.innerHTML = `<span class="round-tag ${isGreen ? 'green' : ''}">${round}</span>${text}`;
+  list.appendChild(item);
+  requestAnimationFrame(() => item.classList.add('visible'));
+}
+
+const phaseInfo = [
+  { title: 'Agentic Loop：Brain 的核心工作方式', text: 'Brain 不是调用一次 LLM 就结束，而是循环调用 LLM → 执行工具 → 再调用 LLM... 直到任务完成。每个 Brain 运行在独立的 Session Lane 中（并发=1，single-writer 模式）' },
+  { title: '第 1 步：用户消息到达 Session Lane', text: '用户发送"帮我分析项目里的安全漏洞，并生成修复方案"。Gateway 经 Channel Bridge → Session Resolution → enqueueCommandInLane 将消息路由到该用户的 Session Lane' },
+  { title: '第 2 步：Brain 构建上下文', text: 'Brain 收到消息后，先查询 Memory（BM25 + 向量搜索）获取相关历史记录，组装成 Prompt 上下文（system prompt + memory + user message + tools 列表）' },
+  { title: '第 3 步：第一次调用 LLM', text: 'Brain 把上下文发送给 LLM，LLM 分析后返回 tool_call JSON（不是直接执行！），指定需要先用 Grep 搜索代码中的安全隐患' },
+  { title: '第 4 步：执行工具 (循环第 1 轮)', text: 'Brain 解析 tool_call，派发给 Skills 组件执行 Grep 搜索（有权限控制和超时保护），将 tool_result 收回追加到上下文' },
+  { title: '第 5 步：再次调用 LLM (循环第 2 轮)', text: 'Brain 把上下文（含第 1 轮的 tool_call + tool_result）喂回 LLM。LLM 看到 Grep 结果后决定还需要用 HTTP 工具查询漏洞数据库' },
+  { title: '第 6 步：执行第二个工具', text: 'Brain 再次派发给 Skills 执行 HTTP 请求，查询 CVE 漏洞数据库。整个过程中 Session Lane 保证只有这一个 Brain 在操作会话状态' },
+  { title: '第 7 步：第三次调用 LLM (循环第 3 轮)', text: 'Brain 把漏洞数据（tool_result）追加到上下文喂回 LLM，LLM 综合所有信息（Grep 结果 + CVE 数据 + Memory），生成最终报告' },
+  { title: '第 8 步：LLM 返回最终文本', text: 'LLM 不再返回 tool_call，而是返回了纯文本回复 — 循环结束！关键判断条件：response.type !== "tool_call"' },
+  { title: '第 9 步：返回用户', text: 'Brain 把最终结果交给 Gateway，Gateway 通过 Channel Bridge 发送回用户原始渠道。Session Lane 的这次任务出队，可以处理下一条消息了' },
+  { title: '总结：Agentic Loop 的本质', text: 'LLM 不能直接执行工具，它只输出结构化 JSON 描述"想做什么"。Brain 负责执行并把结果喂回去。复杂任务需要多轮：LLM 看到上一轮结果后才能决定下一步' },
+];
+
+function updateDesc() {
+  const info = phaseInfo[currentStep];
+  document.getElementById('phaseDesc').innerHTML = `
+    <div class="phase-title">${info.title}</div>
+    <div class="phase-text">${info.text}</div>
+  `;
+}
+
+function updateRoundBadge(text, done) {
+  const badge = document.getElementById('roundBadge');
+  badge.textContent = text;
+  badge.classList.toggle('round-done', !!done);
+}
+
+function updateButtons() {
+  document.getElementById('btnPrev').disabled = currentStep <= 0;
+  document.getElementById('btnNext').disabled = currentStep >= totalSteps;
+}
+
+// Step implementations
+async function showStep(step) {
+  if (step === 0) {
+    updateRoundBadge('准备开始');
+    return;
+  }
+
+  if (step >= 1) await step1();
+  if (step >= 2) await step2();
+  if (step >= 3) await step3();
+  if (step >= 4) await step4();
+  if (step >= 5) await step5();
+  if (step >= 6) await step6();
+  if (step >= 7) await step7();
+  if (step >= 8) await step8();
+  if (step >= 9) await step9();
+  if (step >= 10) await step10();
+}
+
+async function step1() {
+  updateRoundBadge('消息到达');
+  highlightPath('pathUserBrain', '0.8');
+  const msg = addOverlay(`
+    <div class="msg-float" style="bottom:130px; left:50%; transform:translateX(-50%) scale(0.8);">
+      <div class="tag" style="background:#475569;">用户消息</div>
+      <div style="color:#1e293b;">帮我分析项目里的安全漏洞，<br>并生成修复方案</div>
+    </div>
+  `);
+  await wait(100);
+  msg.classList.add('visible');
+  await animateOrb(524, 440, 524, 300, '#64748b', 600);
+}
+
+async function step2() {
+  updateRoundBadge('构建上下文');
+  highlightPath('pathBrainMem', '0.8');
+  document.getElementById('memoryPanel').classList.add('active');
+
+  await animateOrb(440, 280, 220, 280, '#7c3aed', 500);
+  document.getElementById('memoryContent').innerHTML = `
+    <div style="color:#7c3aed; font-weight:700;">检索中...</div>
+    <div>🔍 "安全" → 2 条历史</div>
+    <div>🔍 "漏洞" → 1 条历史</div>
+    <div style="color:#10b981; margin-top:4px;">✓ 已返回上下文</div>
+  `;
+  await animateOrb(220, 280, 440, 280, '#7c3aed', 500);
+  addHistory('记忆', '检索到 3 条相关历史', false);
+
+  const ctx = addOverlay(`
+    <div class="context-vis" style="top:180px; left:380px;">
+      <div style="color:#92400e; font-weight:700; margin-bottom:4px;">📋 上下文组装</div>
+      <div class="ctx-line">system: "你是安全分析专家..."</div>
+      <div class="ctx-line">memory: [3条历史记录]</div>
+      <div class="ctx-line highlight">user: "帮我分析安全漏洞..."</div>
+      <div class="ctx-line">tools: [Grep, HTTP, SQL...]</div>
+    </div>
+  `);
+  await wait(200);
+  ctx.classList.add('visible');
+}
+
+async function step3() {
+  updateRoundBadge('循环第 1 轮 — 调用 LLM');
+  highlightPath('pathBrainLLM', '0.8');
+  await animateOrb(500, 260, 500, 80, '#2563eb', 500);
+
+  const resp = addOverlay(`
+    <div class="msg-float" style="top:90px; left:560px;">
+      <div class="tag" style="background:#2563eb;">LLM 返回</div>
+      <div style="color:#1e293b; font-family:'Courier New',monospace; font-size:10px;">
+        {<br>
+        &nbsp;&nbsp;"type": "tool_call",<br>
+        &nbsp;&nbsp;"tool": "Grep",<br>
+        &nbsp;&nbsp;"args": {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;"pattern": "eval|exec|innerHTML",<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;"path": "src/"<br>
+        &nbsp;&nbsp;}<br>
+        }
+      </div>
+    </div>
+  `);
+  highlightPath('pathLLMBrain', '0.8');
+  await animateOrb(540, 80, 540, 260, '#2563eb', 500);
+  await wait(100);
+  resp.classList.add('visible');
+  addHistory('R1', 'LLM → tool_call: Grep', false);
+}
+
+async function step4() {
+  updateRoundBadge('循环第 1 轮 — 执行工具');
+  highlightPath('pathBrainSkill', '0.8');
+  document.getElementById('skillsPanel').classList.add('active-skills');
+  await animateOrb(620, 280, 820, 280, '#f59e0b', 500);
+
+  document.getElementById('skillsContent').innerHTML = `
+    <div style="color:#f59e0b; font-weight:700;">⚡ 执行 Grep</div>
+    <div style="font-family:'Courier New',monospace; font-size:10px; color:#92400e;">
+      grep "eval|exec" src/
+    </div>
+    <div style="color:#10b981; margin-top:4px;">✓ 找到 5 处隐患</div>
+  `;
+
+  const result = addOverlay(`
+    <div class="tool-result" style="top:170px; right:20px;">
+      <div style="color:#fbbf24;">$ grep -rn "eval|exec" src/</div>
+      <div>src/api.ts:12: eval(userInput)</div>
+      <div>src/db.ts:34: exec(query)</div>
+      <div>src/render.ts:8: innerHTML=data</div>
+      <div style="color:#34d399; margin-top:4px;">共 5 处安全隐患</div>
+    </div>
+  `);
+  await wait(200);
+  result.classList.add('visible');
+  await animateOrb(820, 280, 620, 280, '#f59e0b', 500);
+  addHistory('R1', 'Grep 返回 5 处隐患', false);
+}
+
+async function step5() {
+  updateRoundBadge('循环第 2 轮 — 调用 LLM');
+  highlightPath('pathBrainLLM', '0.8');
+
+  const feedCtx = addOverlay(`
+    <div class="context-vis" style="top:160px; left:360px;">
+      <div style="color:#92400e; font-weight:700; margin-bottom:4px;">📋 追加工具结果</div>
+      <div class="ctx-line">... 之前的上下文 ...</div>
+      <div class="ctx-line highlight">assistant: tool_call(Grep)</div>
+      <div class="ctx-line highlight">tool_result: "5处隐患..."</div>
+    </div>
+  `);
+  await wait(200);
+  feedCtx.classList.add('visible');
+
+  await animateOrb(500, 260, 500, 80, '#2563eb', 500);
+
+  const resp = addOverlay(`
+    <div class="msg-float" style="top:90px; left:340px;">
+      <div class="tag" style="background:#2563eb;">LLM 返回</div>
+      <div style="color:#1e293b; font-family:'Courier New',monospace; font-size:10px;">
+        {<br>
+        &nbsp;&nbsp;"type": "tool_call",<br>
+        &nbsp;&nbsp;"tool": "HTTP",<br>
+        &nbsp;&nbsp;"args": {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;"url": "cve.mitre.org/...",<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;"method": "GET"<br>
+        &nbsp;&nbsp;}<br>
+        }
+      </div>
+    </div>
+  `);
+  highlightPath('pathLLMBrain', '0.8');
+  await animateOrb(540, 80, 540, 260, '#2563eb', 500);
+  await wait(100);
+  resp.classList.add('visible');
+  addHistory('R2', 'LLM → tool_call: HTTP', false);
+}
+
+async function step6() {
+  updateRoundBadge('循环第 2 轮 — 执行工具');
+  highlightPath('pathBrainSkill', '0.8');
+  document.getElementById('skillsPanel').classList.add('active-skills');
+  await animateOrb(620, 280, 820, 280, '#f59e0b', 500);
+
+  document.getElementById('skillsContent').innerHTML = `
+    <div style="color:#f59e0b; font-weight:700;">⚡ 执行 HTTP</div>
+    <div style="font-family:'Courier New',monospace; font-size:10px; color:#92400e;">
+      GET cve.mitre.org/...
+    </div>
+    <div style="color:#10b981; margin-top:4px;">✓ 获取 CVE 数据</div>
+  `;
+
+  const result = addOverlay(`
+    <div class="tool-result" style="top:320px; right:20px;">
+      <div style="color:#fbbf24;">HTTP 200 OK</div>
+      <div>CVE-2024-1234: eval 注入</div>
+      <div>CVE-2024-5678: XSS 漏洞</div>
+      <div style="color:#34d399; margin-top:4px;">匹配 3 个已知 CVE</div>
+    </div>
+  `);
+  await wait(200);
+  result.classList.add('visible');
+  await animateOrb(820, 280, 620, 280, '#f59e0b', 500);
+  addHistory('R2', 'HTTP 返回 3 个 CVE', false);
+}
+
+async function step7() {
+  updateRoundBadge('循环第 3 轮 — 调用 LLM');
+  highlightPath('pathBrainLLM', '0.8');
+
+  const feedCtx = addOverlay(`
+    <div class="context-vis" style="top:160px; left:340px;">
+      <div style="color:#92400e; font-weight:700; margin-bottom:4px;">📋 再次追加结果</div>
+      <div class="ctx-line">... 之前全部上下文 ...</div>
+      <div class="ctx-line highlight">assistant: tool_call(HTTP)</div>
+      <div class="ctx-line highlight">tool_result: "3个CVE..."</div>
+      <div class="ctx-line" style="color:#10b981;">信息已经足够,</div>
+      <div class="ctx-line" style="color:#10b981;">LLM 可以总结了</div>
+    </div>
+  `);
+  await wait(200);
+  feedCtx.classList.add('visible');
+
+  await animateOrb(500, 260, 500, 80, '#2563eb', 500);
+}
+
+async function step8() {
+  updateRoundBadge('循环结束！', true);
+  highlightPath('pathLLMBrain', '0.8');
+
+  const resp = addOverlay(`
+    <div class="msg-float" style="top:100px; left:50%; transform:translateX(-50%) scale(0.8); max-width:320px;">
+      <div class="tag" style="background:#10b981;">LLM 最终回复（纯文本）</div>
+      <div style="color:#1e293b; font-size:11px; line-height:1.7;">
+        <b>安全分析报告：</b><br>
+        发现 5 处代码安全隐患，匹配 3 个已知 CVE：<br>
+        1. src/api.ts:12 — eval 注入 (CVE-2024-1234)<br>
+        2. src/render.ts:8 — XSS (CVE-2024-5678)<br>
+        <b>修复方案：</b>替换 eval 为 JSON.parse，使用 textContent...
+      </div>
+    </div>
+  `);
+  await animateOrb(540, 80, 540, 260, '#10b981', 600);
+  await wait(100);
+  resp.classList.add('visible');
+  addHistory('R3', 'LLM 返回最终文本', true);
+  addHistory('完成', '循环共 3 轮', true);
+}
+
+async function step9() {
+  updateRoundBadge('任务完成 ✓', true);
+  highlightPath('pathBrainUser', '0.8');
+  await animateOrb(524, 300, 524, 440, '#10b981', 600);
+
+  const resp = addOverlay(`
+    <div class="msg-float" style="bottom:80px; left:50%; transform:translateX(-50%) scale(0.8); max-width:280px; border-color:#a7f3d0;">
+      <div class="tag" style="background:#10b981;">发送给用户</div>
+      <div style="color:#1e293b;">安全分析报告已生成！<br>5 处隐患 · 3 个 CVE · 含修复方案</div>
+    </div>
+  `);
+  await wait(100);
+  resp.classList.add('visible');
+}
+
+async function step10() {
+  updateRoundBadge('Agentic Loop 总结', true);
+  const summary = addOverlay(`
+    <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(90deg,#2563eb,#7c3aed,#f59e0b,#10b981); color:white; text-align:center; padding:10px 16px; font-size:12px; font-weight:500; border-radius:0 0 16px 16px; opacity:0; transition:opacity 0.6s; z-index:20;">
+      Agentic Loop: 用户消息 → Brain 构建上下文 → <b>LLM ↔ 工具调用 循环 N 轮</b> → 最终文本 → 返回用户 | 本次共 3 轮
+    </div>
+  `);
+  await wait(200);
+  summary.style.opacity = '1';
+}
+
+async function goToStep(step) {
+  if (step < 0) step = 0;
+  if (step > totalSteps) step = totalSteps;
+  clearOverlays();
+  currentStep = step;
+  updateDesc();
+  updateButtons();
+  await showStep(step);
+}
+
+// Controls
+document.getElementById('btnNext').addEventListener('click', () => {
+  if (currentStep < totalSteps) { stopAuto(); goToStep(currentStep + 1); }
+});
+document.getElementById('btnPrev').addEventListener('click', () => {
+  if (currentStep > 0) { stopAuto(); goToStep(currentStep - 1); }
+});
+document.getElementById('btnReplay').addEventListener('click', () => {
+  stopAuto(); goToStep(0);
+});
+document.getElementById('btnAuto').addEventListener('click', () => {
+  if (isAuto) stopAuto(); else startAuto();
+});
+
+function startAuto() {
+  isAuto = true;
+  const btn = document.getElementById('btnAuto');
+  btn.innerHTML = '<span>⏸</span> 暂停';
+  btn.classList.remove('btn-success');
+  btn.classList.add('btn-secondary');
+  if (currentStep >= totalSteps) goToStep(0);
+  autoTick();
+}
+function autoTick() {
+  if (!isAuto || currentStep >= totalSteps) { stopAuto(); return; }
+  autoTimer = setTimeout(async () => {
+    if (!isAuto) return;
+    await goToStep(currentStep + 1);
+    autoTick();
+  }, 2500);
+}
+function stopAuto() {
+  isAuto = false;
+  if (autoTimer) clearTimeout(autoTimer);
+  autoTimer = null;
+  const btn = document.getElementById('btnAuto');
+  btn.innerHTML = '<span>▶</span> 自动播放';
+  btn.classList.remove('btn-secondary');
+  btn.classList.add('btn-success');
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); if (currentStep < totalSteps) { stopAuto(); goToStep(currentStep + 1); } }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); if (currentStep > 0) { stopAuto(); goToStep(currentStep - 1); } }
+});
+
+// Init
+updateDesc();
+updateButtons();
+</script>
+</body>
+</html>

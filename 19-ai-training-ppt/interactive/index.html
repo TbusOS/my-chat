@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拆开 AI 看看 — 交互动画导航</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050a18;
+  --bg2: #0d1628;
+  --bg3: #111c35;
+  --text: #e8ecf4;
+  --muted: #7a8599;
+  --blue: #4a9eff;
+  --gold: #ffd666;
+  --green: #4ade80;
+  --purple: #a78bfa;
+  --pink: #f472b6;
+  --cyan: #22d3ee;
+  --orange: #fb923c;
+  --font: 'Noto Sans SC', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 0 0 60px;
+}
+
+/* ── Header ── */
+header {
+  text-align: center;
+  padding: 60px 20px 40px;
+  background: linear-gradient(180deg, #0a1525 0%, var(--bg) 100%);
+  border-bottom: 1px solid #1a2a4a;
+  position: relative;
+  overflow: hidden;
+}
+
+header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(74,158,255,.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+header h1 {
+  font-size: clamp(1.6rem, 4vw, 2.8rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 50%, var(--pink) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+  position: relative;
+}
+
+header p {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  position: relative;
+}
+
+.badge-count {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 4px 14px;
+  background: rgba(74,158,255,.15);
+  border: 1px solid rgba(74,158,255,.3);
+  border-radius: 20px;
+  color: var(--blue);
+  font-size: 0.82rem;
+  font-family: var(--mono);
+  position: relative;
+}
+
+/* ── Main container ── */
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 20px 0;
+}
+
+/* ── Section ── */
+.section {
+  margin-bottom: 44px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.section-icon {
+  font-size: 1.2rem;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, currentColor 0%, transparent 100%);
+  opacity: 0.2;
+}
+
+/* Section color themes */
+.theme-blue  .section-title { color: var(--blue); }
+.theme-blue  .section-line  { background: linear-gradient(90deg, var(--blue) 0%, transparent 100%); }
+
+.theme-green .section-title { color: var(--green); }
+.theme-green .section-line  { background: linear-gradient(90deg, var(--green) 0%, transparent 100%); }
+
+.theme-purple .section-title { color: var(--purple); }
+.theme-purple .section-line  { background: linear-gradient(90deg, var(--purple) 0%, transparent 100%); }
+
+.theme-gold .section-title { color: var(--gold); }
+.theme-gold .section-line  { background: linear-gradient(90deg, var(--gold) 0%, transparent 100%); }
+
+.theme-cyan .section-title { color: var(--cyan); }
+.theme-cyan .section-line  { background: linear-gradient(90deg, var(--cyan) 0%, transparent 100%); }
+
+.theme-pink .section-title { color: var(--pink); }
+.theme-pink .section-line  { background: linear-gradient(90deg, var(--pink) 0%, transparent 100%); }
+
+/* ── Card grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+/* ── Card ── */
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg2);
+  border: 1px solid #1a2a4a;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text);
+  transition: background .18s, border-color .18s, transform .18s;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity .18s;
+}
+
+.card:hover {
+  background: var(--bg3);
+  transform: translateY(-2px);
+}
+
+/* card accent per theme */
+.theme-blue   .card:hover { border-color: rgba(74,158,255,.5); }
+.theme-blue   .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(74,158,255,.07) 0%, transparent 70%); opacity:1; }
+
+.theme-green  .card:hover { border-color: rgba(74,222,128,.5); }
+.theme-green  .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(74,222,128,.07) 0%, transparent 70%); opacity:1; }
+
+.theme-purple .card:hover { border-color: rgba(167,139,250,.5); }
+.theme-purple .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(167,139,250,.07) 0%, transparent 70%); opacity:1; }
+
+.theme-gold   .card:hover { border-color: rgba(255,214,102,.5); }
+.theme-gold   .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,214,102,.07) 0%, transparent 70%); opacity:1; }
+
+.theme-cyan   .card:hover { border-color: rgba(34,211,238,.5); }
+.theme-cyan   .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34,211,238,.07) 0%, transparent 70%); opacity:1; }
+
+.theme-pink   .card:hover { border-color: rgba(244,114,182,.5); }
+.theme-pink   .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(244,114,182,.07) 0%, transparent 70%); opacity:1; }
+
+.card-num {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.card-text {}
+
+.card-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.card-sub {
+  margin-top: 3px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── Footer ── */
+footer {
+  text-align: center;
+  margin-top: 60px;
+  padding: 20px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  border-top: 1px solid #1a2a4a;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>拆开 AI 看看</h1>
+  <p>27 个交互动画，从大模型到工程实践</p>
+  <span class="badge-count">27 个交互动画</span>
+</header>
+
+<main>
+
+  <!-- 第一章：AI 基础 -->
+  <div class="section theme-blue">
+    <div class="section-header">
+      <span class="section-icon">🧠</span>
+      <span class="section-title">AI 基础概念</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="01-AI进化之路.html">
+        <span class="card-num">01</span>
+        <div class="card-text">
+          <div class="card-title">AI 进化之路</div>
+          <div class="card-sub">从语言模型到超级智能</div>
+        </div>
+      </a>
+      <a class="card" href="02-AI语言探索.html">
+        <span class="card-num">02</span>
+        <div class="card-text">
+          <div class="card-title">AI 语言探索</div>
+          <div class="card-sub">AI 说什么「语言」？</div>
+        </div>
+      </a>
+      <a class="card" href="03-大模型参数实验室.html">
+        <span class="card-num">03</span>
+        <div class="card-text">
+          <div class="card-title">大模型参数实验室</div>
+          <div class="card-sub">temperature、top-p 等参数可视化调节</div>
+        </div>
+      </a>
+      <a class="card" href="04-大模型API对比.html">
+        <span class="card-num">04</span>
+        <div class="card-text">
+          <div class="card-title">大模型 API 对比</div>
+          <div class="card-sub">GPT vs Claude vs Gemini</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 第二章：Agent -->
+  <div class="section theme-green">
+    <div class="section-header">
+      <span class="section-icon">🤖</span>
+      <span class="section-title">Agent 与多智能体</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="05-Agent工作故事.html">
+        <span class="card-num">05</span>
+        <div class="card-text">
+          <div class="card-title">Agent 工作故事</div>
+          <div class="card-sub">AI Agent 是怎么工作的？</div>
+        </div>
+      </a>
+      <a class="card" href="06-Agent工作流程.html">
+        <span class="card-num">06</span>
+        <div class="card-text">
+          <div class="card-title">Agent 工作流程</div>
+          <div class="card-sub">规划 → 执行 → 反思循环</div>
+        </div>
+      </a>
+      <a class="card" href="07-多Agent协作.html">
+        <span class="card-num">07</span>
+        <div class="card-text">
+          <div class="card-title">多 Agent 协作</div>
+          <div class="card-sub">多智能体分工动画</div>
+        </div>
+      </a>
+      <a class="card" href="08-MCP架构.html">
+        <span class="card-num">08</span>
+        <div class="card-text">
+          <div class="card-title">MCP 架构</div>
+          <div class="card-sub">Model Context Protocol 核心架构</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 第三章：OpenClaw -->
+  <div class="section theme-gold">
+    <div class="section-header">
+      <span class="section-icon">🦞</span>
+      <span class="section-title">OpenClaw 系统</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="09-OpenClaw智能手机类比.html">
+        <span class="card-num">09</span>
+        <div class="card-text">
+          <div class="card-title">OpenClaw 类比</div>
+          <div class="card-sub">OpenClaw = AI 的智能手机</div>
+        </div>
+      </a>
+      <a class="card" href="10-OpenClaw组件协作.html">
+        <span class="card-num">10</span>
+        <div class="card-text">
+          <div class="card-title">五大组件协作</div>
+          <div class="card-sub">OpenClaw 核心组件联动动画</div>
+        </div>
+      </a>
+      <a class="card" href="24-Brain思考循环.html">
+        <span class="card-num">24</span>
+        <div class="card-text">
+          <div class="card-title">Brain 思考循环</div>
+          <div class="card-sub">OpenClaw 核心决策机制</div>
+        </div>
+      </a>
+      <a class="card" href="26-龙虾解剖图.html">
+        <span class="card-num">26</span>
+        <div class="card-text">
+          <div class="card-title">龙虾解剖图</div>
+          <div class="card-sub">OpenClaw 组件即身体</div>
+        </div>
+      </a>
+      <a class="card" href="27-多Lane并发.html">
+        <span class="card-num">27</span>
+        <div class="card-text">
+          <div class="card-title">多 Lane 并发</div>
+          <div class="card-sub">基于 Promise 链的会话隔离队列</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 第四章：Claude Code 机制 -->
+  <div class="section theme-purple">
+    <div class="section-header">
+      <span class="section-icon">⚙️</span>
+      <span class="section-title">Claude Code 机制</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="11-AI编程工具对比.html">
+        <span class="card-num">11</span>
+        <div class="card-text">
+          <div class="card-title">AI 编程工具对比</div>
+          <div class="card-sub">全景对比各类 AI 编程工具</div>
+        </div>
+      </a>
+      <a class="card" href="12-提示词注入攻击.html">
+        <span class="card-num">12</span>
+        <div class="card-text">
+          <div class="card-title">提示词注入攻击</div>
+          <div class="card-sub">AI 最大的安全威胁</div>
+        </div>
+      </a>
+      <a class="card" href="13-SystemPrompt系统提示词.html">
+        <span class="card-num">13</span>
+        <div class="card-text">
+          <div class="card-title">System Prompt</div>
+          <div class="card-sub">系统提示词的作用与机制</div>
+        </div>
+      </a>
+      <a class="card" href="14-Rules项目规则.html">
+        <span class="card-num">14</span>
+        <div class="card-text">
+          <div class="card-title">Rules 项目规则</div>
+          <div class="card-sub">CLAUDE.md 项目级规则配置</div>
+        </div>
+      </a>
+      <a class="card" href="15-ContextWindow上下文窗口.html">
+        <span class="card-num">15</span>
+        <div class="card-text">
+          <div class="card-title">Context Window</div>
+          <div class="card-sub">AI 的记忆鱼缸</div>
+        </div>
+      </a>
+      <a class="card" href="16-Tools工具调用.html">
+        <span class="card-num">16</span>
+        <div class="card-text">
+          <div class="card-title">Tools 工具调用</div>
+          <div class="card-sub">AI 的施工队</div>
+        </div>
+      </a>
+      <a class="card" href="17-Skills技能命令.html">
+        <span class="card-num">17</span>
+        <div class="card-text">
+          <div class="card-title">Skills 技能命令</div>
+          <div class="card-sub">一键施放的技能书</div>
+        </div>
+      </a>
+      <a class="card" href="18-Hooks钩子机制.html">
+        <span class="card-num">18</span>
+        <div class="card-text">
+          <div class="card-title">Hooks 钩子机制</div>
+          <div class="card-sub">自动化的质量关卡</div>
+        </div>
+      </a>
+      <a class="card" href="19-MCP万能插座.html">
+        <span class="card-num">19</span>
+        <div class="card-text">
+          <div class="card-title">MCP 万能插座</div>
+          <div class="card-sub">AI 的即插即用接口</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 第五章：底层技术 -->
+  <div class="section theme-cyan">
+    <div class="section-header">
+      <span class="section-icon">🔬</span>
+      <span class="section-title">底层技术 · 硬件与推理</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="20-上下文窗口成本.html">
+        <span class="card-num">20</span>
+        <div class="card-text">
+          <div class="card-title">上下文窗口成本</div>
+          <div class="card-sub">Token 消耗与计费的真实成本</div>
+        </div>
+      </a>
+      <a class="card" href="21-推理数据流.html">
+        <span class="card-num">21</span>
+        <div class="card-text">
+          <div class="card-title">推理数据流</div>
+          <div class="card-sub">从矩阵运算到硬件全景</div>
+        </div>
+      </a>
+      <a class="card" href="22-AI芯片家族.html">
+        <span class="card-num">22</span>
+        <div class="card-text">
+          <div class="card-title">AI 芯片家族</div>
+          <div class="card-sub">谁在什么时候干活？</div>
+        </div>
+      </a>
+      <a class="card" href="23-AI运行架构全景.html">
+        <span class="card-num">23</span>
+        <div class="card-text">
+          <div class="card-title">AI 运行架构全景</div>
+          <div class="card-sub">从硬件到应用，谁在谁里面？</div>
+        </div>
+      </a>
+      <a class="card" href="25-芯片架构对比.html">
+        <span class="card-num">25</span>
+        <div class="card-text">
+          <div class="card-title">三种芯片架构对比</div>
+          <div class="card-sub">CPU / GPU / NPU 横向对比</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  拆开 AI 看看 · 共 27 个交互动画 · 点击卡片进入动画
+</footer>
+
+</body>
+</html>

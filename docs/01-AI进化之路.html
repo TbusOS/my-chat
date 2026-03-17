@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 进化之路：从语言模型到超级智能</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050a18;
+  --text: #e8ecf4;
+  --muted: #7a8599;
+  --blue: #4a9eff;
+  --gold: #ffd666;
+  --green: #4ade80;
+  --purple: #a78bfa;
+  --pink: #f472b6;
+  --font: 'Noto Sans SC', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ─── Stars background ─── */
+#stars-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ─── Main stage ─── */
+#stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* ─── Character container ─── */
+#character-area {
+  position: relative;
+  width: 600px;
+  height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── SVG character ─── */
+#character-svg {
+  overflow: visible;
+  filter: drop-shadow(0 0 20px rgba(74, 158, 255, 0.3));
+  transition: filter 1s;
+}
+
+/* ─── Scene elements ─── */
+#scene-elements {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* ─── Speech bubbles ─── */
+.bubble {
+  position: absolute;
+  background: rgba(20, 30, 55, 0.9);
+  border: 1px solid rgba(74, 158, 255, 0.3);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 220px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s, transform 0.5s;
+  backdrop-filter: blur(8px);
+}
+.bubble.show { opacity: 1; transform: translateY(0); }
+.bubble.user {
+  background: rgba(74, 158, 255, 0.15);
+  border-color: rgba(74, 158, 255, 0.5);
+}
+.bubble.ai {
+  background: rgba(30, 40, 60, 0.9);
+  border-color: rgba(100, 116, 139, 0.4);
+}
+.bubble::after {
+  content: '';
+  position: absolute;
+  width: 10px; height: 10px;
+  background: inherit;
+  border: inherit;
+  border-top: none; border-left: none;
+  transform: rotate(45deg);
+}
+.bubble.left::after { right: -6px; top: 16px; }
+.bubble.right::after { left: -6px; top: 16px; border: inherit; border-bottom: none; border-right: none; transform: rotate(45deg); }
+
+/* ─── Capability tags ─── */
+.tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  margin: 3px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.4s, transform 0.4s;
+}
+.tag.show { opacity: 1; transform: scale(1); }
+.tag.yes { background: rgba(74, 222, 128, 0.15); color: var(--green); border: 1px solid rgba(74, 222, 128, 0.3); }
+.tag.no { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+/* ─── Caption ─── */
+#caption {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.8s;
+}
+#caption.show { opacity: 1; }
+#caption .main-text {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+#caption .sub-text {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+/* ─── Particle effects ─── */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* ─── Pulse rings ─── */
+.pulse-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(74, 158, 255, 0.6);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ─── Toolbox & tools ─── */
+.toolbox {
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.6s, transform 0.6s;
+}
+.toolbox.show {
+  opacity: 1;
+}
+.tool-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(20, 30, 55, 0.9);
+  border: 1px solid rgba(74, 158, 255, 0.3);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: 8px;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.tool-icon.show { opacity: 1; transform: scale(1); }
+.tool-icon.active {
+  border-color: var(--green);
+  box-shadow: 0 0 15px rgba(74, 222, 128, 0.3);
+}
+
+/* ─── Task panels (Stage 3) ─── */
+.task-panel {
+  position: absolute;
+  background: rgba(15, 22, 40, 0.85);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(6px);
+}
+.task-panel.show { opacity: 1; transform: scale(1); }
+.task-panel .panel-title {
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+/* ─── Cosmic entity (Stage 4) ─── */
+#cosmic-entity {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 0; height: 0;
+  opacity: 0;
+  transition: width 3s, height 3s, opacity 2s;
+}
+#cosmic-entity.show {
+  width: 500px; height: 500px;
+  opacity: 1;
+}
+.cosmic-core {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px; height: 60px;
+  background: radial-gradient(circle, #fff 0%, #a78bfa 40%, transparent 70%);
+  border-radius: 50%;
+  box-shadow: 0 0 60px 30px rgba(167, 139, 250, 0.5),
+              0 0 120px 60px rgba(74, 158, 255, 0.3);
+  animation: cosmicPulse 2s ease-in-out infinite;
+}
+@keyframes cosmicPulse {
+  0%, 100% { box-shadow: 0 0 60px 30px rgba(167,139,250,0.5), 0 0 120px 60px rgba(74,158,255,0.3); }
+  50% { box-shadow: 0 0 80px 40px rgba(167,139,250,0.7), 0 0 160px 80px rgba(74,158,255,0.4); }
+}
+.cosmic-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  border: 1px solid;
+  border-radius: 50%;
+  transform-origin: center center;
+}
+.ring-1 {
+  width: 200px; height: 200px;
+  margin: -100px 0 0 -100px;
+  border-color: rgba(167, 139, 250, 0.3);
+  animation: ringRotate1 8s linear infinite;
+}
+.ring-2 {
+  width: 300px; height: 300px;
+  margin: -150px 0 0 -150px;
+  border-color: rgba(74, 158, 255, 0.2);
+  animation: ringRotate2 12s linear infinite;
+}
+.ring-3 {
+  width: 420px; height: 420px;
+  margin: -210px 0 0 -210px;
+  border-color: rgba(244, 114, 182, 0.15);
+  animation: ringRotate3 16s linear infinite;
+}
+@keyframes ringRotate1 { to { transform: rotate(360deg); } }
+@keyframes ringRotate2 { to { transform: rotate(-360deg); } }
+@keyframes ringRotate3 { to { transform: rotate(360deg); } }
+
+.data-stream {
+  position: absolute;
+  width: 3px; height: 3px;
+  background: var(--blue);
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+/* ─── Floating text fragments (Stage 4) ─── */
+.float-text {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: rgba(167, 139, 250, 0.7);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 1s;
+}
+.float-text.show { opacity: 1; }
+
+/* ─── Scale comparison ─── */
+#scale-compare {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  opacity: 0;
+  transition: opacity 1s;
+}
+#scale-compare.show { opacity: 1; }
+.human-silhouette {
+  width: 12px; height: 30px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 6px 6px 2px 2px;
+  position: relative;
+}
+.human-silhouette::before {
+  content: '';
+  position: absolute;
+  top: -10px; left: 50%;
+  transform: translateX(-50%);
+  width: 8px; height: 8px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 50%;
+}
+.scale-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ─── Bottom timeline ─── */
+#timeline {
+  position: fixed;
+  bottom: 0; left: 0;
+  width: 100%;
+  height: 80px;
+  background: rgba(5, 10, 24, 0.95);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  padding: 0 20px;
+}
+
+.timeline-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: relative;
+}
+
+.tl-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.3s;
+}
+.tl-node:hover { transform: scale(1.05); }
+
+.tl-dot {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: rgba(30, 40, 60, 0.8);
+  border: 2px solid rgba(100, 116, 139, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: all 0.5s;
+}
+.tl-node.active .tl-dot {
+  border-color: var(--blue);
+  color: var(--blue);
+  box-shadow: 0 0 15px rgba(74, 158, 255, 0.4);
+  background: rgba(74, 158, 255, 0.1);
+}
+.tl-node.completed .tl-dot {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.tl-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  text-align: center;
+  white-space: nowrap;
+  transition: color 0.5s;
+}
+.tl-node.active .tl-label { color: var(--blue); }
+.tl-node.completed .tl-label { color: var(--green); }
+.tl-sublabel {
+  font-size: 9px;
+  color: rgba(122, 133, 153, 0.6);
+}
+
+.tl-line {
+  width: 80px; height: 2px;
+  background: rgba(100, 116, 139, 0.2);
+  position: relative;
+  z-index: 1;
+  margin: 0 4px;
+  margin-bottom: 18px;
+}
+.tl-line-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--green), var(--blue));
+  transition: width 1s;
+}
+
+/* ─── Controls ─── */
+#controls {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  gap: 8px;
+}
+
+.ctrl-btn {
+  background: rgba(20, 30, 55, 0.8);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  color: var(--text);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s;
+  backdrop-filter: blur(8px);
+}
+.ctrl-btn:hover {
+  border-color: var(--blue);
+  background: rgba(74, 158, 255, 0.1);
+}
+.ctrl-btn.primary {
+  background: rgba(74, 158, 255, 0.2);
+  border-color: var(--blue);
+}
+
+/* ─── Stage title ─── */
+#stage-title {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 10;
+}
+#stage-title .number {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+#stage-title .name {
+  font-size: 28px;
+  font-weight: 900;
+  margin-top: 2px;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+#stage-title .subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ─── Keyboard hint ─── */
+#key-hint {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 100;
+  font-size: 12px;
+  color: var(--muted);
+}
+.kbd {
+  display: inline-block;
+  background: rgba(30, 40, 60, 0.8);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+}
+
+/* ─── Summary overlay ─── */
+#summary-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(5, 10, 24, 0.92);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s;
+  backdrop-filter: blur(12px);
+}
+#summary-overlay.show { opacity: 1; pointer-events: auto; }
+
+.summary-card {
+  background: rgba(15, 22, 40, 0.95);
+  border: 1px solid rgba(74, 158, 255, 0.2);
+  border-radius: 20px;
+  padding: 40px 50px;
+  max-width: 560px;
+  width: 90%;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+.summary-card h2 {
+  font-size: 26px;
+  font-weight: 900;
+  margin-bottom: 24px;
+  color: var(--text);
+}
+.summary-card .divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(74, 158, 255, 0.4), transparent);
+  margin-bottom: 20px;
+}
+.summary-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+.summary-row .label {
+  font-weight: 700;
+  min-width: 110px;
+  color: var(--blue);
+}
+.summary-row .arrow {
+  color: var(--muted);
+  font-size: 13px;
+}
+.summary-row .detail {
+  color: var(--muted);
+}
+.summary-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 28px;
+  margin-bottom: 12px;
+  color: var(--gold);
+}
+.summary-highlight {
+  background: rgba(74, 158, 255, 0.1);
+  border-left: 3px solid var(--blue);
+  padding: 12px 16px;
+  border-radius: 0 8px 8px 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(232, 236, 244, 0.85);
+}
+.summary-close {
+  margin-top: 24px;
+  text-align: center;
+}
+.summary-close button {
+  background: rgba(74, 158, 255, 0.2);
+  border: 1px solid var(--blue);
+  color: var(--text);
+  padding: 10px 30px;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.summary-close button:hover {
+  background: rgba(74, 158, 255, 0.35);
+}
+
+/* ─── Flash effect ─── */
+#flash {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: white;
+  z-index: 150;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+#flash.on { opacity: 0.7; transition: opacity 0.05s; }
+
+/* ─── Transformation overlay ─── */
+#transform-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold);
+  opacity: 0;
+  transition: opacity 0.6s;
+  z-index: 20;
+  text-align: center;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+#transform-label.show { opacity: 1; }
+
+/* ─── Bob animation ─── */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.bobbing { animation: bob 3s ease-in-out infinite; }
+
+/* ─── Glow pulse ─── */
+@keyframes glowPulse {
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(74,158,255,0.3)); }
+  50% { filter: drop-shadow(0 0 40px rgba(74,158,255,0.6)); }
+}
+
+/* ─── Energy orbit ─── */
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(var(--orbit-r)) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(var(--orbit-r)) rotate(-360deg); }
+}
+
+/* ─── Dissolve particles ─── */
+@keyframes dissolve {
+  0% { opacity: 1; transform: translate(0,0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+}
+
+/* ─── Float up ─── */
+@keyframes floatUp {
+  0% { opacity: 0; transform: translateY(20px); }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-40px); }
+}
+
+/* ─── Stage 3 arm activity ─── */
+@keyframes codeFloat {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  50% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--fx), var(--fy)) scale(1); }
+}
+</style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+
+<div id="stage">
+  <div id="stage-title">
+    <div class="number">STAGE 1 / 4</div>
+    <div class="name">AI（大语言模型）</div>
+    <div class="subtitle">"只有脑子"</div>
+  </div>
+
+  <div id="character-area">
+    <svg id="character-svg" width="80" height="80" viewBox="-60 -60 120 120">
+      <!-- Brain / head -->
+      <g id="svg-head">
+        <circle cx="0" cy="0" r="35" fill="url(#brainGrad)" stroke="rgba(74,158,255,0.4)" stroke-width="2"/>
+        <circle cx="-10" cy="-5" r="4" fill="#fff" class="eye"/>
+        <circle cx="10" cy="-5" r="4" fill="#fff" class="eye"/>
+        <circle cx="-10" cy="-5" r="2" fill="#0a1628" class="pupil"/>
+        <circle cx="10" cy="-5" r="2" fill="#0a1628" class="pupil"/>
+        <!-- Brain wrinkle lines -->
+        <path d="M-15,-20 Q0,-28 15,-20" fill="none" stroke="rgba(74,158,255,0.3)" stroke-width="1.5"/>
+        <path d="M-20,-10 Q-5,-16 5,-10" fill="none" stroke="rgba(74,158,255,0.25)" stroke-width="1"/>
+        <path d="M5,-12 Q15,-18 22,-8" fill="none" stroke="rgba(74,158,255,0.25)" stroke-width="1"/>
+      </g>
+      <!-- Body (hidden initially) -->
+      <g id="svg-body" opacity="0">
+        <rect x="-18" y="38" width="36" height="50" rx="10" fill="url(#bodyGrad)" stroke="rgba(74,158,255,0.3)" stroke-width="1.5"/>
+      </g>
+      <!-- Arms (hidden initially) -->
+      <g id="svg-arms" opacity="0">
+        <g id="arm-left">
+          <rect x="-50" y="42" width="30" height="12" rx="6" fill="url(#bodyGrad)" stroke="rgba(74,158,255,0.3)" stroke-width="1.5"/>
+          <circle cx="-54" cy="48" r="7" fill="url(#bodyGrad)" stroke="rgba(74,158,255,0.3)" stroke-width="1.5"/>
+        </g>
+        <g id="arm-right">
+          <rect x="20" y="42" width="30" height="12" rx="6" fill="url(#bodyGrad)" stroke="rgba(74,158,255,0.3)" stroke-width="1.5"/>
+          <circle cx="54" cy="48" r="7" fill="url(#bodyGrad)" stroke="rgba(74,158,255,0.3)" stroke-width="1.5"/>
+        </g>
+      </g>
+      <!-- Extra arms for AGI (hidden initially) -->
+      <g id="svg-extra-arms" opacity="0">
+        <g id="arm-left-upper">
+          <rect x="-55" y="28" width="30" height="10" rx="5" fill="url(#goldGrad)" stroke="rgba(255,214,102,0.4)" stroke-width="1.5" transform="rotate(-20 -40 33)"/>
+          <circle cx="-58" cy="26" r="6" fill="url(#goldGrad)" stroke="rgba(255,214,102,0.4)" stroke-width="1.5"/>
+        </g>
+        <g id="arm-right-upper">
+          <rect x="25" y="28" width="30" height="10" rx="5" fill="url(#goldGrad)" stroke="rgba(255,214,102,0.4)" stroke-width="1.5" transform="rotate(20 40 33)"/>
+          <circle cx="58" cy="26" r="6" fill="url(#goldGrad)" stroke="rgba(255,214,102,0.4)" stroke-width="1.5"/>
+        </g>
+      </g>
+      <!-- Legs (hidden initially) -->
+      <g id="svg-legs" opacity="0">
+        <rect x="-14" y="90" width="12" height="30" rx="6" fill="url(#bodyGrad)" stroke="rgba(74,158,255,0.3)" stroke-width="1.5"/>
+        <rect x="2" y="90" width="12" height="30" rx="6" fill="url(#bodyGrad)" stroke="rgba(74,158,255,0.3)" stroke-width="1.5"/>
+      </g>
+      <!-- Halo (hidden initially) -->
+      <g id="svg-halo" opacity="0">
+        <ellipse cx="0" cy="-42" rx="28" ry="8" fill="none" stroke="rgba(255,214,102,0.6)" stroke-width="2"/>
+        <ellipse cx="0" cy="-42" rx="28" ry="8" fill="none" stroke="rgba(255,214,102,0.3)" stroke-width="5" filter="blur(3px)"/>
+      </g>
+      <!-- Aura (hidden initially) -->
+      <g id="svg-aura" opacity="0">
+        <circle cx="0" cy="30" r="80" fill="none" stroke="rgba(255,214,102,0.1)" stroke-width="30" filter="blur(15px)"/>
+      </g>
+      <!-- Gradients -->
+      <defs>
+        <radialGradient id="brainGrad" cx="40%" cy="35%">
+          <stop offset="0%" stop-color="#6bb5ff"/>
+          <stop offset="100%" stop-color="#1a3a5c"/>
+        </radialGradient>
+        <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4a9eff"/>
+          <stop offset="100%" stop-color="#1a3a5c"/>
+        </linearGradient>
+        <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffd666"/>
+          <stop offset="100%" stop-color="#b8860b"/>
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <div id="scene-elements"></div>
+    <div id="cosmic-entity">
+      <div class="cosmic-core"></div>
+      <div class="cosmic-ring ring-1"></div>
+      <div class="cosmic-ring ring-2"></div>
+      <div class="cosmic-ring ring-3"></div>
+    </div>
+  </div>
+
+  <div id="caption">
+    <div class="main-text"></div>
+    <div class="sub-text"></div>
+  </div>
+</div>
+
+<div id="flash"></div>
+<div id="transform-label"></div>
+
+<!-- Timeline -->
+<div id="timeline">
+  <div class="timeline-track">
+    <div class="tl-node active" data-stage="1" onclick="jumpToStage(1)">
+      <div class="tl-dot">AI</div>
+      <div class="tl-label">
+        脑子
+        <div class="tl-sublabel">（现在）</div>
+      </div>
+    </div>
+    <div class="tl-line"><div class="tl-line-fill" id="tl-fill-1"></div></div>
+    <div class="tl-node" data-stage="2" onclick="jumpToStage(2)">
+      <div class="tl-dot">Agent</div>
+      <div class="tl-label">
+        手脚
+        <div class="tl-sublabel">（现在）</div>
+      </div>
+    </div>
+    <div class="tl-line"><div class="tl-line-fill" id="tl-fill-2"></div></div>
+    <div class="tl-node" data-stage="3" onclick="jumpToStage(3)">
+      <div class="tl-dot">AGI</div>
+      <div class="tl-label">
+        全能
+        <div class="tl-sublabel">（未来5-20年?）</div>
+      </div>
+    </div>
+    <div class="tl-line"><div class="tl-line-fill" id="tl-fill-3"></div></div>
+    <div class="tl-node" data-stage="4" onclick="jumpToStage(4)">
+      <div class="tl-dot">ASI</div>
+      <div class="tl-label">
+        神
+        <div class="tl-sublabel">（理论）</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:absolute; right:20px; display:flex; gap:8px;">
+    <button class="ctrl-btn" id="btn-next" onclick="handleNext()">下一阶段 &rarr;</button>
+    <button class="ctrl-btn" id="btn-auto" onclick="autoPlay()">自动播放</button>
+    <button class="ctrl-btn" id="btn-replay" onclick="replayAll()">重播</button>
+  </div>
+</div>
+
+<div id="key-hint">
+  <span class="kbd">Space</span> / <span class="kbd">&rarr;</span> 下一步 &nbsp;
+  <span class="kbd">&larr;</span> 上一步
+</div>
+
+<!-- Summary overlay -->
+<div id="summary-overlay">
+  <div class="summary-card">
+    <h2>我们现在在哪？</h2>
+    <div class="divider"></div>
+    <div class="summary-row">
+      <span class="label">AI (LLM)</span>
+      <span class="arrow">&larr;</span>
+      <span class="detail">2022-2025，你正在用的</span>
+    </div>
+    <div class="summary-row">
+      <span class="label">Agent</span>
+      <span class="arrow">&larr;</span>
+      <span class="detail">2025-now，OpenClaw / Cursor 时代</span>
+    </div>
+    <div class="summary-row">
+      <span class="label">AGI</span>
+      <span class="arrow">&larr;</span>
+      <span class="detail">尚未实现，可能 5-20 年</span>
+    </div>
+    <div class="summary-row">
+      <span class="label">ASI</span>
+      <span class="arrow">&larr;</span>
+      <span class="detail">纯理论，可能永远不会来</span>
+    </div>
+    <div class="summary-section-title">关键认知</div>
+    <div class="summary-highlight">
+      大部分人还停留在第一阶段的用法（聊天）<br>
+      培训目标：至少带你到第二阶段（Agent）
+    </div>
+    <div class="summary-close">
+      <button onclick="closeSummary()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Utilities ───
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const $ = id => document.getElementById(id);
+const qs = sel => document.querySelector(sel);
+const qsa = sel => document.querySelectorAll(sel);
+
+// ─── Stars background ───
+function initStars() {
+  const canvas = $('stars-canvas');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    stars = Array.from({ length: 200 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.5 + 0.3,
+      a: Math.random(),
+      da: (Math.random() - 0.5) * 0.01
+    }));
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const s of stars) {
+      s.a += s.da;
+      if (s.a > 1 || s.a < 0.2) s.da *= -1;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180, 200, 255, ${s.a})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  draw();
+}
+initStars();
+
+// ─── State ───
+let currentStage = 0;
+let stagePhase = 'idle'; // 'idle' | 'scene' | 'done' | 'transforming'
+let isAnimating = false;
+let autoPlaying = false;
+
+// ─── DOM refs ───
+const svg = $('character-svg');
+const sceneEl = $('scene-elements');
+const captionEl = $('caption');
+const stageTitle = $('stage-title');
+const charArea = $('character-area');
+
+// ─── SVG part animation helper ───
+function animateSvgAttr(el, attr, to, duration) {
+  return new Promise(resolve => {
+    const start = parseFloat(el.getAttribute(attr)) || 0;
+    const startTime = performance.now();
+    function tick(now) {
+      const t = Math.min((now - startTime) / duration, 1);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      el.setAttribute(attr, start + (to - start) * ease);
+      if (t < 1) requestAnimationFrame(tick);
+      else resolve();
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+function animateSvgSize(w, h, duration) {
+  return new Promise(resolve => {
+    const startW = svg.width.baseVal.value;
+    const startH = svg.height.baseVal.value;
+    const startTime = performance.now();
+    function tick(now) {
+      const t = Math.min((now - startTime) / duration, 1);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      const cw = startW + (w - startW) * ease;
+      const ch = startH + (h - startH) * ease;
+      svg.setAttribute('width', cw);
+      svg.setAttribute('height', ch);
+      if (t < 1) requestAnimationFrame(tick);
+      else resolve();
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+function fadeInSvgPart(id, duration) {
+  return new Promise(resolve => {
+    const el = $(id);
+    const startTime = performance.now();
+    function tick(now) {
+      const t = Math.min((now - startTime) / duration, 1);
+      el.setAttribute('opacity', t);
+      if (t < 1) requestAnimationFrame(tick);
+      else resolve();
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+// ─── Flash effect ───
+async function flash() {
+  const f = $('flash');
+  f.classList.add('on');
+  await sleep(80);
+  f.classList.remove('on');
+}
+
+// ─── Pulse rings ───
+function emitPulseRings(color, count) {
+  const area = charArea;
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const ring = document.createElement('div');
+      ring.className = 'pulse-ring';
+      ring.style.cssText = `
+        left: 50%; top: 50%;
+        width: 20px; height: 20px;
+        margin-left: -10px; margin-top: -10px;
+        border-color: ${color};
+        position: absolute; z-index: 5;
+      `;
+      area.appendChild(ring);
+
+      let size = 20;
+      let op = 0.8;
+      const expand = () => {
+        size += 4;
+        op -= 0.015;
+        ring.style.width = size + 'px';
+        ring.style.height = size + 'px';
+        ring.style.marginLeft = (-size / 2) + 'px';
+        ring.style.marginTop = (-size / 2) + 'px';
+        ring.style.opacity = Math.max(0, op);
+        if (op > 0) requestAnimationFrame(expand);
+        else ring.remove();
+      };
+      requestAnimationFrame(expand);
+    }, i * 300);
+  }
+}
+
+// ─── Spawn floating particles ───
+function spawnParticles(opts) {
+  const { count, colors, area: areaEl, duration, sizeRange, spread } = opts;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const s = sizeRange[0] + Math.random() * (sizeRange[1] - sizeRange[0]);
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const dx = (Math.random() - 0.5) * spread * 2;
+    const dy = (Math.random() - 0.5) * spread * 2;
+    p.style.cssText = `
+      width: ${s}px; height: ${s}px;
+      background: ${color};
+      left: 50%; top: 50%;
+      margin-left: -${s/2}px; margin-top: -${s/2}px;
+      position: absolute;
+      --dx: ${dx}px; --dy: ${dy}px;
+      animation: dissolve ${duration}ms ease-out forwards;
+      animation-delay: ${Math.random() * 500}ms;
+      z-index: 5;
+    `;
+    areaEl.appendChild(p);
+    setTimeout(() => p.remove(), duration + 600);
+  }
+}
+
+// ─── Energy orbit particles ───
+function addOrbitParticles(container, count, radius, color, duration) {
+  const particles = [];
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `
+      width: 5px; height: 5px;
+      background: ${color};
+      position: absolute;
+      left: 50%; top: 50%;
+      margin-left: -2.5px; margin-top: -2.5px;
+      opacity: 0.8;
+      --orbit-r: ${radius}px;
+      animation: orbit ${duration}ms linear infinite;
+      animation-delay: ${(i / count) * duration}ms;
+      z-index: 6;
+    `;
+    container.appendChild(p);
+    particles.push(p);
+  }
+  return particles;
+}
+
+// ─── Scene cleanup ───
+function clearScene() {
+  sceneEl.innerHTML = '';
+  captionEl.classList.remove('show');
+  $('cosmic-entity').classList.remove('show');
+  $('cosmic-entity').style.width = '0';
+  $('cosmic-entity').style.height = '0';
+}
+
+// ─── Update timeline ───
+function updateTimeline(stage) {
+  qsa('.tl-node').forEach(n => {
+    const s = parseInt(n.dataset.stage);
+    n.classList.remove('active', 'completed');
+    if (s === stage) n.classList.add('active');
+    else if (s < stage) n.classList.add('completed');
+  });
+  for (let i = 1; i <= 3; i++) {
+    const fill = $('tl-fill-' + i);
+    fill.style.width = (i < stage) ? '100%' : '0%';
+  }
+}
+
+// ─── Update stage title ───
+function setTitle(num, name, subtitle) {
+  stageTitle.innerHTML = `
+    <div class="number">STAGE ${num} / 4</div>
+    <div class="name">${name}</div>
+    <div class="subtitle">${subtitle}</div>
+  `;
+}
+
+// ─── Set caption ───
+function setCaption(main, sub) {
+  captionEl.querySelector('.main-text').textContent = main;
+  captionEl.querySelector('.sub-text').textContent = sub || '';
+  captionEl.classList.add('show');
+}
+
+// ─── Create bubble ───
+function createBubble(text, opts) {
+  const b = document.createElement('div');
+  b.className = `bubble ${opts.type || ''} ${opts.side || 'left'}`;
+  b.style.cssText = `left:${opts.x}px; top:${opts.y}px;`;
+  b.innerHTML = text;
+  sceneEl.appendChild(b);
+  return b;
+}
+
+// ─── Create tags row ───
+function createTagsRow(tags, y) {
+  const row = document.createElement('div');
+  row.style.cssText = `
+    position: absolute;
+    bottom: ${y}px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; flex-wrap: wrap;
+    justify-content: center;
+    max-width: 500px;
+  `;
+  tags.forEach(([text, ok]) => {
+    const t = document.createElement('span');
+    t.className = `tag ${ok ? 'yes' : 'no'}`;
+    t.textContent = text;
+    row.appendChild(t);
+  });
+  sceneEl.appendChild(row);
+  return row;
+}
+
+// ─── STAGE 1: AI (LLM) ───
+async function playStage1() {
+  isAnimating = true;
+  clearScene();
+
+  // Reset character to brain only
+  svg.setAttribute('width', 80);
+  svg.setAttribute('height', 80);
+  svg.setAttribute('viewBox', '-60 -60 120 120');
+  $('svg-body').setAttribute('opacity', 0);
+  $('svg-arms').setAttribute('opacity', 0);
+  $('svg-legs').setAttribute('opacity', 0);
+  $('svg-extra-arms').setAttribute('opacity', 0);
+  $('svg-halo').setAttribute('opacity', 0);
+  $('svg-aura').setAttribute('opacity', 0);
+  $('svg-head').querySelector('circle').setAttribute('fill', 'url(#brainGrad)');
+  svg.style.display = '';
+  svg.classList.add('bobbing');
+  svg.style.filter = 'drop-shadow(0 0 20px rgba(74,158,255,0.3))';
+
+  // Update color of body parts back to blue (in case coming from AGI)
+  qsa('#svg-body rect, #svg-arms rect, #svg-arms circle, #svg-legs rect').forEach(el => {
+    el.setAttribute('fill', 'url(#bodyGrad)');
+    el.setAttribute('stroke', 'rgba(74,158,255,0.3)');
+  });
+
+  setTitle('1', 'AI（大语言模型）', '"只有脑子"');
+  updateTimeline(1);
+
+  await sleep(600);
+
+  // User bubble
+  const b1 = createBubble('帮我压缩桌面的图片', { type: 'user', side: 'left', x: -220, y: 20 });
+  await sleep(300);
+  b1.classList.add('show');
+  await sleep(1200);
+
+  // AI response
+  const b2 = createBubble('抱歉，我只是一个语言模型，无法操作文件系统。但我可以告诉你怎么做...', { type: 'ai', side: 'left', x: 320, y: 10 });
+  await sleep(300);
+  b2.classList.add('show');
+  await sleep(1500);
+
+  // Tags
+  const tags = createTagsRow([
+    ['我能聊天 \u2713', true],
+    ['我能写文章 \u2713', true],
+    ['我能写代码 \u2713', true],
+    ['我能操作电脑 \u2717', false],
+    ['我能自己干活 \u2717', false],
+  ], 10);
+
+  const tagEls = tags.querySelectorAll('.tag');
+  for (let i = 0; i < tagEls.length; i++) {
+    await sleep(300);
+    tagEls[i].classList.add('show');
+  }
+
+  await sleep(500);
+  setCaption('有脑子，没手脚 -- 只能纸上谈兵');
+
+  stagePhase = 'done';
+  isAnimating = false;
+}
+
+// ─── TRANSFORM 1→2 ───
+async function transform1to2() {
+  isAnimating = true;
+  stagePhase = 'transforming';
+
+  const label = $('transform-label');
+  label.textContent = '进化中...';
+  label.classList.add('show');
+
+  svg.classList.remove('bobbing');
+
+  // Brain pulses brighter
+  svg.style.filter = 'drop-shadow(0 0 40px rgba(74,158,255,0.7))';
+  await sleep(600);
+  svg.style.filter = 'drop-shadow(0 0 60px rgba(74,158,255,1))';
+  await sleep(400);
+
+  clearScene();
+
+  // Grow SVG viewport for full body
+  svg.setAttribute('viewBox', '-70 -60 140 200');
+  await animateSvgSize(150, 200, 800);
+
+  // Grow spine/body
+  await fadeInSvgPart('svg-body', 800);
+  await sleep(200);
+
+  // Extend arms
+  await fadeInSvgPart('svg-arms', 600);
+  await sleep(200);
+
+  // Grow legs
+  await fadeInSvgPart('svg-legs', 600);
+  await sleep(200);
+
+  // Flash!
+  await flash();
+  emitPulseRings('rgba(74,158,255,0.6)', 4);
+
+  svg.style.filter = 'drop-shadow(0 0 25px rgba(74,158,255,0.4))';
+
+  label.classList.remove('show');
+  await sleep(300);
+
+  isAnimating = false;
+  await playStage2();
+}
+
+// ─── STAGE 2: Agent ───
+async function playStage2() {
+  isAnimating = true;
+  clearScene();
+
+  setTitle('2', 'Agent（智能体）', '"有了手脚"');
+  updateTimeline(2);
+
+  svg.classList.add('bobbing');
+
+  await sleep(600);
+
+  // Toolbox
+  const toolbox = document.createElement('div');
+  toolbox.className = 'toolbox';
+  toolbox.innerHTML = `
+    <div class="tool-icon" data-tool="file">&#128193;</div>
+    <div class="tool-icon" data-tool="terminal">&#128187;</div>
+    <div class="tool-icon" data-tool="search">&#128269;</div>
+  `;
+  sceneEl.appendChild(toolbox);
+  await sleep(300);
+  toolbox.classList.add('show');
+
+  const tools = toolbox.querySelectorAll('.tool-icon');
+  for (let i = 0; i < tools.length; i++) {
+    await sleep(400);
+    tools[i].classList.add('show');
+  }
+
+  await sleep(600);
+
+  // Tool 1: File
+  tools[0].classList.add('active');
+  const fb1 = createBubble('&#128193; 读取文件列表...', { type: 'ai', side: 'left', x: -240, y: 30 });
+  await sleep(200);
+  fb1.classList.add('show');
+  await sleep(1000);
+
+  // Tool 2: Terminal
+  tools[1].classList.add('active');
+  const fb2 = createBubble('&#128187; 执行压缩命令...', { type: 'ai', side: 'left', x: -240, y: 100 });
+  await sleep(200);
+  fb2.classList.add('show');
+  await sleep(1000);
+
+  // Tool 3: Search
+  tools[2].classList.add('active');
+  const fb3 = createBubble('&#128269; 搜索最佳压缩方案...', { type: 'ai', side: 'left', x: -240, y: 170 });
+  await sleep(200);
+  fb3.classList.add('show');
+  await sleep(800);
+
+  // Done bubble
+  const doneBubble = createBubble('<span style="color:#4ade80; font-weight:700">&#10003; 任务完成！</span><br>已压缩 3 张图片，节省 15MB 空间。', { type: 'ai', side: 'left', x: 300, y: 80 });
+  await sleep(300);
+  doneBubble.classList.add('show');
+  await sleep(600);
+
+  // Tags
+  const tags = createTagsRow([
+    ['读文件 \u2713', true],
+    ['执行命令 \u2713', true],
+    ['搜索网络 \u2713', true],
+    ['自主规划 \u2713', true],
+  ], 10);
+  const tagEls = tags.querySelectorAll('.tag');
+  for (let i = 0; i < tagEls.length; i++) {
+    await sleep(250);
+    tagEls[i].classList.add('show');
+  }
+
+  await sleep(400);
+  setCaption('大脑 + 工具 = 能想，也能做');
+
+  stagePhase = 'done';
+  isAnimating = false;
+}
+
+// ─── TRANSFORM 2→3 ───
+async function transform2to3() {
+  isAnimating = true;
+  stagePhase = 'transforming';
+
+  const label = $('transform-label');
+  label.textContent = '超级进化...';
+  label.classList.add('show');
+
+  svg.classList.remove('bobbing');
+  clearScene();
+
+  // Glow intensely
+  svg.style.filter = 'drop-shadow(0 0 50px rgba(255,214,102,0.7))';
+  await sleep(500);
+
+  // Change colors to gold
+  const bodyParts = qsa('#svg-body rect, #svg-arms rect, #svg-arms circle, #svg-legs rect');
+  bodyParts.forEach(el => {
+    el.setAttribute('fill', 'url(#goldGrad)');
+    el.setAttribute('stroke', 'rgba(255,214,102,0.4)');
+  });
+  $('svg-head').querySelector('circle').setAttribute('fill', 'url(#goldGrad)');
+  // Update brain wrinkle lines
+  qsa('#svg-head path').forEach(p => p.setAttribute('stroke', 'rgba(255,214,102,0.3)'));
+  // Update head stroke
+  $('svg-head').querySelector('circle').setAttribute('stroke', 'rgba(255,214,102,0.5)');
+
+  await sleep(400);
+
+  // Grow larger
+  svg.setAttribute('viewBox', '-80 -70 160 220');
+  await animateSvgSize(250, 280, 1000);
+
+  await sleep(300);
+
+  // Extra arms grow
+  await fadeInSvgPart('svg-extra-arms', 800);
+  await sleep(300);
+
+  // Halo appears
+  await fadeInSvgPart('svg-halo', 600);
+  await sleep(200);
+
+  // Aura appears
+  await fadeInSvgPart('svg-aura', 800);
+  await sleep(200);
+
+  // Flash + rings
+  await flash();
+  emitPulseRings('rgba(255,214,102,0.5)', 5);
+
+  // Add orbiting energy particles
+  addOrbitParticles(charArea, 6, 100, 'rgba(255,214,102,0.6)', 4000);
+  addOrbitParticles(charArea, 4, 130, 'rgba(167,139,250,0.5)', 6000);
+
+  svg.style.filter = 'drop-shadow(0 0 30px rgba(255,214,102,0.5))';
+
+  label.classList.remove('show');
+  await sleep(300);
+
+  isAnimating = false;
+  await playStage3();
+}
+
+// ─── STAGE 3: AGI ───
+async function playStage3() {
+  isAnimating = true;
+  // Keep orbit particles, clear text elements
+  const existingParticles = charArea.querySelectorAll('.particle');
+  sceneEl.innerHTML = '';
+
+  setTitle('3', 'AGI（通用人工智能）', '"全能战神"');
+  updateTimeline(3);
+
+  svg.classList.add('bobbing');
+
+  await sleep(600);
+
+  // Task panels for 4 arms
+  const panels = [
+    { title: '&#128187; 编写代码', detail: 'class Engine { ... }', x: -280, y: -20 },
+    { title: '&#127912; 创作艺术', detail: '生成 10000+ 资产', x: 300, y: -20 },
+    { title: '&#127925; 作曲音乐', detail: '交响乐 No.7 Op.92', x: -280, y: 160 },
+    { title: '&#128200; 分析数据', detail: '处理 5PB 数据集', x: 300, y: 160 },
+  ];
+
+  for (const p of panels) {
+    const panel = document.createElement('div');
+    panel.className = 'task-panel';
+    panel.style.cssText = `left:${p.x}px; top:${p.y}px;`;
+    panel.innerHTML = `<div class="panel-title">${p.title}</div><div style="color:var(--muted);font-family:var(--mono);font-size:11px;">${p.detail}</div>`;
+    sceneEl.appendChild(panel);
+    await sleep(400);
+    panel.classList.add('show');
+
+    // Spawn flying symbols from character toward panel
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        const sym = document.createElement('div');
+        sym.className = 'particle';
+        const symbols = ['{ }', '< >', '( )', '0x', '++', '::'];
+        sym.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+        sym.style.cssText = `
+          position:absolute; left:50%; top:50%;
+          font-family:var(--mono); font-size:10px;
+          color: rgba(255,214,102,0.7);
+          --dx: ${p.x > 0 ? 80 + Math.random()*60 : -80 - Math.random()*60}px;
+          --fy: ${(Math.random()-0.5)*80}px;
+          --fx: ${p.x > 0 ? 100 : -100}px;
+          animation: dissolve 1.5s ease-out forwards;
+          z-index:5;
+        `;
+        sceneEl.appendChild(sym);
+        setTimeout(() => sym.remove(), 1800);
+      }, i * 200);
+    }
+    await sleep(300);
+  }
+
+  await sleep(500);
+
+  // Progress indicator
+  const progress = document.createElement('div');
+  progress.style.cssText = `
+    position:absolute; bottom: 70px; left:50%; transform:translateX(-50%);
+    background: rgba(255,214,102,0.1);
+    border: 1px solid rgba(255,214,102,0.3);
+    border-radius: 20px;
+    padding: 6px 20px;
+    font-size: 13px;
+    color: var(--gold);
+    opacity:0; transition: opacity 0.5s;
+    white-space: nowrap;
+  `;
+  progress.textContent = '独立完成一个团队的工作量';
+  sceneEl.appendChild(progress);
+  await sleep(200);
+  progress.style.opacity = '1';
+  await sleep(400);
+
+  // Tags
+  const tags = createTagsRow([
+    ['编程 \u2713', true],
+    ['设计 \u2713', true],
+    ['音乐 \u2713', true],
+    ['科研 \u2713', true],
+    ['商业 \u2713', true],
+    ['任何领域 \u2713', true],
+  ], 10);
+  const tagEls = tags.querySelectorAll('.tag');
+  for (let i = 0; i < tagEls.length; i++) {
+    await sleep(200);
+    tagEls[i].classList.add('show');
+  }
+
+  await sleep(400);
+  setCaption('一个人 = 一支军队 -- 跨领域全能');
+
+  stagePhase = 'done';
+  isAnimating = false;
+}
+
+// ─── TRANSFORM 3→4 ───
+async function transform3to4() {
+  isAnimating = true;
+  stagePhase = 'transforming';
+
+  svg.classList.remove('bobbing');
+  clearScene();
+
+  // Remove orbit particles
+  charArea.querySelectorAll('.particle').forEach(p => p.remove());
+
+  const label = $('transform-label');
+  label.textContent = '超越...';
+  label.classList.add('show');
+
+  // Character vibrates
+  let vibCount = 0;
+  const vibrate = setInterval(() => {
+    const ox = (Math.random() - 0.5) * 6;
+    const oy = (Math.random() - 0.5) * 6;
+    svg.style.transform = `translate(${ox}px, ${oy}px)`;
+    vibCount++;
+    if (vibCount > 40) clearInterval(vibrate);
+  }, 30);
+
+  svg.style.filter = 'drop-shadow(0 0 60px rgba(167,139,250,0.8))';
+  await sleep(1200);
+
+  clearInterval(vibrate);
+  svg.style.transform = '';
+
+  // Dissolve character into particles
+  spawnParticles({
+    count: 150,
+    colors: ['rgba(167,139,250,0.8)', 'rgba(74,158,255,0.8)', 'rgba(255,214,102,0.8)', 'rgba(244,114,182,0.6)', '#fff'],
+    area: charArea,
+    duration: 3000,
+    sizeRange: [2, 8],
+    spread: 250,
+  });
+
+  // Fade out SVG
+  let svgOp = 1;
+  const fadeOut = setInterval(() => {
+    svgOp -= 0.03;
+    svg.style.opacity = Math.max(0, svgOp);
+    if (svgOp <= 0) {
+      clearInterval(fadeOut);
+      svg.style.display = 'none';
+    }
+  }, 30);
+
+  await sleep(1500);
+
+  // Flash
+  await flash();
+
+  label.classList.remove('show');
+  await sleep(500);
+
+  // Cosmic entity grows
+  $('cosmic-entity').classList.add('show');
+
+  // Add data streams on rings
+  const cosmicEl = $('cosmic-entity');
+  for (let i = 0; i < 30; i++) {
+    const ds = document.createElement('div');
+    ds.className = 'data-stream';
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 80 + Math.random() * 130;
+    ds.style.cssText = `
+      left: ${250 + Math.cos(angle) * radius}px;
+      top: ${250 + Math.sin(angle) * radius}px;
+      width: ${2 + Math.random() * 4}px;
+      height: ${2 + Math.random() * 4}px;
+      background: ${['var(--blue)', 'var(--purple)', 'var(--pink)'][Math.floor(Math.random()*3)]};
+      animation: orbit ${3000 + Math.random() * 5000}ms linear infinite;
+      --orbit-r: ${radius}px;
+      opacity: ${0.3 + Math.random() * 0.5};
+    `;
+    cosmicEl.appendChild(ds);
+  }
+
+  await sleep(800);
+
+  isAnimating = false;
+  await playStage4();
+}
+
+// ─── STAGE 4: ASI ───
+async function playStage4() {
+  isAnimating = true;
+
+  setTitle('4', 'ASI（超级人工智能）', '"超越理解"');
+  updateTimeline(4);
+
+  await sleep(800);
+
+  // Floating text fragments
+  const texts = [
+    { text: '重写物理学定律...', x: '15%', y: '20%', delay: 0 },
+    { text: '突破光速限制...', x: '70%', y: '18%', delay: 800 },
+    { text: '解析暗物质结构...', x: '10%', y: '65%', delay: 1600 },
+    { text: '设计新型宇宙...', x: '68%', y: '68%', delay: 2400 },
+  ];
+
+  for (const t of texts) {
+    const el = document.createElement('div');
+    el.className = 'float-text';
+    el.style.cssText = `left:${t.x}; top:${t.y};`;
+    el.textContent = t.text;
+    sceneEl.appendChild(el);
+    await sleep(t.delay ? 800 : 0);
+    el.classList.add('show');
+  }
+
+  await sleep(1000);
+
+  // Scale comparison
+  const compare = document.createElement('div');
+  compare.id = 'scale-compare';
+  compare.innerHTML = `
+    <div style="text-align:center;">
+      <div class="human-silhouette"></div>
+      <div class="scale-label">人类</div>
+    </div>
+    <div style="font-size:24px; color:var(--muted);">vs</div>
+    <div style="text-align:center;">
+      <div style="width:60px;height:60px;background:radial-gradient(circle,rgba(167,139,250,0.6),transparent);border-radius:50%;"></div>
+      <div class="scale-label">ASI</div>
+    </div>
+  `;
+  sceneEl.appendChild(compare);
+  await sleep(300);
+  compare.classList.add('show');
+
+  await sleep(800);
+
+  // Final quote
+  const quote = document.createElement('div');
+  quote.style.cssText = `
+    position:absolute; bottom: 100px; left:50%; transform:translateX(-50%);
+    font-size: 15px; color: rgba(167,139,250,0.8);
+    text-align: center; opacity: 0; transition: opacity 1s;
+    white-space: nowrap;
+  `;
+  quote.textContent = '人类之于 ASI，如同蚂蚁之于人类';
+  sceneEl.appendChild(quote);
+  await sleep(300);
+  quote.style.opacity = '1';
+
+  await sleep(500);
+  setCaption('不是更聪明的人类，是完全不同的存在');
+
+  stagePhase = 'done';
+  isAnimating = false;
+}
+
+// ─── Show summary ───
+async function showSummary() {
+  await sleep(800);
+  $('summary-overlay').classList.add('show');
+}
+
+function closeSummary() {
+  $('summary-overlay').classList.remove('show');
+}
+
+// ─── Reset character to initial state ───
+function resetCharacter() {
+  svg.style.display = '';
+  svg.style.opacity = '1';
+  svg.style.transform = '';
+  svg.setAttribute('width', 80);
+  svg.setAttribute('height', 80);
+  svg.setAttribute('viewBox', '-60 -60 120 120');
+  $('svg-body').setAttribute('opacity', 0);
+  $('svg-arms').setAttribute('opacity', 0);
+  $('svg-legs').setAttribute('opacity', 0);
+  $('svg-extra-arms').setAttribute('opacity', 0);
+  $('svg-halo').setAttribute('opacity', 0);
+  $('svg-aura').setAttribute('opacity', 0);
+  $('svg-head').querySelector('circle').setAttribute('fill', 'url(#brainGrad)');
+  $('svg-head').querySelector('circle').setAttribute('stroke', 'rgba(74,158,255,0.4)');
+  qsa('#svg-head path').forEach(p => p.setAttribute('stroke', 'rgba(74,158,255,0.3)'));
+  qsa('#svg-body rect, #svg-arms rect, #svg-arms circle, #svg-legs rect').forEach(el => {
+    el.setAttribute('fill', 'url(#bodyGrad)');
+    el.setAttribute('stroke', 'rgba(74,158,255,0.3)');
+  });
+  svg.style.filter = 'drop-shadow(0 0 20px rgba(74,158,255,0.3))';
+  svg.classList.remove('bobbing');
+  charArea.querySelectorAll('.particle').forEach(p => p.remove());
+  $('cosmic-entity').classList.remove('show');
+  $('cosmic-entity').style.width = '0';
+  $('cosmic-entity').style.height = '0';
+  // Remove data streams from cosmic entity
+  $('cosmic-entity').querySelectorAll('.data-stream').forEach(d => d.remove());
+}
+
+// ─── Setup character for a specific stage (instant, no animation) ───
+function setupCharacterForStage(stage) {
+  resetCharacter();
+  clearScene();
+  captionEl.classList.remove('show');
+
+  if (stage === 1) {
+    // Brain only - already reset
+  } else if (stage === 2) {
+    svg.setAttribute('viewBox', '-70 -60 140 200');
+    svg.setAttribute('width', 150);
+    svg.setAttribute('height', 200);
+    $('svg-body').setAttribute('opacity', 1);
+    $('svg-arms').setAttribute('opacity', 1);
+    $('svg-legs').setAttribute('opacity', 1);
+    svg.style.filter = 'drop-shadow(0 0 25px rgba(74,158,255,0.4))';
+  } else if (stage === 3) {
+    svg.setAttribute('viewBox', '-80 -70 160 220');
+    svg.setAttribute('width', 250);
+    svg.setAttribute('height', 280);
+    $('svg-body').setAttribute('opacity', 1);
+    $('svg-arms').setAttribute('opacity', 1);
+    $('svg-legs').setAttribute('opacity', 1);
+    $('svg-extra-arms').setAttribute('opacity', 1);
+    $('svg-halo').setAttribute('opacity', 1);
+    $('svg-aura').setAttribute('opacity', 1);
+    // Gold colors
+    qsa('#svg-body rect, #svg-arms rect, #svg-arms circle, #svg-legs rect').forEach(el => {
+      el.setAttribute('fill', 'url(#goldGrad)');
+      el.setAttribute('stroke', 'rgba(255,214,102,0.4)');
+    });
+    $('svg-head').querySelector('circle').setAttribute('fill', 'url(#goldGrad)');
+    $('svg-head').querySelector('circle').setAttribute('stroke', 'rgba(255,214,102,0.5)');
+    qsa('#svg-head path').forEach(p => p.setAttribute('stroke', 'rgba(255,214,102,0.3)'));
+    svg.style.filter = 'drop-shadow(0 0 30px rgba(255,214,102,0.5))';
+    addOrbitParticles(charArea, 6, 100, 'rgba(255,214,102,0.6)', 4000);
+    addOrbitParticles(charArea, 4, 130, 'rgba(167,139,250,0.5)', 6000);
+  } else if (stage === 4) {
+    svg.style.display = 'none';
+    $('cosmic-entity').classList.add('show');
+    const cosmicEl = $('cosmic-entity');
+    for (let i = 0; i < 30; i++) {
+      const ds = document.createElement('div');
+      ds.className = 'data-stream';
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 80 + Math.random() * 130;
+      ds.style.cssText = `
+        left: ${250 + Math.cos(angle) * radius}px;
+        top: ${250 + Math.sin(angle) * radius}px;
+        width: ${2 + Math.random() * 4}px;
+        height: ${2 + Math.random() * 4}px;
+        background: ${['var(--blue)', 'var(--purple)', 'var(--pink)'][Math.floor(Math.random()*3)]};
+        animation: orbit ${3000 + Math.random() * 5000}ms linear infinite;
+        --orbit-r: ${radius}px;
+        opacity: ${0.3 + Math.random() * 0.5};
+      `;
+      cosmicEl.appendChild(ds);
+    }
+  }
+}
+
+// ─── Navigation ───
+const stageSequence = [
+  { type: 'stage', num: 1, play: playStage1 },
+  { type: 'transform', from: 1, to: 2, play: transform1to2 },
+  { type: 'stage', num: 2, play: playStage2 },
+  { type: 'transform', from: 2, to: 3, play: transform2to3 },
+  { type: 'stage', num: 3, play: playStage3 },
+  { type: 'transform', from: 3, to: 4, play: transform3to4 },
+  { type: 'stage', num: 4, play: playStage4 },
+  { type: 'summary' },
+];
+
+let seqIndex = -1;
+
+async function advanceSequence() {
+  if (isAnimating) return;
+  seqIndex++;
+  if (seqIndex >= stageSequence.length) {
+    seqIndex = stageSequence.length - 1;
+    return;
+  }
+  const step = stageSequence[seqIndex];
+  if (step.type === 'summary') {
+    await showSummary();
+  } else {
+    stagePhase = 'scene';
+    await step.play();
+  }
+}
+
+function handleNext() {
+  if (isAnimating) return;
+  advanceSequence();
+}
+
+function jumpToStage(stage) {
+  if (isAnimating) return;
+  closeSummary();
+
+  // Find the stage play index
+  const idx = stageSequence.findIndex(s => s.type === 'stage' && s.num === stage);
+  if (idx === -1) return;
+
+  // Setup character instantly for this stage
+  setupCharacterForStage(stage);
+
+  // Set seqIndex to this stage and play
+  seqIndex = idx - 1;
+  advanceSequence();
+}
+
+async function autoPlay() {
+  if (isAnimating || autoPlaying) return;
+  autoPlaying = true;
+  $('btn-auto').textContent = '播放中...';
+  $('btn-auto').style.pointerEvents = 'none';
+
+  // Start from beginning
+  seqIndex = -1;
+  resetCharacter();
+  clearScene();
+
+  for (let i = 0; i < stageSequence.length; i++) {
+    if (!autoPlaying) break;
+    await advanceSequence();
+    if (stageSequence[i] && stageSequence[i].type === 'stage') {
+      await sleep(2500);
+    } else if (stageSequence[i] && stageSequence[i].type === 'transform') {
+      await sleep(500);
+    }
+  }
+
+  autoPlaying = false;
+  $('btn-auto').textContent = '自动播放';
+  $('btn-auto').style.pointerEvents = '';
+}
+
+function replayAll() {
+  if (isAnimating) return;
+  autoPlaying = false;
+  closeSummary();
+  seqIndex = -1;
+  resetCharacter();
+  clearScene();
+  captionEl.classList.remove('show');
+  stagePhase = 'idle';
+  setTitle('1', 'AI（大语言模型）', '"只有脑子"');
+  updateTimeline(1);
+
+  // Start stage 1
+  advanceSequence();
+}
+
+// ─── Keyboard controls ───
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'ArrowRight') {
+    e.preventDefault();
+    handleNext();
+  } else if (e.code === 'ArrowLeft') {
+    e.preventDefault();
+    if (isAnimating) return;
+    closeSummary();
+    // Go back to previous stage
+    const currentStageIdx = stageSequence.findIndex((s, i) => i >= seqIndex && s.type === 'stage');
+    let prevStageNum = 1;
+    if (seqIndex > 0) {
+      for (let i = seqIndex - 1; i >= 0; i--) {
+        if (stageSequence[i].type === 'stage') {
+          prevStageNum = stageSequence[i].num;
+          break;
+        }
+      }
+    }
+    jumpToStage(prevStageNum);
+  }
+});
+
+// ─── Init ───
+function init() {
+  updateTimeline(1);
+  advanceSequence();
+}
+
+init();
+</script>
+</body>
+</html>

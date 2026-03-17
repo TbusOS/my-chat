@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw 龙虾解剖图 — 组件即身体</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+.header .subtitle {
+  font-size: 15px;
+  color: #64748b;
+}
+
+/* Main layout */
+.main-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* Lobster canvas */
+.lobster-canvas {
+  flex: 1;
+  min-width: 0;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 20px;
+  position: relative;
+}
+.lobster-svg-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.lobster-svg-wrap svg {
+  width: 100%;
+  max-width: 660px;
+  height: auto;
+}
+
+/* Clickable body part */
+.body-part {
+  cursor: pointer;
+  transition: filter 0.3s, transform 0.3s;
+  transform-origin: center;
+}
+.body-part:hover {
+  filter: brightness(1.1) drop-shadow(0 0 8px rgba(37,99,235,0.3));
+}
+.body-part.selected {
+  filter: brightness(1.15) drop-shadow(0 0 12px rgba(37,99,235,0.5));
+}
+
+/* Pulse on idle parts */
+@keyframes subtlePulse {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.4; }
+}
+
+/* Info panel */
+.info-panel {
+  width: 320px;
+  flex-shrink: 0;
+}
+.info-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  transition: border-color 0.4s;
+  position: sticky;
+  top: 24px;
+}
+.info-card.active {
+  border-color: var(--part-color, #2563eb);
+}
+.info-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+  margin-bottom: 12px;
+}
+.info-name {
+  font-size: 22px;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+.info-role {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+.info-desc {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #475569;
+  margin-bottom: 16px;
+}
+.info-details {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #64748b;
+}
+.info-details .detail-title {
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 4px;
+}
+.info-default {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.info-default .big-emoji {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+/* Flow animation overlay */
+.flow-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Message flow dot */
+@keyframes flowDot {
+  0% { offset-distance: 0%; opacity: 0; }
+  5% { opacity: 1; }
+  95% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+.flow-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2563eb;
+  position: absolute;
+  opacity: 0;
+  box-shadow: 0 0 8px 3px rgba(37,99,235,0.4);
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.legend-item:hover { background: #f1f5f9; }
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+/* Controls for flow animation */
+.flow-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+.btn {
+  border: none;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:active { transform: scale(0.96); }
+.btn-primary { background: #2563eb; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: #f1f5f9; color: #475569; }
+.btn-secondary:hover { background: #e2e8f0; }
+
+.flow-status {
+  font-size: 13px;
+  color: #64748b;
+  min-width: 180px;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .main-layout { flex-direction: column; }
+  .info-panel { width: 100%; }
+  .info-card { position: static; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>OpenClaw 龙虾解剖图</h1>
+    <p class="subtitle">点击龙虾的每个身体部位，了解对应的 OpenClaw 组件</p>
+  </div>
+
+  <div class="main-layout">
+    <div class="lobster-canvas" id="lobsterCanvas">
+      <div class="lobster-svg-wrap">
+        <svg viewBox="0 0 800 500" fill="none" xmlns="http://www.w3.org/2000/svg" id="lobsterSvg">
+          <!-- Background water hint -->
+          <ellipse cx="400" cy="460" rx="340" ry="20" fill="#f1f5f9"/>
+
+          <!-- === TAIL (no component, decorative) === -->
+          <g id="tailGroup">
+            <path d="M540,300 Q580,310 600,340 Q610,360 590,370 Q570,375 560,360 Q550,345 555,330 Z" fill="#dc2626" opacity="0.6"/>
+            <path d="M560,310 Q595,325 610,355 Q615,370 600,380 Q580,380 575,365 Q565,348 570,335 Z" fill="#ef4444" opacity="0.5"/>
+            <path d="M555,320 Q590,335 605,365 Q608,375 595,378" stroke="#b91c1c" stroke-width="1.5" fill="none" opacity="0.4"/>
+          </g>
+
+          <!-- === BODY / SHELL — Memory === -->
+          <g class="body-part" id="part-memory" data-part="memory">
+            <!-- Main shell -->
+            <ellipse cx="420" cy="280" rx="130" ry="85" fill="#7c3aed" opacity="0.9"/>
+            <ellipse cx="420" cy="280" rx="120" ry="78" fill="#8b5cf6"/>
+            <!-- Shell segments -->
+            <path d="M310,260 Q420,220 530,260" stroke="#6d28d9" stroke-width="2" fill="none" opacity="0.5"/>
+            <path d="M320,280 Q420,245 520,280" stroke="#6d28d9" stroke-width="2" fill="none" opacity="0.5"/>
+            <path d="M315,300 Q420,270 525,300" stroke="#6d28d9" stroke-width="2" fill="none" opacity="0.5"/>
+            <!-- Shell texture -->
+            <ellipse cx="380" cy="260" rx="18" ry="12" fill="#a78bfa" opacity="0.4"/>
+            <ellipse cx="440" cy="255" rx="14" ry="10" fill="#a78bfa" opacity="0.3"/>
+            <ellipse cx="400" cy="290" rx="20" ry="13" fill="#a78bfa" opacity="0.3"/>
+            <!-- Books pattern on shell -->
+            <rect x="375" y="300" width="6" height="20" rx="1" fill="#fbbf24" opacity="0.5" transform="rotate(-5, 378, 310)"/>
+            <rect x="384" y="298" width="6" height="22" rx="1" fill="#34d399" opacity="0.5" transform="rotate(-3, 387, 309)"/>
+            <rect x="393" y="300" width="5" height="18" rx="1" fill="#60a5fa" opacity="0.5"/>
+            <rect x="401" y="299" width="6" height="20" rx="1" fill="#fb923c" opacity="0.5" transform="rotate(3, 404, 309)"/>
+            <!-- Label -->
+            <text x="420" y="270" text-anchor="middle" font-size="14" fill="white" font-weight="900" font-family="Noto Sans SC" opacity="0.9">Memory</text>
+            <text x="420" y="288" text-anchor="middle" font-size="10" fill="#e9d5ff" font-weight="500" font-family="Noto Sans SC">记忆甲壳</text>
+            <!-- Glow hint -->
+            <ellipse cx="420" cy="280" rx="135" ry="90" fill="none" stroke="#a78bfa" stroke-width="2" opacity="0" class="part-glow">
+              <animate attributeName="opacity" values="0;0.4;0" dur="2s" repeatCount="indefinite"/>
+            </ellipse>
+          </g>
+
+          <!-- === HEAD / BRAIN === -->
+          <g class="body-part" id="part-brain" data-part="brain">
+            <ellipse cx="300" cy="240" rx="65" ry="60" fill="#2563eb"/>
+            <ellipse cx="300" cy="240" rx="58" ry="53" fill="#3b82f6"/>
+            <!-- Brain folds -->
+            <path d="M265,225 Q280,215 295,225 Q310,215 325,225" stroke="#1d4ed8" stroke-width="2" fill="none" opacity="0.5"/>
+            <path d="M270,240 Q285,230 300,240 Q315,230 330,240" stroke="#1d4ed8" stroke-width="2" fill="none" opacity="0.5"/>
+            <!-- Eyes -->
+            <circle cx="282" cy="250" r="10" fill="white"/>
+            <circle cx="318" cy="250" r="10" fill="white"/>
+            <circle cx="284" cy="250" r="5" fill="#1e3a5f"/>
+            <circle cx="320" cy="250" r="5" fill="#1e3a5f"/>
+            <circle cx="286" cy="248" r="2" fill="white"/>
+            <circle cx="322" cy="248" r="2" fill="white"/>
+            <!-- Graduation cap -->
+            <polygon points="300,185 260,205 300,218 340,205" fill="#1e3a5f"/>
+            <rect x="295" y="192" width="10" height="16" fill="#1e3a5f"/>
+            <line x1="335" y1="205" x2="340" y2="220" stroke="#1e3a5f" stroke-width="2"/>
+            <circle cx="340" cy="222" r="3" fill="#fbbf24"/>
+            <!-- Label -->
+            <text x="300" y="230" text-anchor="middle" font-size="13" fill="white" font-weight="900" font-family="Noto Sans SC">Brain</text>
+            <text x="300" y="270" text-anchor="middle" font-size="9" fill="#bfdbfe" font-weight="500" font-family="Noto Sans SC">思考大脑</text>
+            <ellipse cx="300" cy="240" rx="70" ry="65" fill="none" stroke="#60a5fa" stroke-width="2" opacity="0" class="part-glow">
+              <animate attributeName="opacity" values="0;0.4;0" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+            </ellipse>
+          </g>
+
+          <!-- === LEFT CLAW — Gateway === -->
+          <g class="body-part" id="part-gateway" data-part="gateway">
+            <!-- Arm -->
+            <path d="M260,260 Q200,220 170,170 Q160,150 140,145" stroke="#10b981" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M260,260 Q200,220 170,170 Q160,150 140,145" stroke="#059669" stroke-width="8" fill="none" stroke-linecap="round"/>
+            <!-- Upper claw -->
+            <path d="M140,145 Q110,120 80,125 Q55,130 50,150 Q48,165 65,170 Q80,175 100,165 Q120,155 140,145" fill="#10b981" stroke="#059669" stroke-width="2"/>
+            <!-- Lower claw -->
+            <path d="M140,145 Q120,160 100,175 Q85,185 75,180 Q60,170 65,155 Q70,145 85,145 Q105,145 140,145" fill="#10b981" stroke="#059669" stroke-width="2"/>
+            <!-- Claw detail -->
+            <circle cx="78" cy="148" r="4" fill="#34d399" opacity="0.6"/>
+            <circle cx="90" cy="158" r="3" fill="#34d399" opacity="0.6"/>
+            <!-- Incoming message icon -->
+            <rect x="42" y="110" width="28" height="20" rx="4" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5" opacity="0.8"/>
+            <line x1="46" y1="114" x2="56" y2="122" stroke="#f59e0b" stroke-width="1.5" opacity="0.8"/>
+            <line x1="66" y1="114" x2="56" y2="122" stroke="#f59e0b" stroke-width="1.5" opacity="0.8"/>
+            <!-- Label -->
+            <text x="105" y="200" text-anchor="middle" font-size="13" fill="#059669" font-weight="900" font-family="Noto Sans SC">Gateway</text>
+            <text x="105" y="215" text-anchor="middle" font-size="9" fill="#6ee7b7" font-weight="500" font-family="Noto Sans SC">消息左钳</text>
+          </g>
+
+          <!-- === RIGHT CLAW — Skills === -->
+          <g class="body-part" id="part-skills" data-part="skills">
+            <!-- Arm -->
+            <path d="M530,270 Q590,240 620,200 Q635,180 660,170" stroke="#f59e0b" stroke-width="12" fill="none" stroke-linecap="round"/>
+            <path d="M530,270 Q590,240 620,200 Q635,180 660,170" stroke="#d97706" stroke-width="8" fill="none" stroke-linecap="round"/>
+            <!-- Upper claw -->
+            <path d="M660,170 Q690,145 720,150 Q745,155 750,175 Q752,190 735,195 Q720,200 700,190 Q680,180 660,170" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+            <!-- Lower claw -->
+            <path d="M660,170 Q680,185 700,200 Q715,210 725,205 Q740,195 735,180 Q730,170 715,170 Q695,170 660,170" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+            <!-- Tool icons in claw -->
+            <text x="700" y="180" text-anchor="middle" font-size="14" opacity="0.7">🔧</text>
+            <!-- Claw detail -->
+            <circle cx="722" cy="175" r="4" fill="#fbbf24" opacity="0.6"/>
+            <circle cx="710" cy="185" r="3" fill="#fbbf24" opacity="0.6"/>
+            <!-- Label -->
+            <text x="695" y="225" text-anchor="middle" font-size="13" fill="#d97706" font-weight="900" font-family="Noto Sans SC">Skills</text>
+            <text x="695" y="240" text-anchor="middle" font-size="9" fill="#fcd34d" font-weight="500" font-family="Noto Sans SC">工具右钳</text>
+          </g>
+
+          <!-- === HEART — Heartbeat === -->
+          <g class="body-part" id="part-heartbeat" data-part="heartbeat">
+            <ellipse cx="400" cy="330" rx="30" ry="25" fill="#fee2e2" stroke="#fca5a5" stroke-width="2"/>
+            <!-- Heart shape -->
+            <path d="M390,325 C390,318 400,312 400,320 C400,312 410,318 410,325 L400,338 Z" fill="#ef4444"/>
+            <!-- Pulse line -->
+            <path d="M370,330 L385,330 L390,318 L395,340 L400,325 L405,335 L410,330 L430,330" stroke="#ef4444" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6"/>
+            <text x="400" y="360" text-anchor="middle" font-size="10" fill="#dc2626" font-weight="700" font-family="Noto Sans SC">Heartbeat</text>
+            <text x="400" y="373" text-anchor="middle" font-size="8" fill="#fca5a5" font-weight="500" font-family="Noto Sans SC">心跳</text>
+            <ellipse cx="400" cy="330" rx="35" ry="30" fill="none" stroke="#fca5a5" stroke-width="2" opacity="0" class="part-glow">
+              <animate attributeName="opacity" values="0;0.5;0" dur="1s" repeatCount="indefinite"/>
+            </ellipse>
+          </g>
+
+          <!-- === LEGS (decorative) === -->
+          <g opacity="0.7">
+            <line x1="350" y1="350" x2="330" y2="410" stroke="#dc2626" stroke-width="6" stroke-linecap="round"/>
+            <line x1="380" y1="355" x2="365" y2="415" stroke="#dc2626" stroke-width="6" stroke-linecap="round"/>
+            <line x1="410" y1="358" x2="400" y2="420" stroke="#dc2626" stroke-width="6" stroke-linecap="round"/>
+            <line x1="440" y1="355" x2="435" y2="415" stroke="#dc2626" stroke-width="6" stroke-linecap="round"/>
+            <line x1="470" y1="350" x2="470" y2="410" stroke="#dc2626" stroke-width="6" stroke-linecap="round"/>
+            <line x1="495" y1="340" x2="505" y2="400" stroke="#dc2626" stroke-width="6" stroke-linecap="round"/>
+            <!-- Feet -->
+            <ellipse cx="328" cy="414" rx="8" ry="4" fill="#b91c1c"/>
+            <ellipse cx="363" cy="419" rx="8" ry="4" fill="#b91c1c"/>
+            <ellipse cx="398" cy="424" rx="8" ry="4" fill="#b91c1c"/>
+            <ellipse cx="433" cy="419" rx="8" ry="4" fill="#b91c1c"/>
+            <ellipse cx="468" cy="414" rx="8" ry="4" fill="#b91c1c"/>
+            <ellipse cx="503" cy="404" rx="8" ry="4" fill="#b91c1c"/>
+          </g>
+
+          <!-- === ANTENNAE === -->
+          <g opacity="0.7">
+            <path d="M280,200 Q250,140 220,100" stroke="#dc2626" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <circle cx="218" cy="97" r="5" fill="#ef4444"/>
+            <path d="M310,195 Q300,130 310,80" stroke="#dc2626" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <circle cx="310" cy="77" r="5" fill="#ef4444"/>
+          </g>
+
+          <!-- Flow path for animation (hidden) -->
+          <path id="flowPath1" d="M60,140 Q140,145 260,260 Q300,280 420,280" stroke="none" fill="none"/>
+          <path id="flowPath2" d="M420,280 Q300,260 260,260 Q140,145 60,140" stroke="none" fill="none"/>
+          <path id="flowPath3" d="M300,240 Q360,260 420,280 Q530,270 660,170" stroke="none" fill="none"/>
+        </svg>
+      </div>
+
+      <!-- Flow dots container -->
+      <div class="flow-overlay" id="flowOverlay"></div>
+
+      <div class="legend">
+        <div class="legend-item" data-part="gateway">
+          <div class="legend-dot" style="background:#10b981;"></div>
+          <span>Gateway 左钳 — 抓取消息</span>
+        </div>
+        <div class="legend-item" data-part="brain">
+          <div class="legend-dot" style="background:#2563eb;"></div>
+          <span>Brain 大脑 — 思考决策</span>
+        </div>
+        <div class="legend-item" data-part="memory">
+          <div class="legend-dot" style="background:#7c3aed;"></div>
+          <span>Memory 甲壳 — 记忆存储</span>
+        </div>
+        <div class="legend-item" data-part="skills">
+          <div class="legend-dot" style="background:#f59e0b;"></div>
+          <span>Skills 右钳 — 工具调用</span>
+        </div>
+        <div class="legend-item" data-part="heartbeat">
+          <div class="legend-dot" style="background:#ef4444;"></div>
+          <span>Heartbeat 心脏 — 监控</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Panel -->
+    <div class="info-panel">
+      <div class="info-card" id="infoCard">
+        <div id="infoContent">
+          <div class="info-default">
+            <div class="big-emoji">🦞</div>
+            <div><b>点击龙虾的身体部位</b></div>
+            <div>了解每个 OpenClaw 组件</div>
+            <div style="margin-top:12px; font-size:12px; color:#cbd5e1;">
+              左钳 = Gateway<br>
+              大脑 = Brain<br>
+              甲壳 = Memory<br>
+              右钳 = Skills<br>
+              心脏 = Heartbeat
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-controls">
+    <button class="btn btn-primary" id="btnFlow">▶ 播放消息流动</button>
+    <span class="flow-status" id="flowStatus">点击播放，观看消息在龙虾体内的流动</span>
+  </div>
+</div>
+
+<script>
+const partData = {
+  gateway: {
+    icon: '📨',
+    color: '#10b981',
+    name: 'Gateway 网关',
+    role: '龙虾的左钳 — 从外部世界抓取消息',
+    desc: 'Gateway 是 OpenClaw 的"前台接待"，就像龙虾用左钳从水中夹住食物一样。它负责接收来自各个渠道（Slack、微信、API）的消息，通过 Channel Bridge 标准化后，经 Session Resolution 分配会话 ID，然后放入 Lane Queue（基于 Promise 链的 FIFO 队列）排队。每个 Session 对应一条 Lane（并发=1，严格串行），全局 Main Lane 默认最多 4 个并发。处理完成后，也是由这只钳子把结果送回用户。',
+    details: {
+      title: '核心职责',
+      items: [
+        '接收多渠道消息（Slack / 微信 / API）',
+        'Channel Bridge 标准化 + Session Resolution 分配会话',
+        '维护 Lane Queue（纯 TypeScript + Promise，无外部依赖）',
+        'Session Lane 保证同一会话串行，Main Lane 控制全局并发上限',
+        '将最终结果发送回用户渠道'
+      ]
+    }
+  },
+  brain: {
+    icon: '🧠',
+    color: '#2563eb',
+    name: 'Brain 大脑',
+    role: '龙虾的大脑 — 思考、分析、编排一切',
+    desc: 'Brain 是 OpenClaw 的"总指挥"，就像龙虾的大脑控制所有行动。它分析用户意图，决定需要哪些工具和记忆，构建上下文发送给 LLM，并通过 Agentic Loop 循环调用 LLM 和工具，直到任务完成。每条 Session Lane 都有一个独立的 Brain 实例，由 Lane Queue 的 single-writer 模式保证同一时间只有一个 Brain 操作该会话，不需要分布式锁。',
+    details: {
+      title: '核心职责',
+      items: [
+        '分析用户意图和任务类型',
+        '构建 Prompt 上下文（含记忆和工具列表）',
+        '运行 Agentic Loop（LLM → tool_call → 执行 → 喂回 LLM → ... 直到返回文本）',
+        '协调 Memory 和 Skills 组件',
+        'Single-writer：每条 Session Lane 并发=1，无需锁即可安全读写会话状态'
+      ]
+    }
+  },
+  memory: {
+    icon: '📚',
+    color: '#7c3aed',
+    name: 'Memory 记忆',
+    role: '龙虾的甲壳 — 保护和承载所有记忆',
+    desc: 'Memory 是 OpenClaw 的"图书管理员"，就像龙虾坚硬的甲壳保护着身体一样，Memory 保护和管理着所有的历史信息。它使用 BM25 关键词搜索和向量语义搜索两种方式检索信息，确保 Brain 可以获取相关的上下文记忆，让对话连贯、精准。',
+    details: {
+      title: '核心职责',
+      items: [
+        'BM25 关键词搜索（快速精确匹配）',
+        '向量语义搜索（理解含义的模糊匹配）',
+        '对话历史存储与检索',
+        '用户偏好和长期记忆管理',
+        '记忆去重和相关性排序'
+      ]
+    }
+  },
+  skills: {
+    icon: '🔧',
+    color: '#f59e0b',
+    name: 'Skills 工具',
+    role: '龙虾的右钳 — 操作外部世界的工具',
+    desc: 'Skills 是 OpenClaw 的"万能技工"，就像龙虾用右钳操作物体一样。它管理所有可用工具（Grep、HTTP、数据库查询等），接收 Brain 的调用请求，执行具体操作，并将结果返回。每个工具都有权限控制和超时保护。',
+    details: {
+      title: '核心职责',
+      items: [
+        '管理工具注册表（Grep / HTTP / SQL 等）',
+        '接收并执行 Brain 的 tool_call 指令',
+        '工具权限控制和沙箱隔离',
+        '超时保护和错误处理',
+        '结果格式化后返回 Brain'
+      ]
+    }
+  },
+  heartbeat: {
+    icon: '💓',
+    color: '#ef4444',
+    name: 'Heartbeat 心跳',
+    role: '龙虾的心脏 — 维持整个系统的生命节律',
+    desc: 'Heartbeat 是 OpenClaw 的"安全员"，就像心脏持续跳动维持生命一样，它持续监控所有会话的健康状态。记录 Token 用量、响应时间等指标，检测异常并触发告警。它运行在独立的 Cron Lane 上（与 Main Lane 并行，互不阻塞），负责定时任务的调度，是系统稳定运行的保障。',
+    details: {
+      title: '核心职责',
+      items: [
+        '会话健康状态实时监控',
+        'Token 用量和响应时间统计',
+        '异常检测和告警触发',
+        '运行在独立 Cron Lane（与 Main Lane 并行，不阻塞主交互）',
+        '定时任务（Cron）调度和系统指标上报'
+      ]
+    }
+  }
+};
+
+let selectedPart = null;
+
+function selectPart(partId) {
+  // Remove previous selection
+  document.querySelectorAll('.body-part').forEach(el => el.classList.remove('selected'));
+  // Add selection
+  const partEl = document.getElementById('part-' + partId);
+  if (partEl) partEl.classList.add('selected');
+
+  selectedPart = partId;
+  const data = partData[partId];
+  const card = document.getElementById('infoCard');
+  card.style.setProperty('--part-color', data.color);
+  card.classList.add('active');
+
+  document.getElementById('infoContent').innerHTML = `
+    <div class="info-icon" style="background:${data.color};">${data.icon}</div>
+    <div class="info-name" style="color:${data.color};">${data.name}</div>
+    <div class="info-role">${data.role}</div>
+    <div class="info-desc">${data.desc}</div>
+    <div class="info-details">
+      <div class="detail-title">${data.details.title}</div>
+      ${data.details.items.map(item => `<div>• ${item}</div>`).join('')}
+    </div>
+  `;
+}
+
+// Click handlers for SVG parts
+document.querySelectorAll('.body-part').forEach(el => {
+  el.addEventListener('click', () => {
+    selectPart(el.dataset.part);
+  });
+});
+
+// Legend click handlers
+document.querySelectorAll('.legend-item').forEach(el => {
+  el.addEventListener('click', () => {
+    selectPart(el.dataset.part);
+  });
+});
+
+// === Flow Animation ===
+let isFlowing = false;
+let flowAnimId = null;
+
+function animateFlowDot(svgEl, path, color, duration, onDone) {
+  const pathLen = path.getTotalLength();
+  const dot = document.createElement('div');
+  dot.style.cssText = `
+    position: absolute;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: ${color};
+    box-shadow: 0 0 10px 4px ${color}40;
+    pointer-events: none;
+    z-index: 20;
+  `;
+  document.getElementById('flowOverlay').appendChild(dot);
+
+  const svgRect = svgEl.getBoundingClientRect();
+  const canvasRect = document.getElementById('lobsterCanvas').getBoundingClientRect();
+
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const pt = path.getPointAtLength(pathLen * ease);
+
+    // Convert SVG coords to page coords
+    const scaleX = svgRect.width / 800;
+    const scaleY = svgRect.height / 500;
+    const x = svgRect.left - canvasRect.left + pt.x * scaleX - 6;
+    const y = svgRect.top - canvasRect.top + pt.y * scaleY - 6;
+
+    dot.style.left = x + 'px';
+    dot.style.top = y + 'px';
+    dot.style.opacity = t < 0.05 ? t / 0.05 : t > 0.95 ? (1 - t) / 0.05 : 1;
+
+    if (t < 1) {
+      flowAnimId = requestAnimationFrame(tick);
+    } else {
+      dot.remove();
+      if (onDone) onDone();
+    }
+  }
+  flowAnimId = requestAnimationFrame(tick);
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function playFlow() {
+  if (isFlowing) return;
+  isFlowing = true;
+  const btn = document.getElementById('btnFlow');
+  btn.textContent = '⏳ 播放中...';
+  btn.disabled = true;
+  const status = document.getElementById('flowStatus');
+
+  const svg = document.getElementById('lobsterSvg');
+  const path1 = document.getElementById('flowPath1');
+  const path2 = document.getElementById('flowPath2');
+  const path3 = document.getElementById('flowPath3');
+
+  // Step 1: Message enters via left claw (Gateway)
+  status.textContent = '① 消息从左钳(Gateway)进入...';
+  selectPart('gateway');
+  await new Promise(r => animateFlowDot(svg, path1, '#10b981', 1500, r));
+
+  // Step 2: Brain thinks
+  status.textContent = '② 大脑(Brain)分析和思考...';
+  selectPart('brain');
+  await wait(800);
+
+  // Step 3: Brain queries Memory (shell)
+  status.textContent = '③ 查询甲壳(Memory)中的记忆...';
+  selectPart('memory');
+  await wait(1000);
+
+  // Step 4: Brain sends to Skills via right claw
+  status.textContent = '④ 右钳(Skills)执行工具调用...';
+  selectPart('skills');
+  await new Promise(r => animateFlowDot(svg, path3, '#f59e0b', 1500, r));
+
+  // Step 5: Heartbeat monitors
+  status.textContent = '⑤ 心脏(Heartbeat)全程监控心跳...';
+  selectPart('heartbeat');
+  await wait(1000);
+
+  // Step 6: Result returns via left claw
+  status.textContent = '⑥ 结果从左钳(Gateway)返回用户！';
+  selectPart('gateway');
+  await new Promise(r => animateFlowDot(svg, path2, '#10b981', 1500, r));
+
+  status.textContent = '✅ 完成！消息走完了龙虾的整个身体';
+  btn.textContent = '↺ 再播放一次';
+  btn.disabled = false;
+  isFlowing = false;
+}
+
+document.getElementById('btnFlow').addEventListener('click', () => {
+  document.getElementById('flowOverlay').innerHTML = '';
+  playFlow();
+});
+</script>
+</body>
+</html>

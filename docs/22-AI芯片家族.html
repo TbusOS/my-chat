@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 芯片家族 — 谁在什么时候干活？</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 32px 20px 16px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 span {
+  color: #2563eb;
+}
+
+.header p {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.progress-dot.active {
+  background: #2563eb;
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.progress-dot.completed {
+  background: #2563eb;
+}
+
+.progress-line {
+  width: 24px;
+  height: 2px;
+  background: #e2e8f0;
+  transition: background 0.4s ease;
+}
+
+.progress-line.completed {
+  background: #2563eb;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.step-label strong {
+  color: #2563eb;
+}
+
+/* Stage */
+.stage-container {
+  position: relative;
+  width: 680px;
+  height: 440px;
+  margin: 12px 0 16px;
+  background: #f8fafc;
+  border-radius: 20px;
+  border: 2px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Step title inside stage */
+.step-title {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 18px;
+  border-radius: 20px;
+  z-index: 20;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.step-title.visible {
+  opacity: 1;
+}
+
+/* Character */
+.character-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  transition: left 0.8s ease, transform 0.8s ease;
+}
+
+.character-wrapper.idle {
+  animation: bobbing 2s ease-in-out infinite;
+}
+
+.character-wrapper.nod {
+  animation: nod 0.5s ease-in-out 2;
+}
+
+.character-wrapper.thinking {
+  animation: thinking-bob 2.5s ease-in-out infinite;
+}
+
+.character-wrapper.eureka {
+  animation: eureka 0.6s ease-out;
+}
+
+.character-wrapper.celebrate {
+  animation: celebrate 0.5s ease-in-out 3;
+}
+
+.character-wrapper.pos-right {
+  left: 62%;
+}
+
+.character-wrapper.pos-center {
+  left: 50%;
+}
+
+.character-wrapper.pos-left {
+  left: 15%;
+}
+
+.character-wrapper.pos-far-left {
+  left: 10%;
+}
+
+@keyframes bobbing {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+@keyframes nod {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  30% { transform: translateX(-50%) rotate(8deg); }
+  60% { transform: translateX(-50%) rotate(-4deg); }
+}
+
+@keyframes thinking-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  30% { transform: translateX(-50%) translateY(-4px) rotate(-2deg); }
+  70% { transform: translateX(-50%) translateY(-2px) rotate(2deg); }
+}
+
+@keyframes eureka {
+  0% { transform: translateX(-50%) translateY(0) scale(1); }
+  40% { transform: translateX(-50%) translateY(-20px) scale(1.1); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes celebrate {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  25% { transform: translateX(-50%) translateY(-15px) rotate(-8deg); }
+  75% { transform: translateX(-50%) translateY(-15px) rotate(8deg); }
+}
+
+/* Character SVG parts */
+.char-arm-left, .char-arm-right {
+  transition: transform 0.4s ease;
+  transform-origin: center top;
+}
+
+.character-wrapper.wave .char-arm-right {
+  animation: wave-arm 0.6s ease-in-out 2;
+}
+
+.character-wrapper.reach .char-arm-right {
+  transform: rotate(-60deg) translateX(5px);
+}
+
+.character-wrapper.point .char-arm-right {
+  transform: rotate(-45deg) translateX(10px) translateY(-10px);
+}
+
+.character-wrapper.chin .char-arm-right {
+  transform: rotate(-70deg) translateX(2px) translateY(-15px);
+}
+
+.character-wrapper.present .char-arm-left,
+.character-wrapper.present .char-arm-right {
+  transform: rotate(-40deg);
+}
+
+@keyframes wave-arm {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+}
+
+/* Character eyes */
+.char-eye {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.look-left .char-eye {
+  transform: translateX(-2px);
+}
+
+/* Character mouth */
+.char-mouth {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.surprise .char-mouth {
+  rx: 4;
+  ry: 4;
+}
+
+/* Lightbulb */
+.lightbulb {
+  position: absolute;
+  top: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.lightbulb.on {
+  opacity: 1;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4)); }
+  50% { filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.8)); }
+}
+
+/* Exclamation */
+.exclamation {
+  position: absolute;
+  top: -40px;
+  right: -30px;
+  font-size: 32px;
+  font-weight: 900;
+  color: #ef4444;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+}
+
+.exclamation.visible {
+  opacity: 1;
+  transform: scale(1);
+  animation: exclaim-pop 0.5s ease-out;
+}
+
+@keyframes exclaim-pop {
+  0% { transform: scale(0) rotate(-20deg); }
+  60% { transform: scale(1.3) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Speech Bubbles */
+.bubble {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  max-width: 240px;
+}
+
+.bubble.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.bubble.tail-right::after {
+  bottom: 20px;
+  right: -10px;
+  border-left: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-left::after {
+  bottom: 20px;
+  left: -10px;
+  border-right: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-bottom::after {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: 10px solid #ffffff;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+/* Chip card */
+.chip-card {
+  position: absolute;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  opacity: 0;
+  transform: scale(0.5) translateY(20px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 12;
+}
+
+.chip-card.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.chip-card.highlight {
+  transform: scale(1.05);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+.chip-card-header {
+  padding: 6px 12px;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip-card-body {
+  background: white;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* Chip icon (small rounded rectangle) */
+.chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: white;
+  font-weight: 900;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Info panel */
+.info-panel {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+  overflow: hidden;
+}
+
+.info-panel.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.info-panel-header {
+  padding: 6px 14px;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.info-panel-body {
+  padding: 8px 14px;
+}
+
+.info-item {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.4s ease;
+}
+
+.info-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Stats card */
+.stats-card {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #fbbf24;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+}
+
+.stats-card.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Split panel for step 5 */
+.split-panel {
+  position: absolute;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+}
+
+.split-panel.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.split-panel-header {
+  padding: 6px 12px;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.split-panel-body {
+  background: white;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #334155;
+}
+
+/* Pipeline flow */
+.pipeline {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  z-index: 14;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.5s ease;
+}
+
+.pipeline.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.pipeline-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.pipeline-chip {
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pipeline-text {
+  font-size: 9px;
+  color: #475569;
+  white-space: nowrap;
+  text-align: center;
+  max-width: 90px;
+}
+
+.pipeline-arrow {
+  font-size: 16px;
+  color: #94a3b8;
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+/* Summary card */
+.summary-card {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #22c55e;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(34, 197, 94, 0.12);
+  opacity: 0;
+  transform: scale(0.5) rotate(-3deg);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+}
+
+.summary-card.visible {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.summary-header {
+  background: #22c55e;
+  color: white;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.summary-body {
+  padding: 8px 14px;
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.summary-item {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.4s ease;
+}
+
+.summary-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Scenario boxes */
+.scenario-box {
+  position: absolute;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+}
+
+.scenario-box.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.scenario-header {
+  padding: 4px 10px;
+  color: white;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.scenario-body {
+  background: white;
+  padding: 6px 10px;
+  font-size: 10px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* Confetti */
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+.confetti.active {
+  animation: confetti-fall 2s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translateY(-20px) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translateY(400px) rotate(720deg) scale(0.5); }
+}
+
+/* Bounce animation for chip cards */
+@keyframes chip-bounce {
+  0% { transform: scale(0.5) translateY(20px); }
+  60% { transform: scale(1.1) translateY(-5px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+.chip-card.bounce {
+  animation: chip-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 1;
+}
+
+/* Comparison bar */
+.comparison-text {
+  position: absolute;
+  font-size: 11px;
+  color: #64748b;
+  opacity: 0;
+  transition: all 0.5s ease;
+  z-index: 14;
+}
+
+.comparison-text.visible {
+  opacity: 1;
+}
+
+/* Ground shadow */
+.ground-shadow {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 8px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.08) 0%, transparent 70%);
+  z-index: 5;
+  transition: left 0.8s ease;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 32px;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.btn-auto {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-auto:hover {
+  background: #dcfce7;
+}
+
+.btn-auto.playing {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .stage-container {
+    width: 95vw;
+    height: 380px;
+  }
+  .header h1 { font-size: 24px; }
+  .bubble { font-size: 12px; max-width: 180px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>AI 芯片家族</span> — 谁在什么时候干活？</h1>
+  <p>GPU、NPU、VPU、TPU、CPU 各司其职</p>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-dot active" data-step="0" onclick="goToStep(0)"></div>
+  <div class="progress-line" data-line="0"></div>
+  <div class="progress-dot" data-step="1" onclick="goToStep(1)"></div>
+  <div class="progress-line" data-line="1"></div>
+  <div class="progress-dot" data-step="2" onclick="goToStep(2)"></div>
+  <div class="progress-line" data-line="2"></div>
+  <div class="progress-dot" data-step="3" onclick="goToStep(3)"></div>
+  <div class="progress-line" data-line="3"></div>
+  <div class="progress-dot" data-step="4" onclick="goToStep(4)"></div>
+  <div class="progress-line" data-line="4"></div>
+  <div class="progress-dot" data-step="5" onclick="goToStep(5)"></div>
+  <div class="progress-line" data-line="5"></div>
+  <div class="progress-dot" data-step="6" onclick="goToStep(6)"></div>
+  <div class="progress-line" data-line="6"></div>
+  <div class="progress-dot" data-step="7" onclick="goToStep(7)"></div>
+</div>
+<div class="step-label" id="stepLabel">步骤 <strong>1</strong> / 8</div>
+
+<div class="stage-container">
+  <div class="stage" id="stage">
+    <div class="step-title" id="stepTitle"></div>
+
+    <!-- Ground shadow -->
+    <div class="ground-shadow" id="groundShadow"></div>
+
+    <!-- Character -->
+    <div class="character-wrapper idle" id="character">
+      <!-- Lightbulb above head -->
+      <div class="lightbulb" id="lightbulb">
+        <svg width="30" height="36" viewBox="0 0 30 36">
+          <ellipse cx="15" cy="14" rx="11" ry="12" fill="#fbbf24" opacity="0.3"/>
+          <path d="M15 2 C8 2 3 7.5 3 14 C3 19 6 22 9 24 L9 28 L21 28 L21 24 C24 22 27 19 27 14 C27 7.5 22 2 15 2Z" fill="#fbbf24"/>
+          <rect x="10" y="28" width="10" height="3" rx="1" fill="#d4a017"/>
+          <rect x="11" y="31" width="8" height="2" rx="1" fill="#d4a017"/>
+          <path d="M15 8 L15 18 M10 13 L20 13" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+
+      <!-- Exclamation mark -->
+      <div class="exclamation" id="exclamation">!</div>
+
+      <!-- SVG Character -->
+      <svg width="100" height="140" viewBox="0 0 100 140" id="charSvg">
+        <!-- Body -->
+        <rect class="char-body" x="30" y="62" width="40" height="45" rx="12" fill="#2563eb"/>
+
+        <!-- Legs -->
+        <rect x="35" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <rect x="53" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+
+        <!-- Shoes -->
+        <ellipse cx="41" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <ellipse cx="59" cy="126" rx="9" ry="5" fill="#1e293b"/>
+
+        <!-- Arms -->
+        <g class="char-arm-left">
+          <rect x="17" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="24" cy="98" r="6" fill="#fde68a"/>
+        </g>
+        <g class="char-arm-right">
+          <rect x="69" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="76" cy="98" r="6" fill="#fde68a"/>
+        </g>
+
+        <!-- Head -->
+        <circle cx="50" cy="36" r="28" fill="#fde68a"/>
+
+        <!-- Hat -->
+        <path d="M25 32 Q25 14 50 10 Q75 14 75 32 Z" fill="#2563eb"/>
+        <rect x="20" y="30" width="60" height="6" rx="3" fill="#1d4ed8"/>
+
+        <!-- Face -->
+        <g class="char-face">
+          <!-- Eyes -->
+          <circle class="char-eye" cx="40" cy="38" r="3.5" fill="#1e293b"/>
+          <circle class="char-eye" cx="60" cy="38" r="3.5" fill="#1e293b"/>
+          <!-- Eye shine -->
+          <circle cx="41.5" cy="36.5" r="1.2" fill="white"/>
+          <circle cx="61.5" cy="36.5" r="1.2" fill="white"/>
+          <!-- Mouth -->
+          <ellipse class="char-mouth" cx="50" cy="50" rx="6" ry="3" fill="#1e293b"/>
+          <!-- Blush -->
+          <ellipse cx="34" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+          <ellipse cx="66" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Confetti container -->
+    <div class="confetti-container" id="confettiContainer"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-secondary" id="btnReplay" onclick="replay()">重播</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+</div>
+
+<script>
+const STEPS = [
+  { title: '第一步：认识芯片家族', key: 'intro' },
+  { title: '第二步：GPU — 数据中心主力', key: 'gpu' },
+  { title: '第三步：NPU — 手机端侧推理', key: 'npu' },
+  { title: '第四步：TPU — Google 的秘密武器', key: 'tpu' },
+  { title: '第五步：VPU — 视觉专家', key: 'vpu' },
+  { title: '第六步：CPU — 总调度', key: 'cpu' },
+  { title: '第七步：LLM 推理流水线', key: 'pipeline' },
+  { title: '第八步：芯片分工总结', key: 'chipSummary' }
+];
+
+const CHIPS = [
+  { name: 'CPU', label: '总指挥', color: '#22c55e', bg: '#f0fdf4' },
+  { name: 'GPU', label: '算力之王', color: '#2563eb', bg: '#eff6ff' },
+  { name: 'TPU', label: 'Google 专属', color: '#9333ea', bg: '#faf5ff' },
+  { name: 'NPU', label: '手机大脑', color: '#f97316', bg: '#fff7ed' },
+  { name: 'VPU', label: '视觉专家', color: '#ef4444', bg: '#fef2f2' }
+];
+
+let currentStep = -1;
+let autoPlayInterval = null;
+let dynamicElements = [];
+
+const stage = document.getElementById('stage');
+const character = document.getElementById('character');
+const stepTitle = document.getElementById('stepTitle');
+const lightbulb = document.getElementById('lightbulb');
+const exclamation = document.getElementById('exclamation');
+const groundShadow = document.getElementById('groundShadow');
+const confettiContainer = document.getElementById('confettiContainer');
+
+function clearDynamic() {
+  dynamicElements.forEach(el => {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  dynamicElements = [];
+
+  character.className = 'character-wrapper idle pos-center';
+  groundShadow.style.left = '50%';
+  stepTitle.classList.remove('visible');
+  lightbulb.classList.remove('on');
+  exclamation.classList.remove('visible');
+  confettiContainer.innerHTML = '';
+}
+
+function createElement(tag, attrs, parent) {
+  const el = document.createElement(tag);
+  if (attrs) {
+    Object.keys(attrs).forEach(k => {
+      if (k === 'style' && typeof attrs[k] === 'object') {
+        Object.assign(el.style, attrs[k]);
+      } else if (k === 'className') {
+        el.className = attrs[k];
+      } else if (k === 'innerHTML') {
+        el.innerHTML = attrs[k];
+      } else if (k === 'textContent') {
+        el.textContent = attrs[k];
+      } else {
+        el.setAttribute(k, attrs[k]);
+      }
+    });
+  }
+  (parent || stage).appendChild(el);
+  dynamicElements.push(el);
+  return el;
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function updateProgress(step) {
+  document.querySelectorAll('.progress-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === step);
+    dot.classList.toggle('completed', i < step);
+  });
+  document.querySelectorAll('.progress-line').forEach((line, i) => {
+    line.classList.toggle('completed', i < step);
+  });
+  document.getElementById('stepLabel').innerHTML = `步骤 <strong>${step + 1}</strong> / 8`;
+}
+
+function makeChipIcon(chip, size) {
+  size = size || 28;
+  return `<div style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:6px;background:${chip.color};color:white;font-weight:900;font-size:${Math.round(size * 0.5)}px;flex-shrink:0">${chip.name.charAt(0)}</div>`;
+}
+
+/* ===== STEP 0: Intro - Meet the chip family ===== */
+async function stepIntro() {
+  character.className = 'character-wrapper idle pos-far-left';
+  groundShadow.style.left = '10%';
+
+  stepTitle.textContent = STEPS[0].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Character wave
+  await delay(300);
+  character.className = 'character-wrapper wave pos-far-left';
+
+  // Speech bubble
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '130px', bottom: '140px', maxWidth: '220px' },
+    innerHTML: '<span style="font-weight:700;color:#2563eb">AI 世界有一个芯片家族，</span><br>各有各的绝活！'
+  });
+
+  await delay(500);
+  charBubble.classList.add('visible');
+
+  await delay(400);
+  character.className = 'character-wrapper point pos-far-left';
+
+  // Show 5 chip cards one by one
+  const chipPositions = [
+    { top: '55px', left: '260px' },
+    { top: '55px', left: '390px' },
+    { top: '55px', left: '520px' },
+    { top: '210px', left: '325px' },
+    { top: '210px', left: '455px' }
+  ];
+
+  for (let i = 0; i < CHIPS.length; i++) {
+    const chip = CHIPS[i];
+    const pos = chipPositions[i];
+    const card = createElement('div', {
+      className: 'chip-card',
+      style: { top: pos.top, left: pos.left, width: '120px' },
+      innerHTML: `
+        <div class="chip-card-header" style="background:${chip.color}">
+          ${makeChipIcon(chip, 22)}
+          <span>${chip.name}</span>
+        </div>
+        <div class="chip-card-body" style="text-align:center;padding:8px 10px">
+          <div style="font-weight:700;color:${chip.color};font-size:13px">${chip.label}</div>
+        </div>
+      `
+    });
+
+    await delay(350);
+    card.classList.add('bounce');
+  }
+
+  await delay(400);
+  character.className = 'character-wrapper idle pos-far-left';
+}
+
+/* ===== STEP 1: GPU ===== */
+async function stepGpu() {
+  character.className = 'character-wrapper idle pos-far-left';
+  groundShadow.style.left = '10%';
+
+  stepTitle.textContent = STEPS[1].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Left column: chip + stats
+  const leftCol = createElement('div', {
+    className: 'chip-card',
+    style: { top: '45px', left: '120px', width: '200px' },
+    innerHTML: `
+      <div class="chip-card-header" style="background:#2563eb;font-size:15px;padding:10px 14px">
+        ${makeChipIcon(CHIPS[1], 30)}
+        <span style="font-size:16px">GPU — 算力之王</span>
+      </div>
+      <div class="chip-card-body" style="padding:10px 14px;font-size:12px;line-height:1.8">
+        <div style="color:#64748b">NVIDIA H100 / A100 / RTX 4090</div>
+        <div style="margin-top:6px;font-weight:700;color:#1e293b">特点</div>
+        <div style="color:#475569">算力极强，功耗高，价格贵</div>
+        <div style="margin-top:4px;color:#2563eb;font-weight:600;font-size:11px">用在：数据中心、云端 AI 服务</div>
+      </div>
+    `
+  });
+  await delay(300);
+  leftCol.classList.add('visible');
+
+  // Right column: what GPU does
+  const rightCol = createElement('div', {
+    className: 'info-panel',
+    style: { top: '45px', right: '20px', width: '240px' },
+    innerHTML: `
+      <div class="info-panel-header" style="background:#2563eb">GPU 负责什么？</div>
+      <div class="info-panel-body" style="line-height:2">
+        <div class="info-item" data-idx="0">✅ 矩阵乘法（Attention、MLP）</div>
+        <div class="info-item" data-idx="1">✅ KV Cache 读写</div>
+        <div class="info-item" data-idx="2">✅ 模型训练 + 推理</div>
+        <div class="info-item" data-idx="3">✅ 大规模并行计算</div>
+      </div>
+    `
+  });
+  await delay(400);
+  rightCol.classList.add('visible');
+  const items = rightCol.querySelectorAll('.info-item');
+  for (let i = 0; i < items.length; i++) { await delay(300); items[i].classList.add('visible'); }
+
+  // Bottom note
+  const note = createElement('div', {
+    className: 'comparison-text',
+    style: { bottom: '15px', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', fontSize: '13px', whiteSpace: 'nowrap' },
+    innerHTML: '<span style="color:#2563eb;font-weight:700">Claude / GPT / Gemini 的推理</span> → 全靠 GPU 集群'
+  });
+  await delay(300);
+  note.classList.add('visible');
+  character.className = 'character-wrapper point pos-far-left';
+}
+
+/* ===== STEP 2: NPU ===== */
+async function stepNpu() {
+  character.className = 'character-wrapper idle pos-far-left';
+  groundShadow.style.left = '10%';
+
+  stepTitle.textContent = STEPS[2].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Left column: chip + stats
+  const leftCol = createElement('div', {
+    className: 'chip-card',
+    style: { top: '45px', left: '120px', width: '210px' },
+    innerHTML: `
+      <div class="chip-card-header" style="background:#f97316;font-size:15px;padding:10px 14px">
+        ${makeChipIcon(CHIPS[3], 30)}
+        <span style="font-size:16px">NPU — 手机大脑</span>
+      </div>
+      <div class="chip-card-body" style="padding:10px 14px;font-size:12px;line-height:1.8">
+        <div style="color:#64748b">Apple Neural Engine</div>
+        <div style="color:#64748b">高通 Hexagon / Intel AI Boost</div>
+        <div style="margin-top:6px;font-weight:700;color:#1e293b">特点</div>
+        <div style="color:#475569">低功耗、集成在 SoC 里、算力比 GPU 小很多</div>
+        <div style="margin-top:4px;color:#f97316;font-weight:600;font-size:11px">用在：手机、笔记本、平板</div>
+      </div>
+    `
+  });
+  await delay(300);
+  leftCol.classList.add('visible');
+
+  // Right column: functions
+  const rightCol = createElement('div', {
+    className: 'info-panel',
+    style: { top: '45px', right: '20px', width: '240px' },
+    innerHTML: `
+      <div class="info-panel-header" style="background:#f97316">NPU 负责什么？</div>
+      <div class="info-panel-body" style="line-height:2">
+        <div class="info-item" data-idx="0">✅ 语音识别（Siri、小爱）</div>
+        <div class="info-item" data-idx="1">✅ 拍照 AI 优化</div>
+        <div class="info-item" data-idx="2">✅ 本地小模型推理（端侧 LLM）</div>
+        <div class="info-item" data-idx="3">✅ 实时翻译</div>
+      </div>
+    `
+  });
+  await delay(400);
+  rightCol.classList.add('visible');
+  const items = rightCol.querySelectorAll('.info-item');
+  for (let i = 0; i < items.length; i++) { await delay(300); items[i].classList.add('visible'); }
+
+  // Bottom comparison
+  const compare = createElement('div', {
+    className: 'comparison-text',
+    style: { bottom: '15px', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', fontSize: '13px', whiteSpace: 'nowrap' },
+    innerHTML: '<span style="color:#2563eb;font-weight:700">GPU</span> = 工厂大型机器 &nbsp;|&nbsp; <span style="color:#f97316;font-weight:700">NPU</span> = 口袋迷你工具'
+  });
+  await delay(300);
+  compare.classList.add('visible');
+  character.className = 'character-wrapper nod pos-far-left';
+  await delay(600);
+  character.className = 'character-wrapper idle pos-far-left';
+}
+
+/* ===== STEP 3: TPU ===== */
+async function stepTpu() {
+  character.className = 'character-wrapper idle pos-far-left';
+  groundShadow.style.left = '10%';
+
+  stepTitle.textContent = STEPS[3].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Left column: chip + stats
+  const leftCol = createElement('div', {
+    className: 'chip-card',
+    style: { top: '45px', left: '120px', width: '210px' },
+    innerHTML: `
+      <div class="chip-card-header" style="background:#9333ea;font-size:15px;padding:10px 14px">
+        ${makeChipIcon(CHIPS[2], 30)}
+        <span style="font-size:16px">TPU — Google 专属</span>
+      </div>
+      <div class="chip-card-body" style="padding:10px 14px;font-size:12px;line-height:1.8">
+        <div style="color:#64748b">TPU v5p — Google 自研</div>
+        <div style="color:#9333ea;font-weight:600">不对外卖！</div>
+        <div style="margin-top:6px;font-weight:700;color:#1e293b">特点</div>
+        <div style="color:#475569">Google 专属，针对 AI 深度优化，性能对标 H100</div>
+      </div>
+    `
+  });
+  await delay(300);
+  leftCol.classList.add('visible');
+
+  // Right column: functions
+  const rightCol = createElement('div', {
+    className: 'info-panel',
+    style: { top: '45px', right: '20px', width: '240px' },
+    innerHTML: `
+      <div class="info-panel-header" style="background:#9333ea">TPU 负责什么？</div>
+      <div class="info-panel-body" style="line-height:2">
+        <div class="info-item" data-idx="0">✅ Gemini 模型训练</div>
+        <div class="info-item" data-idx="1">✅ Gemini 推理服务</div>
+        <div class="info-item" data-idx="2">✅ Google 搜索 AI 功能</div>
+        <div class="info-item" data-idx="3">✅ 专为 TensorFlow/JAX 优化</div>
+      </div>
+    `
+  });
+  await delay(400);
+  rightCol.classList.add('visible');
+  const items = rightCol.querySelectorAll('.info-item');
+  for (let i = 0; i < items.length; i++) { await delay(300); items[i].classList.add('visible'); }
+
+  // Bottom note
+  const note = createElement('div', {
+    className: 'comparison-text',
+    style: { bottom: '15px', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', fontSize: '13px', whiteSpace: 'nowrap' },
+    innerHTML: '<span style="color:#9333ea;font-weight:700">Google 不用 NVIDIA 的 GPU，自己造了 TPU！</span>'
+  });
+  await delay(300);
+  note.classList.add('visible');
+  character.className = 'character-wrapper eureka pos-far-left';
+  await delay(600);
+  lightbulb.classList.add('on');
+  await delay(800);
+  character.className = 'character-wrapper idle pos-far-left';
+}
+
+/* ===== STEP 4: VPU 单独 ===== */
+async function stepVpu() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[5].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  const vpuPanel = createElement('div', {
+    className: 'split-panel',
+    style: { top: '48px', right: '30px', width: '380px' },
+    innerHTML: `
+      <div class="split-panel-header" style="background:#ef4444">
+        ${makeChipIcon(CHIPS[4], 20)} &nbsp;VPU = 视觉处理器
+      </div>
+      <div class="split-panel-body" style="font-size:13px;line-height:2">
+        <div class="info-item" data-idx="0">✅ 视频编解码</div>
+        <div class="info-item" data-idx="1">✅ 摄像头实时目标检测</div>
+        <div class="info-item" data-idx="2">✅ 自动驾驶视觉感知</div>
+        <div class="info-item" data-idx="3" style="color:#ef4444;font-weight:700">❌ 和大语言模型（LLM）基本无关</div>
+        <div style="margin-top:8px;font-size:11px;color:#64748b;font-weight:600">用在：摄像头、无人机、自动驾驶、安防监控</div>
+        <div style="margin-top:4px;font-size:11px;color:#64748b">代表：Intel Movidius、Ambarella</div>
+      </div>
+    `
+  });
+
+  await delay(400);
+  vpuPanel.classList.add('visible');
+  const vpuItems = vpuPanel.querySelectorAll('.info-item');
+  for (let i = 0; i < vpuItems.length; i++) { await delay(350); vpuItems[i].classList.add('visible'); }
+
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '160px', maxWidth: '200px' },
+    innerHTML: 'VPU 专注<span style="color:#ef4444;font-weight:700">视觉任务</span>，和大语言模型无关'
+  });
+  await delay(400);
+  charBubble.classList.add('visible');
+}
+
+/* ===== STEP 6: CPU 单独 ===== */
+async function stepCpu() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[6].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  const cpuPanel = createElement('div', {
+    className: 'split-panel',
+    style: { top: '48px', right: '30px', width: '380px' },
+    innerHTML: `
+      <div class="split-panel-header" style="background:#22c55e">
+        ${makeChipIcon(CHIPS[0], 20)} &nbsp;CPU = 总调度
+      </div>
+      <div class="split-panel-body" style="font-size:13px;line-height:2">
+        <div class="info-item" data-idx="0">✅ 分词 Tokenizer（文字→Token）</div>
+        <div class="info-item" data-idx="1">✅ 采样 Sampling（选下一个字）</div>
+        <div class="info-item" data-idx="2">✅ KV Cache 调度管理</div>
+        <div class="info-item" data-idx="3">✅ API 请求处理 / 负载均衡</div>
+        <div class="info-item" data-idx="4">✅ 模型加载、编排、监控</div>
+        <div style="margin-top:8px;font-size:11px;color:#64748b;font-weight:600">用在：所有 AI 场景的调度和管理层</div>
+      </div>
+    `
+  });
+
+  await delay(400);
+  cpuPanel.classList.add('visible');
+  const cpuItems = cpuPanel.querySelectorAll('.info-item');
+  for (let i = 0; i < cpuItems.length; i++) { await delay(350); cpuItems[i].classList.add('visible'); }
+
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '160px', maxWidth: '200px' },
+    innerHTML: 'CPU 不做重计算，但<span style="color:#22c55e;font-weight:700">离了它谁都跑不起来</span>！'
+  });
+  await delay(400);
+  charBubble.classList.add('visible');
+}
+
+/* ===== STEP 7: LLM 推理流水线 ===== */
+async function stepPipeline() {
+  character.className = 'character-wrapper idle pos-far-left';
+  groundShadow.style.left = '10%';
+
+  stepTitle.textContent = STEPS[7].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  const pipeline = createElement('div', {
+    className: 'pipeline',
+    style: { top: '48px', left: '20px', right: '20px', display: 'flex', flexWrap: 'nowrap', justifyContent: 'center' },
+    innerHTML: `
+      <div class="pipeline-node">
+        <div class="pipeline-chip" style="background:#22c55e">CPU</div>
+        <div class="pipeline-text">用户请求<br>→ 分词</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-node">
+        <div class="pipeline-chip" style="background:#2563eb">GPU/TPU</div>
+        <div class="pipeline-text">Embedding →<br>Attention → MLP</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-node">
+        <div class="pipeline-chip" style="background:#2563eb">GPU/TPU</div>
+        <div class="pipeline-text" style="color:#ef4444;font-weight:600">重复 126 层<br>核心计算最耗资源</div>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-node">
+        <div class="pipeline-chip" style="background:#22c55e">CPU</div>
+        <div class="pipeline-text">采样<br>→ 返回结果</div>
+      </div>
+    `
+  });
+
+  await delay(400);
+  pipeline.classList.add('visible');
+
+  const cloudBox = createElement('div', {
+    className: 'scenario-box',
+    style: { top: '175px', left: '40px', width: '250px' },
+    innerHTML: `
+      <div class="scenario-header" style="background:#2563eb">☁️ 云端大模型</div>
+      <div class="scenario-body">
+        <div style="font-weight:700;color:#2563eb">GPU / TPU 集群</div>
+        <div>Claude、GPT、Gemini</div>
+      </div>
+    `
+  });
+  await delay(300);
+  cloudBox.classList.add('visible');
+
+  const phoneBox = createElement('div', {
+    className: 'scenario-box',
+    style: { top: '175px', right: '40px', width: '250px' },
+    innerHTML: `
+      <div class="scenario-header" style="background:#f97316">📱 手机端小模型</div>
+      <div class="scenario-body">
+        <div style="font-weight:700;color:#f97316">NPU</div>
+        <div>Siri、语音助手、本地翻译</div>
+      </div>
+    `
+  });
+  await delay(300);
+  phoneBox.classList.add('visible');
+
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '115px', bottom: '120px', maxWidth: '200px' },
+    innerHTML: '云端靠<span style="color:#2563eb;font-weight:700">GPU</span>，手机靠<span style="color:#f97316;font-weight:700">NPU</span>，两条路线！'
+  });
+  await delay(500);
+  charBubble.classList.add('visible');
+}
+
+/* ===== STEP 8: 芯片分工总结 ===== */
+async function stepChipSummary() {
+  character.className = 'character-wrapper present pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[8].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  const summary = createElement('div', {
+    className: 'summary-card',
+    style: { top: '50px', right: '30px', width: '400px' },
+    innerHTML: `
+      <div class="summary-header">芯片分工总结</div>
+      <div class="summary-body" style="font-size:14px;line-height:2.2">
+        <div class="summary-item" data-idx="0"><span style="color:#2563eb;font-weight:700">GPU</span>：数据中心大模型的主力（训练 + 推理）</div>
+        <div class="summary-item" data-idx="1"><span style="color:#7c3aed;font-weight:700">TPU</span>：Google 专属，替代 GPU 的角色</div>
+        <div class="summary-item" data-idx="2"><span style="color:#f97316;font-weight:700">NPU</span>：手机端小模型（低功耗推理）</div>
+        <div class="summary-item" data-idx="3"><span style="color:#ef4444;font-weight:700">VPU</span>：视觉任务专属（和 LLM 无关）</div>
+        <div class="summary-item" data-idx="4"><span style="color:#22c55e;font-weight:700">CPU</span>：所有场景的总调度</div>
+      </div>
+    `
+  });
+
+  await delay(400);
+  summary.classList.add('visible');
+  const sItems = summary.querySelectorAll('.summary-item');
+  for (let i = 0; i < sItems.length; i++) { await delay(400); sItems[i].classList.add('visible'); }
+
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '150px', maxWidth: '200px' },
+    innerHTML: '<span style="font-weight:700;color:#2563eb">现在你知道每块芯片</span>什么时候上场了！'
+  });
+  await delay(500);
+  charBubble.classList.add('visible');
+
+  await delay(400);
+  character.className = 'character-wrapper celebrate pos-left';
+  spawnConfetti();
+  await delay(1500);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+function spawnConfetti() {
+  const colors = ['#2563eb', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#f97316'];
+  for (let i = 0; i < 40; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = (Math.random() * 100) + '%';
+    confetti.style.top = '-10px';
+    confetti.style.width = (4 + Math.random() * 6) + 'px';
+    confetti.style.height = (4 + Math.random() * 6) + 'px';
+    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    confetti.style.animationDelay = (Math.random() * 0.8) + 's';
+    confetti.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+    confettiContainer.appendChild(confetti);
+    setTimeout(() => confetti.classList.add('active'), 10);
+  }
+}
+
+/* ===== Navigation ===== */
+const stepFunctions = [stepIntro, stepGpu, stepNpu, stepTpu, stepVpu, stepCpu, stepPipeline, stepChipSummary];
+
+async function goToStep(step) {
+  if (step < 0 || step >= 8) return;
+  if (step === currentStep) return;
+
+  currentStep = step;
+  clearDynamic();
+  updateProgress(step);
+
+  const btnNext = document.getElementById('btnNext');
+  btnNext.disabled = false;
+  btnNext.textContent = step < 7 ? '下一步' : '完成';
+  if (step >= 7) {
+    btnNext.disabled = true;
+  }
+
+  document.getElementById('btnPrev').disabled = (step <= 0);
+
+  await stepFunctions[step]();
+}
+
+async function nextStep() {
+  if (isAutoPlaying) return;
+  if (currentStep >= 7) return;
+  await goToStep(currentStep + 1);
+}
+
+function prevStep() {
+  if (!isAutoPlaying && currentStep > 0) goToStep(currentStep - 1);
+}
+
+function replay() {
+  stopAutoPlay();
+  currentStep = -1;
+  clearDynamic();
+  updateProgress(0);
+  document.getElementById('btnNext').disabled = false;
+  document.getElementById('btnNext').textContent = '下一步';
+  document.getElementById('btnPrev').disabled = true;
+  goToStep(0);
+}
+
+let isAutoPlaying = false;
+
+function toggleAutoPlay() {
+  if (isAutoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  isAutoPlaying = true;
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = '暂停播放';
+  btn.classList.add('playing');
+  document.getElementById('btnNext').disabled = true;
+  document.getElementById('btnPrev').disabled = true;
+
+  // Reset to step 0 first
+  currentStep = -1;
+  clearDynamic();
+  updateProgress(0);
+
+  const advanceStep = async () => {
+    if (!isAutoPlaying) return;
+    if (currentStep >= 7) {
+      stopAutoPlay();
+      return;
+    }
+    await goToStep(currentStep < 0 ? 0 : currentStep + 1);
+    if (isAutoPlaying) {
+      autoPlayInterval = setTimeout(advanceStep, 3500);
+    }
+  };
+
+  advanceStep();
+}
+
+function stopAutoPlay() {
+  isAutoPlaying = false;
+  if (autoPlayInterval) {
+    clearTimeout(autoPlayInterval);
+    autoPlayInterval = null;
+  }
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = '自动播放';
+  btn.classList.remove('playing');
+  document.getElementById('btnNext').disabled = (currentStep >= 7);
+  document.getElementById('btnPrev').disabled = (currentStep <= 0);
+}
+
+// Keyboard support
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    if (!isAutoPlaying) nextStep();
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    prevStep();
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    replay();
+  }
+});
+
+// Start at step 0
+goToStep(0);
+</script>
+</body>
+</html>

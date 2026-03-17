@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>上下文窗口的真实成本</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #ffffff;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 32px 20px 16px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 span {
+  color: #2563eb;
+}
+
+.header p {
+  font-size: 16px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.progress-dot.active {
+  background: #2563eb;
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.progress-dot.completed {
+  background: #2563eb;
+}
+
+.progress-line {
+  width: 24px;
+  height: 2px;
+  background: #e2e8f0;
+  transition: background 0.4s ease;
+}
+
+.progress-line.completed {
+  background: #2563eb;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-top: 6px;
+}
+
+.step-label strong {
+  color: #2563eb;
+}
+
+/* Stage */
+.stage-container {
+  position: relative;
+  width: 680px;
+  height: 440px;
+  margin: 12px 0 16px;
+  background: #f8fafc;
+  border-radius: 20px;
+  border: 2px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Step title inside stage */
+.step-title {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 18px;
+  border-radius: 20px;
+  z-index: 20;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.step-title.visible {
+  opacity: 1;
+}
+
+/* Character */
+.character-wrapper {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  transition: left 0.8s ease, transform 0.8s ease;
+}
+
+.character-wrapper.idle {
+  animation: bobbing 2s ease-in-out infinite;
+}
+
+.character-wrapper.nod {
+  animation: nod 0.5s ease-in-out 2;
+}
+
+.character-wrapper.thinking {
+  animation: thinking-bob 2.5s ease-in-out infinite;
+}
+
+.character-wrapper.eureka {
+  animation: eureka 0.6s ease-out;
+}
+
+.character-wrapper.celebrate {
+  animation: celebrate 0.5s ease-in-out 3;
+}
+
+.character-wrapper.pos-right {
+  left: 62%;
+}
+
+.character-wrapper.pos-center {
+  left: 50%;
+}
+
+.character-wrapper.pos-left {
+  left: 18%;
+}
+
+.character-wrapper.pos-left-mid {
+  left: 28%;
+}
+
+@keyframes bobbing {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+@keyframes nod {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  30% { transform: translateX(-50%) rotate(8deg); }
+  60% { transform: translateX(-50%) rotate(-4deg); }
+}
+
+@keyframes thinking-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  30% { transform: translateX(-50%) translateY(-4px) rotate(-2deg); }
+  70% { transform: translateX(-50%) translateY(-2px) rotate(2deg); }
+}
+
+@keyframes eureka {
+  0% { transform: translateX(-50%) translateY(0) scale(1); }
+  40% { transform: translateX(-50%) translateY(-20px) scale(1.1); }
+  100% { transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@keyframes celebrate {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  25% { transform: translateX(-50%) translateY(-15px) rotate(-8deg); }
+  75% { transform: translateX(-50%) translateY(-15px) rotate(8deg); }
+}
+
+/* Character SVG parts */
+.char-arm-left, .char-arm-right {
+  transition: transform 0.4s ease;
+  transform-origin: center top;
+}
+
+.character-wrapper.wave .char-arm-right {
+  animation: wave-arm 0.6s ease-in-out 2;
+}
+
+.character-wrapper.reach .char-arm-right {
+  transform: rotate(-60deg) translateX(5px);
+}
+
+.character-wrapper.point .char-arm-right {
+  transform: rotate(-45deg) translateX(10px) translateY(-10px);
+}
+
+.character-wrapper.chin .char-arm-right {
+  transform: rotate(-70deg) translateX(2px) translateY(-15px);
+}
+
+.character-wrapper.present .char-arm-left,
+.character-wrapper.present .char-arm-right {
+  transform: rotate(-40deg);
+}
+
+@keyframes wave-arm {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+}
+
+/* Character eyes */
+.char-eye {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.look-left .char-eye {
+  transform: translateX(-2px);
+}
+
+.character-wrapper.look-right .char-eye {
+  transform: translateX(2px);
+}
+
+/* Character mouth */
+.char-mouth {
+  transition: all 0.3s ease;
+}
+
+.character-wrapper.surprise .char-mouth {
+  rx: 4;
+  ry: 4;
+}
+
+/* Lightbulb */
+.lightbulb {
+  position: absolute;
+  top: -45px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.lightbulb.on {
+  opacity: 1;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.4)); }
+  50% { filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.8)); }
+}
+
+/* Exclamation */
+.exclamation {
+  position: absolute;
+  top: -40px;
+  right: -30px;
+  font-size: 32px;
+  font-weight: 900;
+  color: #ef4444;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+}
+
+.exclamation.visible {
+  opacity: 1;
+  transform: scale(1);
+  animation: exclaim-pop 0.5s ease-out;
+}
+
+@keyframes exclaim-pop {
+  0% { transform: scale(0) rotate(-20deg); }
+  60% { transform: scale(1.3) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Speech Bubbles */
+.bubble {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+  max-width: 240px;
+}
+
+.bubble.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.bubble.tail-right::after {
+  bottom: 20px;
+  right: -10px;
+  border-left: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-left::after {
+  bottom: 20px;
+  left: -10px;
+  border-right: 10px solid #ffffff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+
+.bubble.tail-bottom::after {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top: 10px solid #ffffff;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+/* Thought bubble */
+.thought-bubble {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 16px 20px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #334155;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 15;
+}
+
+.thought-bubble.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Checklist items */
+.checklist-item {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.4s ease;
+  white-space: nowrap;
+}
+
+.checklist-item.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Token blocks */
+.token-block {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 15px;
+  margin: 2px 3px;
+  opacity: 0;
+  transform: scale(0.5) translateY(8px);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.token-block.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* Room / building visuals */
+.room-visual {
+  position: absolute;
+  border-radius: 12px;
+  border: 3px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+.room-visual.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Stats panel */
+.stats-panel {
+  position: absolute;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 12px;
+  line-height: 1.9;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.8) translateY(10px);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 14;
+}
+
+.stats-panel.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.stat-row {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: all 0.4s ease;
+  white-space: nowrap;
+}
+
+.stat-row.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* GPU card icon */
+.gpu-card {
+  display: inline-block;
+  width: 36px;
+  height: 22px;
+  border-radius: 4px;
+  margin: 2px;
+  position: relative;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.gpu-card.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.gpu-card::after {
+  content: 'GPU';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 7px;
+  font-weight: 700;
+  color: white;
+}
+
+/* Comparison bars */
+.bar-container {
+  margin: 6px 0;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.4s ease;
+}
+
+.bar-container.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.bar-label {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bar-track {
+  height: 18px;
+  background: #f1f5f9;
+  border-radius: 9px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 9px;
+  width: 0;
+  transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  white-space: nowrap;
+}
+
+.bar-fill.overflow {
+  position: relative;
+}
+
+.bar-fill.overflow::after {
+  content: '...';
+  position: absolute;
+  right: 4px;
+  font-size: 14px;
+  font-weight: 900;
+  color: white;
+  letter-spacing: 2px;
+}
+
+/* Flow diagram for step 5 */
+.flow-box {
+  text-align: center;
+  border-radius: 10px;
+  padding: 8px 6px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.4s ease;
+}
+.flow-box.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.flow-arrow {
+  font-size: 22px;
+  font-weight: 900;
+  color: #94a3b8;
+  padding: 0 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.flow-arrow.visible {
+  opacity: 1;
+}
+.flow-note {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.flow-note.visible {
+  opacity: 1;
+}
+
+/* Comparison table for step 6 */
+.compare-table {
+  position: absolute;
+  display: flex;
+  gap: 10px;
+  z-index: 14;
+}
+
+.compare-col {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 0;
+  width: 175px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.7) translateY(20px);
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 2px solid #e2e8f0;
+}
+
+.compare-col.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.compare-col.highlight {
+  border-color: transparent;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+.col-header {
+  padding: 10px 12px;
+  font-weight: 900;
+  font-size: 18px;
+  color: white;
+  text-align: center;
+}
+
+.col-body {
+  padding: 10px 14px;
+}
+
+.col-row {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 4px 0;
+  border-bottom: 1px solid #f1f5f9;
+  color: #475569;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.col-row.visible {
+  opacity: 1;
+}
+
+.col-row:last-child {
+  border-bottom: none;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 0 4px;
+  text-align: center;
+}
+
+.col-row .row-label {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.col-row .row-value {
+  font-weight: 700;
+}
+
+/* Confetti */
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+.confetti.active {
+  animation: confetti-fall 2s ease-out forwards;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translateY(-20px) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translateY(400px) rotate(720deg) scale(0.5); }
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 32px;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.btn-primary:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.btn-auto {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-auto:hover {
+  background: #dcfce7;
+}
+
+.btn-auto.playing {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Ground shadow */
+.ground-shadow {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 8px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.08) 0%, transparent 70%);
+  z-index: 5;
+  transition: left 0.8s ease;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .stage-container {
+    width: 95vw;
+    height: 380px;
+  }
+  .header h1 { font-size: 24px; }
+  .bubble, .thought-bubble { font-size: 12px; max-width: 180px; }
+  .stats-panel { font-size: 11px; }
+  .compare-col { width: 140px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>上下文窗口</span>的真实成本</h1>
+  <p>20K / 200K / 1M 上下文，到底需要多大的代价？</p>
+</div>
+
+<div class="progress-bar" id="progressBar">
+  <div class="progress-dot active" data-step="0" onclick="goToStep(0)"></div>
+  <div class="progress-line" data-line="0"></div>
+  <div class="progress-dot" data-step="1" onclick="goToStep(1)"></div>
+  <div class="progress-line" data-line="1"></div>
+  <div class="progress-dot" data-step="2" onclick="goToStep(2)"></div>
+  <div class="progress-line" data-line="2"></div>
+  <div class="progress-dot" data-step="3" onclick="goToStep(3)"></div>
+  <div class="progress-line" data-line="3"></div>
+  <div class="progress-dot" data-step="4" onclick="goToStep(4)"></div>
+  <div class="progress-line" data-line="4"></div>
+  <div class="progress-dot" data-step="5" onclick="goToStep(5)"></div>
+  <div class="progress-line" data-line="5"></div>
+  <div class="progress-dot" data-step="6" onclick="goToStep(6)"></div>
+  <div class="progress-line" data-line="6"></div>
+  <div class="progress-dot" data-step="7" onclick="goToStep(7)"></div>
+</div>
+<div class="step-label" id="stepLabel">步骤 <strong>1</strong> / 8</div>
+
+<div class="stage-container">
+  <div class="stage" id="stage">
+    <div class="step-title" id="stepTitle"></div>
+
+    <!-- Ground shadow -->
+    <div class="ground-shadow" id="groundShadow"></div>
+
+    <!-- Character -->
+    <div class="character-wrapper idle" id="character">
+      <!-- Lightbulb above head -->
+      <div class="lightbulb" id="lightbulb">
+        <svg width="30" height="36" viewBox="0 0 30 36">
+          <ellipse cx="15" cy="14" rx="11" ry="12" fill="#fbbf24" opacity="0.3"/>
+          <path d="M15 2 C8 2 3 7.5 3 14 C3 19 6 22 9 24 L9 28 L21 28 L21 24 C24 22 27 19 27 14 C27 7.5 22 2 15 2Z" fill="#fbbf24"/>
+          <rect x="10" y="28" width="10" height="3" rx="1" fill="#d4a017"/>
+          <rect x="11" y="31" width="8" height="2" rx="1" fill="#d4a017"/>
+          <path d="M15 8 L15 18 M10 13 L20 13" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+
+      <!-- Exclamation mark -->
+      <div class="exclamation" id="exclamation">!</div>
+
+      <!-- SVG Character -->
+      <svg width="100" height="140" viewBox="0 0 100 140" id="charSvg">
+        <!-- Body -->
+        <rect class="char-body" x="30" y="62" width="40" height="45" rx="12" fill="#2563eb"/>
+        <!-- Legs -->
+        <rect x="35" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <rect x="53" y="102" width="12" height="22" rx="6" fill="#1d4ed8"/>
+        <!-- Shoes -->
+        <ellipse cx="41" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <ellipse cx="59" cy="126" rx="9" ry="5" fill="#1e293b"/>
+        <!-- Arms -->
+        <g class="char-arm-left">
+          <rect x="17" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="24" cy="98" r="6" fill="#fde68a"/>
+        </g>
+        <g class="char-arm-right">
+          <rect x="69" y="66" width="14" height="30" rx="7" fill="#2563eb"/>
+          <circle cx="76" cy="98" r="6" fill="#fde68a"/>
+        </g>
+        <!-- Head -->
+        <circle cx="50" cy="36" r="28" fill="#fde68a"/>
+        <!-- Hat -->
+        <path d="M25 32 Q25 14 50 10 Q75 14 75 32 Z" fill="#2563eb"/>
+        <rect x="20" y="30" width="60" height="6" rx="3" fill="#1d4ed8"/>
+        <!-- Face -->
+        <g class="char-face">
+          <circle class="char-eye" cx="40" cy="38" r="3.5" fill="#1e293b"/>
+          <circle class="char-eye" cx="60" cy="38" r="3.5" fill="#1e293b"/>
+          <circle cx="41.5" cy="36.5" r="1.2" fill="white"/>
+          <circle cx="61.5" cy="36.5" r="1.2" fill="white"/>
+          <ellipse class="char-mouth" cx="50" cy="50" rx="6" ry="3" fill="#1e293b"/>
+          <ellipse cx="34" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+          <ellipse cx="66" cy="48" rx="5" ry="3" fill="#fca5a5" opacity="0.4"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Confetti container -->
+    <div class="confetti-container" id="confettiContainer"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-secondary" id="btnReplay" onclick="replay()">重播</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+</div>
+
+<script>
+const STEPS = [
+  { title: '第一步：Token 是什么？', key: 'token' },
+  { title: '第二步：20K — 一间小书房', key: 'small' },
+  { title: '第三步：200K — 一个图书馆', key: 'medium' },
+  { title: '第四步：1M — 半个数据中心', key: 'large' },
+  { title: '第五步：数据存在哪？KV Cache 是什么？', key: 'where' },
+  { title: '第六步：增长有多猛？', key: 'growth' },
+  { title: '第七步：1000人同时用会怎样？', key: 'concurrent' },
+  { title: '第八步：一张图看懂', key: 'summary' }
+];
+
+let currentStep = -1;
+let autoPlayInterval = null;
+let dynamicElements = [];
+
+const stage = document.getElementById('stage');
+const character = document.getElementById('character');
+const stepTitle = document.getElementById('stepTitle');
+const lightbulb = document.getElementById('lightbulb');
+const exclamation = document.getElementById('exclamation');
+const groundShadow = document.getElementById('groundShadow');
+const confettiContainer = document.getElementById('confettiContainer');
+
+function clearDynamic() {
+  dynamicElements.forEach(el => {
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  dynamicElements = [];
+
+  character.className = 'character-wrapper idle pos-center';
+  groundShadow.style.left = '50%';
+  stepTitle.classList.remove('visible');
+  lightbulb.classList.remove('on');
+  exclamation.classList.remove('visible');
+  confettiContainer.innerHTML = '';
+}
+
+function createElement(tag, attrs, parent) {
+  const el = document.createElement(tag);
+  if (attrs) {
+    Object.keys(attrs).forEach(k => {
+      if (k === 'style' && typeof attrs[k] === 'object') {
+        Object.assign(el.style, attrs[k]);
+      } else if (k === 'className') {
+        el.className = attrs[k];
+      } else if (k === 'innerHTML') {
+        el.innerHTML = attrs[k];
+      } else if (k === 'textContent') {
+        el.textContent = attrs[k];
+      } else {
+        el.setAttribute(k, attrs[k]);
+      }
+    });
+  }
+  (parent || stage).appendChild(el);
+  dynamicElements.push(el);
+  return el;
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function updateProgress(step) {
+  document.querySelectorAll('.progress-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === step);
+    dot.classList.toggle('completed', i < step);
+  });
+  document.querySelectorAll('.progress-line').forEach((line, i) => {
+    line.classList.toggle('completed', i < step);
+  });
+  document.getElementById('stepLabel').innerHTML = `步骤 <strong>${step + 1}</strong> / 8`;
+}
+
+/* ===== STEP 0: Token 是什么？ ===== */
+async function stepToken() {
+  character.className = 'character-wrapper idle pos-left point';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[0].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Chinese sentence panel
+  const cnPanel = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '50px', left: '180px', width: '460px', padding: '14px 20px' },
+    innerHTML: `
+      <div style="font-weight:700;color:#1e293b;margin-bottom:8px;font-size:14px">中文示例</div>
+      <div id="cnText" style="font-size:16px;color:#64748b;margin-bottom:8px;height:24px">帮我优化这段代码</div>
+      <div id="cnTokens" style="min-height:36px;margin-bottom:6px"></div>
+      <div id="cnCount" style="font-size:12px;color:#22c55e;font-weight:700;opacity:0;transition:opacity 0.4s">8 个中文字 ≈ 8 tokens</div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0">
+        <div style="font-weight:700;color:#1e293b;margin-bottom:8px;font-size:14px">英文示例</div>
+        <div id="enText" style="font-size:16px;color:#64748b;margin-bottom:8px;height:24px">Help me fix this bug</div>
+        <div id="enTokens" style="min-height:36px;margin-bottom:6px"></div>
+        <div id="enCount" style="font-size:12px;color:#22c55e;font-weight:700;opacity:0;transition:opacity 0.4s">5 个英文单词 ≈ 6 tokens</div>
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0">
+        <div id="eqLine" style="font-size:13px;color:#2563eb;font-weight:700;opacity:0;transition:opacity 0.4s">1 token ≈ 1个中文字 ≈ 4个英文字母 &nbsp;|&nbsp; 1 行代码 ≈ 12-15 tokens</div>
+      </div>
+    `
+  });
+
+  await delay(400);
+  cnPanel.classList.add('visible');
+
+  // Animate Chinese tokens
+  const cnTokenColors = ['#dbeafe', '#fef3c7', '#dcfce7', '#fce7f3', '#ede9fe'];
+  const cnTokenBorders = ['#2563eb', '#d97706', '#16a34a', '#db2777', '#7c3aed'];
+  const cnTokens = ['帮', '我', '优化', '这段', '代码'];
+  const cnTokensContainer = document.getElementById('cnTokens');
+
+  await delay(600);
+  // Fade out original text
+  document.getElementById('cnText').style.opacity = '0.3';
+
+  for (let i = 0; i < cnTokens.length; i++) {
+    const block = document.createElement('span');
+    block.className = 'token-block';
+    block.style.background = cnTokenColors[i % cnTokenColors.length];
+    block.style.color = cnTokenBorders[i % cnTokenBorders.length];
+    block.style.border = '2px solid ' + cnTokenBorders[i % cnTokenBorders.length];
+    block.textContent = cnTokens[i];
+    cnTokensContainer.appendChild(block);
+    await delay(200);
+    block.classList.add('visible');
+  }
+
+  await delay(300);
+  document.getElementById('cnCount').style.opacity = '1';
+
+  // Animate English tokens
+  const enTokens = ['Help', ' me', ' fix', ' this', ' bug'];
+  const enTokensContainer = document.getElementById('enTokens');
+
+  await delay(400);
+  document.getElementById('enText').style.opacity = '0.3';
+
+  for (let i = 0; i < enTokens.length; i++) {
+    const block = document.createElement('span');
+    block.className = 'token-block';
+    block.style.background = cnTokenColors[i % cnTokenColors.length];
+    block.style.color = cnTokenBorders[i % cnTokenBorders.length];
+    block.style.border = '2px solid ' + cnTokenBorders[i % cnTokenBorders.length];
+    block.textContent = enTokens[i];
+    enTokensContainer.appendChild(block);
+    await delay(200);
+    block.classList.add('visible');
+  }
+
+  await delay(300);
+  document.getElementById('enCount').style.opacity = '1';
+
+  // Show equation line
+  await delay(400);
+  document.getElementById('eqLine').style.opacity = '1';
+
+  // Speech bubble
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '190px', maxWidth: '160px', fontSize: '12px' },
+    innerHTML: 'Token 是 AI 的最小阅读单位，就像一个个<span style="color:#2563eb;font-weight:700">积木块</span>'
+  });
+
+  await delay(500);
+  charBubble.classList.add('visible');
+  character.className = 'character-wrapper nod pos-left point';
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+/* ===== STEP 1: 20K — 一间小书房 ===== */
+async function stepSmall() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[1].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Small room visual
+  const room = createElement('div', {
+    className: 'room-visual',
+    style: {
+      top: '70px', left: '180px', width: '140px', height: '120px',
+      borderColor: '#22c55e', background: '#f0fdf4'
+    },
+    innerHTML: `
+      <div style="font-size:32px;margin-bottom:4px">🏠</div>
+      <div style="font-size:11px;font-weight:700;color:#16a34a">小书房</div>
+      <div style="display:flex;gap:4px;margin-top:6px">
+        <span style="font-size:18px">📄</span>
+        <span style="font-size:18px">📄</span>
+        <span style="font-size:18px">📄</span>
+      </div>
+    `
+  });
+
+  await delay(400);
+  room.classList.add('visible');
+
+  // Walk character towards room
+  await delay(300);
+  character.className = 'character-wrapper idle pos-left-mid look-right';
+  groundShadow.style.left = '28%';
+
+  // GPU card
+  const gpuArea = createElement('div', {
+    style: {
+      position: 'absolute', top: '200px', left: '185px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
+    }
+  });
+
+  const gpu = document.createElement('div');
+  gpu.className = 'gpu-card';
+  gpu.style.background = '#22c55e';
+  gpu.style.width = '60px';
+  gpu.style.height = '32px';
+  gpu.style.borderRadius = '6px';
+  gpu.style.fontSize = '9px';
+  gpu.innerHTML = '<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:9px;font-weight:700;color:white">RTX 4090</span>';
+  gpu.style.position = 'relative';
+  gpuArea.appendChild(gpu);
+  dynamicElements.push(gpuArea);
+
+  await delay(600);
+  gpu.classList.add('visible');
+
+  // Stats panel
+  const stats = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '60px', right: '30px', width: '230px' },
+    innerHTML: `
+      <div style="font-weight:700;color:#22c55e;font-size:15px;margin-bottom:8px">20K 上下文</div>
+      <div class="stat-row" data-idx="0">📄 ~1,500 行代码（3-5个文件）</div>
+      <div class="stat-row" data-idx="1">📖 相当于 30 页文本</div>
+      <div class="stat-row" data-idx="2">🧠 模型: Llama 3.1 8B（FP16 ~16GB）</div>
+      <div class="stat-row" data-idx="3">💾 KV Cache: ~0.1GB（可忽略）</div>
+      <div class="stat-row" data-idx="4">⚡ 总显存: ~16GB → 1张 RTX 4090</div>
+      <div class="stat-row" data-idx="5">💰 每次推理 ~$0.001</div>
+    `
+  });
+
+  await delay(500);
+  stats.classList.add('visible');
+
+  const rows = stats.querySelectorAll('.stat-row');
+  for (let i = 0; i < rows.length; i++) {
+    await delay(350);
+    rows[i].classList.add('visible');
+  }
+
+  // Character speech
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '190px', maxWidth: '170px', fontSize: '12px' },
+    innerHTML: '这是入门级，一台好点的<span style="color:#22c55e;font-weight:700">游戏电脑</span>就够了'
+  });
+
+  await delay(500);
+  charBubble.classList.add('visible');
+  character.className = 'character-wrapper nod pos-left-mid look-right';
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-left-mid look-right';
+}
+
+/* ===== STEP 2: 200K — 一个图书馆 ===== */
+async function stepMedium() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[2].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Library building visual
+  const building = createElement('div', {
+    className: 'room-visual',
+    style: {
+      top: '50px', left: '140px', width: '180px', height: '130px',
+      borderColor: '#f59e0b', background: '#fffbeb'
+    },
+    innerHTML: `
+      <div style="font-size:36px;margin-bottom:2px">🏢</div>
+      <div style="font-size:12px;font-weight:700;color:#d97706">图书馆</div>
+      <div style="display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;justify-content:center;max-width:140px">
+        ${'<span style="font-size:12px">📚</span>'.repeat(10)}
+      </div>
+    `
+  });
+  await delay(400);
+  building.classList.add('visible');
+  character.className = 'character-wrapper surprise pos-left look-right';
+
+  // GPU cluster below building
+  const gpuCluster = createElement('div', {
+    style: {
+      position: 'absolute', bottom: '20px', left: '140px',
+      display: 'flex', gap: '3px', flexWrap: 'wrap', width: '180px'
+    }
+  });
+  for (let i = 0; i < 8; i++) {
+    const gpu = document.createElement('div');
+    gpu.className = 'gpu-card';
+    gpu.style.cssText = 'background:#f59e0b;width:40px;height:20px;border-radius:4px;position:relative';
+    gpu.innerHTML = '<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:7px;font-weight:700;color:white">H100</span>';
+    gpuCluster.appendChild(gpu);
+    await delay(100);
+    gpu.classList.add('visible');
+  }
+
+  // Stats panel - right side, full height
+  const stats = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '50px', right: '15px', width: '310px' },
+    innerHTML: `
+      <div style="font-weight:700;color:#d97706;font-size:15px;margin-bottom:8px">200K 上下文</div>
+      <div class="stat-row" data-idx="0">📄 ~15,000 行代码（整个中型项目）</div>
+      <div class="stat-row" data-idx="1">📖 相当于一本 300 页的书</div>
+      <div class="stat-row" data-idx="2">🧠 模型: 405B 级（FP8 ~405GB）</div>
+      <div class="stat-row" data-idx="3">💾 KV Cache (FP16): ~96GB</div>
+      <div class="stat-row" data-idx="4">⚡ 总显存: ~500GB → 8张 H100 80GB</div>
+      <div class="stat-row" data-idx="5">💰 如 Opus 4.6 / Gemini 3.1 Pro 级别</div>
+    `
+  });
+  await delay(400);
+  stats.classList.add('visible');
+  const rows = stats.querySelectorAll('.stat-row');
+  for (let i = 0; i < rows.length; i++) { await delay(250); rows[i].classList.add('visible'); }
+
+  await delay(300);
+  document.getElementById('bar20k').style.width = '10%';
+  document.getElementById('bar200k').style.width = '100%';
+
+  // Character speech
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '190px', maxWidth: '170px', fontSize: '12px' },
+    innerHTML: '需要一个专业<span style="color:#d97706;font-weight:700">机柜</span>了！成本翻了 <span style="color:#ef4444;font-weight:700">10 倍</span>'
+  });
+
+  await delay(500);
+  charBubble.classList.add('visible');
+  exclamation.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-left look-right';
+}
+
+/* ===== STEP 3: 1M — 半个数据中心 ===== */
+async function stepLarge() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[3].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Start with library, then expand to data center
+  const building = createElement('div', {
+    className: 'room-visual visible',
+    style: {
+      top: '100px', left: '240px', width: '100px', height: '80px',
+      borderColor: '#f59e0b', background: '#fffbeb',
+      transition: 'all 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+    },
+    innerHTML: `
+      <div style="font-size:20px">🏢</div>
+      <div style="font-size:9px;font-weight:700;color:#d97706">200K</div>
+    `
+  });
+
+  await delay(800);
+
+  // MASSIVE expansion
+  building.style.width = '320px';
+  building.style.height = '200px';
+  building.style.top = '48px';
+  building.style.left = '160px';
+  building.style.borderColor = '#ef4444';
+  building.style.background = '#fef2f2';
+  building.innerHTML = `
+    <div style="font-size:44px;margin-bottom:2px">🏭</div>
+    <div style="font-size:13px;font-weight:700;color:#dc2626">半个数据中心机房</div>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <div style="width:40px;height:50px;background:#374151;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#fbbf24;border-radius:2px"></div>
+      </div>
+      <div style="width:40px;height:50px;background:#374151;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#fbbf24;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#ef4444;border-radius:2px"></div>
+      </div>
+      <div style="width:40px;height:50px;background:#374151;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#fbbf24;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+      </div>
+      <div style="width:40px;height:50px;background:#374151;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+        <div style="width:28px;height:4px;background:#fbbf24;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#22c55e;border-radius:2px"></div>
+        <div style="width:28px;height:4px;background:#ef4444;border-radius:2px"></div>
+      </div>
+    </div>
+  `;
+
+  await delay(500);
+  character.className = 'character-wrapper eureka pos-left';
+
+  // Stats
+  const stats = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '54px', right: '15px', width: '175px', fontSize: '11px' },
+    innerHTML: `
+      <div style="font-weight:700;color:#dc2626;font-size:14px;margin-bottom:8px">1M 上下文</div>
+      <div class="stat-row" data-idx="0">📄 ~75,000 行代码（大型开源项目）</div>
+      <div class="stat-row" data-idx="1">📖 全套《哈利波特》(1,500页)</div>
+      <div class="stat-row" data-idx="2">🧠 模型: 405B 级（FP8 ~405GB）</div>
+      <div class="stat-row" data-idx="3">💾 KV Cache (FP16): ~480GB</div>
+      <div class="stat-row" data-idx="4">⚡ 总显存: ~900GB+ → 16张+ H100 80GB</div>
+      <div class="stat-row" data-idx="5">💰 如 Gemini 3.1 Pro / Opus 4.6（1M）级别</div>
+    `
+  });
+
+  await delay(400);
+  stats.classList.add('visible');
+
+  const rows = stats.querySelectorAll('.stat-row');
+  for (let i = 0; i < rows.length; i++) {
+    await delay(300);
+    rows[i].classList.add('visible');
+  }
+
+  // Triple comparison bars
+  const compBar = createElement('div', {
+    className: 'stats-panel',
+    style: { bottom: '12px', left: '160px', width: '340px', padding: '10px 14px' },
+    innerHTML: `
+      <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">规模对比</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:10px;color:#22c55e;font-weight:700;width:30px">20K</span>
+        <div style="flex:1;height:14px;background:#f1f5f9;border-radius:7px;overflow:hidden">
+          <div id="bar20k_2" style="width:0;height:100%;background:#22c55e;border-radius:7px;transition:width 0.8s ease"></div>
+        </div>
+        <span style="font-size:9px;color:#64748b;width:48px">🏠 电脑</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:10px;color:#f59e0b;font-weight:700;width:30px">200K</span>
+        <div style="flex:1;height:14px;background:#f1f5f9;border-radius:7px;overflow:hidden">
+          <div id="bar200k_2" style="width:0;height:100%;background:#f59e0b;border-radius:7px;transition:width 0.8s ease"></div>
+        </div>
+        <span style="font-size:9px;color:#64748b;width:48px">🏢 机柜</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;color:#ef4444;font-weight:700;width:30px">1M</span>
+        <div style="flex:1;height:14px;background:#f1f5f9;border-radius:7px;overflow:hidden">
+          <div id="bar1m_2" style="width:0;height:100%;background:#ef4444;border-radius:7px;transition:width 0.8s ease"></div>
+        </div>
+        <span style="font-size:9px;color:#64748b;width:48px">🏭 机房</span>
+      </div>
+    `
+  });
+
+  await delay(400);
+  compBar.classList.add('visible');
+
+  await delay(300);
+  document.getElementById('bar20k_2').style.width = '2%';
+  document.getElementById('bar200k_2').style.width = '20%';
+  document.getElementById('bar1m_2').style.width = '100%';
+
+  // Character speech
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '190px', maxWidth: '150px', fontSize: '12px' },
+    innerHTML: '这需要<span style="color:#ef4444;font-weight:700">半个数据中心</span>机房！'
+  });
+
+  await delay(500);
+  charBubble.classList.add('visible');
+  exclamation.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+/* ===== STEP 4: 数据存在哪？KV Cache 是什么？ ===== */
+async function stepWhere() {
+  character.className = 'character-wrapper chin thinking pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[4].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  const flowPanel = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '40px', left: '140px', width: '520px', padding: '14px 18px' },
+    innerHTML: `
+      <div style="font-weight:700;color:#2563eb;font-size:14px;margin-bottom:10px">推理时数据住在哪里？</div>
+      <div style="display:flex;align-items:center;gap:0;font-size:12px;margin-bottom:0">
+        <div class="flow-box" data-idx="0" style="background:#f1f5f9;border:2px solid #94a3b8;flex:1">
+          <div style="font-size:16px">💾</div>
+          <div style="font-weight:700;color:#475569">硬盘 SSD</div>
+          <div style="color:#94a3b8;font-size:10px">存模型文件 ~200GB</div>
+          <div style="color:#22c55e;font-size:10px;font-weight:700">最便宜</div>
+        </div>
+        <div class="flow-arrow" data-idx="1">→</div>
+        <div class="flow-box" data-idx="2" style="background:#eff6ff;border:2px solid #93c5fd;flex:1">
+          <div style="font-size:16px">🧠</div>
+          <div style="font-weight:700;color:#2563eb">内存 RAM</div>
+          <div style="color:#64748b;font-size:10px">加载缓冲 256-512GB</div>
+          <div style="color:#f59e0b;font-size:10px;font-weight:700">中等价格</div>
+        </div>
+        <div class="flow-arrow" data-idx="3">→</div>
+        <div class="flow-box" data-idx="4" style="background:#fef2f2;border:2px solid #fca5a5;flex:1.2">
+          <div style="font-size:16px">⚡</div>
+          <div style="font-weight:700;color:#ef4444">GPU 显存 VRAM</div>
+          <div style="color:#64748b;font-size:10px">模型+KV Cache+计算</div>
+          <div style="color:#ef4444;font-size:10px;font-weight:700">最贵！核心瓶颈</div>
+        </div>
+      </div>
+    `
+  });
+  await delay(300);
+  flowPanel.classList.add('visible');
+  const flowItems = flowPanel.querySelectorAll('.flow-box, .flow-arrow');
+  for (let i = 0; i < flowItems.length; i++) { await delay(200); flowItems[i].classList.add('visible'); }
+
+  await delay(600);
+
+  const kvExplain = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '210px', left: '140px', width: '520px', padding: '14px 18px', borderColor: '#f59e0b' },
+    innerHTML: `
+      <div style="font-weight:700;color:#d97706;font-size:14px;margin-bottom:8px">KV Cache 是什么？</div>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="flex:1;font-size:13px;line-height:1.8;color:#334155">
+          AI 生成每个新字时，要<strong>"回头看"</strong>之前所有的字。<br>
+          <strong>KV Cache</strong> = 缓存看过的内容，不用每次重新算。<br>
+          <span style="color:#ef4444;font-weight:700">字越多 → 缓存越大 → 显存占用越多</span>
+        </div>
+        <div style="flex:0 0 auto;text-align:center;background:#fffbeb;border-radius:12px;padding:10px 14px;border:2px solid #fde68a">
+          <div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:4px">类比</div>
+          <div style="font-size:24px">📖📝</div>
+          <div style="font-size:11px;color:#92400e;line-height:1.6">
+            考试时摊开所有笔记<br>
+            笔记越多 → 桌子越大<br>
+            <strong>桌子 = GPU 显存</strong>
+          </div>
+        </div>
+      </div>
+    `
+  });
+  await delay(400);
+  kvExplain.classList.add('visible');
+
+  await delay(600);
+  character.className = 'character-wrapper nod pos-left';
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '160px', maxWidth: '130px', fontSize: '11px' },
+    innerHTML: 'GPU 显存是<span style="color:#ef4444;font-weight:700">最贵的瓶颈</span>，KV Cache 就住在里面！'
+  });
+  await delay(400);
+  charBubble.classList.add('visible');
+  await delay(600);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+/* ===== STEP 5: 增长有多猛？ ===== */
+async function stepGrowth() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[5].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  const linearPanel = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '44px', left: '140px', width: '250px', padding: '12px 14px' },
+    innerHTML: `
+      <div style="font-weight:700;color:#2563eb;font-size:12px;margin-bottom:8px">显存占用（模型+KV Cache）</div>
+      <div class="bar-container" data-idx="0">
+        <div class="bar-label"><span style="color:#22c55e">20K(8B)</span><span style="font-size:9px;color:#64748b">≈16GB</span></div>
+        <div class="bar-track"><div class="bar-fill" id="kvBar1" style="background:#22c55e"></div></div>
+      </div>
+      <div class="bar-container" data-idx="1">
+        <div class="bar-label"><span style="color:#f59e0b">200K</span><span style="font-size:9px;color:#64748b">405+96≈500GB</span></div>
+        <div class="bar-track"><div class="bar-fill" id="kvBar2" style="background:#f59e0b"></div></div>
+      </div>
+      <div class="bar-container" data-idx="2">
+        <div class="bar-label"><span style="color:#ef4444">1M</span><span style="font-size:9px;color:#64748b">405+480≈900GB</span></div>
+        <div class="bar-track"><div class="bar-fill" id="kvBar3" style="background:#ef4444"></div></div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:6px;font-style:italic">以 Llama 405B FP8 为例</div>
+    `
+  });
+
+  const quadPanel = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '44px', right: '15px', width: '250px', padding: '12px 14px', borderColor: '#ef4444' },
+    innerHTML: `
+      <div style="font-weight:700;color:#ef4444;font-size:12px;margin-bottom:8px">算力（Attention）：平方增长！</div>
+      <div class="bar-container" data-idx="0">
+        <div class="bar-label"><span style="color:#22c55e">20K</span><span style="font-size:9px;color:#64748b">1x</span></div>
+        <div class="bar-track"><div class="bar-fill" id="attnBar1" style="background:#22c55e"></div></div>
+      </div>
+      <div class="bar-container" data-idx="1">
+        <div class="bar-label"><span style="color:#f59e0b">200K</span><span style="font-size:9px;color:#64748b">100x</span></div>
+        <div class="bar-track"><div class="bar-fill" id="attnBar2" style="background:#f59e0b"></div></div>
+      </div>
+      <div class="bar-container" data-idx="2">
+        <div class="bar-label"><span style="color:#ef4444">1M</span><span style="font-size:9px;color:#64748b">2,500x !!!</span></div>
+        <div class="bar-track"><div class="bar-fill" id="attnBar3" style="background:linear-gradient(90deg,#ef4444,#dc2626)"></div></div>
+      </div>
+      <div style="font-size:10px;color:#ef4444;margin-top:6px;font-weight:700">5倍上下文 = 25倍算力！</div>
+    `
+  });
+
+  await delay(200);
+  linearPanel.classList.add('visible');
+  quadPanel.classList.add('visible');
+
+  const kvBars = linearPanel.querySelectorAll('.bar-container');
+  const attnBars = quadPanel.querySelectorAll('.bar-container');
+  for (let i = 0; i < 3; i++) {
+    await delay(400);
+    kvBars[i].classList.add('visible');
+    attnBars[i].classList.add('visible');
+  }
+  await delay(300);
+  document.getElementById('kvBar1').style.width = '2%';
+  document.getElementById('kvBar2').style.width = '56%';
+  document.getElementById('kvBar3').style.width = '100%';
+  document.getElementById('attnBar1').style.width = '1%';
+  document.getElementById('attnBar2').style.width = '16%';
+  document.getElementById('attnBar3').style.width = '100%';
+
+  await delay(600);
+  exclamation.classList.add('visible');
+
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '140px', maxWidth: '130px', fontSize: '11px' },
+    innerHTML: '显存线性增长还好，<span style="color:#ef4444;font-weight:700">算力是平方增长</span>，这才是真正烧钱的！'
+  });
+  await delay(400);
+  charBubble.classList.add('visible');
+
+  await delay(500);
+  character.className = 'character-wrapper eureka pos-left';
+  lightbulb.classList.add('on');
+  await delay(600);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+/* ===== STEP 6: 并发成本爆炸 ===== */
+async function stepConcurrent() {
+  character.className = 'character-wrapper idle pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[6].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // 说明：模型共享 vs KV Cache 独占
+  const explainPanel = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '44px', left: '140px', width: '500px', padding: '14px 20px' },
+    innerHTML: `
+      <div style="font-weight:700;color:#2563eb;font-size:14px;margin-bottom:8px">关键：模型共享，KV Cache 独占</div>
+      <div style="display:flex;gap:16px;font-size:12px">
+        <div style="flex:1;background:#f0fdf4;border:2px solid #22c55e;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:20px">🧠</div>
+          <div style="font-weight:700;color:#16a34a">模型权重</div>
+          <div style="color:#64748b;font-size:11px">所有用户<strong>共享一份</strong></div>
+          <div style="color:#16a34a;font-weight:700;font-size:13px">~405GB（固定）</div>
+        </div>
+        <div style="flex:1;background:#fef2f2;border:2px solid #ef4444;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:20px">💾</div>
+          <div style="font-weight:700;color:#ef4444">KV Cache</div>
+          <div style="color:#64748b;font-size:11px">每人<strong>独占一份！</strong></div>
+          <div style="color:#ef4444;font-weight:700;font-size:13px">~96GB/人（200K）</div>
+        </div>
+      </div>
+    `
+  });
+
+  await delay(400);
+  explainPanel.classList.add('visible');
+
+  await delay(1000);
+
+  // 并发用户表格
+  const tablePanel = createElement('div', {
+    className: 'stats-panel',
+    style: { top: '220px', left: '140px', width: '500px', padding: '14px 20px', borderColor: '#ef4444' },
+    innerHTML: `
+      <div style="font-weight:700;color:#ef4444;font-size:14px;margin-bottom:10px">200K 上下文并发成本（405B FP8 模型）</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;font-size:11px;text-align:center">
+        <div style="font-weight:700;color:#64748b;padding:4px">并发人数</div>
+        <div style="font-weight:700;color:#64748b;padding:4px">KV Cache</div>
+        <div style="font-weight:700;color:#64748b;padding:4px">总显存</div>
+        <div style="font-weight:700;color:#64748b;padding:4px">GPU 需求</div>
+        <div class="stat-row" data-idx="0" style="display:contents">
+          <div style="padding:4px;background:#f0fdf4;border-radius:4px;color:#16a34a;font-weight:700">1 人</div>
+          <div style="padding:4px;background:#f0fdf4;border-radius:4px">96GB</div>
+          <div style="padding:4px;background:#f0fdf4;border-radius:4px">~500GB</div>
+          <div style="padding:4px;background:#f0fdf4;border-radius:4px">8x H100</div>
+        </div>
+        <div class="stat-row" data-idx="1" style="display:contents">
+          <div style="padding:4px;background:#fffbeb;border-radius:4px;color:#d97706;font-weight:700">10 人</div>
+          <div style="padding:4px;background:#fffbeb;border-radius:4px">960GB</div>
+          <div style="padding:4px;background:#fffbeb;border-radius:4px">~1.4TB</div>
+          <div style="padding:4px;background:#fffbeb;border-radius:4px">18x H100</div>
+        </div>
+        <div class="stat-row" data-idx="2" style="display:contents">
+          <div style="padding:4px;background:#fef2f2;border-radius:4px;color:#dc2626;font-weight:700">100 人</div>
+          <div style="padding:4px;background:#fef2f2;border-radius:4px;font-weight:700">9.6TB</div>
+          <div style="padding:4px;background:#fef2f2;border-radius:4px;font-weight:700">~10TB</div>
+          <div style="padding:4px;background:#fef2f2;border-radius:4px;font-weight:700">128x H100</div>
+        </div>
+        <div class="stat-row" data-idx="3" style="display:contents">
+          <div style="padding:4px;background:#ef4444;border-radius:4px;color:#fff;font-weight:700">1000 人</div>
+          <div style="padding:4px;background:#ef4444;border-radius:4px;color:#fff;font-weight:700">96TB</div>
+          <div style="padding:4px;background:#ef4444;border-radius:4px;color:#fff;font-weight:700">~96TB</div>
+          <div style="padding:4px;background:#ef4444;border-radius:4px;color:#fff;font-weight:700">1200x H100!</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:8px;text-align:center;font-style:italic">
+        💡 所以各家都在研究 KV Cache 压缩、PagedAttention（vLLM）、卸载到内存/SSD 等技术
+      </div>
+    `
+  });
+
+  await delay(400);
+  tablePanel.classList.add('visible');
+
+  const rows = tablePanel.querySelectorAll('.stat-row');
+  for (let i = 0; i < rows.length; i++) {
+    await delay(500);
+    rows[i].classList.add('visible');
+  }
+
+  // Character reaction
+  await delay(600);
+  exclamation.classList.add('visible');
+  character.className = 'character-wrapper eureka pos-left';
+
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '170px', maxWidth: '130px', fontSize: '11px' },
+    innerHTML: '1000人同时用，光 KV Cache 就要 <span style="color:#ef4444;font-weight:700">96TB 显存</span>，相当于 1200 张 H100！'
+  });
+
+  await delay(400);
+  charBubble.classList.add('visible');
+
+  await delay(800);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+/* ===== STEP 6: 一张图看懂 ===== */
+async function stepSummary() {
+  character.className = 'character-wrapper present pos-left';
+  groundShadow.style.left = '18%';
+
+  stepTitle.textContent = STEPS[7].title;
+  await delay(200);
+  stepTitle.classList.add('visible');
+
+  // Comparison table with 3 columns
+  const table = createElement('div', {
+    className: 'compare-table',
+    style: { top: '46px', left: '145px' }
+  });
+
+  // Column data
+  const cols = [
+    {
+      header: '20K', headerBg: '#22c55e', borderColor: '#22c55e',
+      rows: [
+        { label: '代码量', value: '~1,500 行' },
+        { label: '文本量', value: '30 页' },
+        { label: '模型', value: 'Llama 8B ~16GB' },
+        { label: 'KV Cache', value: '~0.1GB' },
+        { label: '总显存', value: '~16GB' },
+        { label: 'GPU', value: '1x RTX 4090' },
+        { label: '成本', value: '$0.001/次' },
+        { label: '', value: '🏠 游戏电脑' }
+      ]
+    },
+    {
+      header: '200K', headerBg: '#f59e0b', borderColor: '#f59e0b',
+      rows: [
+        { label: '代码量', value: '~15,000 行' },
+        { label: '文本量', value: '300页(一本书)' },
+        { label: '模型', value: '405B FP8 ~405GB' },
+        { label: 'KV Cache', value: '~96GB' },
+        { label: '总显存', value: '~500GB' },
+        { label: 'GPU', value: '8x H100 80GB' },
+        { label: '类比', value: 'Opus 4.6 / Gemini 3.1 Pro' },
+        { label: '', value: '🏢 机柜' }
+      ]
+    },
+    {
+      header: '1M', headerBg: '#ef4444', borderColor: '#ef4444',
+      rows: [
+        { label: '代码量', value: '~75,000 行' },
+        { label: '文本量', value: '1,500页(哈利波特)' },
+        { label: '模型', value: '405B FP8 ~405GB' },
+        { label: 'KV Cache', value: '~480GB' },
+        { label: '总显存', value: '~900GB+' },
+        { label: 'GPU', value: '16x+ H100 80GB' },
+        { label: '类比', value: 'Opus 4.6 1M / Gemini 3.1 Pro' },
+        { label: '', value: '🏭 数据中心' }
+      ]
+    }
+  ];
+
+  const colEls = [];
+  for (let c = 0; c < cols.length; c++) {
+    const col = cols[c];
+    const colEl = document.createElement('div');
+    colEl.className = 'compare-col';
+    colEl.style.borderColor = col.borderColor;
+    let rowsHtml = '';
+    for (let r = 0; r < col.rows.length; r++) {
+      const row = col.rows[r];
+      if (row.label) {
+        rowsHtml += `<div class="col-row" data-idx="${r}"><span class="row-label">${row.label}</span><br><span class="row-value">${row.value}</span></div>`;
+      } else {
+        rowsHtml += `<div class="col-row" data-idx="${r}">${row.value}</div>`;
+      }
+    }
+    colEl.innerHTML = `
+      <div class="col-header" style="background:${col.headerBg}">${col.header}</div>
+      <div class="col-body">${rowsHtml}</div>
+    `;
+    table.appendChild(colEl);
+    colEls.push(colEl);
+  }
+
+  // Light up columns one by one
+  await delay(500);
+  colEls[0].classList.add('visible');
+  await delay(200);
+  const rows0 = colEls[0].querySelectorAll('.col-row');
+  for (let r = 0; r < rows0.length; r++) {
+    await delay(100);
+    rows0[r].classList.add('visible');
+  }
+
+  await delay(400);
+  colEls[1].classList.add('visible');
+  const rows1 = colEls[1].querySelectorAll('.col-row');
+  for (let r = 0; r < rows1.length; r++) {
+    await delay(100);
+    rows1[r].classList.add('visible');
+  }
+
+  await delay(400);
+  colEls[2].classList.add('visible');
+  colEls[2].classList.add('highlight');
+  colEls[2].style.borderColor = '#ef4444';
+  colEls[2].style.boxShadow = '0 8px 32px rgba(239,68,68,0.2)';
+  const rows2 = colEls[2].querySelectorAll('.col-row');
+  for (let r = 0; r < rows2.length; r++) {
+    await delay(100);
+    rows2[r].classList.add('visible');
+  }
+
+  // Character speech
+  const charBubble = createElement('div', {
+    className: 'bubble tail-right',
+    style: { left: '10px', bottom: '190px', maxWidth: '130px', fontSize: '12px' },
+    innerHTML: '现在你知道 <span style="color:#ef4444;font-weight:700">1M 上下文</span>有多贵了吧！'
+  });
+
+  await delay(600);
+  charBubble.classList.add('visible');
+
+  // Celebration
+  await delay(500);
+  character.className = 'character-wrapper celebrate pos-left';
+
+  // Confetti
+  spawnConfetti();
+
+  await delay(1500);
+  character.className = 'character-wrapper idle pos-left';
+}
+
+function spawnConfetti() {
+  const colors = ['#2563eb', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#f97316'];
+  for (let i = 0; i < 40; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = (Math.random() * 100) + '%';
+    confetti.style.top = '-10px';
+    confetti.style.width = (4 + Math.random() * 6) + 'px';
+    confetti.style.height = (4 + Math.random() * 6) + 'px';
+    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    confetti.style.animationDelay = (Math.random() * 0.8) + 's';
+    confetti.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+    confettiContainer.appendChild(confetti);
+    setTimeout(() => confetti.classList.add('active'), 10);
+  }
+}
+
+/* ===== Navigation ===== */
+const stepFunctions = [stepToken, stepSmall, stepMedium, stepLarge, stepWhere, stepGrowth, stepConcurrent, stepSummary];
+
+async function goToStep(step) {
+  if (step < 0 || step > 7) return;
+  if (step === currentStep) return;
+
+  currentStep = step;
+  clearDynamic();
+  updateProgress(step);
+
+  const btnNext = document.getElementById('btnNext');
+  btnNext.disabled = false;
+  btnNext.textContent = step < 7 ? '下一步' : '完成';
+  if (step >= 7) {
+    btnNext.disabled = true;
+  }
+
+  await stepFunctions[step]();
+}
+
+async function nextStep() {
+  if (currentStep >= 7) return;
+  await goToStep(currentStep + 1);
+}
+
+function prevStep(){if(!isAutoPlaying&&currentStep>0)goToStep(currentStep-1)}
+function replay() {
+  stopAutoPlay();
+  currentStep = -1;
+  clearDynamic();
+  updateProgress(0);
+  document.getElementById('btnNext').disabled = false;
+  document.getElementById('btnNext').textContent = '下一步';
+  goToStep(0);
+}
+
+let isAutoPlaying = false;
+
+function toggleAutoPlay() {
+  if (isAutoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  isAutoPlaying = true;
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = '暂停播放';
+  btn.classList.add('playing');
+  document.getElementById('btnNext').disabled = true;
+
+  // Reset to beginning first
+  currentStep = -1;
+  clearDynamic();
+  updateProgress(0);
+
+  const advanceStep = async () => {
+    if (!isAutoPlaying) return;
+    if (currentStep >= 7) {
+      stopAutoPlay();
+      return;
+    }
+    await goToStep(currentStep < 0 ? 0 : currentStep + 1);
+    if (isAutoPlaying) {
+      autoPlayInterval = setTimeout(advanceStep, 4500);
+    }
+  };
+
+  advanceStep();
+}
+
+function stopAutoPlay() {
+  isAutoPlaying = false;
+  if (autoPlayInterval) {
+    clearTimeout(autoPlayInterval);
+    autoPlayInterval = null;
+  }
+  const btn = document.getElementById('btnAuto');
+  btn.textContent = '自动播放';
+  btn.classList.remove('playing');
+  document.getElementById('btnNext').disabled = (currentStep >= 7);
+}
+
+// Keyboard support
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    if (!isAutoPlaying) nextStep();
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (!isAutoPlaying && currentStep > 0) goToStep(currentStep - 1);
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    replay();
+  }
+});
+
+// Start at step 0
+goToStep(0);
+</script>
+</body>
+</html>
