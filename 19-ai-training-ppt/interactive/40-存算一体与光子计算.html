@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>存算一体与光子计算 — AI 硬件的三条革新之路</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-card: #1a2035;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #2a3450;
+  --pim-color: #f59e0b;
+  --pim-glow: rgba(245, 158, 11, 0.3);
+  --photon-color: #06b6d4;
+  --photon-glow: rgba(6, 182, 212, 0.3);
+  --quantum-color: #a855f7;
+  --quantum-glow: rgba(168, 85, 247, 0.3);
+  --bottleneck-color: #ef4444;
+  --bottleneck-glow: rgba(239, 68, 68, 0.3);
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--pim-color), var(--photon-color), var(--quantum-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header .subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* Navigation tabs */
+.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.nav-tab {
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Noto Sans SC', sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-tab:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.nav-tab.active {
+  color: #fff;
+  border-color: transparent;
+}
+
+.nav-tab[data-tab="bottleneck"].active {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  box-shadow: 0 4px 20px var(--bottleneck-glow);
+}
+
+.nav-tab[data-tab="pim"].active {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  box-shadow: 0 4px 20px var(--pim-glow);
+}
+
+.nav-tab[data-tab="photon"].active {
+  background: linear-gradient(135deg, #0891b2, #06b6d4);
+  box-shadow: 0 4px 20px var(--photon-glow);
+}
+
+.nav-tab[data-tab="quantum"].active {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  box-shadow: 0 4px 20px var(--quantum-glow);
+}
+
+.nav-tab[data-tab="compare"].active {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+}
+
+/* Section panels */
+.section-panel {
+  display: none;
+  animation: fadeSlideIn 0.5s ease;
+}
+
+.section-panel.active {
+  display: block;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== BOTTLENECK SECTION ========== */
+.bottleneck-stage {
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bottleneck-title {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--bottleneck-color);
+  margin-bottom: 8px;
+}
+
+.bottleneck-desc {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+/* Highway animation */
+.highway-scene {
+  position: relative;
+  height: 320px;
+  margin: 0 auto;
+  max-width: 800px;
+}
+
+.hw-component {
+  position: absolute;
+  width: 160px;
+  height: 90px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  z-index: 5;
+}
+
+.hw-cpu {
+  left: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  border: 2px solid #60a5fa;
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+  color: #fff;
+}
+
+.hw-memory {
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: linear-gradient(135deg, #065f46, #10b981);
+  border: 2px solid #34d399;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+  color: #fff;
+}
+
+.hw-component .hw-icon {
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+
+.hw-component .hw-label {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+/* Highway lanes */
+.highway {
+  position: absolute;
+  left: 200px;
+  right: 200px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 100px;
+  z-index: 2;
+}
+
+.highway-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: #1a2035;
+  border: 1px solid #2a3450;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.highway-lane.top { top: 0; }
+.highway-lane.bottom { bottom: 0; }
+
+.highway-lane::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #3a4560 0, #3a4560 20px, transparent 20px, transparent 40px);
+  transform: translateY(-50%);
+}
+
+.lane-label {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  z-index: 3;
+}
+
+.lane-label.top-label { top: -18px; }
+.lane-label.bottom-label { bottom: -18px; }
+
+/* Data packets */
+.data-packet {
+  position: absolute;
+  width: 32px;
+  height: 24px;
+  border-radius: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  z-index: 4;
+}
+
+.data-packet.to-cpu {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  color: #fff;
+  animation: moveLeft 2.5s linear infinite;
+}
+
+.data-packet.to-mem {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  color: #fff;
+  animation: moveRight 2.5s linear infinite;
+}
+
+@keyframes moveLeft {
+  0% { left: 100%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: -40px; opacity: 0; }
+}
+
+@keyframes moveRight {
+  0% { left: -40px; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* Traffic jam overlay */
+.traffic-jam {
+  position: absolute;
+  left: 200px;
+  right: 200px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 120px;
+  z-index: 6;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  animation: jamPulse 3s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+@keyframes jamPulse {
+  0%, 100% { opacity: 0; }
+  30%, 70% { opacity: 1; }
+}
+
+.jam-warning {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 12px;
+  padding: 10px 24px;
+  color: var(--bottleneck-color);
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.jam-icon {
+  font-size: 20px;
+  animation: flashWarn 1s ease-in-out infinite;
+}
+
+@keyframes flashWarn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Stats bar */
+.bottleneck-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 32px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 36px;
+  font-weight: 900;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--bottleneck-color);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.stat-value .stat-unit {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Energy bar animation */
+.energy-bar-container {
+  max-width: 500px;
+  margin: 24px auto 0;
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+}
+
+.energy-bar-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.energy-bar {
+  height: 28px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+}
+
+.energy-segment {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  transition: width 1.5s ease;
+}
+
+.energy-transport {
+  background: linear-gradient(90deg, #dc2626, #ef4444);
+  width: 0;
+}
+
+.energy-transport.animate {
+  width: 90%;
+}
+
+.energy-compute {
+  background: linear-gradient(90deg, #059669, #10b981);
+  width: 0;
+}
+
+.energy-compute.animate {
+  width: 10%;
+}
+
+/* ========== ROUTE CARDS (PIM / Photon / Quantum) ========== */
+.route-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.route-visual {
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 420px;
+  position: relative;
+  overflow: hidden;
+}
+
+.route-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.route-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.route-badge.pim {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--pim-color);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.route-badge.photon {
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--photon-color);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.route-badge.quantum {
+  background: rgba(168, 85, 247, 0.15);
+  color: var(--quantum-color);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.route-visual-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.route-visual-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.info-card {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 20px;
+}
+
+.info-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-card h3 .card-icon {
+  font-size: 18px;
+}
+
+.info-card p, .info-card li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.info-card ul {
+  list-style: none;
+  padding: 0;
+}
+
+.info-card ul li {
+  padding-left: 20px;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.info-card ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.info-card.pim h3 { color: var(--pim-color); }
+.info-card.pim ul li::before { background: var(--pim-color); }
+
+.info-card.photon h3 { color: var(--photon-color); }
+.info-card.photon ul li::before { background: var(--photon-color); }
+
+.info-card.quantum h3 { color: var(--quantum-color); }
+.info-card.quantum ul li::before { background: var(--quantum-color); }
+
+.pros-cons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.pros-card, .cons-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+}
+
+.pros-card h4, .cons-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.pros-card h4 { color: #10b981; }
+.cons-card h4 { color: #f87171; }
+
+.pros-card li::before { background: #10b981 !important; }
+.cons-card li::before { background: #f87171 !important; }
+
+.pros-card li, .cons-card li {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.representatives {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rep-tag {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.rep-tag.pim {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--pim-color);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.rep-tag.photon {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--photon-color);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.rep-tag.quantum {
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--quantum-color);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* ========== PIM ANIMATION ========== */
+.pim-animation {
+  width: 100%;
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pim-chip {
+  position: relative;
+  width: 240px;
+  height: 240px;
+}
+
+.pim-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+}
+
+.pim-cell {
+  background: var(--bg-card);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--pim-color);
+  font-weight: 600;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.pim-cell.computing {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--pim-color);
+  box-shadow: 0 0 12px var(--pim-glow);
+}
+
+.pim-cell.computing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(245, 158, 11, 0.3), transparent);
+  animation: pimCompute 1.2s ease-in-out infinite;
+}
+
+@keyframes pimCompute {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+.pim-label-compute {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--pim-color);
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  text-align: center;
+}
+
+.pim-label-compute.visible {
+  opacity: 1;
+}
+
+/* ========== PHOTON ANIMATION ========== */
+.photon-animation {
+  width: 100%;
+  flex: 1;
+  position: relative;
+}
+
+.mzi-array {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 0 auto;
+}
+
+/* Waveguide paths */
+.waveguide {
+  position: absolute;
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+
+.waveguide.horizontal {
+  height: 3px;
+  left: 0;
+  right: 0;
+}
+
+.waveguide.vertical {
+  width: 3px;
+  top: 0;
+  bottom: 0;
+}
+
+/* MZI nodes */
+.mzi-node {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid rgba(6, 182, 212, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  transition: all 0.3s ease;
+}
+
+.mzi-node.active {
+  border-color: var(--photon-color);
+  background: rgba(6, 182, 212, 0.15);
+  box-shadow: 0 0 20px var(--photon-glow);
+}
+
+.mzi-node .mzi-label {
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--photon-color);
+  font-weight: 600;
+}
+
+/* Light beams */
+.light-beam {
+  position: absolute;
+  height: 3px;
+  border-radius: 2px;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.light-beam::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--photon-color), rgba(6, 182, 212, 0.8), transparent);
+  animation: lightTravel 1.8s linear infinite;
+  box-shadow: 0 0 10px var(--photon-color), 0 0 20px var(--photon-glow);
+}
+
+@keyframes lightTravel {
+  0% { left: -60px; }
+  100% { left: calc(100% + 60px); }
+}
+
+.light-beam.vertical {
+  width: 3px;
+  height: auto;
+}
+
+.light-beam.vertical::after {
+  width: 100%;
+  height: 60px;
+  left: 0;
+  top: -100%;
+  background: linear-gradient(180deg, transparent, var(--photon-color), rgba(6, 182, 212, 0.8), transparent);
+  animation: lightTravelV 1.8s linear infinite;
+}
+
+@keyframes lightTravelV {
+  0% { top: -60px; }
+  100% { top: calc(100% + 60px); }
+}
+
+/* Input / Output labels */
+.io-label {
+  position: absolute;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  z-index: 5;
+}
+
+.io-label.input { color: #34d399; }
+.io-label.output { color: var(--photon-color); }
+
+/* ========== QUANTUM ANIMATION ========== */
+.quantum-animation {
+  width: 100%;
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qubit-field {
+  position: relative;
+  width: 280px;
+  height: 200px;
+}
+
+.qubit {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.qubit-core {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--quantum-color), rgba(168, 85, 247, 0.4));
+  animation: qubitPulse 2s ease-in-out infinite;
+  position: relative;
+  z-index: 2;
+}
+
+.qubit-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 85, 247, 0.3);
+  animation: qubitRing 3s linear infinite;
+}
+
+@keyframes qubitPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 15px var(--quantum-glow); }
+  50% { transform: scale(1.15); box-shadow: 0 0 25px var(--quantum-glow), 0 0 40px rgba(168, 85, 247, 0.15); }
+}
+
+@keyframes qubitRing {
+  0% { transform: rotate(0deg) scale(1); opacity: 0.8; }
+  50% { transform: rotate(180deg) scale(1.2); opacity: 0.3; }
+  100% { transform: rotate(360deg) scale(1); opacity: 0.8; }
+}
+
+.qubit-state {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--quantum-color);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Entanglement lines */
+.entangle-line {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.entangle-line line {
+  stroke: var(--quantum-color);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 4;
+  opacity: 0.4;
+  animation: entangleDash 2s linear infinite;
+}
+
+@keyframes entangleDash {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -24; }
+}
+
+.superposition-label {
+  position: absolute;
+  bottom: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--quantum-color);
+  font-weight: 600;
+  white-space: nowrap;
+  animation: superBlink 2s ease-in-out infinite;
+}
+
+@keyframes superBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ========== COMPARISON TABLE ========== */
+.compare-section {
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 32px;
+}
+
+.compare-title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.compare-table thead th {
+  padding: 14px 16px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  border-bottom: 2px solid var(--border);
+}
+
+.compare-table thead th:first-child {
+  text-align: left;
+  color: var(--text-secondary);
+}
+
+.compare-table thead th:nth-child(2) { color: var(--pim-color); }
+.compare-table thead th:nth-child(3) { color: var(--photon-color); }
+.compare-table thead th:nth-child(4) { color: var(--quantum-color); }
+
+.compare-table tbody td {
+  padding: 14px 16px;
+  text-align: center;
+  border-bottom: 1px solid rgba(42, 52, 80, 0.5);
+  color: var(--text-secondary);
+  transition: background 0.2s ease;
+}
+
+.compare-table tbody td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.compare-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.compare-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Maturity dots */
+.maturity {
+  display: inline-flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.maturity-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.maturity-dot.filled.pim { background: var(--pim-color); }
+.maturity-dot.filled.photon { background: var(--photon-color); }
+.maturity-dot.filled.quantum { background: var(--quantum-color); }
+
+/* Timeline visual */
+.timeline-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.timeline-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 18px 24px;
+  border: 1px solid var(--border);
+  text-align: center;
+  min-width: 180px;
+  position: relative;
+  overflow: hidden;
+}
+
+.timeline-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.timeline-card.pim::before { background: var(--pim-color); }
+.timeline-card.photon::before { background: var(--photon-color); }
+.timeline-card.quantum::before { background: var(--quantum-color); }
+
+.timeline-years {
+  font-size: 28px;
+  font-weight: 900;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 4px;
+}
+
+.timeline-card.pim .timeline-years { color: var(--pim-color); }
+.timeline-card.photon .timeline-years { color: var(--photon-color); }
+.timeline-card.quantum .timeline-years { color: var(--quantum-color); }
+
+.timeline-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.timeline-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 900px) {
+  .route-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .highway-scene {
+    height: 260px;
+  }
+
+  .hw-component {
+    width: 120px;
+    height: 70px;
+    font-size: 14px;
+  }
+
+  .hw-cpu { left: 10px; }
+  .hw-memory { right: 10px; }
+
+  .highway {
+    left: 140px;
+    right: 140px;
+  }
+
+  .traffic-jam {
+    left: 140px;
+    right: 140px;
+  }
+
+  .header h1 {
+    font-size: 24px;
+  }
+
+  .nav-tabs {
+    gap: 6px;
+  }
+
+  .nav-tab {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 16px 12px;
+  }
+
+  .highway-scene {
+    height: 220px;
+  }
+
+  .hw-component {
+    width: 80px;
+    height: 55px;
+    font-size: 12px;
+  }
+
+  .hw-cpu { left: 4px; }
+  .hw-memory { right: 4px; }
+
+  .highway {
+    left: 90px;
+    right: 90px;
+  }
+
+  .traffic-jam {
+    left: 90px;
+    right: 90px;
+  }
+
+  .pros-cons {
+    grid-template-columns: 1fr;
+  }
+
+  .bottleneck-stats {
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .stat-value {
+    font-size: 28px;
+  }
+
+  .timeline-row {
+    gap: 12px;
+  }
+
+  .timeline-card {
+    min-width: 140px;
+    padding: 14px 16px;
+  }
+}
+
+/* Glow backgrounds for route visual panels */
+.route-visual.pim-visual::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(245, 158, 11, 0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.route-visual.photon-visual::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(6, 182, 212, 0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.route-visual.quantum-visual::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at center, rgba(168, 85, 247, 0.05) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Photon MZI structured layout */
+.photon-structured {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.photon-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: relative;
+  margin: 12px 0;
+}
+
+.photon-wire {
+  width: 50px;
+  height: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.photon-wire::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40px;
+  width: 40px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--photon-color), transparent);
+  animation: wireGlow 2s linear infinite;
+  box-shadow: 0 0 8px var(--photon-color);
+}
+
+@keyframes wireGlow {
+  0% { left: -40px; }
+  100% { left: calc(100% + 40px); }
+}
+
+.photon-wire-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: rgba(6, 182, 212, 0.15);
+  border-radius: 2px;
+}
+
+.mzi-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 2px solid rgba(6, 182, 212, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--photon-color);
+  font-weight: 700;
+  position: relative;
+  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.mzi-box.glow {
+  border-color: var(--photon-color);
+  box-shadow: 0 0 15px var(--photon-glow), 0 0 30px rgba(6, 182, 212, 0.1);
+  background: rgba(6, 182, 212, 0.1);
+}
+
+.photon-io {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  min-width: 28px;
+  text-align: center;
+}
+
+.photon-io.input { color: #34d399; }
+.photon-io.output { color: var(--photon-color); }
+
+/* Cross-connect lines between MZI rows */
+.cross-connects {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Section descriptions below visual */
+.route-visual-desc {
+  text-align: center;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.route-visual-desc p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.core-idea {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.core-idea.pim {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--pim-color);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.core-idea.photon {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--photon-color);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+
+.core-idea.quantum {
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--quantum-color);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>存算一体与光子计算 — AI 硬件的三条革新之路</h1>
+    <p class="subtitle">冯诺依曼瓶颈、存内计算、光子计算、量子计算</p>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-tab="bottleneck">冯诺依曼瓶颈</button>
+    <button class="nav-tab" data-tab="pim">路线1: 存内计算</button>
+    <button class="nav-tab" data-tab="photon">路线2: 光子计算</button>
+    <button class="nav-tab" data-tab="quantum">路线3: 量子计算</button>
+    <button class="nav-tab" data-tab="compare">三路对比</button>
+  </div>
+
+  <!-- ==================== BOTTLENECK ==================== -->
+  <div class="section-panel active" id="panel-bottleneck">
+    <div class="bottleneck-stage">
+      <div class="bottleneck-title">冯诺依曼瓶颈 — "内存墙"</div>
+      <div class="bottleneck-desc">
+        传统 CPU/GPU 架构中，处理器与内存物理分离。每次运算都需要将数据从内存搬运到处理器，运算完再写回。这条"数据高速公路"已成为 AI 计算的最大瓶颈。
+      </div>
+
+      <!-- Highway Animation -->
+      <div class="highway-scene">
+        <div class="hw-component hw-cpu">
+          <div class="hw-icon">&#x1F9E0;</div>
+          <div>CPU/GPU</div>
+          <div class="hw-label">处理器</div>
+        </div>
+
+        <div class="highway">
+          <span class="lane-label top-label">Data Bus &mdash; 数据总线</span>
+          <div class="highway-lane top" id="lane-top">
+            <!-- To CPU packets injected by JS -->
+          </div>
+          <div class="highway-lane bottom" id="lane-bottom">
+            <!-- To Memory packets injected by JS -->
+          </div>
+          <span class="lane-label bottom-label">数据来回搬运 &rarr; 巨大延迟 + 能耗</span>
+        </div>
+
+        <div class="traffic-jam">
+          <div class="jam-warning">
+            <span class="jam-icon">&#x26A0;</span>
+            数据搬运拥堵！瓶颈严重
+          </div>
+        </div>
+
+        <div class="hw-component hw-memory">
+          <div class="hw-icon">&#x1F4BE;</div>
+          <div>Memory</div>
+          <div class="hw-label">内存/显存</div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="bottleneck-stats">
+        <div class="stat-item">
+          <div class="stat-value" id="stat-energy">0<span class="stat-unit">%</span></div>
+          <div class="stat-label">能量花在数据搬运</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="stat-time">0<span class="stat-unit">%</span></div>
+          <div class="stat-label">时间花在等待数据</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="stat-ratio">0<span class="stat-unit">x</span></div>
+          <div class="stat-label">搬运 vs 计算耗能比</div>
+        </div>
+      </div>
+
+      <!-- Energy bar -->
+      <div class="energy-bar-container">
+        <div class="energy-bar-label">
+          <span>AI 推理能量分配</span>
+          <span id="energy-label">搬运 90% | 计算 10%</span>
+        </div>
+        <div class="energy-bar">
+          <div class="energy-segment energy-transport" id="energy-transport">搬运</div>
+          <div class="energy-segment energy-compute" id="energy-compute">计算</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PIM ==================== -->
+  <div class="section-panel" id="panel-pim">
+    <div class="route-panel">
+      <div class="route-visual pim-visual">
+        <span class="route-badge pim">&#x1F7E0; 路线 1</span>
+        <div class="route-visual-title" style="color: var(--pim-color);">存内计算 Processing-in-Memory</div>
+        <div class="route-visual-subtitle">数据不动，计算来找数据</div>
+
+        <div class="pim-animation" id="pim-anim">
+          <div class="pim-chip">
+            <div class="pim-grid" id="pim-grid">
+              <!-- 16 cells generated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <div class="pim-label-compute" id="pim-label">在内存阵列中直接完成矩阵运算</div>
+
+        <div class="route-visual-desc">
+          <div class="core-idea pim">数据不动，计算来找数据</div>
+          <p>PIM (Processing-in-Memory) = 在内存中做计算<br>CIM (Computing-in-Memory) = 存算一体的通称<br>两者含义基本相同，PIM 偏学术，CIM 偏工业</p>
+        </div>
+      </div>
+
+      <div class="route-info">
+        <div class="info-card pim">
+          <h3><span class="card-icon">&#x2699;</span> 工作原理</h3>
+          <ul>
+            <li>权重预存在存储阵列的每个单元中</li>
+            <li>输入信号通过行线注入</li>
+            <li>利用欧姆定律 (V=IR) 完成乘法</li>
+            <li>列线汇聚电流完成加法</li>
+            <li>一次读取 = 一次矩阵-向量乘</li>
+          </ul>
+        </div>
+
+        <div class="pros-cons">
+          <div class="pros-card">
+            <h4>&#x2705; 优势</h4>
+            <ul>
+              <li>消除数据搬运瓶颈</li>
+              <li>能效提升 10-100 倍</li>
+              <li>大规模并行计算</li>
+              <li>与现有工艺兼容</li>
+            </ul>
+          </div>
+          <div class="cons-card">
+            <h4>&#x26A0; 挑战</h4>
+            <ul>
+              <li>模拟计算精度有限 (4-8 bit)</li>
+              <li>编程模型复杂</li>
+              <li>器件变异影响一致性</li>
+              <li>写入耐久性问题</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="info-card pim">
+          <h3><span class="card-icon">&#x1F3E2;</span> 代表产品</h3>
+          <div class="representatives">
+            <span class="rep-tag pim">Samsung HBM-PIM</span>
+            <span class="rep-tag pim">IBM Analog AI</span>
+            <span class="rep-tag pim">UPMEM PIM-DIMM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PHOTON ==================== -->
+  <div class="section-panel" id="panel-photon">
+    <div class="route-panel">
+      <div class="route-visual photon-visual">
+        <span class="route-badge photon">&#x1F535; 路线 2</span>
+        <div class="route-visual-title" style="color: var(--photon-color);">光子计算 Photonic Computing</div>
+        <div class="route-visual-subtitle">用光而不是电来做矩阵运算</div>
+
+        <div class="photon-animation">
+          <div class="photon-structured" id="photon-struct">
+            <!-- 4x4 MZI mesh generated by JS -->
+          </div>
+        </div>
+
+        <div class="route-visual-desc">
+          <div class="core-idea photon">光速传播 + 近零能耗</div>
+          <p>马赫-曾德尔干涉仪 (MZI) 阵列<br>光子无质量，传播几乎不消耗能量</p>
+        </div>
+      </div>
+
+      <div class="route-info">
+        <div class="info-card photon">
+          <h3><span class="card-icon">&#x1F4A1;</span> 工作原理</h3>
+          <ul>
+            <li>激光器产生相干光信号</li>
+            <li>马赫-曾德尔干涉仪 (MZI) 通过分束/干涉实现乘法</li>
+            <li>MZI 阵列级联 = 矩阵乘法</li>
+            <li>光速传播，延迟极低 (皮秒级)</li>
+            <li>光电探测器在输出端转换回电信号</li>
+          </ul>
+        </div>
+
+        <div class="pros-cons">
+          <div class="pros-card">
+            <h4>&#x2705; 优势</h4>
+            <ul>
+              <li>速度极快 (光速)</li>
+              <li>能效提升 100-1000 倍</li>
+              <li>无电阻发热</li>
+              <li>天然并行处理</li>
+            </ul>
+          </div>
+          <div class="cons-card">
+            <h4>&#x26A0; 挑战</h4>
+            <ul>
+              <li>只能做线性运算</li>
+              <li>非线性激活仍需电子电路</li>
+              <li>制造工艺不成熟</li>
+              <li>光电转换有损耗</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="info-card photon">
+          <h3><span class="card-icon">&#x1F3E2;</span> 代表企业</h3>
+          <div class="representatives">
+            <span class="rep-tag photon">Lightmatter</span>
+            <span class="rep-tag photon">Lightelligence</span>
+            <span class="rep-tag photon">Xanadu</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== QUANTUM ==================== -->
+  <div class="section-panel" id="panel-quantum">
+    <div class="route-panel">
+      <div class="route-visual quantum-visual">
+        <span class="route-badge quantum">&#x1F7E3; 路线 3</span>
+        <div class="route-visual-title" style="color: var(--quantum-color);">量子计算 Quantum Computing</div>
+        <div class="route-visual-subtitle">量子叠加与纠缠实现指数级并行</div>
+
+        <div class="quantum-animation" id="quantum-anim">
+          <div class="qubit-field" id="qubit-field">
+            <!-- Qubits and entanglement lines generated by JS -->
+          </div>
+        </div>
+
+        <div class="route-visual-desc">
+          <div class="core-idea quantum">叠加态 + 量子纠缠</div>
+          <p>量子比特同时为 |0&#x27E9; 和 |1&#x27E9;<br>N 个量子比特 = 2^N 种状态并行</p>
+        </div>
+      </div>
+
+      <div class="route-info">
+        <div class="info-card quantum">
+          <h3><span class="card-icon">&#x269B;</span> 核心概念</h3>
+          <ul>
+            <li><strong>叠加态：</strong>量子比特同时处于 0 和 1 的叠加</li>
+            <li><strong>量子纠缠：</strong>两个量子比特状态瞬时关联</li>
+            <li><strong>量子门：</strong>对量子比特进行幺正变换</li>
+            <li><strong>指数并行：</strong>N qubit = 2^N 维希尔伯特空间</li>
+            <li><strong>测量坍缩：</strong>读取结果时叠加态塌缩</li>
+          </ul>
+        </div>
+
+        <div class="pros-cons">
+          <div class="pros-card">
+            <h4>&#x2705; 优势</h4>
+            <ul>
+              <li>理论上指数级加速</li>
+              <li>适合特定优化问题</li>
+              <li>量子模拟 (材料/药物)</li>
+              <li>密码学应用潜力</li>
+            </ul>
+          </div>
+          <div class="cons-card">
+            <h4>&#x26A0; 挑战</h4>
+            <ul>
+              <li>量子噪声大 (退相干)</li>
+              <li>纠错开销极高</li>
+              <li>需极低温 (~15mK)</li>
+              <li>离实用还非常远</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="info-card quantum">
+          <h3><span class="card-icon">&#x1F3E2;</span> 代表产品</h3>
+          <div class="representatives">
+            <span class="rep-tag quantum">Google Sycamore</span>
+            <span class="rep-tag quantum">IBM Condor (1121 qubit)</span>
+            <span class="rep-tag quantum">IonQ Forte</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== COMPARISON ==================== -->
+  <div class="section-panel" id="panel-compare">
+    <div class="compare-section">
+      <div class="compare-title">三条革新路线对比</div>
+
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>维度</th>
+            <th>&#x1F7E0; 存内计算</th>
+            <th>&#x1F535; 光子计算</th>
+            <th>&#x1F7E3; 量子计算</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>核心思路</td>
+            <td>数据不动，计算就地完成</td>
+            <td>用光代替电做矩阵运算</td>
+            <td>量子叠加实现指数并行</td>
+          </tr>
+          <tr>
+            <td>成熟度</td>
+            <td>
+              <div class="maturity">
+                <span class="maturity-dot filled pim"></span>
+                <span class="maturity-dot filled pim"></span>
+                <span class="maturity-dot filled pim"></span>
+                <span class="maturity-dot"></span>
+                <span class="maturity-dot"></span>
+              </div>
+            </td>
+            <td>
+              <div class="maturity">
+                <span class="maturity-dot filled photon"></span>
+                <span class="maturity-dot filled photon"></span>
+                <span class="maturity-dot"></span>
+                <span class="maturity-dot"></span>
+                <span class="maturity-dot"></span>
+              </div>
+            </td>
+            <td>
+              <div class="maturity">
+                <span class="maturity-dot filled quantum"></span>
+                <span class="maturity-dot"></span>
+                <span class="maturity-dot"></span>
+                <span class="maturity-dot"></span>
+                <span class="maturity-dot"></span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>能效提升</td>
+            <td>10 &ndash; 100&times;</td>
+            <td>100 &ndash; 1000&times;</td>
+            <td>理论无穷</td>
+          </tr>
+          <tr>
+            <td>计算精度</td>
+            <td>4-8 bit (模拟)</td>
+            <td>中等 (光学精度)</td>
+            <td>取决于纠错 qubit 数</td>
+          </tr>
+          <tr>
+            <td>适用场景</td>
+            <td>推理加速 / 边缘 AI</td>
+            <td>大矩阵运算 / 数据中心</td>
+            <td>特定优化 / 量子模拟</td>
+          </tr>
+          <tr>
+            <td>主要介质</td>
+            <td>SRAM / ReRAM / MRAM</td>
+            <td>硅光子 / MZI 阵列</td>
+            <td>超导 / 离子阱 / 光子</td>
+          </tr>
+          <tr>
+            <td>工作温度</td>
+            <td>室温</td>
+            <td>室温</td>
+            <td>~15 mK (接近绝对零度)</td>
+          </tr>
+          <tr>
+            <td>与 GPU 关系</td>
+            <td>互补 (嵌入 HBM)</td>
+            <td>替代 (矩阵运算部分)</td>
+            <td>独立赛道</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Timeline -->
+      <div class="timeline-row">
+        <div class="timeline-card pim">
+          <div class="timeline-years">1-3 年</div>
+          <div class="timeline-label">存内计算商用</div>
+          <div class="timeline-sub">已有 HBM-PIM 产品</div>
+        </div>
+        <div class="timeline-card photon">
+          <div class="timeline-years">3-5 年</div>
+          <div class="timeline-label">光子计算商用</div>
+          <div class="timeline-sub">原型芯片验证中</div>
+        </div>
+        <div class="timeline-card quantum">
+          <div class="timeline-years">10+ 年</div>
+          <div class="timeline-label">量子计算实用化</div>
+          <div class="timeline-sub">纠错仍是核心难题</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ==================== Tab Navigation ====================
+  var tabs = document.querySelectorAll('.nav-tab');
+  var panels = document.querySelectorAll('.section-panel');
+
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var target = this.getAttribute('data-tab');
+
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      panels.forEach(function(p) { p.classList.remove('active'); });
+
+      this.classList.add('active');
+      document.getElementById('panel-' + target).classList.add('active');
+
+      if (target === 'bottleneck') { startBottleneckAnim(); }
+      if (target === 'pim') { startPimAnim(); }
+      if (target === 'photon') { startPhotonAnim(); }
+      if (target === 'quantum') { startQuantumAnim(); }
+    });
+  });
+
+  // ==================== Bottleneck Animation ====================
+  function createDataPackets() {
+    var laneTop = document.getElementById('lane-top');
+    var laneBottom = document.getElementById('lane-bottom');
+
+    if (!laneTop || !laneBottom) { return; }
+
+    // Clear existing
+    laneTop.querySelectorAll('.data-packet').forEach(function(p) { p.remove(); });
+    laneBottom.querySelectorAll('.data-packet').forEach(function(p) { p.remove(); });
+
+    var labels = ['W', 'X', 'B', 'A', 'G', 'D', 'K', 'V'];
+
+    for (var i = 0; i < 6; i++) {
+      var pktLeft = document.createElement('div');
+      pktLeft.className = 'data-packet to-cpu';
+      pktLeft.textContent = labels[i % labels.length];
+      pktLeft.style.animationDelay = (i * 0.4) + 's';
+      laneTop.appendChild(pktLeft);
+
+      var pktRight = document.createElement('div');
+      pktRight.className = 'data-packet to-mem';
+      pktRight.textContent = labels[(i + 3) % labels.length];
+      pktRight.style.animationDelay = (i * 0.4 + 0.2) + 's';
+      laneBottom.appendChild(pktRight);
+    }
+  }
+
+  function animateStats() {
+    animateValue('stat-energy', 0, 90, 2000, '%');
+    animateValue('stat-time', 0, 95, 2200, '%');
+    animateValue('stat-ratio', 0, 200, 2400, 'x');
+
+    setTimeout(function() {
+      var et = document.getElementById('energy-transport');
+      var ec = document.getElementById('energy-compute');
+      if (et) { et.classList.add('animate'); }
+      if (ec) { ec.classList.add('animate'); }
+    }, 500);
+  }
+
+  function animateValue(id, start, end, duration, unit) {
+    var el = document.getElementById(id);
+    if (!el) { return; }
+
+    var range = end - start;
+    var startTime = null;
+
+    function step(timestamp) {
+      if (!startTime) { startTime = timestamp; }
+      var progress = Math.min((timestamp - startTime) / duration, 1);
+      var eased = 1 - Math.pow(1 - progress, 3);
+      var current = Math.round(start + range * eased);
+      el.innerHTML = current + '<span class="stat-unit">' + unit + '</span>';
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  function startBottleneckAnim() {
+    createDataPackets();
+    animateStats();
+  }
+
+  // Start on load
+  startBottleneckAnim();
+
+  // ==================== PIM Animation ====================
+  function initPimGrid() {
+    var grid = document.getElementById('pim-grid');
+    if (!grid) { return; }
+
+    grid.innerHTML = '';
+    var cellLabels = [
+      'W00', 'W01', 'W02', 'W03',
+      'W10', 'W11', 'W12', 'W13',
+      'W20', 'W21', 'W22', 'W23',
+      'W30', 'W31', 'W32', 'W33'
+    ];
+
+    cellLabels.forEach(function(label) {
+      var cell = document.createElement('div');
+      cell.className = 'pim-cell';
+      cell.textContent = label;
+      grid.appendChild(cell);
+    });
+  }
+
+  initPimGrid();
+
+  var pimInterval = null;
+
+  function startPimAnim() {
+    if (pimInterval) { clearInterval(pimInterval); }
+
+    var cells = document.querySelectorAll('.pim-cell');
+    var label = document.getElementById('pim-label');
+    var row = 0;
+
+    function computeRow() {
+      cells.forEach(function(c) { c.classList.remove('computing'); });
+
+      for (var col = 0; col < 4; col++) {
+        var idx = row * 4 + col;
+        if (cells[idx]) {
+          cells[idx].classList.add('computing');
+        }
+      }
+
+      if (label) { label.classList.add('visible'); }
+
+      row = (row + 1) % 4;
+    }
+
+    computeRow();
+    pimInterval = setInterval(computeRow, 800);
+  }
+
+  // ==================== Photon Animation ====================
+  function initPhotonStruct() {
+    var container = document.getElementById('photon-struct');
+    if (!container) { return; }
+
+    container.innerHTML = '';
+
+    var numRows = 4;
+    var numCols = 3;
+
+    for (var r = 0; r < numRows; r++) {
+      var row = document.createElement('div');
+      row.className = 'photon-row';
+
+      // Input label
+      var inp = document.createElement('span');
+      inp.className = 'photon-io input';
+      inp.textContent = 'x' + r;
+      row.appendChild(inp);
+
+      for (var c = 0; c < numCols; c++) {
+        // Wire before MZI
+        var wireBefore = document.createElement('div');
+        wireBefore.className = 'photon-wire';
+        wireBefore.style.animationDelay = ((r * numCols + c) * 0.15) + 's';
+
+        var wireBg = document.createElement('div');
+        wireBg.className = 'photon-wire-bg';
+        wireBefore.appendChild(wireBg);
+        row.appendChild(wireBefore);
+
+        // MZI box
+        var mzi = document.createElement('div');
+        mzi.className = 'mzi-box';
+        mzi.textContent = 'MZI';
+        mzi.setAttribute('data-row', r);
+        mzi.setAttribute('data-col', c);
+        row.appendChild(mzi);
+      }
+
+      // Wire after last MZI
+      var wireAfter = document.createElement('div');
+      wireAfter.className = 'photon-wire';
+      var wireAfterBg = document.createElement('div');
+      wireAfterBg.className = 'photon-wire-bg';
+      wireAfter.appendChild(wireAfterBg);
+      row.appendChild(wireAfter);
+
+      // Output label
+      var out = document.createElement('span');
+      out.className = 'photon-io output';
+      out.textContent = 'y' + r;
+      row.appendChild(out);
+
+      container.appendChild(row);
+    }
+  }
+
+  initPhotonStruct();
+
+  var photonInterval = null;
+
+  function startPhotonAnim() {
+    if (photonInterval) { clearInterval(photonInterval); }
+
+    var mziBoxes = document.querySelectorAll('.mzi-box');
+    var colIdx = 0;
+    var totalCols = 3;
+
+    function glowColumn() {
+      mziBoxes.forEach(function(b) { b.classList.remove('glow'); });
+
+      mziBoxes.forEach(function(b) {
+        if (parseInt(b.getAttribute('data-col')) === colIdx) {
+          b.classList.add('glow');
+        }
+      });
+
+      colIdx = (colIdx + 1) % totalCols;
+    }
+
+    glowColumn();
+    photonInterval = setInterval(glowColumn, 700);
+  }
+
+  // ==================== Quantum Animation ====================
+  function initQuantum() {
+    var field = document.getElementById('qubit-field');
+    if (!field) { return; }
+
+    field.innerHTML = '';
+
+    var qubitPositions = [
+      { x: 30,  y: 15,  label: '|0\u27E9+|1\u27E9' },
+      { x: 190, y: 10,  label: '|0\u27E9+|1\u27E9' },
+      { x: 110, y: 75,  label: '|0\u27E9+|1\u27E9' },
+      { x: 10,  y: 140, label: '|\u03A8\u27E9' },
+      { x: 220, y: 100, label: '|\u03A8\u27E9' },
+      { x: 140, y: 145, label: '|0\u27E9+|1\u27E9' }
+    ];
+
+    // Entanglement lines
+    var entanglePairs = [
+      [0, 1], [0, 2], [1, 4], [2, 3], [2, 5], [3, 5], [4, 5]
+    ];
+
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class', 'entangle-line');
+    svg.setAttribute('width', '280');
+    svg.setAttribute('height', '200');
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+
+    entanglePairs.forEach(function(pair, idx) {
+      var a = qubitPositions[pair[0]];
+      var b = qubitPositions[pair[1]];
+      var line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('x1', a.x + 22);
+      line.setAttribute('y1', a.y + 22);
+      line.setAttribute('x2', b.x + 22);
+      line.setAttribute('y2', b.y + 22);
+      line.style.animationDelay = (idx * 0.3) + 's';
+      svg.appendChild(line);
+    });
+
+    field.appendChild(svg);
+
+    // Qubits
+    qubitPositions.forEach(function(pos, idx) {
+      var qubit = document.createElement('div');
+      qubit.className = 'qubit';
+      qubit.style.left = pos.x + 'px';
+      qubit.style.top = pos.y + 'px';
+
+      var core = document.createElement('div');
+      core.className = 'qubit-core';
+      core.style.animationDelay = (idx * 0.3) + 's';
+
+      var ring = document.createElement('div');
+      ring.className = 'qubit-ring';
+      ring.style.animationDelay = (idx * 0.5) + 's';
+
+      var state = document.createElement('div');
+      state.className = 'qubit-state';
+      state.textContent = pos.label;
+
+      qubit.appendChild(ring);
+      qubit.appendChild(core);
+      qubit.appendChild(state);
+      field.appendChild(qubit);
+    });
+
+    // Superposition label
+    var supLabel = document.createElement('div');
+    supLabel.className = 'superposition-label';
+    supLabel.textContent = '6 qubits = 2\u2076 = 64 种状态同时存在';
+    field.appendChild(supLabel);
+  }
+
+  initQuantum();
+
+  var quantumInterval = null;
+
+  function startQuantumAnim() {
+    if (quantumInterval) { clearInterval(quantumInterval); }
+
+    var qubits = document.querySelectorAll('.qubit');
+    var idx = 0;
+
+    function pulseQubit() {
+      qubits.forEach(function(q) {
+        q.querySelector('.qubit-core').style.transform = '';
+      });
+
+      if (qubits[idx]) {
+        var core = qubits[idx].querySelector('.qubit-core');
+        core.style.transform = 'scale(1.4)';
+      }
+
+      idx = (idx + 1) % qubits.length;
+    }
+
+    pulseQubit();
+    quantumInterval = setInterval(pulseQubit, 600);
+  }
+
+  // ==================== Keyboard Navigation ====================
+  var tabOrder = ['bottleneck', 'pim', 'photon', 'quantum', 'compare'];
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      var activeTab = document.querySelector('.nav-tab.active');
+      var currentIdx = tabOrder.indexOf(activeTab.getAttribute('data-tab'));
+      var nextIdx;
+
+      if (e.key === 'ArrowRight') {
+        nextIdx = (currentIdx + 1) % tabOrder.length;
+      } else {
+        nextIdx = (currentIdx - 1 + tabOrder.length) % tabOrder.length;
+      }
+
+      document.querySelector('.nav-tab[data-tab="' + tabOrder[nextIdx] + '"]').click();
+    }
+  });
+
+})();
+</script>
+
+<!-- Glossary Button & Panel -->
+<style>
+.glossary-btn {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e293b, #334155);
+  border: 1px solid #475569;
+  color: #e2e8f0;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  z-index: 9999;
+  transition: all 0.3s ease;
+}
+.glossary-btn:hover {
+  transform: scale(1.1);
+  border-color: #06b6d4;
+  box-shadow: 0 4px 24px rgba(6,182,212,0.3);
+}
+.glossary-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.glossary-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.glossary-panel {
+  position: fixed;
+  top: 0;
+  right: -460px;
+  width: 440px;
+  max-width: 90vw;
+  height: 100vh;
+  background: #0f172a;
+  border-left: 1px solid #1e293b;
+  z-index: 10001;
+  transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+}
+.glossary-panel.active {
+  right: 0;
+}
+.glossary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #1e293b;
+  flex-shrink: 0;
+}
+.glossary-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin: 0;
+}
+.glossary-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid #334155;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.glossary-close:hover {
+  background: rgba(239,68,68,0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.glossary-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 32px;
+}
+.glossary-body::-webkit-scrollbar {
+  width: 4px;
+}
+.glossary-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.glossary-body::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+.glossary-item {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(30,41,59,0.8);
+}
+.glossary-item:last-child {
+  border-bottom: none;
+}
+.glossary-term {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+.glossary-term .en {
+  font-weight: 400;
+  color: #64748b;
+  font-size: 13px;
+  margin-left: 6px;
+}
+.glossary-def {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+</style>
+
+<button class="glossary-btn" id="glossaryBtn" title="术语表">&#x2753;</button>
+<div class="glossary-overlay" id="glossaryOverlay"></div>
+<div class="glossary-panel" id="glossaryPanel">
+  <div class="glossary-header">
+    <h2>&#x1F4D6; 术语表</h2>
+    <button class="glossary-close" id="glossaryClose">&#x2715;</button>
+  </div>
+  <div class="glossary-body">
+    <div class="glossary-item">
+      <div class="glossary-term">冯诺依曼架构 <span class="en">Von Neumann Architecture</span></div>
+      <div class="glossary-def">传统计算机架构，处理器和存储器分离，数据需要来回搬运</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">PIM (Processing-in-Memory) <span class="en">在内存中做处理/计算，偏学术用语</span></div>
+      <div class="glossary-desc">在存储阵列内部直接完成计算，避免数据搬运。PIM强调"处理在内存中发生"。</div>
+      <div class="glossary-term">CIM (Computing-in-Memory) <span class="en">存算一体，偏工业/中文用语</span></div>
+      <div class="glossary-def">在存储器内部直接完成计算，避免数据搬运</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">SRAM <span class="en">Static RAM, 静态随机存取存储器</span></div>
+      <div class="glossary-def">速度极快的缓存存储，用于芯片内部</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">ReRAM <span class="en">Resistive RAM, 阻变存储器</span></div>
+      <div class="glossary-def">新型存储器，电阻可编程，适合模拟计算</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">MZI <span class="en">Mach-Zehnder Interferometer, 马赫-曾德尔干涉仪</span></div>
+      <div class="glossary-def">光学器件，利用光的干涉实现矩阵运算</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">光子 <span class="en">Photon</span></div>
+      <div class="glossary-def">光的基本粒子，无质量无电荷，传播速度即光速</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">量子比特 <span class="en">Qubit</span></div>
+      <div class="glossary-def">量子计算的基本单元，可同时处于0和1的叠加态</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">量子纠缠 <span class="en">Quantum Entanglement</span></div>
+      <div class="glossary-def">两个量子比特状态关联，测量一个立刻知道另一个</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">量子叠加 <span class="en">Superposition</span></div>
+      <div class="glossary-def">量子比特同时为0和1，n个比特可表示2^n个状态</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">能效比 <span class="en">Energy Efficiency</span></div>
+      <div class="glossary-def">每瓦功耗能完成多少计算，AI芯片的关键指标</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">矩阵乘法 <span class="en">Matrix Multiplication</span></div>
+      <div class="glossary-def">AI计算的核心运算，占总算力90%以上</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var btn = document.getElementById('glossaryBtn');
+  var overlay = document.getElementById('glossaryOverlay');
+  var panel = document.getElementById('glossaryPanel');
+  var closeBtn = document.getElementById('glossaryClose');
+
+  function openGlossary() {
+    panel.classList.add('active');
+    overlay.classList.add('active');
+  }
+
+  function closeGlossary() {
+    panel.classList.remove('active');
+    overlay.classList.remove('active');
+  }
+
+  btn.addEventListener('click', openGlossary);
+  overlay.addEventListener('click', closeGlossary);
+  closeBtn.addEventListener('click', closeGlossary);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeGlossary(); }
+  });
+})();
+</script>
+</body>
+</html>

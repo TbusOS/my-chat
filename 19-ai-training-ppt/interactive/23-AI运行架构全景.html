@@ -501,6 +501,21 @@ body {
   border-color: #fecaca;
 }
 
+.btn-step {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.btn-step:hover {
+  background: #fef3c7;
+}
+
+.btn-step:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ===== Architecture-specific styles ===== */
 
 /* Architecture layer box */
@@ -832,10 +847,11 @@ body {
 </div>
 
 <div class="controls">
-  <button class="btn btn-secondary" id="btnReplay" onclick="replay()">重播</button>
-  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()">上一步</button>
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevStep()" disabled>上一步</button>
+  <button class="btn btn-step" id="btnStep" onclick="singleStep()">单步 ▶|</button>
   <button class="btn btn-primary" id="btnNext" onclick="nextStep()">下一步</button>
-  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">自动播放</button>
+  <button class="btn btn-auto" id="btnAuto" onclick="toggleAutoPlay()">▶ 自动播放</button>
+  <button class="btn btn-secondary" id="btnReplay" onclick="replay()">↺ 重播</button>
 </div>
 
 <script>
@@ -859,9 +875,9 @@ const COLORS = {
   cloud:    { header: '#7c3aed', bg: '#faf5ff', border: '#c4b5fd' }
 };
 
-let currentStep = -1;
-let autoPlayInterval = null;
-let dynamicElements = [];
+var MAX_STEP = 6;
+var currentStep = -1, dynamicElements = [];
+var playMode = 'idle', pendingResolve = null, delayTimer = null, stepRunning = false;
 
 const stage = document.getElementById('stage');
 const character = document.getElementById('character');
@@ -908,7 +924,23 @@ function createElement(tag, attrs, parent) {
 }
 
 function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(function(resolve) {
+    pendingResolve = resolve;
+    if (playMode === 'auto') {
+      delayTimer = setTimeout(function() { pendingResolve = null; resolve(); }, ms);
+    }
+  });
+}
+
+function resolveCurrentDelay() {
+  if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+  if (pendingResolve) { var r = pendingResolve; pendingResolve = null; r(); }
+}
+
+function abandonCurrentStep() {
+  if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+  pendingResolve = null;
+  stepRunning = false;
 }
 
 function updateProgress(step) {
@@ -1609,113 +1641,91 @@ function spawnConfetti() {
 const stepFunctions = [stepHardware, stepDriver, stepEngine, stepRuntime, stepApi, stepDataflow, stepCompare];
 
 async function goToStep(step) {
-  if (step < 0 || step >= 7) return;
-  if (step === currentStep) return;
-
+  if (step < 0 || step > MAX_STEP) return;
+  abandonCurrentStep();
   currentStep = step;
   clearDynamic();
   updateProgress(step);
-
-  const btnNext = document.getElementById('btnNext');
-  btnNext.disabled = false;
-  btnNext.textContent = step < 6 ? '下一步' : '完成';
-  if (step >= 6) {
-    btnNext.disabled = true;
-  }
-
-  document.getElementById('btnPrev').disabled = (step <= 0);
-
+  updateControlUI();
+  stepRunning = true;
   await stepFunctions[step]();
+  stepRunning = false;
+  if (playMode === 'auto' && currentStep === step && currentStep < MAX_STEP) {
+    delayTimer = setTimeout(() => { delayTimer = null; if (playMode === 'auto') goToStep(step + 1); }, 1500);
+  }
+  if (playMode === 'auto' && currentStep >= MAX_STEP) { playMode = 'idle'; }
+  updateControlUI();
 }
 
-async function nextStep() {
-  if (isAutoPlaying) return;
-  if (currentStep >= 6) return;
-  await goToStep(currentStep + 1);
+function singleStep() {
+  if (playMode === 'auto') { playMode = 'paused'; if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; } }
+  if (playMode !== 'paused') playMode = 'paused';
+  if (pendingResolve) { resolveCurrentDelay(); }
+  else if (currentStep < 0) { goToStep(0); }
+  else if (!stepRunning && currentStep < MAX_STEP) { goToStep(currentStep + 1); }
+  updateControlUI();
+}
+
+function nextStep() {
+  if (currentStep >= MAX_STEP) return;
+  if (playMode === 'auto') playMode = 'paused';
+  goToStep(currentStep < 0 ? 0 : currentStep + 1);
 }
 
 function prevStep() {
-  if (!isAutoPlaying && currentStep > 0) goToStep(currentStep - 1);
+  if (currentStep <= 0) return;
+  if (playMode === 'auto') playMode = 'paused';
+  goToStep(currentStep - 1);
+}
+
+function toggleAutoPlay() {
+  if (playMode === 'auto') {
+    playMode = 'paused';
+    if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+  } else {
+    playMode = 'auto';
+    if (pendingResolve) { resolveCurrentDelay(); }
+    else if (currentStep < 0) { goToStep(0); }
+    else if (currentStep >= MAX_STEP) { currentStep = -1; clearDynamic(); updateProgress(0); goToStep(0); }
+    else if (!stepRunning) { goToStep(currentStep < MAX_STEP ? currentStep + 1 : 0); }
+  }
+  updateControlUI();
 }
 
 function replay() {
-  stopAutoPlay();
+  abandonCurrentStep();
+  playMode = 'idle';
   currentStep = -1;
   clearDynamic();
   updateProgress(0);
-  document.getElementById('btnNext').disabled = false;
-  document.getElementById('btnNext').textContent = '下一步';
-  document.getElementById('btnPrev').disabled = true;
+  updateControlUI();
   goToStep(0);
 }
 
-let isAutoPlaying = false;
-
-function toggleAutoPlay() {
-  if (isAutoPlaying) {
-    stopAutoPlay();
-  } else {
-    startAutoPlay();
+function updateControlUI() {
+  var btnAuto = document.getElementById('btnAuto');
+  var btnStep = document.getElementById('btnStep');
+  var btnNext = document.getElementById('btnNext');
+  var btnPrev = document.getElementById('btnPrev');
+  if (btnAuto) {
+    if (playMode === 'auto') { btnAuto.textContent = '⏸ 暂停'; btnAuto.classList.add('playing'); }
+    else if (playMode === 'paused') { btnAuto.textContent = '▶ 继续'; btnAuto.classList.remove('playing'); }
+    else { btnAuto.textContent = '▶ 自动播放'; btnAuto.classList.remove('playing'); }
   }
+  if (btnStep) btnStep.disabled = (playMode === 'auto');
+  if (btnNext) { btnNext.disabled = (playMode === 'auto' || currentStep >= MAX_STEP); btnNext.textContent = currentStep < MAX_STEP ? '下一步' : '完成'; }
+  if (btnPrev) btnPrev.disabled = (playMode === 'auto' || currentStep <= 0);
 }
 
-function startAutoPlay() {
-  isAutoPlaying = true;
-  const btn = document.getElementById('btnAuto');
-  btn.textContent = '暂停播放';
-  btn.classList.add('playing');
-  document.getElementById('btnNext').disabled = true;
-  document.getElementById('btnPrev').disabled = true;
-
-  /* Reset to step 0 first */
-  currentStep = -1;
-  clearDynamic();
-  updateProgress(0);
-
-  const advanceStep = async () => {
-    if (!isAutoPlaying) return;
-    if (currentStep >= 6) {
-      stopAutoPlay();
-      return;
-    }
-    await goToStep(currentStep < 0 ? 0 : currentStep + 1);
-    if (isAutoPlaying) {
-      autoPlayInterval = setTimeout(advanceStep, 4000);
-    }
-  };
-
-  advanceStep();
-}
-
-function stopAutoPlay() {
-  isAutoPlaying = false;
-  if (autoPlayInterval) {
-    clearTimeout(autoPlayInterval);
-    autoPlayInterval = null;
-  }
-  const btn = document.getElementById('btnAuto');
-  btn.textContent = '自动播放';
-  btn.classList.remove('playing');
-  document.getElementById('btnNext').disabled = (currentStep >= 6);
-  document.getElementById('btnPrev').disabled = (currentStep <= 0);
-}
-
-/* Keyboard support */
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowRight' || e.key === ' ') {
-    e.preventDefault();
-    if (!isAutoPlaying) nextStep();
-  }
-  if (e.key === 'ArrowLeft') {
-    e.preventDefault();
-    prevStep();
-  }
-  if (e.key === 'r' || e.key === 'R') {
-    replay();
-  }
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight') { e.preventDefault(); nextStep(); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+  if (e.key === ' ') { e.preventDefault(); singleStep(); }
+  if (e.key === 'r' || e.key === 'R') replay();
+  if (e.key === 'p' || e.key === 'P') toggleAutoPlay();
 });
 
-/* Start at step 0 */
+playMode = 'paused';
 goToStep(0);
 </script>
 </body>

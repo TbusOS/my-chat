@@ -72,6 +72,19 @@ header .subtitle {
 .control-btn.primary:hover { background: #1d4ed8; }
 .control-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+.btn-step {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+.btn-step:hover {
+  background: #fef3c7;
+}
+.btn-step:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .phase-indicator {
   display: flex;
   justify-content: center;
@@ -552,9 +565,10 @@ header .subtitle {
 </header>
 
 <div class="controls">
-  <button class="control-btn primary" id="btnAutoPlay">&#9654; 自动播放</button>
   <button class="control-btn" id="btnPrev" disabled>&#8592; 上一步</button>
+  <button class="control-btn btn-step" id="btnStep">单步 &#9654;|</button>
   <button class="control-btn" id="btnNext">下一步 &#8594;</button>
+  <button class="control-btn primary" id="btnAutoPlay">&#9654; 自动播放</button>
   <button class="control-btn" id="btnReplay">&#8635; 重播</button>
 </div>
 
@@ -782,7 +796,7 @@ function svgReviewer() {
 const TOTAL_PHASES = 6;
 let currentPhase = 0;
 let autoPlayTimer = null;
-let isAutoPlaying = false;
+var playMode = 'idle';
 
 const stage = document.getElementById('stage');
 
@@ -885,8 +899,7 @@ function updatePhaseUI() {
     d.className = 'phase-dot' + (i === currentPhase ? ' active' : (i < currentPhase ? ' done' : ''));
   });
 
-  document.getElementById('btnPrev').disabled = currentPhase === 0;
-  document.getElementById('btnNext').disabled = currentPhase === TOTAL_PHASES;
+  updateControlUI();
 
   // Update connection lines
   const ll = document.getElementById('lineUserPlanner');
@@ -1321,6 +1334,11 @@ function nextPhase() {
     currentPhase++;
     runPhase(currentPhase);
   }
+  if (currentPhase === TOTAL_PHASES && playMode === 'auto') {
+    stopAutoPlay();
+    playMode = 'idle';
+    updateControlUI();
+  }
 }
 
 function prevPhase() {
@@ -1330,43 +1348,103 @@ function prevPhase() {
   }
 }
 
-function toggleAutoPlay() {
-  if (isAutoPlaying) {
+function singleStep() {
+  if (playMode === 'auto') {
     stopAutoPlay();
+  }
+  playMode = 'paused';
+  nextPhase();
+  updateControlUI();
+}
+
+function toggleAutoPlay() {
+  if (playMode === 'auto') {
+    // auto -> paused
+    stopAutoPlay();
+    updateControlUI();
+  } else if (playMode === 'paused') {
+    // paused -> auto (resume from current position)
+    resumeAutoPlay();
   } else {
+    // idle -> auto (start from phase 0)
     startAutoPlay();
   }
 }
 
 function startAutoPlay() {
-  isAutoPlaying = true;
-  document.getElementById('btnAutoPlay').textContent = '\u275A\u275A 暂停';
-  document.getElementById('btnAutoPlay').classList.add('primary');
+  playMode = 'auto';
 
-  if (currentPhase >= TOTAL_PHASES) {
-    currentPhase = 0;
-    document.getElementById('messageLog').innerHTML = '';
-    runPhase(0);
-  }
+  // Always reset to phase 0 first
+  currentPhase = 0;
+  document.getElementById('messageLog').innerHTML = '';
+  runPhase(0);
 
-  autoPlayTimer = setInterval(() => {
+  autoPlayTimer = setInterval(function() {
     if (currentPhase < TOTAL_PHASES) {
       nextPhase();
     } else {
       stopAutoPlay();
+      playMode = 'idle';
+      updateControlUI();
     }
   }, 5000);
+
+  updateControlUI();
+}
+
+function resumeAutoPlay() {
+  playMode = 'auto';
+
+  autoPlayTimer = setInterval(function() {
+    if (currentPhase < TOTAL_PHASES) {
+      nextPhase();
+    } else {
+      stopAutoPlay();
+      playMode = 'idle';
+      updateControlUI();
+    }
+  }, 5000);
+
+  updateControlUI();
 }
 
 function stopAutoPlay() {
-  isAutoPlaying = false;
+  playMode = 'paused';
   clearInterval(autoPlayTimer);
   autoPlayTimer = null;
-  document.getElementById('btnAutoPlay').innerHTML = '&#9654; 自动播放';
+  updateControlUI();
+}
+
+function updateControlUI() {
+  var btnAuto = document.getElementById('btnAutoPlay');
+  var btnPrev = document.getElementById('btnPrev');
+  var btnNext = document.getElementById('btnNext');
+  var btnStep = document.getElementById('btnStep');
+
+  if (playMode === 'auto') {
+    btnAuto.innerHTML = '&#9208; 暂停';
+    btnAuto.classList.add('primary');
+    btnPrev.disabled = true;
+    btnNext.disabled = true;
+    btnStep.disabled = true;
+  } else if (playMode === 'paused') {
+    btnAuto.innerHTML = '&#9654; 继续';
+    btnAuto.classList.add('primary');
+    btnPrev.disabled = currentPhase === 0;
+    btnNext.disabled = currentPhase === TOTAL_PHASES;
+    btnStep.disabled = currentPhase === TOTAL_PHASES;
+  } else {
+    btnAuto.innerHTML = '&#9654; 自动播放';
+    btnAuto.classList.remove('primary');
+    btnPrev.disabled = currentPhase === 0;
+    btnNext.disabled = currentPhase === TOTAL_PHASES;
+    btnStep.disabled = currentPhase === TOTAL_PHASES;
+  }
 }
 
 function replay() {
   stopAutoPlay();
+  playMode = 'idle';
   currentPhase = 0;
   document.getElementById('messageLog').innerHTML = '<div class="log-entry visible from-user"><span class="log-time">00:00</span> <span class="log-sender user">[系统]</span><br>等待任务开始...</div>';
   runPhase(0);
@@ -1383,14 +1461,35 @@ function toggleCard(el) {
 // Event listeners
 // ============================================================
 document.getElementById('btnAutoPlay').addEventListener('click', toggleAutoPlay);
-document.getElementById('btnNext').addEventListener('click', nextPhase);
-document.getElementById('btnPrev').addEventListener('click', prevPhase);
+document.getElementById('btnStep').addEventListener('click', singleStep);
+document.getElementById('btnNext').addEventListener('click', function() {
+  if (playMode === 'auto') return;
+  nextPhase();
+});
+document.getElementById('btnPrev').addEventListener('click', function() {
+  if (playMode === 'auto') return;
+  prevPhase();
+});
 document.getElementById('btnReplay').addEventListener('click', replay);
 
 // Keyboard
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextPhase(); }
-  if (e.key === 'ArrowLeft') { e.preventDefault(); prevPhase(); }
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    if (playMode !== 'auto') nextPhase();
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    if (playMode !== 'auto') prevPhase();
+  }
+  if (e.key === ' ') {
+    e.preventDefault();
+    toggleAutoPlay();
+  }
+  if (e.key === 's' || e.key === 'S') {
+    e.preventDefault();
+    singleStep();
+  }
 });
 
 // ============================================================

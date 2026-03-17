@@ -1,0 +1,2545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数字精度与量化原理 — AI 如何用更少的 bit 思考</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a0e1a;
+  color: #e2e8f0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 24px 20px 12px;
+  background: linear-gradient(180deg, #0f1629 0%, #0a0e1a 100%);
+}
+
+.header h1 {
+  font-size: 26px;
+  font-weight: 900;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 .accent { color: #38bdf8; }
+.header h1 .accent2 { color: #a78bfa; }
+
+.header p {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.tab-btn {
+  padding: 8px 14px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.tab-btn:hover {
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, #1e3a5f, #1e1b4b);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+}
+
+/* Main content */
+.content {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.tab-panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Section titles */
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 20px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title .icon {
+  font-size: 22px;
+}
+
+.section-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+/* Bit visualization */
+.bit-format-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.3s;
+}
+
+.bit-format-card:hover {
+  border-color: #334155;
+}
+
+.bit-format-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bit-format-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.bit-format-name .bits-count {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.bit-format-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: #fbbf24;
+  background: #1a1a2e;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.bit-row {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.bit-box {
+  width: 24px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 4px;
+  color: #fff;
+  transition: all 0.3s;
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.bit-box.sign { background: #ef4444; }
+.bit-box.exponent { background: #3b82f6; }
+.bit-box.mantissa { background: #10b981; }
+.bit-box.integer { background: #8b5cf6; }
+
+.bit-box.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.bit-box.highlight {
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(255,255,255,0.3);
+}
+
+.bit-labels {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.bit-label {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #94a3b8;
+}
+
+.bit-label .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.bit-label .dot.sign { background: #ef4444; }
+.bit-label .dot.exponent { background: #3b82f6; }
+.bit-label .dot.mantissa { background: #10b981; }
+.bit-label .dot.integer { background: #8b5cf6; }
+
+.format-insight {
+  font-size: 12px;
+  color: #38bdf8;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(56, 189, 248, 0.08);
+  border-radius: 6px;
+  border-left: 3px solid #38bdf8;
+  line-height: 1.5;
+}
+
+.error-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #f87171;
+  margin-top: 4px;
+}
+
+/* Interactive converter */
+.converter-box {
+  background: linear-gradient(135deg, #0f172a, #1a1033);
+  border: 1px solid #2d1f5e;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.converter-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #a78bfa;
+  margin-bottom: 12px;
+}
+
+.converter-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.converter-input-row label {
+  font-size: 13px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.converter-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px 12px;
+  background: #1e1b3a;
+  border: 1px solid #4c1d95;
+  border-radius: 8px;
+  color: #f1f5f9;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.converter-input:focus {
+  border-color: #a78bfa;
+}
+
+.converter-slider {
+  flex: 2;
+  min-width: 150px;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #3b82f6, #a78bfa, #ec4899);
+  outline: none;
+}
+
+.converter-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.5);
+}
+
+.converter-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.converter-result-card {
+  background: #161233;
+  border: 1px solid #2d1f5e;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.converter-result-card .fmt-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #a78bfa;
+  margin-bottom: 4px;
+}
+
+.converter-result-card .fmt-bits {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  word-break: break-all;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.converter-result-card .fmt-stored {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #fbbf24;
+}
+
+.converter-result-card .fmt-error {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #f87171;
+}
+
+/* Tab 2: Canvas */
+.wave-canvas-container {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.wave-canvas {
+  width: 100%;
+  height: 300px;
+  display: block;
+}
+
+.format-toggle-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  justify-content: center;
+}
+
+.format-toggle {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.3s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.format-toggle[data-fmt="fp32"] { background: #064e3b; color: #34d399; border-color: #065f46; }
+.format-toggle[data-fmt="fp16"] { background: #1e3a5f; color: #38bdf8; border-color: #1e40af; }
+.format-toggle[data-fmt="bf16"] { background: #312e81; color: #a78bfa; border-color: #3730a3; }
+.format-toggle[data-fmt="int8"] { background: #78350f; color: #fbbf24; border-color: #92400e; }
+.format-toggle[data-fmt="int4"] { background: #7f1d1d; color: #f87171; border-color: #991b1b; }
+
+.format-toggle.active {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(255,255,255,0.1);
+}
+
+.format-toggle.inactive {
+  opacity: 0.35;
+}
+
+/* Stats table */
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 16px;
+}
+
+.stats-table th {
+  background: #1e293b;
+  color: #94a3b8;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 2px solid #334155;
+}
+
+.stats-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1e293b;
+  color: #cbd5e1;
+}
+
+.stats-table tr:hover td {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.stats-table .mono-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+/* Tab 3: Quantization steps */
+.quant-step {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.quant-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.quant-step-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.quant-canvas {
+  width: 100%;
+  height: 200px;
+  display: block;
+}
+
+.quant-approach-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.quant-approach-card {
+  background: #161b2e;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.quant-approach-card h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 6px;
+}
+
+.quant-approach-card p {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+/* Tab 4: Method cards */
+.method-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.method-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.method-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 12px 12px 0 0;
+}
+
+.method-card.ptq::before { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.method-card.gptq::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.method-card.awq::before { background: linear-gradient(90deg, #a78bfa, #7c3aed); }
+.method-card.qat::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.method-card.gguf::before { background: linear-gradient(90deg, #ec4899, #db2777); }
+
+.method-card:hover {
+  border-color: #334155;
+  transform: translateY(-2px);
+}
+
+.method-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.method-card .method-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+.method-card ul {
+  list-style: none;
+  padding: 0;
+}
+
+.method-card ul li {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.7;
+  padding-left: 14px;
+  position: relative;
+}
+
+.method-card ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #475569;
+}
+
+.triangle-chart {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.triangle-chart canvas {
+  max-width: 100%;
+}
+
+/* Tab 5: Lossy vs Lossless */
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.compare-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.compare-card.lossless {
+  border-color: #065f46;
+}
+
+.compare-card.lossy {
+  border-color: #7f1d1d;
+}
+
+.compare-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.compare-card.lossless h3 { color: #34d399; }
+.compare-card.lossy h3 { color: #f87171; }
+
+.compare-card p, .compare-card li {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.7;
+}
+
+.compare-card ul {
+  list-style: none;
+  padding: 0;
+}
+
+.compare-card ul li {
+  padding-left: 16px;
+  position: relative;
+}
+
+.compare-card.lossless ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+}
+
+.compare-card.lossy ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f87171;
+}
+
+.mixed-precision-box {
+  background: linear-gradient(135deg, #1e1b4b, #0f172a);
+  border: 1px solid #4c1d95;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.mixed-precision-box h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #a78bfa;
+  margin-bottom: 8px;
+}
+
+.output-demo {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.output-demo h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 12px;
+}
+
+.output-sample {
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.output-sample .label {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.output-sample.fp32 { background: #064e3b; border-left: 3px solid #34d399; color: #d1fae5; }
+.output-sample.fp32 .label { color: #34d399; }
+.output-sample.fp16 { background: #1e3a5f; border-left: 3px solid #38bdf8; color: #dbeafe; }
+.output-sample.fp16 .label { color: #38bdf8; }
+.output-sample.int8 { background: #78350f; border-left: 3px solid #fbbf24; color: #fef3c7; }
+.output-sample.int8 .label { color: #fbbf24; }
+.output-sample.int4 { background: #7f1d1d; border-left: 3px solid #f87171; color: #fee2e2; }
+.output-sample.int4 .label { color: #f87171; }
+
+/* Tab 6: Decision flowchart */
+.flow-tree {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.flow-node {
+  padding: 10px 16px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flow-node:hover {
+  transform: translateX(4px);
+}
+
+.flow-node .flow-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.flow-node .flow-text {
+  flex: 1;
+}
+
+.flow-node .flow-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.flow-node .flow-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.flow-node .flow-rec {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.flow-node.training { background: #1e3a5f; border: 1px solid #1e40af; }
+.flow-node.training .flow-title { color: #38bdf8; }
+.flow-node.training .flow-rec { background: #1e40af; color: #93c5fd; }
+
+.flow-node.cloud { background: #1e1b4b; border: 1px solid #4c1d95; }
+.flow-node.cloud .flow-title { color: #a78bfa; }
+.flow-node.cloud .flow-rec { background: #4c1d95; color: #c4b5fd; }
+
+.flow-node.local-good { background: #064e3b; border: 1px solid #065f46; }
+.flow-node.local-good .flow-title { color: #34d399; }
+.flow-node.local-good .flow-rec { background: #065f46; color: #6ee7b7; }
+
+.flow-node.local-mid { background: #422006; border: 1px solid #78350f; }
+.flow-node.local-mid .flow-title { color: #fbbf24; }
+.flow-node.local-mid .flow-rec { background: #78350f; color: #fde68a; }
+
+.flow-node.cpu { background: #4a1a2e; border: 1px solid #831843; }
+.flow-node.cpu .flow-title { color: #f472b6; }
+.flow-node.cpu .flow-rec { background: #831843; color: #fbcfe8; }
+
+.flow-node.extreme { background: #2d1010; border: 1px solid #7f1d1d; }
+.flow-node.extreme .flow-title { color: #f87171; }
+.flow-node.extreme .flow-rec { background: #7f1d1d; color: #fca5a5; }
+
+.flow-question {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(56,189,248,0.1), rgba(167,139,250,0.1));
+  border-radius: 10px;
+  border: 1px solid #334155;
+}
+
+/* Glossary */
+.glossary-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s;
+}
+
+.glossary-btn:hover {
+  transform: scale(1.1);
+}
+
+.glossary-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1001;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.glossary-overlay.open {
+  display: flex;
+}
+
+.glossary-panel {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 620px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.glossary-panel h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 16px;
+}
+
+.glossary-item {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.glossary-item:last-child {
+  border-bottom: none;
+}
+
+.glossary-term {
+  font-size: 14px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 2px;
+}
+
+.glossary-def {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.glossary-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .header h1 { font-size: 20px; }
+  .tab-btn { font-size: 11px; padding: 6px 10px; }
+  .bit-box { width: 18px; height: 22px; font-size: 10px; }
+  .compare-row { grid-template-columns: 1fr; }
+  .quant-approach-row { grid-template-columns: 1fr; }
+  .converter-results { grid-template-columns: 1fr; }
+  .method-grid { grid-template-columns: 1fr; }
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animating {
+  animation: pulse 0.6s ease;
+}
+
+/* Bit group separators */
+.bit-group {
+  display: flex;
+  gap: 2px;
+  position: relative;
+}
+
+.bit-group + .bit-group {
+  margin-left: 6px;
+}
+
+.bit-group-label {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+/* Error bar */
+.error-bar-container {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-bar-track {
+  flex: 1;
+  height: 4px;
+  background: #1e293b;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.error-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.error-bar-fill.low { background: #34d399; }
+.error-bar-fill.medium { background: #fbbf24; }
+.error-bar-fill.high { background: #f87171; }
+
+/* Quant animation controls */
+.anim-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: center;
+}
+
+.anim-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.anim-btn:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.anim-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="accent">数字精度</span>与<span class="accent2">量化原理</span></h1>
+  <p>AI 如何用更少的 bit 思考</p>
+</div>
+
+<div class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-tab="0">1. 浮点数的秘密</button>
+  <button class="tab-btn" data-tab="1">2. 精度损失可视化</button>
+  <button class="tab-btn" data-tab="2">3. 量化怎么做</button>
+  <button class="tab-btn" data-tab="3">4. 量化方法对比</button>
+  <button class="tab-btn" data-tab="4">5. 有损 vs 无损</button>
+  <button class="tab-btn" data-tab="5">6. 怎么选？</button>
+</div>
+
+<div class="content">
+
+  <!-- Tab 1: 浮点数的秘密 -->
+  <div class="tab-panel active" id="panel0">
+    <div class="section-title">浮点数的秘密</div>
+    <div class="section-subtitle">
+      计算机用二进制表示数字。不同的"格式"决定了用多少 bit、怎么分配，直接影响数字的精度和范围。
+    </div>
+
+    <div id="bitFormats"></div>
+
+    <div class="converter-box">
+      <div class="converter-title">交互实验室：输入任意数字，看它在各格式下的表示</div>
+      <div class="converter-input-row">
+        <label>数值：</label>
+        <input type="number" class="converter-input" id="converterInput" value="3.14159265" step="any">
+        <input type="range" class="converter-slider" id="converterSlider" min="-100" max="100" step="0.001" value="3.14159265">
+      </div>
+      <div class="converter-results" id="converterResults"></div>
+    </div>
+  </div>
+
+  <!-- Tab 2: 精度损失可视化 -->
+  <div class="tab-panel" id="panel1">
+    <div class="section-title">精度损失可视化</div>
+    <div class="section-subtitle">
+      同一条曲线（模拟神经网络权重分布）在不同精度下的表现。点击格式按钮切换对比。
+    </div>
+
+    <div class="format-toggle-row" id="formatToggles">
+      <button class="format-toggle active" data-fmt="fp32">FP32 原始</button>
+      <button class="format-toggle active" data-fmt="fp16">FP16</button>
+      <button class="format-toggle" data-fmt="bf16">BF16</button>
+      <button class="format-toggle" data-fmt="int8">INT8</button>
+      <button class="format-toggle" data-fmt="int4">INT4</button>
+    </div>
+
+    <div class="wave-canvas-container">
+      <canvas class="wave-canvas" id="waveCanvas"></canvas>
+    </div>
+
+    <div class="wave-canvas-container">
+      <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;font-weight:600;">误差曲线（与 FP32 的差值）</div>
+      <canvas class="wave-canvas" id="errorCanvas" style="height:160px;"></canvas>
+    </div>
+
+    <div class="section-title" style="margin-top:8px;">关键数据</div>
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th>格式</th>
+          <th>位数</th>
+          <th>可表示值</th>
+          <th>相对误差</th>
+          <th>7B 模型大小</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong style="color:#34d399">FP32</strong></td><td class="mono-cell">32</td><td class="mono-cell">~43 亿</td><td class="mono-cell">0% (基线)</td><td class="mono-cell">28 GB</td></tr>
+        <tr><td><strong style="color:#38bdf8">FP16</strong></td><td class="mono-cell">16</td><td class="mono-cell">65,536</td><td class="mono-cell">~0.01%</td><td class="mono-cell">14 GB</td></tr>
+        <tr><td><strong style="color:#a78bfa">BF16</strong></td><td class="mono-cell">16</td><td class="mono-cell">65,536</td><td class="mono-cell">~0.02%</td><td class="mono-cell">14 GB</td></tr>
+        <tr><td><strong style="color:#f59e0b">FP8</strong></td><td class="mono-cell">8</td><td class="mono-cell">256</td><td class="mono-cell">~0.5%</td><td class="mono-cell">7 GB</td></tr>
+        <tr><td><strong style="color:#fbbf24">INT8</strong></td><td class="mono-cell">8</td><td class="mono-cell">256</td><td class="mono-cell">~1%</td><td class="mono-cell">7 GB</td></tr>
+        <tr><td><strong style="color:#f87171">INT4</strong></td><td class="mono-cell">4</td><td class="mono-cell">16</td><td class="mono-cell">~5%</td><td class="mono-cell">3.5 GB</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Tab 3: 量化怎么做 -->
+  <div class="tab-panel" id="panel2">
+    <div class="section-title">量化是怎么做的</div>
+    <div class="section-subtitle">
+      量化就是把"连续的高精度数字"映射到"有限的低精度整数"上。以下是具体步骤。
+    </div>
+
+    <div class="quant-step">
+      <div class="quant-step-title"><span class="quant-step-number">1</span>收集权重分布</div>
+      <div class="section-subtitle" style="margin-bottom:8px;">模型的权重通常呈钟形分布，大部分数值集中在 0 附近。</div>
+      <canvas class="quant-canvas" id="quantCanvas1"></canvas>
+    </div>
+
+    <div class="quant-step">
+      <div class="quant-step-title"><span class="quant-step-number">2</span>确定缩放因子</div>
+      <div class="section-subtitle" style="margin-bottom:8px;">找到最大值和最小值，计算 Scale = (max - min) / (2^bits - 1)，划出量化网格。</div>
+      <canvas class="quant-canvas" id="quantCanvas2"></canvas>
+    </div>
+
+    <div class="quant-step">
+      <div class="quant-step-title"><span class="quant-step-number">3</span>映射到整数</div>
+      <div class="section-subtitle" style="margin-bottom:8px;">每个浮点权重"跳"到最近的网格线上（取整），落在网格线之间的数字会损失精度。</div>
+      <canvas class="quant-canvas" id="quantCanvas3"></canvas>
+      <div class="anim-controls">
+        <button class="anim-btn" id="quantAnimBtn" onclick="runQuantAnim()">播放动画</button>
+        <button class="anim-btn" onclick="resetQuantAnim()">重置</button>
+      </div>
+    </div>
+
+    <div class="quant-step">
+      <div class="quant-step-title"><span class="quant-step-number">4</span>反量化（恢复近似值）</div>
+      <div class="section-subtitle" style="margin-bottom:8px;">推理时，整数 x Scale + Zero_point = 近似浮点数。但已经是"阶梯"而非平滑曲线。</div>
+      <canvas class="quant-canvas" id="quantCanvas4"></canvas>
+    </div>
+
+    <div class="quant-approach-row">
+      <div class="quant-approach-card">
+        <h4>对称量化 (Symmetric)</h4>
+        <p>零点固定为 0，正负范围相同。<br>计算简单，但如果权重分布不对称，会浪费一部分范围。</p>
+        <canvas class="quant-canvas" id="quantSymCanvas" style="height:140px;margin-top:8px;"></canvas>
+      </div>
+      <div class="quant-approach-card">
+        <h4>非对称量化 (Asymmetric)</h4>
+        <p>零点可以偏移，更好地利用量化范围。<br>适合分布不均匀的权重，精度更高但计算稍复杂。</p>
+        <canvas class="quant-canvas" id="quantAsymCanvas" style="height:140px;margin-top:8px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 4: 量化方法对比 -->
+  <div class="tab-panel" id="panel3">
+    <div class="section-title">量化方法对比</div>
+    <div class="section-subtitle">
+      不同的量化方法在精度、速度和成本之间取舍。选择取决于你的部署场景。
+    </div>
+
+    <div class="method-grid">
+      <div class="method-card ptq">
+        <h3>PTQ</h3>
+        <div class="method-sub">Post-Training Quantization 训练后量化</div>
+        <ul>
+          <li>不需要重新训练，直接转换权重</li>
+          <li>最快速的量化方式</li>
+          <li>精度损失相对较大</li>
+          <li>代表：llama.cpp GGUF 量化</li>
+        </ul>
+        <div class="triangle-chart"><canvas id="triPTQ" width="180" height="120"></canvas></div>
+      </div>
+
+      <div class="method-card gptq">
+        <h3>GPTQ</h3>
+        <div class="method-sub">GPU-Optimized PTQ</div>
+        <ul>
+          <li>逐层量化，用校准数据优化</li>
+          <li>需要 GPU + 校准数据集</li>
+          <li>精度优于朴素 PTQ</li>
+          <li>4-bit 量化仍保持不错质量</li>
+        </ul>
+        <div class="triangle-chart"><canvas id="triGPTQ" width="180" height="120"></canvas></div>
+      </div>
+
+      <div class="method-card awq">
+        <h3>AWQ</h3>
+        <div class="method-sub">Activation-Aware Weight Quantization</div>
+        <ul>
+          <li>识别"重要"权重，给予更高精度</li>
+          <li>1% 的权重影响 50%+ 性能！</li>
+          <li>保护关键权重 = 更好的量化质量</li>
+          <li>不是所有权重同等重要</li>
+        </ul>
+        <div class="triangle-chart"><canvas id="triAWQ" width="180" height="120"></canvas></div>
+      </div>
+
+      <div class="method-card qat">
+        <h3>QAT</h3>
+        <div class="method-sub">Quantization-Aware Training 量化感知训练</div>
+        <ul>
+          <li>训练时模拟量化误差</li>
+          <li>模型"学会"在低精度下工作</li>
+          <li>最好的精度保持</li>
+          <li>需要重新训练（成本高）</li>
+        </ul>
+        <div class="triangle-chart"><canvas id="triQAT" width="180" height="120"></canvas></div>
+      </div>
+
+      <div class="method-card gguf">
+        <h3>GGUF</h3>
+        <div class="method-sub">llama.cpp 专用格式</div>
+        <ul>
+          <li>支持混合量化：重要层高精度</li>
+          <li>Q4_K_M, Q5_K_M, Q8_0 等变体</li>
+          <li>最适合本地 / CPU 推理</li>
+          <li>社区广泛使用，生态最好</li>
+        </ul>
+        <div class="triangle-chart"><canvas id="triGGUF" width="180" height="120"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 5: 有损 vs 无损 -->
+  <div class="tab-panel" id="panel4">
+    <div class="section-title">有损 vs 无损</div>
+    <div class="section-subtitle">
+      精度转换是否丢失信息？取决于源格式和目标格式的关系。
+    </div>
+
+    <div class="compare-row">
+      <div class="compare-card lossless">
+        <h3>无损 (Lossless)</h3>
+        <ul>
+          <li>FP32 -> FP16：若数值在 FP16 范围内且精度足够，可以无损</li>
+          <li>BF16 -> FP32：几乎无损（指数范围相同，精度只会增加）</li>
+          <li>类比：<strong>PNG 图片压缩</strong> — 文件变小但像素完全相同</li>
+        </ul>
+      </div>
+      <div class="compare-card lossy">
+        <h3>有损 (Lossy)</h3>
+        <ul>
+          <li>FP32 -> INT8：一定有损（连续 -> 离散化）</li>
+          <li>FP32 -> INT4：损失更大（仅 16 个离散值）</li>
+          <li>类比：<strong>JPEG 图片压缩</strong> — 文件大幅变小但有模糊</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mixed-precision-box">
+      <h3>混合精度 (Mixed Precision)</h3>
+      <p style="font-size:13px;color:#c4b5fd;line-height:1.7;margin-bottom:8px;">
+        关键层用 FP16/BF16，普通层用 INT8/INT4 — "把预算花在刀刃上"
+      </p>
+      <p style="font-size:12px;color:#94a3b8;line-height:1.7;">
+        NVIDIA Tensor Core 天生支持混合精度计算。训练时 FP32 做累加、BF16 做乘法，既快又稳。推理时关键的注意力层保留高精度，FFN 层大胆量化。
+      </p>
+      <canvas id="mixedPrecisionCanvas" style="width:100%;height:120px;margin-top:12px;display:block;"></canvas>
+    </div>
+
+    <div class="output-demo">
+      <h4>同一模型不同精度的输出对比</h4>
+      <div class="output-sample fp32">
+        <div class="label">FP32（基线）</div>
+        人工智能正在改变世界的每一个角落，从医疗到教育，从交通到娱乐。
+      </div>
+      <div class="output-sample fp16">
+        <div class="label">FP16（几乎相同）</div>
+        人工智能正在改变世界的每一个角落，从医疗到教育，从交通到娱乐。
+      </div>
+      <div class="output-sample int8">
+        <div class="label">INT8（偶尔微小差异）</div>
+        人工智能正在改变世界的各个角落，从医疗到教育，从交通到娱乐领域。
+      </div>
+      <div class="output-sample int4">
+        <div class="label">INT4（质量下降明显）</div>
+        人工智能正在改变改变世界每个角落，医疗教育交通娱乐，从各方面影响着人们的生活方式...
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 6: 怎么选 -->
+  <div class="tab-panel" id="panel5">
+    <div class="section-title">怎么选？</div>
+    <div class="section-subtitle">
+      根据你的场景选择最合适的精度方案。点击卡片查看详细建议。
+    </div>
+
+    <div class="flow-tree">
+      <div class="flow-question">你的场景是什么？</div>
+
+      <div class="flow-node training" onclick="toggleFlowDetail(this)">
+        <div class="flow-icon">&#x1F9E0;</div>
+        <div class="flow-text">
+          <div class="flow-title">训练模型</div>
+          <div class="flow-desc">需要最大精度来计算梯度，不能省。反向传播对精度极其敏感。</div>
+        </div>
+        <div class="flow-rec">FP32 / BF16</div>
+      </div>
+
+      <div class="flow-node cloud" onclick="toggleFlowDetail(this)">
+        <div class="flow-icon">&#x2601;&#xFE0F;</div>
+        <div class="flow-text">
+          <div class="flow-title">云端推理</div>
+          <div class="flow-desc">有充足 GPU 资源，追求吞吐量和成本优化。质量几乎无损，速度翻倍。</div>
+        </div>
+        <div class="flow-rec">FP16 / BF16</div>
+      </div>
+
+      <div class="flow-node local-good" onclick="toggleFlowDetail(this)">
+        <div class="flow-icon">&#x1F5A5;&#xFE0F;</div>
+        <div class="flow-text">
+          <div class="flow-title">本地推理（好 GPU, 24GB+ VRAM）</div>
+          <div class="flow-desc">RTX 4090 / A6000 等，显存充裕。可以跑高质量量化模型。</div>
+        </div>
+        <div class="flow-rec">INT8 / GPTQ-4bit</div>
+      </div>
+
+      <div class="flow-node local-mid" onclick="toggleFlowDetail(this)">
+        <div class="flow-icon">&#x1F4BB;</div>
+        <div class="flow-text">
+          <div class="flow-title">本地推理（一般 GPU, 8-16GB）</div>
+          <div class="flow-desc">RTX 3060/4060 等消费级显卡，需要积极量化才能装下模型。</div>
+        </div>
+        <div class="flow-rec">GGUF Q4_K_M</div>
+      </div>
+
+      <div class="flow-node cpu" onclick="toggleFlowDetail(this)">
+        <div class="flow-icon">&#x1F4F1;</div>
+        <div class="flow-text">
+          <div class="flow-title">CPU 推理 / 手机端</div>
+          <div class="flow-desc">没有独立 GPU，靠 CPU 或移动端 NPU 推理。速度和大小是第一优先级。</div>
+        </div>
+        <div class="flow-rec">GGUF Q4_K_S / INT4</div>
+      </div>
+
+      <div class="flow-node extreme" onclick="toggleFlowDetail(this)">
+        <div class="flow-icon">&#x1F527;</div>
+        <div class="flow-text">
+          <div class="flow-title">极致压缩（嵌入式设备）</div>
+          <div class="flow-desc">IoT 设备、边缘计算。模型必须极小，可以接受明显质量下降。</div>
+        </div>
+        <div class="flow-rec">INT4 / INT2</div>
+      </div>
+    </div>
+
+    <div class="section-title" style="font-size:16px;">选择参考</div>
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th>场景</th>
+          <th>推荐格式</th>
+          <th>质量保持</th>
+          <th>速度提升</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>训练</td><td class="mono-cell">FP32 / BF16</td><td class="mono-cell">100%</td><td class="mono-cell">1x~2x</td></tr>
+        <tr><td>云端推理</td><td class="mono-cell">FP16 / BF16</td><td class="mono-cell">~99.9%</td><td class="mono-cell">2x</td></tr>
+        <tr><td>好 GPU</td><td class="mono-cell">INT8 / GPTQ-4bit</td><td class="mono-cell">~97%</td><td class="mono-cell">3~4x</td></tr>
+        <tr><td>一般 GPU</td><td class="mono-cell">GGUF Q4_K_M</td><td class="mono-cell">~95%</td><td class="mono-cell">4~6x</td></tr>
+        <tr><td>CPU / 手机</td><td class="mono-cell">Q4_K_S / INT4</td><td class="mono-cell">~90%</td><td class="mono-cell">-</td></tr>
+        <tr><td>嵌入式</td><td class="mono-cell">INT4 / INT2</td><td class="mono-cell">~80%</td><td class="mono-cell">-</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Glossary button -->
+<button class="glossary-btn" onclick="toggleGlossary()" title="术语表">?</button>
+
+<!-- Glossary overlay -->
+<div class="glossary-overlay" id="glossaryOverlay" onclick="if(event.target===this)toggleGlossary()">
+  <div class="glossary-panel">
+    <h2>术语表</h2>
+    <div class="glossary-item"><div class="glossary-term">浮点数 (Floating Point)</div><div class="glossary-def">用科学计数法表示的小数。如 3.14 = 1.57 x 2^1。"浮动"的小数点让它能表示很大或很小的数。</div></div>
+    <div class="glossary-item"><div class="glossary-term">定点数/整数 (Integer)</div><div class="glossary-def">没有小数点的整数，如 -128 到 127。计算快但不能表示小数。</div></div>
+    <div class="glossary-item"><div class="glossary-term">符号位 (Sign Bit)</div><div class="glossary-def">1 位，决定正数(0)还是负数(1)。所有格式的第一位。</div></div>
+    <div class="glossary-item"><div class="glossary-term">指数 (Exponent)</div><div class="glossary-def">决定数字的范围/大小。指数位越多，能表示的数字范围越大。</div></div>
+    <div class="glossary-item"><div class="glossary-term">尾数 (Mantissa/Fraction)</div><div class="glossary-def">决定数字的精度/细节。尾数位越多，数字越精确。</div></div>
+    <div class="glossary-item"><div class="glossary-term">FP32</div><div class="glossary-def">32 位浮点，标准训练精度。1 位符号 + 8 位指数 + 23 位尾数。</div></div>
+    <div class="glossary-item"><div class="glossary-term">FP16</div><div class="glossary-def">16 位浮点，推理常用。1 位符号 + 5 位指数 + 10 位尾数。</div></div>
+    <div class="glossary-item"><div class="glossary-term">BF16 (Brain Float 16)</div><div class="glossary-def">Google 提出。保留 FP32 的指数范围(8位)但减少精度位(7位)。训练更稳定。</div></div>
+    <div class="glossary-item"><div class="glossary-term">FP8</div><div class="glossary-def">8 位浮点。NVIDIA Hopper/Blackwell 架构原生支持。1+4+3 布局。</div></div>
+    <div class="glossary-item"><div class="glossary-term">INT8 / INT4</div><div class="glossary-def">8 位/4 位整数。量化推理专用。INT8 有 256 个值，INT4 仅 16 个值。</div></div>
+    <div class="glossary-item"><div class="glossary-term">量化 (Quantization)</div><div class="glossary-def">将高精度数字映射到低精度表示的过程。好比把高清照片压缩成缩略图。</div></div>
+    <div class="glossary-item"><div class="glossary-term">反量化 (Dequantization)</div><div class="glossary-def">将量化后的整数还原为近似浮点数。integer x scale + zero_point = ~float。</div></div>
+    <div class="glossary-item"><div class="glossary-term">校准 (Calibration)</div><div class="glossary-def">用样本数据确定量化的最佳参数（scale 和 zero point），让量化误差最小。</div></div>
+    <div class="glossary-item"><div class="glossary-term">混合精度 (Mixed Precision)</div><div class="glossary-def">不同层使用不同精度。关键层高精度，普通层低精度。"把钱花在刀刃上"。</div></div>
+  </div>
+</div>
+
+<script>
+// ===== Global state =====
+const TAB_COUNT = 6;
+let activeTab = 0;
+
+// ===== Tab switching =====
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const idx = parseInt(btn.dataset.tab);
+    switchTab(idx);
+  });
+});
+
+function switchTab(idx) {
+  activeTab = idx;
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('.tab-panel').forEach((p, i) => {
+    p.classList.toggle('active', i === idx);
+  });
+  if (idx === 0) initTab1();
+  if (idx === 1) initTab2();
+  if (idx === 2) initTab3();
+  if (idx === 3) initTab4();
+  if (idx === 4) initTab5();
+}
+
+// ===== Glossary =====
+function toggleGlossary() {
+  document.getElementById('glossaryOverlay').classList.toggle('open');
+}
+
+// ===== Flow detail toggle =====
+function toggleFlowDetail(el) {
+  const desc = el.querySelector('.flow-desc');
+  if (desc.style.maxHeight) {
+    desc.style.maxHeight = null;
+    desc.style.opacity = '1';
+  }
+  el.style.transform = 'translateX(8px)';
+  setTimeout(() => { el.style.transform = ''; }, 300);
+}
+
+// ===== Utility: Float to binary helpers =====
+function floatToBits32(val) {
+  const buf = new ArrayBuffer(4);
+  new Float32Array(buf)[0] = val;
+  const intVal = new Uint32Array(buf)[0];
+  return intVal.toString(2).padStart(32, '0');
+}
+
+function bitsToFloat32(bits) {
+  const buf = new ArrayBuffer(4);
+  new Uint32Array(buf)[0] = parseInt(bits, 2);
+  return new Float32Array(buf)[0];
+}
+
+function floatToFP16Bits(val) {
+  // Simplified FP16 conversion
+  const buf = new ArrayBuffer(4);
+  new Float32Array(buf)[0] = val;
+  const f32 = new Uint32Array(buf)[0];
+  const sign = (f32 >> 31) & 1;
+  let exp = ((f32 >> 23) & 0xFF) - 127;
+  let frac = f32 & 0x7FFFFF;
+
+  let fp16Sign = sign;
+  let fp16Exp, fp16Frac;
+
+  if (exp > 15) {
+    fp16Exp = 31; fp16Frac = 0; // Inf
+  } else if (exp < -14) {
+    fp16Exp = 0; fp16Frac = 0; // Zero/Denorm
+  } else {
+    fp16Exp = exp + 15;
+    fp16Frac = frac >> 13;
+  }
+
+  const bits = (fp16Sign << 15) | (fp16Exp << 10) | fp16Frac;
+  return bits.toString(2).padStart(16, '0');
+}
+
+function fp16BitsToFloat(bits) {
+  const val = parseInt(bits, 2);
+  const sign = (val >> 15) & 1;
+  const exp = (val >> 10) & 0x1F;
+  const frac = val & 0x3FF;
+
+  if (exp === 0) {
+    return (sign ? -1 : 1) * Math.pow(2, -14) * (frac / 1024);
+  }
+  if (exp === 31) return frac === 0 ? (sign ? -Infinity : Infinity) : NaN;
+  return (sign ? -1 : 1) * Math.pow(2, exp - 15) * (1 + frac / 1024);
+}
+
+function floatToBF16Bits(val) {
+  const buf = new ArrayBuffer(4);
+  new Float32Array(buf)[0] = val;
+  const f32 = new Uint32Array(buf)[0];
+  // BF16 is top 16 bits of FP32 (with rounding)
+  const bf16 = (f32 + 0x8000) >> 16;
+  return bf16.toString(2).padStart(16, '0');
+}
+
+function bf16BitsToFloat(bits) {
+  const val = parseInt(bits, 2);
+  const buf = new ArrayBuffer(4);
+  new Uint32Array(buf)[0] = val << 16;
+  return new Float32Array(buf)[0];
+}
+
+function floatToFP8Bits(val) {
+  // E4M3 format: 1 sign, 4 exp, 3 mantissa
+  const sign = val < 0 ? 1 : 0;
+  const absVal = Math.abs(val);
+  if (absVal === 0) return '00000000';
+
+  const exp = Math.floor(Math.log2(absVal));
+  const biasedExp = Math.min(15, Math.max(0, exp + 7));
+  const mantissa = (absVal / Math.pow(2, biasedExp - 7)) - 1;
+  const mantissaBits = Math.min(7, Math.round(mantissa * 8));
+
+  const bits = (sign << 7) | (biasedExp << 3) | mantissaBits;
+  return bits.toString(2).padStart(8, '0');
+}
+
+function fp8BitsToFloat(bits) {
+  const val = parseInt(bits, 2);
+  const sign = (val >> 7) & 1;
+  const exp = (val >> 3) & 0xF;
+  const frac = val & 0x7;
+  if (exp === 0 && frac === 0) return 0;
+  return (sign ? -1 : 1) * Math.pow(2, exp - 7) * (1 + frac / 8);
+}
+
+function floatToINT8(val, minVal, maxVal) {
+  const scale = (maxVal - minVal) / 255;
+  const quantized = Math.round((val - minVal) / scale);
+  const clamped = Math.max(0, Math.min(255, quantized));
+  return clamped.toString(2).padStart(8, '0');
+}
+
+function int8ToFloat(bits, minVal, maxVal) {
+  const scale = (maxVal - minVal) / 255;
+  return parseInt(bits, 2) * scale + minVal;
+}
+
+function floatToINT4(val, minVal, maxVal) {
+  const scale = (maxVal - minVal) / 15;
+  const quantized = Math.round((val - minVal) / scale);
+  const clamped = Math.max(0, Math.min(15, quantized));
+  return clamped.toString(2).padStart(4, '0');
+}
+
+function int4ToFloat(bits, minVal, maxVal) {
+  const scale = (maxVal - minVal) / 15;
+  return parseInt(bits, 2) * scale + minVal;
+}
+
+// ===== TAB 1: Bit-level visualization =====
+const FORMAT_DEFS = [
+  {
+    name: 'FP32', bits: 32, label: '32-bit 浮点',
+    groups: [
+      { name: '符号', count: 1, cls: 'sign' },
+      { name: '指数', count: 8, cls: 'exponent' },
+      { name: '尾数', count: 23, cls: 'mantissa' }
+    ],
+    getValue: (v) => {
+      const bits = floatToBits32(v);
+      return { bits, stored: bitsToFloat32(bits) };
+    },
+    insight: 'FP32 是 AI 训练的"黄金标准"——23 位尾数提供约 7 位十进制精度。'
+  },
+  {
+    name: 'FP16', bits: 16, label: '16-bit 半精度浮点',
+    groups: [
+      { name: '符号', count: 1, cls: 'sign' },
+      { name: '指数', count: 5, cls: 'exponent' },
+      { name: '尾数', count: 10, cls: 'mantissa' }
+    ],
+    getValue: (v) => {
+      const bits = floatToFP16Bits(v);
+      return { bits, stored: fp16BitsToFloat(bits) };
+    },
+    insight: 'FP16 用一半的空间，保留约 3.3 位十进制精度。推理时几乎无损。'
+  },
+  {
+    name: 'BF16', bits: 16, label: 'Brain Float 16',
+    groups: [
+      { name: '符号', count: 1, cls: 'sign' },
+      { name: '指数', count: 8, cls: 'exponent' },
+      { name: '尾数', count: 7, cls: 'mantissa' }
+    ],
+    getValue: (v) => {
+      const bits = floatToBF16Bits(v);
+      return { bits, stored: bf16BitsToFloat(bits) };
+    },
+    insight: 'BF16 牺牲精度保留范围 — 与 FP32 相同的指数(8位)，训练更稳定，不易溢出。'
+  },
+  {
+    name: 'FP8', bits: 8, label: '8-bit 浮点 (E4M3)',
+    groups: [
+      { name: '符号', count: 1, cls: 'sign' },
+      { name: '指数', count: 4, cls: 'exponent' },
+      { name: '尾数', count: 3, cls: 'mantissa' }
+    ],
+    getValue: (v) => {
+      const bits = floatToFP8Bits(v);
+      return { bits, stored: fp8BitsToFloat(bits) };
+    },
+    insight: 'FP8 仅 3 位尾数（8 个精度级别），但保留了浮点的灵活性。NVIDIA Hopper+ 原生支持。'
+  },
+  {
+    name: 'INT8', bits: 8, label: '8-bit 整数',
+    groups: [
+      { name: '整数', count: 8, cls: 'integer' }
+    ],
+    getValue: (v) => {
+      const minV = -10, maxV = 10;
+      const bits = floatToINT8(v, minV, maxV);
+      return { bits, stored: int8ToFloat(bits, minV, maxV) };
+    },
+    insight: 'INT8 将连续数值映射到 256 个离散台阶。需要预先确定缩放因子（量化）。'
+  },
+  {
+    name: 'INT4', bits: 4, label: '4-bit 整数',
+    groups: [
+      { name: '整数', count: 4, cls: 'integer' }
+    ],
+    getValue: (v) => {
+      const minV = -10, maxV = 10;
+      const bits = floatToINT4(v, minV, maxV);
+      return { bits, stored: int4ToFloat(bits, minV, maxV) };
+    },
+    insight: 'INT4 仅 16 个可能值！但在 LLM 推理中"惊人地可用"——大部分权重可以被如此粗糙地表示。'
+  }
+];
+
+function buildBitFormats() {
+  const container = document.getElementById('bitFormats');
+  const val = 3.14159265;
+  container.innerHTML = '';
+
+  FORMAT_DEFS.forEach((fmt, fi) => {
+    const result = fmt.getValue(val);
+    const error = Math.abs(result.stored - val);
+
+    const card = document.createElement('div');
+    card.className = 'bit-format-card';
+    card.innerHTML = `
+      <div class="bit-format-header">
+        <div class="bit-format-name">${fmt.name} <span class="bits-count">${fmt.label}</span></div>
+        <div class="bit-format-value">= ${result.stored.toFixed(8)}</div>
+      </div>
+      <div class="bit-row" id="bitRow${fi}"></div>
+      <div class="bit-labels">
+        ${fmt.groups.map(g => `<span class="bit-label"><span class="dot ${g.cls}"></span>${g.name} (${g.count}位)</span>`).join('')}
+      </div>
+      ${error > 0.000001 ? `<div class="error-display">误差: ${error.toExponential(4)} (${(error / Math.abs(val) * 100).toFixed(4)}%)</div>` : ''}
+      <div class="format-insight">${fmt.insight}</div>
+    `;
+    container.appendChild(card);
+
+    // Populate bit boxes
+    const bitRow = card.querySelector(`#bitRow${fi}`);
+    let bitIdx = 0;
+    fmt.groups.forEach(g => {
+      const group = document.createElement('div');
+      group.className = 'bit-group';
+      for (let i = 0; i < g.count; i++) {
+        const box = document.createElement('div');
+        box.className = `bit-box ${g.cls}`;
+        box.textContent = result.bits[bitIdx] || '0';
+        box.dataset.index = bitIdx;
+        group.appendChild(box);
+        bitIdx++;
+      }
+      bitRow.appendChild(group);
+    });
+
+    // Animate bits appearing
+    const boxes = card.querySelectorAll('.bit-box');
+    boxes.forEach((box, i) => {
+      setTimeout(() => {
+        box.classList.add('visible');
+      }, fi * 150 + i * 30);
+    });
+  });
+}
+
+// Interactive converter
+function updateConverter() {
+  const val = parseFloat(document.getElementById('converterInput').value);
+  if (isNaN(val)) return;
+
+  const container = document.getElementById('converterResults');
+  container.innerHTML = '';
+
+  FORMAT_DEFS.forEach(fmt => {
+    const result = fmt.getValue(val);
+    const error = Math.abs(result.stored - val);
+    const relError = val !== 0 ? (error / Math.abs(val) * 100) : 0;
+
+    const card = document.createElement('div');
+    card.className = 'converter-result-card';
+
+    // Format bits with coloring
+    let bitIdx = 0;
+    let bitsHTML = '';
+    fmt.groups.forEach(g => {
+      const groupBits = result.bits.slice(bitIdx, bitIdx + g.count);
+      const color = g.cls === 'sign' ? '#ef4444' : g.cls === 'exponent' ? '#60a5fa' : g.cls === 'mantissa' ? '#34d399' : '#a78bfa';
+      bitsHTML += `<span style="color:${color}">${groupBits}</span> `;
+      bitIdx += g.count;
+    });
+
+    card.innerHTML = `
+      <div class="fmt-name">${fmt.name}</div>
+      <div class="fmt-bits">${bitsHTML.trim()}</div>
+      <div class="fmt-stored">stored: ${result.stored.toFixed(8)}</div>
+      ${error > 1e-10 ? `<div class="fmt-error">error: ${relError.toFixed(4)}%</div>` : '<div style="font-size:11px;color:#34d399;">exact match</div>'}
+    `;
+    container.appendChild(card);
+  });
+}
+
+document.getElementById('converterInput').addEventListener('input', function() {
+  document.getElementById('converterSlider').value = this.value;
+  updateConverter();
+});
+
+document.getElementById('converterSlider').addEventListener('input', function() {
+  document.getElementById('converterInput').value = parseFloat(this.value).toFixed(6);
+  updateConverter();
+});
+
+function initTab1() {
+  buildBitFormats();
+  updateConverter();
+}
+
+// ===== TAB 2: Wave visualization =====
+const waveFormats = {
+  fp32: { color: '#34d399', name: 'FP32', quantize: (v) => v },
+  fp16: {
+    color: '#38bdf8', name: 'FP16',
+    quantize: (v) => {
+      const bits = floatToFP16Bits(v);
+      return fp16BitsToFloat(bits);
+    }
+  },
+  bf16: {
+    color: '#a78bfa', name: 'BF16',
+    quantize: (v) => {
+      const bits = floatToBF16Bits(v);
+      return bf16BitsToFloat(bits);
+    }
+  },
+  int8: {
+    color: '#fbbf24', name: 'INT8',
+    quantize: (v) => {
+      const scale = 2.0 / 255;
+      return Math.round((v + 1) / scale) * scale - 1;
+    }
+  },
+  int4: {
+    color: '#f87171', name: 'INT4',
+    quantize: (v) => {
+      const scale = 2.0 / 15;
+      return Math.round((v + 1) / scale) * scale - 1;
+    }
+  }
+};
+
+let activeFormats = new Set(['fp32', 'fp16']);
+
+function initTab2() {
+  drawWaveCanvas();
+  drawErrorCanvas();
+}
+
+document.querySelectorAll('.format-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fmt = btn.dataset.fmt;
+    if (fmt === 'fp32') return; // Always show FP32
+    if (activeFormats.has(fmt)) {
+      activeFormats.delete(fmt);
+      btn.classList.remove('active');
+      btn.classList.add('inactive');
+    } else {
+      activeFormats.add(fmt);
+      btn.classList.add('active');
+      btn.classList.remove('inactive');
+    }
+    drawWaveCanvas();
+    drawErrorCanvas();
+  });
+});
+
+function generateSignal(x) {
+  // Neural network weight-like distribution: sum of sinusoids
+  return 0.6 * Math.sin(x * 2) + 0.3 * Math.sin(x * 5.7) + 0.1 * Math.cos(x * 13);
+}
+
+function drawWaveCanvas() {
+  const canvas = document.getElementById('waveCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 10; i++) {
+    const y = (i / 10) * H;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+
+  // Zero line
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, H / 2);
+  ctx.lineTo(W, H / 2);
+  ctx.stroke();
+
+  const padding = 20;
+  const plotW = W - padding * 2;
+  const plotH = H - padding * 2;
+  const samples = 400;
+
+  // Draw each active format
+  const formatOrder = ['int4', 'int8', 'bf16', 'fp16', 'fp32'];
+  formatOrder.forEach(key => {
+    if (!activeFormats.has(key)) return;
+    const fmt = waveFormats[key];
+
+    ctx.strokeStyle = fmt.color;
+    ctx.lineWidth = key === 'fp32' ? 2.5 : 1.8;
+    ctx.globalAlpha = key === 'fp32' ? 1 : 0.85;
+
+    if (key === 'int4' || key === 'int8') {
+      // Draw as staircase
+      ctx.beginPath();
+      for (let i = 0; i <= samples; i++) {
+        const x = (i / samples) * Math.PI * 4;
+        const raw = generateSignal(x);
+        const quantized = fmt.quantize(raw);
+        const px = padding + (i / samples) * plotW;
+        const py = padding + (0.5 - quantized * 0.4) * plotH;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      for (let i = 0; i <= samples; i++) {
+        const x = (i / samples) * Math.PI * 4;
+        const raw = generateSignal(x);
+        const val = fmt.quantize(raw);
+        const px = padding + (i / samples) * plotW;
+        const py = padding + (0.5 - val * 0.4) * plotH;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  });
+
+  // Legend
+  let legendY = 16;
+  formatOrder.reverse().forEach(key => {
+    if (!activeFormats.has(key)) return;
+    const fmt = waveFormats[key];
+    ctx.fillStyle = fmt.color;
+    ctx.fillRect(W - 90, legendY, 12, 12);
+    ctx.font = '11px JetBrains Mono';
+    ctx.fillText(fmt.name, W - 74, legendY + 10);
+    legendY += 18;
+  });
+}
+
+function drawErrorCanvas() {
+  const canvas = document.getElementById('errorCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Zero line
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, H / 2);
+  ctx.lineTo(W, H / 2);
+  ctx.stroke();
+
+  const padding = 16;
+  const plotW = W - padding * 2;
+  const plotH = H - padding * 2;
+  const samples = 400;
+
+  const formatOrder = ['fp16', 'bf16', 'int8', 'int4'];
+  formatOrder.forEach(key => {
+    if (!activeFormats.has(key)) return;
+    const fmt = waveFormats[key];
+
+    ctx.strokeStyle = fmt.color;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.8;
+
+    ctx.beginPath();
+    for (let i = 0; i <= samples; i++) {
+      const x = (i / samples) * Math.PI * 4;
+      const raw = generateSignal(x);
+      const quantized = fmt.quantize(raw);
+      const error = quantized - raw;
+      const px = padding + (i / samples) * plotW;
+      // Scale error for visibility
+      const maxErr = key === 'int4' ? 0.15 : key === 'int8' ? 0.02 : 0.005;
+      const py = H / 2 - (error / (maxErr * 2)) * plotH * 0.4;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // Label
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px Noto Sans SC';
+  ctx.fillText('0', 4, H / 2 + 3);
+}
+
+// ===== TAB 3: Quantization process =====
+let quantAnimRunning = false;
+let quantAnimFrame = 0;
+
+function initTab3() {
+  drawQuantStep1();
+  drawQuantStep2();
+  drawQuantStep3(0);
+  drawQuantStep4();
+  drawSymAsym();
+}
+
+function gaussianRandom(mean, std) {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+// Pre-generate weights
+const NUM_WEIGHTS = 200;
+const weights = [];
+for (let i = 0; i < NUM_WEIGHTS; i++) {
+  weights.push(gaussianRandom(0, 0.35));
+}
+weights.sort((a, b) => a - b);
+
+function drawQuantStep1() {
+  const canvas = document.getElementById('quantCanvas1');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padding = { left: 40, right: 20, top: 20, bottom: 30 };
+  const plotW = W - padding.left - padding.right;
+  const plotH = H - padding.top - padding.bottom;
+
+  // Histogram
+  const bins = 40;
+  const minVal = -1.2, maxVal = 1.2;
+  const binWidth = (maxVal - minVal) / bins;
+  const histogram = new Array(bins).fill(0);
+
+  weights.forEach(w => {
+    const idx = Math.floor((w - minVal) / binWidth);
+    if (idx >= 0 && idx < bins) histogram[idx]++;
+  });
+
+  const maxCount = Math.max(...histogram);
+
+  // Draw bars
+  histogram.forEach((count, i) => {
+    const x = padding.left + (i / bins) * plotW;
+    const barW = plotW / bins - 1;
+    const barH = (count / maxCount) * plotH;
+    const y = padding.top + plotH - barH;
+
+    const gradient = ctx.createLinearGradient(x, y, x, y + barH);
+    gradient.addColorStop(0, '#38bdf8');
+    gradient.addColorStop(1, '#1e40af');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, barW, barH);
+  });
+
+  // Axes
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, padding.top + plotH);
+  ctx.lineTo(padding.left + plotW, padding.top + plotH);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '11px JetBrains Mono';
+  ctx.textAlign = 'center';
+  [-1, -0.5, 0, 0.5, 1].forEach(v => {
+    const x = padding.left + ((v - minVal) / (maxVal - minVal)) * plotW;
+    ctx.fillText(v.toFixed(1), x, padding.top + plotH + 16);
+  });
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px Noto Sans SC';
+  ctx.textAlign = 'center';
+  ctx.fillText('权重值', W / 2, H - 4);
+}
+
+function drawQuantStep2() {
+  const canvas = document.getElementById('quantCanvas2');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padding = { left: 40, right: 20, top: 20, bottom: 30 };
+  const plotW = W - padding.left - padding.right;
+  const plotH = H - padding.top - padding.bottom;
+
+  const minVal = -1.2, maxVal = 1.2;
+  const quantLevels = 16; // INT4
+  const step = (maxVal - minVal) / (quantLevels - 1);
+
+  // Draw histogram (faded)
+  const bins = 40;
+  const binWidth = (maxVal - minVal) / bins;
+  const histogram = new Array(bins).fill(0);
+  weights.forEach(w => {
+    const idx = Math.floor((w - minVal) / binWidth);
+    if (idx >= 0 && idx < bins) histogram[idx]++;
+  });
+  const maxCount = Math.max(...histogram);
+
+  histogram.forEach((count, i) => {
+    const x = padding.left + (i / bins) * plotW;
+    const barW = plotW / bins - 1;
+    const barH = (count / maxCount) * plotH;
+    const y = padding.top + plotH - barH;
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+    ctx.fillRect(x, y, barW, barH);
+  });
+
+  // Draw quantization grid lines
+  for (let i = 0; i < quantLevels; i++) {
+    const v = minVal + i * step;
+    const x = padding.left + ((v - minVal) / (maxVal - minVal)) * plotW;
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, padding.top);
+    ctx.lineTo(x, padding.top + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Level number
+    ctx.fillStyle = '#f87171';
+    ctx.font = '9px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(i), x, padding.top + plotH + 14);
+  }
+
+  // Scale info
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = '12px JetBrains Mono';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Scale = (${maxVal} - (${minVal})) / ${quantLevels - 1} = ${step.toFixed(3)}`, padding.left, padding.top - 4);
+
+  // Axis
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, padding.top + plotH);
+  ctx.lineTo(padding.left + plotW, padding.top + plotH);
+  ctx.stroke();
+}
+
+function drawQuantStep3(progress) {
+  const canvas = document.getElementById('quantCanvas3');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padding = { left: 40, right: 20, top: 20, bottom: 30 };
+  const plotW = W - padding.left - padding.right;
+  const plotH = H - padding.top - padding.bottom;
+
+  const minVal = -1.2, maxVal = 1.2;
+  const quantLevels = 16;
+  const step = (maxVal - minVal) / (quantLevels - 1);
+
+  // Grid lines
+  for (let i = 0; i < quantLevels; i++) {
+    const v = minVal + i * step;
+    const x = padding.left + ((v - minVal) / (maxVal - minVal)) * plotW;
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(x, padding.top);
+    ctx.lineTo(x, padding.top + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw weight points
+  const displayWeights = weights.slice(0, 60);
+  displayWeights.forEach((w, i) => {
+    const origX = padding.left + ((w - minVal) / (maxVal - minVal)) * plotW;
+    const quantized = Math.round((w - minVal) / step) * step + minVal;
+    const quantX = padding.left + ((quantized - minVal) / (maxVal - minVal)) * plotW;
+    const y = padding.top + 20 + (i / displayWeights.length) * (plotH - 40);
+
+    const t = Math.min(1, Math.max(0, (progress - i / displayWeights.length) * 2));
+
+    const curX = origX + (quantX - origX) * t;
+
+    // Draw arrow if moving
+    if (t > 0 && t < 1) {
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(origX, y);
+      ctx.lineTo(quantX, y);
+      ctx.stroke();
+    }
+
+    // Draw point
+    ctx.beginPath();
+    ctx.arc(curX, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = t >= 1 ? '#f87171' : t > 0 ? '#fbbf24' : '#38bdf8';
+    ctx.fill();
+  });
+
+  // Axis
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, padding.top + plotH);
+  ctx.lineTo(padding.left + plotW, padding.top + plotH);
+  ctx.stroke();
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px Noto Sans SC';
+  ctx.textAlign = 'left';
+  ctx.fillText(progress >= 1 ? '所有权重已"跳"到最近的网格线' : '蓝色=原始位置  黄色=移动中  红色=量化后', padding.left, H - 6);
+}
+
+function runQuantAnim() {
+  if (quantAnimRunning) return;
+  quantAnimRunning = true;
+  quantAnimFrame = 0;
+  const totalFrames = 90;
+
+  function animate() {
+    quantAnimFrame++;
+    const progress = quantAnimFrame / totalFrames;
+    drawQuantStep3(progress);
+    if (quantAnimFrame < totalFrames) {
+      requestAnimationFrame(animate);
+    } else {
+      quantAnimRunning = false;
+    }
+  }
+  animate();
+}
+
+function resetQuantAnim() {
+  quantAnimRunning = false;
+  quantAnimFrame = 0;
+  drawQuantStep3(0);
+}
+
+function drawQuantStep4() {
+  const canvas = document.getElementById('quantCanvas4');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padding = { left: 40, right: 20, top: 20, bottom: 30 };
+  const plotW = W - padding.left - padding.right;
+  const plotH = H - padding.top - padding.bottom;
+
+  const samples = 200;
+  const minVal = -1, maxVal = 1;
+  const quantLevels = 16;
+  const step = (maxVal - minVal) / (quantLevels - 1);
+
+  // Original smooth curve
+  ctx.strokeStyle = '#34d399';
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const val = Math.sin(t * Math.PI * 3) * 0.7 + Math.sin(t * Math.PI * 7) * 0.2;
+    const x = padding.left + t * plotW;
+    const y = padding.top + (0.5 - val * 0.4) * plotH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Dequantized staircase
+  ctx.strokeStyle = '#f87171';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const val = Math.sin(t * Math.PI * 3) * 0.7 + Math.sin(t * Math.PI * 7) * 0.2;
+    const quantized = Math.round((val - minVal) / step) * step + minVal;
+    const x = padding.left + t * plotW;
+    const y = padding.top + (0.5 - quantized * 0.4) * plotH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Formula
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = '12px JetBrains Mono';
+  ctx.textAlign = 'left';
+  ctx.fillText('dequant(q) = q * scale + zero_point', padding.left, H - 6);
+
+  // Legend
+  ctx.fillStyle = '#34d399';
+  ctx.fillRect(W - 120, 12, 12, 12);
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '11px Noto Sans SC';
+  ctx.fillText('原始', W - 104, 22);
+
+  ctx.fillStyle = '#f87171';
+  ctx.fillRect(W - 120, 28, 12, 12);
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText('反量化', W - 104, 38);
+}
+
+function drawSymAsym() {
+  // Symmetric
+  const c1 = document.getElementById('quantSymCanvas');
+  drawQuantApproach(c1, true);
+
+  // Asymmetric
+  const c2 = document.getElementById('quantAsymCanvas');
+  drawQuantApproach(c2, false);
+}
+
+function drawQuantApproach(canvas, symmetric) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padding = { left: 30, right: 10, top: 10, bottom: 24 };
+  const plotW = W - padding.left - padding.right;
+  const plotH = H - padding.top - padding.bottom;
+
+  // Draw a distribution that's slightly asymmetric (shifted right)
+  const bins = 50;
+  const shiftMean = symmetric ? 0 : 0.15;
+  const histogram = [];
+  for (let i = 0; i < bins; i++) {
+    const x = -1 + (i / bins) * 2;
+    const val = Math.exp(-Math.pow(x - shiftMean, 2) / (2 * 0.12));
+    histogram.push(val);
+  }
+  const maxH = Math.max(...histogram);
+
+  // Bars
+  histogram.forEach((v, i) => {
+    const x = padding.left + (i / bins) * plotW;
+    const barW = plotW / bins - 0.5;
+    const barH = (v / maxH) * plotH * 0.8;
+    const y = padding.top + plotH - barH;
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+    ctx.fillRect(x, y, barW, barH);
+  });
+
+  // Quantization range
+  const levels = 8;
+  const rangeMin = symmetric ? -0.8 : -0.6;
+  const rangeMax = symmetric ? 0.8 : 0.9;
+  const step = (rangeMax - rangeMin) / (levels - 1);
+
+  for (let i = 0; i < levels; i++) {
+    const v = rangeMin + i * step;
+    const x = padding.left + ((v + 1) / 2) * plotW;
+    ctx.strokeStyle = '#f87171';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, padding.top);
+    ctx.lineTo(x, padding.top + plotH);
+    ctx.stroke();
+  }
+
+  // Zero point marker
+  if (!symmetric) {
+    const zpX = padding.left + ((0.15 + 1) / 2) * plotW;
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(zpX, padding.top);
+    ctx.lineTo(zpX, padding.top + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = '10px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText('ZP', zpX, H - 6);
+  } else {
+    const zpX = padding.left + 0.5 * plotW;
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(zpX, padding.top);
+    ctx.lineTo(zpX, padding.top + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = '10px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText('0', zpX, H - 6);
+  }
+
+  // Wasted range indicator for symmetric
+  if (symmetric) {
+    // Left side has less data
+    ctx.fillStyle = 'rgba(248, 113, 113, 0.1)';
+    const wasteLeft = padding.left;
+    const wasteRight = padding.left + ((shiftMean === 0 ? 0.2 : 0.4 + 1) / 2) * plotW;
+    // No waste shown for perfectly symmetric
+  }
+
+  // Axis
+  ctx.strokeStyle = '#475569';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, padding.top + plotH);
+  ctx.lineTo(padding.left + plotW, padding.top + plotH);
+  ctx.stroke();
+}
+
+// ===== TAB 4: Triangle charts =====
+function initTab4() {
+  const methods = {
+    triPTQ: { quality: 0.5, speed: 1.0, cost: 1.0 },
+    triGPTQ: { quality: 0.75, speed: 0.8, cost: 0.6 },
+    triAWQ: { quality: 0.85, speed: 0.75, cost: 0.5 },
+    triQAT: { quality: 0.95, speed: 0.4, cost: 0.2 },
+    triGGUF: { quality: 0.7, speed: 0.9, cost: 0.95 }
+  };
+
+  Object.entries(methods).forEach(([id, vals]) => {
+    drawTriangle(id, vals);
+  });
+}
+
+function drawTriangle(canvasId, values) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = 180 * dpr;
+  canvas.height = 120 * dpr;
+  ctx.scale(dpr, dpr);
+
+  const cx = 90, cy = 65, r = 45;
+
+  // Triangle vertices (quality top, speed bottom-right, cost bottom-left)
+  const vertices = [
+    { x: cx, y: cy - r, label: '质量' },
+    { x: cx + r * Math.cos(Math.PI / 6), y: cy + r * Math.sin(Math.PI / 6), label: '速度' },
+    { x: cx - r * Math.cos(Math.PI / 6), y: cy + r * Math.sin(Math.PI / 6), label: '低成本' }
+  ];
+
+  // Draw triangle outline
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  vertices.forEach((v, i) => {
+    if (i === 0) ctx.moveTo(v.x, v.y);
+    else ctx.lineTo(v.x, v.y);
+  });
+  ctx.closePath();
+  ctx.stroke();
+
+  // Draw filled area based on values
+  const vals = [values.quality, values.speed, values.cost];
+  const points = vertices.map((v, i) => ({
+    x: cx + (v.x - cx) * vals[i],
+    y: cy + (v.y - cy) * vals[i]
+  }));
+
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw points
+  points.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fill();
+  });
+
+  // Labels
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px Noto Sans SC';
+  ctx.textAlign = 'center';
+  ctx.fillText(vertices[0].label, vertices[0].x, vertices[0].y - 8);
+  ctx.textAlign = 'left';
+  ctx.fillText(vertices[1].label, vertices[1].x + 4, vertices[1].y + 4);
+  ctx.textAlign = 'right';
+  ctx.fillText(vertices[2].label, vertices[2].x - 4, vertices[2].y + 4);
+}
+
+// ===== TAB 5: Mixed precision visualization =====
+function initTab5() {
+  drawMixedPrecision();
+}
+
+function drawMixedPrecision() {
+  const canvas = document.getElementById('mixedPrecisionCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const layers = [
+    { name: 'Embed', precision: 'FP16', color: '#38bdf8', w: 0.08 },
+    { name: 'Attn Q', precision: 'FP16', color: '#38bdf8', w: 0.12 },
+    { name: 'Attn K', precision: 'FP16', color: '#38bdf8', w: 0.12 },
+    { name: 'Attn V', precision: 'INT8', color: '#fbbf24', w: 0.12 },
+    { name: 'FFN Up', precision: 'INT4', color: '#f87171', w: 0.15 },
+    { name: 'FFN Down', precision: 'INT4', color: '#f87171', w: 0.15 },
+    { name: 'Norm', precision: 'FP16', color: '#38bdf8', w: 0.06 },
+    { name: 'Head', precision: 'FP16', color: '#38bdf8', w: 0.08 }
+  ];
+
+  const padding = 10;
+  const totalW = W - padding * 2;
+  let x = padding;
+
+  layers.forEach((layer, i) => {
+    const lw = layer.w * totalW;
+    const lh = H - 50;
+
+    // Bar
+    ctx.fillStyle = layer.color;
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(x, 10, lw - 2, lh);
+    ctx.globalAlpha = 1;
+
+    // Border
+    ctx.strokeStyle = layer.color;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, 10, lw - 2, lh);
+
+    // Layer name
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '10px Noto Sans SC';
+    ctx.textAlign = 'center';
+    ctx.fillText(layer.name, x + (lw - 2) / 2, lh + 24);
+
+    // Precision label
+    ctx.fillStyle = layer.color;
+    ctx.font = '9px JetBrains Mono';
+    ctx.fillText(layer.precision, x + (lw - 2) / 2, lh + 38);
+
+    x += lw;
+  });
+}
+
+// ===== Initialization =====
+function init() {
+  initTab1();
+}
+
+// Re-draw on resize
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (activeTab === 0) initTab1();
+    if (activeTab === 1) initTab2();
+    if (activeTab === 2) initTab3();
+    if (activeTab === 3) initTab4();
+    if (activeTab === 4) initTab5();
+  }, 200);
+});
+
+init();
+</script>
+</body>
+</html>

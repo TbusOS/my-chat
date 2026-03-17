@@ -1,0 +1,2121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>理想神经网络架构 — 如果从零设计 AI 的大脑</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #030810;
+  --bg-secondary: #06101f;
+  --bg-card: rgba(8, 18, 40, 0.9);
+  --border-dim: rgba(56, 130, 200, 0.12);
+  --border-glow: rgba(56, 189, 248, 0.3);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --grid-color: rgba(56, 160, 220, 0.04);
+  --grid-color-strong: rgba(56, 160, 220, 0.08);
+
+  /* Module colors */
+  --mod1-color: #38bdf8;
+  --mod1-glow: rgba(56, 189, 248, 0.4);
+  --mod1-bg: rgba(56, 189, 248, 0.06);
+
+  --mod2-color: #a78bfa;
+  --mod2-glow: rgba(167, 139, 250, 0.4);
+  --mod2-bg: rgba(167, 139, 250, 0.06);
+
+  --mod3-color: #fbbf24;
+  --mod3-glow: rgba(251, 191, 36, 0.4);
+  --mod3-bg: rgba(251, 191, 36, 0.06);
+
+  --mod4-color: #4ade80;
+  --mod4-glow: rgba(74, 222, 128, 0.4);
+  --mod4-bg: rgba(74, 222, 128, 0.06);
+
+  --accent-red: #f87171;
+  --accent-cyan: #22d3ee;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Blueprint grid background */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background:
+    linear-gradient(var(--grid-color-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color-strong) 1px, transparent 1px),
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 200px 200px, 200px 200px, 40px 40px, 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Blueprint corner markers */
+body::after {
+  content: '';
+  position: fixed;
+  top: 12px; left: 12px; right: 12px; bottom: 12px;
+  border: 1px solid rgba(56, 160, 220, 0.1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 24px 20px 8px;
+  position: relative;
+  z-index: 10;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--mod1-color), var(--mod2-color), var(--mod3-color), var(--mod4-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+  letter-spacing: -0.5px;
+}
+
+.header .subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.header .subtitle span {
+  color: var(--mod1-color);
+}
+
+/* Navigation */
+.nav-bar {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 20px 8px;
+  position: relative;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+
+.nav-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  transition: left 0.5s ease;
+}
+
+.nav-btn:hover::before {
+  left: 100%;
+}
+
+.nav-btn:hover {
+  border-color: var(--border-glow);
+  color: var(--text-secondary);
+}
+
+.nav-btn.active {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.nav-btn.m1.active { border-color: var(--mod1-color); background: var(--mod1-bg); box-shadow: 0 0 15px var(--mod1-glow); }
+.nav-btn.m2.active { border-color: var(--mod2-color); background: var(--mod2-bg); box-shadow: 0 0 15px var(--mod2-glow); }
+.nav-btn.m3.active { border-color: var(--mod3-color); background: var(--mod3-bg); box-shadow: 0 0 15px var(--mod3-glow); }
+.nav-btn.m4.active { border-color: var(--mod4-color); background: var(--mod4-bg); box-shadow: 0 0 15px var(--mod4-glow); }
+.nav-btn.full.active { border-color: var(--accent-cyan); background: rgba(34,211,238,0.06); box-shadow: 0 0 15px rgba(34,211,238,0.3); }
+.nav-btn.compare.active { border-color: var(--accent-red); background: rgba(248,113,113,0.06); box-shadow: 0 0 15px rgba(248,113,113,0.3); }
+
+/* Main container */
+.main-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 20px 30px;
+  position: relative;
+  z-index: 10;
+}
+
+/* Step indicator */
+.step-indicator {
+  text-align: center;
+  margin-bottom: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.step-indicator .current {
+  color: var(--mod1-color);
+  font-weight: 700;
+}
+
+/* Module Panel */
+.panel {
+  display: none;
+  animation: panelIn 0.6s ease forwards;
+}
+
+.panel.active {
+  display: block;
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Module Header Card */
+.module-header {
+  border: 1px solid var(--border-dim);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  background: var(--bg-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.module-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px; height: 100%;
+}
+
+.module-header.m1::before { background: var(--mod1-color); box-shadow: 0 0 15px var(--mod1-glow); }
+.module-header.m2::before { background: var(--mod2-color); box-shadow: 0 0 15px var(--mod2-glow); }
+.module-header.m3::before { background: var(--mod3-color); box-shadow: 0 0 15px var(--mod3-glow); }
+.module-header.m4::before { background: var(--mod4-color); box-shadow: 0 0 15px var(--mod4-glow); }
+
+.module-header .module-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.m1 .module-tag { color: var(--mod1-color); }
+.m2 .module-tag { color: var(--mod2-color); }
+.m3 .module-tag { color: var(--mod3-color); }
+.m4 .module-tag { color: var(--mod4-color); }
+
+.module-header h2 {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.module-header .en-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.module-header .problem {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  margin-bottom: 10px;
+}
+
+.module-header .problem-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-red);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.module-header .problem p {
+  font-size: 13px;
+  color: #fca5a5;
+  line-height: 1.5;
+}
+
+.module-header .inspiration {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.module-header .inspiration span {
+  font-family: 'JetBrains Mono', monospace;
+  font-style: normal;
+}
+
+/* SVG Visualization Area */
+.viz-area {
+  border: 1px solid var(--border-dim);
+  border-radius: 12px;
+  background: var(--bg-card);
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+  min-height: 340px;
+}
+
+.viz-area svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Solution Cards */
+.solutions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.solution-card {
+  border: 1px dashed var(--border-dim);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  transition: all 0.5s ease;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.solution-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.solution-card .sol-icon {
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.solution-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.solution-card p {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.solution-card.m1 { border-color: rgba(56, 189, 248, 0.2); }
+.solution-card.m1.visible { border-color: var(--mod1-color); border-style: solid; box-shadow: 0 0 20px rgba(56, 189, 248, 0.1); }
+.solution-card.m1 h4 { color: var(--mod1-color); }
+
+.solution-card.m2 { border-color: rgba(167, 139, 250, 0.2); }
+.solution-card.m2.visible { border-color: var(--mod2-color); border-style: solid; box-shadow: 0 0 20px rgba(167, 139, 250, 0.1); }
+.solution-card.m2 h4 { color: var(--mod2-color); }
+
+.solution-card.m3 { border-color: rgba(251, 191, 36, 0.2); }
+.solution-card.m3.visible { border-color: var(--mod3-color); border-style: solid; box-shadow: 0 0 20px rgba(251, 191, 36, 0.1); }
+.solution-card.m3 h4 { color: var(--mod3-color); }
+
+.solution-card.m4 { border-color: rgba(74, 222, 128, 0.2); }
+.solution-card.m4.visible { border-color: var(--mod4-color); border-style: solid; box-shadow: 0 0 20px rgba(74, 222, 128, 0.1); }
+.solution-card.m4 h4 { color: var(--mod4-color); }
+
+/* Full Architecture View */
+.full-arch {
+  position: relative;
+}
+
+.full-arch .viz-area {
+  min-height: 480px;
+}
+
+/* Comparison Table */
+.compare-panel .compare-table-wrap {
+  border: 1px solid var(--border-dim);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.compare-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.compare-table th:first-child {
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.02);
+}
+
+.compare-table th:nth-child(2) {
+  color: var(--accent-red);
+  background: rgba(248, 113, 113, 0.05);
+}
+
+.compare-table th:nth-child(3) {
+  color: var(--accent-cyan);
+  background: rgba(34, 211, 238, 0.05);
+}
+
+.compare-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.compare-table td:first-child {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.compare-table td:nth-child(2) {
+  color: #fca5a5;
+}
+
+.compare-table td:nth-child(3) {
+  color: #67e8f9;
+}
+
+.compare-table tr:last-child td {
+  border-bottom: none;
+}
+
+.compare-table tr {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.4s ease;
+}
+
+.compare-table tr.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.compare-table .mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+
+/* Verdict card */
+.verdict {
+  margin-top: 16px;
+  padding: 18px 22px;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  border-radius: 12px;
+  background: rgba(34, 211, 238, 0.04);
+}
+
+.verdict h3 {
+  font-size: 15px;
+  color: var(--accent-cyan);
+  margin-bottom: 8px;
+}
+
+.verdict p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.verdict .highlight {
+  color: var(--mod3-color);
+  font-weight: 600;
+}
+
+/* Blueprint stamp */
+.blueprint-stamp {
+  position: fixed;
+  bottom: 16px;
+  right: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(56, 160, 220, 0.2);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* SVG styles */
+.node-box {
+  transition: all 0.5s ease;
+}
+
+.node-label {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 700;
+  fill: var(--text-primary);
+}
+
+.node-sublabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+.conn-line {
+  stroke-dasharray: 6 4;
+  animation: dashFlow 1.5s linear infinite;
+}
+
+@keyframes dashFlow {
+  to { stroke-dashoffset: -20; }
+}
+
+/* Particle animation on connections */
+.data-particle {
+  animation: particleMove 2s linear infinite;
+}
+
+@keyframes particleMove {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* Glow pulse for active modules */
+@keyframes glowPulse {
+  0%, 100% { filter: drop-shadow(0 0 3px currentColor); }
+  50% { filter: drop-shadow(0 0 12px currentColor); }
+}
+
+.glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+/* Assembly animation */
+@keyframes assembleIn {
+  0% {
+    opacity: 0;
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+  }
+  60% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+.assemble-line {
+  animation: assembleIn 1.2s ease forwards;
+}
+
+/* Power-up flash */
+@keyframes powerUp {
+  0% { opacity: 0; filter: brightness(3); }
+  30% { opacity: 1; filter: brightness(2); }
+  100% { opacity: 1; filter: brightness(1); }
+}
+
+.power-up {
+  animation: powerUp 0.8s ease forwards;
+}
+
+/* Circuit trace animation */
+@keyframes circuitTrace {
+  0% { stroke-dashoffset: 300; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.circuit-trace {
+  stroke-dasharray: 300;
+  animation: circuitTrace 1.5s ease forwards;
+}
+
+/* Floating dots background */
+.bg-dots {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+  .header h1 { font-size: 22px; }
+  .solutions { grid-template-columns: 1fr; }
+  .nav-btn { font-size: 11px; padding: 5px 10px; }
+  .compare-table { font-size: 11px; }
+  .compare-table td, .compare-table th { padding: 8px 10px; }
+}
+
+/* Install animation for full view */
+@keyframes installModule {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+    filter: blur(5px) brightness(2);
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+    filter: blur(0) brightness(1.5);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0) brightness(1);
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(56, 160, 220, 0.2);
+  border-radius: 3px;
+}
+</style>
+</head>
+<body>
+
+<canvas class="bg-dots" id="bgCanvas"></canvas>
+
+<div class="header">
+  <h1>理想神经网络架构 — 如果从零设计 AI 的大脑</h1>
+  <div class="subtitle"><span>ASC</span>: Adaptive Sparse Cortex — 一个思想实验</div>
+</div>
+
+<nav class="nav-bar">
+  <button class="nav-btn m1 active" data-panel="mod1" onclick="showPanel('mod1')">1. 自适应稀疏注意力</button>
+  <button class="nav-btn m2" data-panel="mod2" onclick="showPanel('mod2')">2. 外部可寻址记忆</button>
+  <button class="nav-btn m3" data-panel="mod3" onclick="showPanel('mod3')">3. 内置推理引擎</button>
+  <button class="nav-btn m4" data-panel="mod4" onclick="showPanel('mod4')">4. 持续学习模块</button>
+  <button class="nav-btn full" data-panel="full" onclick="showPanel('full')">完整架构</button>
+  <button class="nav-btn compare" data-panel="compare" onclick="showPanel('compare')">vs Transformer</button>
+</nav>
+
+<div class="main-container">
+  <div class="step-indicator" id="stepIndicator">
+    <span class="current">MODULE 01</span> / 06 — ADAPTIVE SPARSE ATTENTION
+  </div>
+
+  <!-- ==================== MODULE 1 ==================== -->
+  <div class="panel active" id="panel-mod1">
+    <div class="module-header m1">
+      <div class="module-tag">Module 01</div>
+      <h2>自适应稀疏注意力</h2>
+      <div class="en-name">Adaptive Sparse Attention</div>
+      <div class="problem">
+        <div class="problem-label">PROBLEM</div>
+        <p>Transformer 的注意力复杂度为 O(n&sup2;) — 序列越长越慢。但大部分 token 之间并不需要互相关注，这是巨大的计算浪费。</p>
+      </div>
+      <div class="inspiration">灵感来源: <span>Sparse Transformer + Routing Transformer + Flash Attention</span></div>
+    </div>
+
+    <div class="viz-area" id="viz-mod1">
+      <svg viewBox="0 0 1060 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glow1">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <marker id="arrow1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+          </marker>
+          <linearGradient id="hashGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.1"/>
+            <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.1"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Title labels -->
+        <text x="180" y="28" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="10" letter-spacing="1">FULL ATTENTION O(n²)</text>
+        <text x="540" y="28" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="10" letter-spacing="1">LSH HASH ROUTING</text>
+        <text x="880" y="28" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono" font-size="10" letter-spacing="1">SPARSE ATTENTION O(n√n)</text>
+
+        <!-- PART 1: Full attention matrix (left) -->
+        <g id="fullAttnGrid" opacity="0">
+          <!-- 8x8 grid showing O(n²) -->
+          <g transform="translate(80, 45)">
+            <rect x="0" y="0" width="200" height="200" rx="4" fill="none" stroke="#334155" stroke-width="1"/>
+            <!-- Row/col labels -->
+            <text x="-8" y="18" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t1</text>
+            <text x="-8" y="43" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t2</text>
+            <text x="-8" y="68" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t3</text>
+            <text x="-8" y="93" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t4</text>
+            <text x="-8" y="118" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t5</text>
+            <text x="-8" y="143" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t6</text>
+            <text x="-8" y="168" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t7</text>
+            <text x="-8" y="193" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t8</text>
+          </g>
+          <!-- All cells filled (waste) -->
+          <g id="fullCells" transform="translate(80, 45)"></g>
+          <text x="180" y="270" text-anchor="middle" fill="#f87171" font-family="Noto Sans SC" font-size="12" font-weight="700">64 次计算 — 大量浪费</text>
+          <text x="180" y="290" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="10">每个 token 关注所有 token</text>
+          <!-- Red X marks for wasted computations -->
+        </g>
+
+        <!-- PART 2: LSH Hash routing (center) -->
+        <g id="hashRouting" opacity="0">
+          <g transform="translate(410, 50)">
+            <!-- Hash buckets -->
+            <rect x="0" y="0" width="260" height="50" rx="6" fill="none" stroke="#1e3a5f" stroke-width="1" stroke-dasharray="4 3"/>
+            <text x="130" y="-8" text-anchor="middle" fill="#38bdf8" font-size="10" font-family="JetBrains Mono">HASH FUNCTION h(x)</text>
+
+            <!-- Input tokens -->
+            <g id="hashTokens">
+              <circle cx="20" cy="25" r="12" fill="rgba(56,189,248,0.15)" stroke="#38bdf8" stroke-width="1.5"/>
+              <text x="20" y="29" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="9">t1</text>
+              <circle cx="55" cy="25" r="12" fill="rgba(167,139,250,0.15)" stroke="#a78bfa" stroke-width="1.5"/>
+              <text x="55" y="29" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="9">t2</text>
+              <circle cx="90" cy="25" r="12" fill="rgba(56,189,248,0.15)" stroke="#38bdf8" stroke-width="1.5"/>
+              <text x="90" y="29" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="9">t3</text>
+              <circle cx="125" cy="25" r="12" fill="rgba(251,191,36,0.15)" stroke="#fbbf24" stroke-width="1.5"/>
+              <text x="125" y="29" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="9">t4</text>
+              <circle cx="160" cy="25" r="12" fill="rgba(167,139,250,0.15)" stroke="#a78bfa" stroke-width="1.5"/>
+              <text x="160" y="29" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="9">t5</text>
+              <circle cx="195" cy="25" r="12" fill="rgba(251,191,36,0.15)" stroke="#fbbf24" stroke-width="1.5"/>
+              <text x="195" y="29" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="9">t6</text>
+              <circle cx="230" cy="25" r="12" fill="rgba(56,189,248,0.15)" stroke="#38bdf8" stroke-width="1.5"/>
+              <text x="230" y="29" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="9">t7</text>
+            </g>
+
+            <!-- Arrows down to buckets -->
+            <g id="hashArrows" opacity="0">
+              <line x1="20" y1="40" x2="40" y2="85" stroke="#38bdf8" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+              <line x1="55" y1="40" x2="150" y2="85" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+              <line x1="90" y1="40" x2="50" y2="85" stroke="#38bdf8" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+              <line x1="125" y1="40" x2="220" y2="85" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+              <line x1="160" y1="40" x2="160" y2="85" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+              <line x1="195" y1="40" x2="230" y2="85" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+              <line x1="230" y1="40" x2="60" y2="85" stroke="#38bdf8" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+            </g>
+
+            <!-- Bucket A (blue) -->
+            <rect x="0" y="90" width="100" height="45" rx="6" fill="rgba(56,189,248,0.08)" stroke="#38bdf8" stroke-width="1"/>
+            <text x="50" y="85" text-anchor="middle" fill="#38bdf8" font-size="9" font-family="JetBrains Mono">Bucket A</text>
+            <g id="bucketA" opacity="0">
+              <circle cx="25" cy="112" r="10" fill="rgba(56,189,248,0.2)" stroke="#38bdf8" stroke-width="1.5"/>
+              <text x="25" y="116" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="8">t1</text>
+              <circle cx="50" cy="112" r="10" fill="rgba(56,189,248,0.2)" stroke="#38bdf8" stroke-width="1.5"/>
+              <text x="50" y="116" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="8">t3</text>
+              <circle cx="75" cy="112" r="10" fill="rgba(56,189,248,0.2)" stroke="#38bdf8" stroke-width="1.5"/>
+              <text x="75" y="116" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="8">t7</text>
+            </g>
+
+            <!-- Bucket B (purple) -->
+            <rect x="110" y="90" width="80" height="45" rx="6" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1"/>
+            <text x="150" y="85" text-anchor="middle" fill="#a78bfa" font-size="9" font-family="JetBrains Mono">Bucket B</text>
+            <g id="bucketB" opacity="0">
+              <circle cx="135" cy="112" r="10" fill="rgba(167,139,250,0.2)" stroke="#a78bfa" stroke-width="1.5"/>
+              <text x="135" y="116" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="8">t2</text>
+              <circle cx="165" cy="112" r="10" fill="rgba(167,139,250,0.2)" stroke="#a78bfa" stroke-width="1.5"/>
+              <text x="165" y="116" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="8">t5</text>
+            </g>
+
+            <!-- Bucket C (yellow) -->
+            <rect x="200" y="90" width="60" height="45" rx="6" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1"/>
+            <text x="230" y="85" text-anchor="middle" fill="#fbbf24" font-size="9" font-family="JetBrains Mono">Bucket C</text>
+            <g id="bucketC" opacity="0">
+              <circle cx="215" cy="112" r="10" fill="rgba(251,191,36,0.2)" stroke="#fbbf24" stroke-width="1.5"/>
+              <text x="215" y="116" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8">t4</text>
+              <circle cx="245" cy="112" r="10" fill="rgba(251,191,36,0.2)" stroke="#fbbf24" stroke-width="1.5"/>
+              <text x="245" y="116" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8">t6</text>
+            </g>
+
+            <!-- Result text -->
+            <text x="130" y="165" text-anchor="middle" fill="#38bdf8" font-family="Noto Sans SC" font-size="11" font-weight="600" opacity="0" id="hashResult">
+              相似 token 被分到同一个桶 — 只在桶内计算注意力
+            </text>
+          </g>
+        </g>
+
+        <!-- PART 3: Sparse attention result (right) -->
+        <g id="sparseResult" opacity="0">
+          <g transform="translate(760, 45)">
+            <rect x="0" y="0" width="200" height="200" rx="4" fill="none" stroke="#334155" stroke-width="1"/>
+            <text x="-8" y="18" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t1</text>
+            <text x="-8" y="43" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t2</text>
+            <text x="-8" y="68" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t3</text>
+            <text x="-8" y="93" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t4</text>
+            <text x="-8" y="118" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t5</text>
+            <text x="-8" y="143" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t6</text>
+            <text x="-8" y="168" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t7</text>
+            <text x="-8" y="193" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="9">t8</text>
+          </g>
+          <g id="sparseCells" transform="translate(760, 45)"></g>
+
+          <!-- Local window highlight -->
+          <rect x="758" y="43" width="204" height="204" rx="4" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="4 3" opacity="0.3"/>
+
+          <text x="880" y="270" text-anchor="middle" fill="#22d3ee" font-family="Noto Sans SC" font-size="12" font-weight="700">~22 次计算 — 高效精准</text>
+          <text x="880" y="290" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="10">局部窗口 + 全局锚点</text>
+          <!-- Window + anchor legend -->
+          <rect x="810" y="302" width="10" height="10" rx="2" fill="rgba(34,211,238,0.4)"/>
+          <text x="826" y="311" fill="#64748b" font-family="JetBrains Mono" font-size="9">局部窗口</text>
+          <rect x="886" y="302" width="10" height="10" rx="2" fill="rgba(56,189,248,0.5)"/>
+          <text x="902" y="311" fill="#64748b" font-family="JetBrains Mono" font-size="9">全局锚点</text>
+        </g>
+
+        <!-- Arrow between part 1 and 2 -->
+        <g id="arrow12" opacity="0">
+          <line x1="310" y1="160" x2="390" y2="160" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrow1)" stroke-dasharray="4 3"/>
+          <text x="350" y="150" text-anchor="middle" fill="#38bdf8" font-size="9" font-family="JetBrains Mono">HASH</text>
+        </g>
+        <g id="arrow23" opacity="0">
+          <line x1="690" y1="160" x2="740" y2="160" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow1)" stroke-dasharray="4 3"/>
+          <text x="715" y="150" text-anchor="middle" fill="#22d3ee" font-size="9" font-family="JetBrains Mono">SPARSE</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="solutions" id="sol-mod1">
+      <div class="solution-card m1">
+        <div class="sol-icon">&#x26A1;</div>
+        <h4>动态路由</h4>
+        <p>每个 token 只关注最相关的 &radic;n 个 token，复杂度从 O(n&sup2;) 降到 O(n&radic;n)。8K 上下文节省 ~90% 计算。</p>
+      </div>
+      <div class="solution-card m1">
+        <div class="sol-icon">&#x1F50D;</div>
+        <h4>LSH 粗筛 + 精确计算</h4>
+        <p>用局部敏感哈希 (LSH) 把相似 token 分桶，桶内再做精确注意力。粗筛 O(n)，精算 O(&radic;n)，总计 O(n&radic;n)。</p>
+      </div>
+      <div class="solution-card m1">
+        <div class="sol-icon">&#x1F3AF;</div>
+        <h4>局部窗口 + 全局锚点</h4>
+        <p>近处用滑动窗口精细关注（捕捉局部语法），远处只看少量关键锚点（捕捉全局语义），两者互补。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODULE 2 ==================== -->
+  <div class="panel" id="panel-mod2">
+    <div class="module-header m2">
+      <div class="module-tag">Module 02</div>
+      <h2>外部可寻址记忆</h2>
+      <div class="en-name">External Addressable Memory</div>
+      <div class="problem">
+        <div class="problem-label">PROBLEM</div>
+        <p>上下文窗口是有限的。无论 128K 还是 1M，模型终究会"失忆"。长期知识、对话历史、用户偏好 — 全部丢失。</p>
+      </div>
+      <div class="inspiration">灵感来源: <span>Neural Turing Machine + DNC + MemoryBank</span></div>
+    </div>
+
+    <div class="viz-area" id="viz-mod2">
+      <svg viewBox="0 0 1060 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glow2">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#a78bfa"/>
+          </marker>
+          <marker id="arrow2w" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f472b6"/>
+          </marker>
+        </defs>
+
+        <!-- Controller (center) -->
+        <g id="mem-controller" opacity="0">
+          <rect x="420" y="40" width="220" height="70" rx="10" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="2"/>
+          <text x="530" y="68" text-anchor="middle" fill="#a78bfa" font-family="Noto Sans SC" font-size="14" font-weight="700">控制器 (Controller)</text>
+          <text x="530" y="88" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="10">注意力层 + 读写决策</text>
+        </g>
+
+        <!-- Read Head -->
+        <g id="mem-readhead" opacity="0">
+          <rect x="280" y="150" width="160" height="55" rx="8" fill="rgba(56,189,248,0.08)" stroke="#38bdf8" stroke-width="1.5"/>
+          <text x="360" y="175" text-anchor="middle" fill="#38bdf8" font-family="Noto Sans SC" font-size="12" font-weight="600">读取头 (Read)</text>
+          <text x="360" y="192" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">content-based addressing</text>
+          <!-- Arrow from controller -->
+          <line x1="440" y1="110" x2="380" y2="148" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrow2)" stroke-dasharray="4 3" class="conn-line"/>
+        </g>
+
+        <!-- Write Head -->
+        <g id="mem-writehead" opacity="0">
+          <rect x="620" y="150" width="160" height="55" rx="8" fill="rgba(244,114,182,0.08)" stroke="#f472b6" stroke-width="1.5"/>
+          <text x="700" y="175" text-anchor="middle" fill="#f472b6" font-family="Noto Sans SC" font-size="12" font-weight="600">写入头 (Write)</text>
+          <text x="700" y="192" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">erase + add mechanism</text>
+          <line x1="620" y1="110" x2="680" y2="148" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arrow2w)" stroke-dasharray="4 3" class="conn-line"/>
+        </g>
+
+        <!-- Memory Matrix -->
+        <g id="mem-matrix" opacity="0">
+          <rect x="180" y="240" width="700" height="80" rx="10" fill="rgba(167,139,250,0.04)" stroke="#a78bfa" stroke-width="1" stroke-dasharray="6 4"/>
+          <text x="530" y="232" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="10" letter-spacing="1">EXTERNAL MEMORY MATRIX</text>
+
+          <!-- Memory cells -->
+          <g id="memCells"></g>
+
+          <!-- Working vs Long-term labels -->
+          <rect x="195" y="248" width="280" height="60" rx="6" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+          <text x="200" y="244" fill="#22d3ee" font-family="JetBrains Mono" font-size="9">WORKING MEMORY</text>
+          <rect x="490" y="248" width="375" height="60" rx="6" fill="none" stroke="#4ade80" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+          <text x="495" y="244" fill="#4ade80" font-family="JetBrains Mono" font-size="9">LONG-TERM MEMORY (persistent)</text>
+
+          <!-- Arrows from heads to matrix -->
+          <line x1="350" y1="205" x2="350" y2="238" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrow2)" stroke-dasharray="4 3" class="conn-line"/>
+          <line x1="700" y1="205" x2="700" y2="238" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arrow2w)" stroke-dasharray="4 3" class="conn-line"/>
+        </g>
+
+        <!-- Infinite expansion arrow -->
+        <g id="mem-expand" opacity="0">
+          <text x="895" y="284" fill="#4ade80" font-family="JetBrains Mono" font-size="20" opacity="0.6">...</text>
+          <text x="930" y="288" fill="#4ade80" font-family="JetBrains Mono" font-size="9" opacity="0.6">&#x221E; 可扩展</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="solutions" id="sol-mod2">
+      <div class="solution-card m2">
+        <div class="sol-icon">&#x1F4BE;</div>
+        <h4>外部记忆矩阵</h4>
+        <p>类似 Neural Turing Machine，模型拥有一个独立于参数的外部记忆存储，可以随时读写，容量无限扩展。</p>
+      </div>
+      <div class="solution-card m2">
+        <div class="sol-icon">&#x1F4D6;</div>
+        <h4>注意力寻址</h4>
+        <p>读写头通过 content-based 注意力机制寻址：查询向量与记忆中每个条目计算相似度，找到最相关的记忆。</p>
+      </div>
+      <div class="solution-card m2">
+        <div class="sol-icon">&#x1F9E0;</div>
+        <h4>工作记忆 + 长期记忆</h4>
+        <p>工作记忆处理当前对话上下文（类似人类短期记忆），长期记忆持久化存储用户偏好和历史知识。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODULE 3 ==================== -->
+  <div class="panel" id="panel-mod3">
+    <div class="module-header m3">
+      <div class="module-tag">Module 03</div>
+      <h2>内置推理引擎</h2>
+      <div class="en-name">Built-in Reasoning Engine</div>
+      <div class="problem">
+        <div class="problem-label">PROBLEM</div>
+        <p>Transformer 靠 Chain-of-Thought prompting 来"推理" — 但这只是模式匹配的模拟，不是真正的逻辑推理。简单问题和困难问题用相同的计算量，极度低效。</p>
+      </div>
+      <div class="inspiration">灵感来源: <span>ACT + Scratchpad + AlphaProof</span></div>
+    </div>
+
+    <div class="viz-area" id="viz-mod3">
+      <svg viewBox="0 0 1060 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glow3">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <marker id="arrow3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#fbbf24"/>
+          </marker>
+        </defs>
+
+        <!-- Simple question path (top) -->
+        <g id="reason-simple" opacity="0">
+          <text x="30" y="60" fill="#64748b" font-family="JetBrains Mono" font-size="9" letter-spacing="1">SIMPLE QUESTION</text>
+          <rect x="30" y="70" width="160" height="40" rx="6" fill="rgba(74,222,128,0.08)" stroke="#4ade80" stroke-width="1.5"/>
+          <text x="110" y="86" text-anchor="middle" fill="#4ade80" font-family="Noto Sans SC" font-size="11" font-weight="600">"1 + 1 = ?"</text>
+          <text x="110" y="100" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">complexity: 0.1</text>
+
+          <!-- Halting unit -->
+          <rect x="230" y="70" width="120" height="40" rx="6" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="290" y="86" text-anchor="middle" fill="#fbbf24" font-family="Noto Sans SC" font-size="10" font-weight="600">停止判断器</text>
+          <text x="290" y="100" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8">HALT: step=1</text>
+          <line x1="190" y1="90" x2="228" y2="90" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrow3)"/>
+
+          <!-- Direct to answer -->
+          <rect x="390" y="70" width="100" height="40" rx="6" fill="rgba(74,222,128,0.15)" stroke="#4ade80" stroke-width="2"/>
+          <text x="440" y="94" text-anchor="middle" fill="#4ade80" font-family="JetBrains Mono" font-size="14" font-weight="700">= 2</text>
+          <line x1="350" y1="90" x2="388" y2="90" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrow3)"/>
+
+          <text x="530" y="94" fill="#4ade80" font-family="JetBrains Mono" font-size="10">1 step, 0.2ms</text>
+        </g>
+
+        <!-- Complex question path (bottom) -->
+        <g id="reason-complex" opacity="0">
+          <text x="30" y="160" fill="#64748b" font-family="JetBrains Mono" font-size="9" letter-spacing="1">COMPLEX QUESTION</text>
+          <rect x="30" y="170" width="160" height="40" rx="6" fill="rgba(248,113,113,0.08)" stroke="#f87171" stroke-width="1.5"/>
+          <text x="110" y="186" text-anchor="middle" fill="#f87171" font-family="Noto Sans SC" font-size="10" font-weight="600">"证明 &radic;2 是无理数"</text>
+          <text x="110" y="200" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">complexity: 0.92</text>
+
+          <!-- Halting unit -->
+          <rect x="230" y="170" width="120" height="40" rx="6" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="290" y="186" text-anchor="middle" fill="#fbbf24" font-family="Noto Sans SC" font-size="10" font-weight="600">停止判断器</text>
+          <text x="290" y="200" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8">CONTINUE...</text>
+          <line x1="190" y1="190" x2="228" y2="190" stroke="#f87171" stroke-width="1.5" marker-end="url(#arrow3)"/>
+
+          <!-- Multi-step reasoning chain -->
+          <g id="reasonSteps">
+            <rect x="390" y="155" width="100" height="34" rx="5" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1" id="rstep1"/>
+            <text x="440" y="170" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8" font-weight="600">Step 1: 假设</text>
+            <text x="440" y="182" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">设 &radic;2 = p/q</text>
+
+            <rect x="510" y="155" width="100" height="34" rx="5" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1" id="rstep2"/>
+            <text x="560" y="170" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8" font-weight="600">Step 2: 推导</text>
+            <text x="560" y="182" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">2q&sup2; = p&sup2;</text>
+
+            <rect x="630" y="155" width="100" height="34" rx="5" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1" id="rstep3"/>
+            <text x="680" y="170" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8" font-weight="600">Step 3: 矛盾</text>
+            <text x="680" y="182" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7">p,q 皆偶数</text>
+
+            <rect x="750" y="155" width="100" height="34" rx="5" fill="rgba(251,191,36,0.12)" stroke="#fbbf24" stroke-width="1.5" id="rstep4"/>
+            <text x="800" y="170" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8" font-weight="700">Step 4: 结论</text>
+            <text x="800" y="182" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="7">&#x2234; 无理数 QED</text>
+
+            <!-- Arrows between steps -->
+            <line x1="350" y1="190" x2="388" y2="172" stroke="#fbbf24" stroke-width="1" marker-end="url(#arrow3)" stroke-dasharray="3 2"/>
+            <line x1="490" y1="172" x2="508" y2="172" stroke="#fbbf24" stroke-width="1" marker-end="url(#arrow3)" stroke-dasharray="3 2"/>
+            <line x1="610" y1="172" x2="628" y2="172" stroke="#fbbf24" stroke-width="1" marker-end="url(#arrow3)" stroke-dasharray="3 2"/>
+            <line x1="730" y1="172" x2="748" y2="172" stroke="#fbbf24" stroke-width="1" marker-end="url(#arrow3)" stroke-dasharray="3 2"/>
+
+            <!-- Loop arrow back to halting -->
+            <path d="M 440 190 L 440 220 L 290 220 L 290 212" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 2" opacity="0.4" class="conn-line"/>
+            <text x="365" y="234" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="8" opacity="0.5">re-evaluate halt?</text>
+          </g>
+
+          <text x="920" y="176" fill="#f87171" font-family="JetBrains Mono" font-size="10">4 steps, 3.2ms</text>
+        </g>
+
+        <!-- ACT visualization (bottom) -->
+        <g id="reason-act" opacity="0">
+          <text x="30" y="275" fill="#fbbf24" font-family="JetBrains Mono" font-size="10" letter-spacing="1">ADAPTIVE COMPUTATION TIME</text>
+
+          <!-- Computation budget bar -->
+          <rect x="30" y="285" width="980" height="30" rx="6" fill="rgba(251,191,36,0.04)" stroke="rgba(251,191,36,0.2)" stroke-width="1"/>
+
+          <!-- Simple task uses little -->
+          <rect x="32" y="287" width="60" height="26" rx="4" fill="rgba(74,222,128,0.2)" id="actSimple"/>
+          <text x="62" y="304" text-anchor="middle" fill="#4ade80" font-family="JetBrains Mono" font-size="8">6%</text>
+
+          <!-- Medium task -->
+          <rect x="102" y="287" width="200" height="26" rx="4" fill="rgba(56,189,248,0.2)" id="actMedium"/>
+          <text x="202" y="304" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="8">20%</text>
+
+          <!-- Complex task uses most -->
+          <rect x="312" y="287" width="690" height="26" rx="4" fill="rgba(248,113,113,0.2)" id="actComplex"/>
+          <text x="657" y="304" text-anchor="middle" fill="#f87171" font-family="JetBrains Mono" font-size="8">70% — 复杂问题自动分配更多计算资源</text>
+
+          <text x="1020" y="304" text-anchor="end" fill="#64748b" font-family="JetBrains Mono" font-size="8">budget</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="solutions" id="sol-mod3">
+      <div class="solution-card m3">
+        <div class="sol-icon">&#x1F9EE;</div>
+        <h4>可微分符号推理</h4>
+        <p>内置符号推理模块，可以进行逻辑演绎、数学证明等结构化推理，而非仅靠模式匹配模拟。</p>
+      </div>
+      <div class="solution-card m3">
+        <div class="sol-icon">&#x23F1;</div>
+        <h4>自适应计算时间 (ACT)</h4>
+        <p>模型自主判断问题复杂度：简单问题 1 步出答案，困难问题自动多步推理。不浪费任何算力。</p>
+      </div>
+      <div class="solution-card m3">
+        <div class="sol-icon">&#x1F50E;</div>
+        <h4>推理链可追踪</h4>
+        <p>每一步推理都有明确的中间状态和依据，可以被检查、纠正和解释 — 告别黑箱。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODULE 4 ==================== -->
+  <div class="panel" id="panel-mod4">
+    <div class="module-header m4">
+      <div class="module-tag">Module 04</div>
+      <h2>持续学习模块</h2>
+      <div class="en-name">Continual Learning Module</div>
+      <div class="problem">
+        <div class="problem-label">PROBLEM</div>
+        <p>现有模型一旦训练完就固化了。学新知识？要么全部重训（成本巨大），要么微调后旧知识被覆盖（灾难性遗忘）。模型无法从对话中学习。</p>
+      </div>
+      <div class="inspiration">灵感来源: <span>EWC + Progressive Nets + PackNet</span></div>
+    </div>
+
+    <div class="viz-area" id="viz-mod4">
+      <svg viewBox="0 0 1060 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glow4">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <marker id="arrow4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80"/>
+          </marker>
+        </defs>
+
+        <!-- Existing Knowledge (protected weights) -->
+        <g id="cl-existing" opacity="0">
+          <text x="80" y="30" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9" letter-spacing="1">EXISTING EXPERTS</text>
+
+          <!-- Expert modules -->
+          <rect x="20" y="42" width="120" height="60" rx="8" fill="rgba(56,189,248,0.08)" stroke="#38bdf8" stroke-width="1.5"/>
+          <text x="80" y="65" text-anchor="middle" fill="#38bdf8" font-family="Noto Sans SC" font-size="11" font-weight="600">语言专家</text>
+          <text x="80" y="82" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">NLP, 翻译, 写作</text>
+          <!-- Lock icon -->
+          <circle cx="125" cy="50" r="8" fill="rgba(56,189,248,0.2)" stroke="#38bdf8" stroke-width="1"/>
+          <text x="125" y="54" text-anchor="middle" fill="#38bdf8" font-size="9">&#x1F512;</text>
+
+          <rect x="20" y="112" width="120" height="60" rx="8" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1.5"/>
+          <text x="80" y="135" text-anchor="middle" fill="#a78bfa" font-family="Noto Sans SC" font-size="11" font-weight="600">数学专家</text>
+          <text x="80" y="152" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">计算, 证明, 推理</text>
+          <circle cx="125" cy="120" r="8" fill="rgba(167,139,250,0.2)" stroke="#a78bfa" stroke-width="1"/>
+          <text x="125" y="124" text-anchor="middle" fill="#a78bfa" font-size="9">&#x1F512;</text>
+
+          <rect x="20" y="182" width="120" height="60" rx="8" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="80" y="205" text-anchor="middle" fill="#fbbf24" font-family="Noto Sans SC" font-size="11" font-weight="600">代码专家</text>
+          <text x="80" y="222" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">编程, 调试, 架构</text>
+          <circle cx="125" cy="190" r="8" fill="rgba(251,191,36,0.2)" stroke="#fbbf24" stroke-width="1"/>
+          <text x="125" y="194" text-anchor="middle" fill="#fbbf24" font-size="9">&#x1F512;</text>
+        </g>
+
+        <!-- EWC Shield -->
+        <g id="cl-ewc" opacity="0">
+          <rect x="170" y="40" width="130" height="210" rx="10" fill="none" stroke="#4ade80" stroke-width="2" stroke-dasharray="8 4"/>
+          <text x="235" y="32" text-anchor="middle" fill="#4ade80" font-family="JetBrains Mono" font-size="9" letter-spacing="1">EWC SHIELD</text>
+
+          <!-- Fisher information bars -->
+          <text x="180" y="70" fill="#4ade80" font-family="JetBrains Mono" font-size="8">Fisher 重要度:</text>
+          <rect x="180" y="78" width="105" height="8" rx="3" fill="rgba(74,222,128,0.1)" stroke="rgba(74,222,128,0.3)" stroke-width="0.5"/>
+          <rect x="180" y="78" width="95" height="8" rx="3" fill="rgba(56,189,248,0.4)" id="fisher1"/>
+          <text x="288" y="86" fill="#38bdf8" font-family="JetBrains Mono" font-size="7">95%</text>
+
+          <rect x="180" y="138" width="105" height="8" rx="3" fill="rgba(74,222,128,0.1)" stroke="rgba(74,222,128,0.3)" stroke-width="0.5"/>
+          <rect x="180" y="138" width="80" height="8" rx="3" fill="rgba(167,139,250,0.4)" id="fisher2"/>
+          <text x="288" y="146" fill="#a78bfa" font-family="JetBrains Mono" font-size="7">76%</text>
+
+          <rect x="180" y="208" width="105" height="8" rx="3" fill="rgba(74,222,128,0.1)" stroke="rgba(74,222,128,0.3)" stroke-width="0.5"/>
+          <rect x="180" y="208" width="90" height="8" rx="3" fill="rgba(251,191,36,0.4)" id="fisher3"/>
+          <text x="288" y="216" fill="#fbbf24" font-family="JetBrains Mono" font-size="7">85%</text>
+
+          <text x="235" y="240" text-anchor="middle" fill="#4ade80" font-family="JetBrains Mono" font-size="7">重要权重受保护</text>
+        </g>
+
+        <!-- New Knowledge Input -->
+        <g id="cl-newknowledge" opacity="0">
+          <text x="530" y="30" text-anchor="middle" fill="#f87171" font-family="JetBrains Mono" font-size="9" letter-spacing="1">NEW KNOWLEDGE</text>
+
+          <rect x="400" y="42" width="260" height="50" rx="8" fill="rgba(248,113,113,0.08)" stroke="#f87171" stroke-width="1.5"/>
+          <text x="530" y="65" text-anchor="middle" fill="#f87171" font-family="Noto Sans SC" font-size="11" font-weight="600">新领域: 量子计算</text>
+          <text x="530" y="80" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">qubit, 量子纠缠, 量子门...</text>
+        </g>
+
+        <!-- Knowledge Distillation -->
+        <g id="cl-distill" opacity="0">
+          <rect x="400" y="110" width="260" height="50" rx="8" fill="rgba(34,211,238,0.08)" stroke="#22d3ee" stroke-width="1.5"/>
+          <text x="530" y="132" text-anchor="middle" fill="#22d3ee" font-family="Noto Sans SC" font-size="11" font-weight="600">知识蒸馏 (Distillation)</text>
+          <text x="530" y="148" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="8">新知识 + 旧知识 → 融合</text>
+          <line x1="530" y1="92" x2="530" y2="108" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow4)" stroke-dasharray="3 2"/>
+        </g>
+
+        <!-- New Expert Module -->
+        <g id="cl-newexpert" opacity="0">
+          <rect x="400" y="180" width="260" height="70" rx="8" fill="rgba(74,222,128,0.08)" stroke="#4ade80" stroke-width="2"/>
+          <text x="530" y="206" text-anchor="middle" fill="#4ade80" font-family="Noto Sans SC" font-size="13" font-weight="700">新专家: 量子计算</text>
+          <text x="530" y="224" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">独立模块，不干扰已有专家</text>
+          <text x="530" y="240" text-anchor="middle" fill="#4ade80" font-family="JetBrains Mono" font-size="8">&#x2713; 无灾难性遗忘</text>
+          <line x1="530" y1="160" x2="530" y2="178" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrow4)" stroke-dasharray="3 2"/>
+        </g>
+
+        <!-- Router -->
+        <g id="cl-router" opacity="0">
+          <rect x="750" y="100" width="250" height="160" rx="10" fill="rgba(74,222,128,0.04)" stroke="#4ade80" stroke-width="1" stroke-dasharray="5 3"/>
+          <text x="875" y="92" text-anchor="middle" fill="#4ade80" font-family="JetBrains Mono" font-size="9" letter-spacing="1">EXPERT ROUTER</text>
+
+          <text x="770" y="130" fill="#64748b" font-family="JetBrains Mono" font-size="9">输入 → 选择专家:</text>
+          <text x="770" y="155" fill="#38bdf8" font-family="Noto Sans SC" font-size="10">&#x25B6; "翻译这句话" → 语言专家</text>
+          <text x="770" y="178" fill="#a78bfa" font-family="Noto Sans SC" font-size="10">&#x25B6; "解方程" → 数学专家</text>
+          <text x="770" y="201" fill="#fbbf24" font-family="Noto Sans SC" font-size="10">&#x25B6; "写个函数" → 代码专家</text>
+          <text x="770" y="224" fill="#4ade80" font-family="Noto Sans SC" font-size="10">&#x25B6; "量子纠缠" → 量子计算专家</text>
+          <text x="770" y="248" fill="#64748b" font-family="JetBrains Mono" font-size="8">可组合多个专家协作</text>
+
+          <!-- Connection lines -->
+          <line x1="300" y1="145" x2="748" y2="145" stroke="rgba(74,222,128,0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+          <line x1="660" y1="215" x2="748" y2="215" stroke="rgba(74,222,128,0.2)" stroke-width="1" stroke-dasharray="4 4"/>
+        </g>
+
+        <!-- Result -->
+        <g id="cl-result" opacity="0">
+          <text x="875" y="285" text-anchor="middle" fill="#4ade80" font-family="Noto Sans SC" font-size="12" font-weight="700">增量学习，永不遗忘</text>
+          <text x="875" y="305" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">旧专家受保护 + 新专家独立运行</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="solutions" id="sol-mod4">
+      <div class="solution-card m4">
+        <div class="sol-icon">&#x1F6E1;</div>
+        <h4>弹性权重巩固 (EWC)</h4>
+        <p>用 Fisher 信息矩阵衡量每个权重的重要性，重要权重在学习新知识时受到保护，防止被覆盖。</p>
+      </div>
+      <div class="solution-card m4">
+        <div class="sol-icon">&#x1F504;</div>
+        <h4>知识蒸馏融合</h4>
+        <p>新知识不是简单覆盖，而是通过蒸馏与旧知识融合 — 新旧知识相互增强，而非互相排斥。</p>
+      </div>
+      <div class="solution-card m4">
+        <div class="sol-icon">&#x1F9E9;</div>
+        <h4>模块化专家系统</h4>
+        <p>新领域知识用新的专家模块学习，通过路由器动态调度。专家可组合、可替换、可独立升级。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== FULL ARCHITECTURE ==================== -->
+  <div class="panel full-arch" id="panel-full">
+    <div class="module-header" style="border-color: rgba(34,211,238,0.3);">
+      <div class="module-tag" style="color: var(--accent-cyan);">COMPLETE ARCHITECTURE</div>
+      <h2 style="background: linear-gradient(135deg, var(--mod1-color), var(--mod2-color), var(--mod3-color), var(--mod4-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">自适应稀疏皮质 (ASC)</h2>
+      <div class="en-name">Adaptive Sparse Cortex — 四大模块协同工作</div>
+    </div>
+
+    <div class="viz-area" id="viz-full">
+      <svg viewBox="0 0 1060 480" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glowFull">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <marker id="arrowCyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee"/>
+          </marker>
+          <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#38bdf8"/>
+            <stop offset="33%" stop-color="#a78bfa"/>
+            <stop offset="66%" stop-color="#fbbf24"/>
+            <stop offset="100%" stop-color="#4ade80"/>
+          </linearGradient>
+        </defs>
+
+        <!-- INPUT -->
+        <g id="full-input" opacity="0">
+          <rect x="30" y="200" width="120" height="60" rx="10" fill="rgba(255,255,255,0.05)" stroke="#64748b" stroke-width="1.5"/>
+          <text x="90" y="225" text-anchor="middle" fill="#e2e8f0" font-family="Noto Sans SC" font-size="13" font-weight="700">输入</text>
+          <text x="90" y="245" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Input Tokens</text>
+        </g>
+
+        <!-- MODULE 1: Sparse Attention -->
+        <g id="full-m1" opacity="0">
+          <rect x="200" y="140" width="180" height="100" rx="12" fill="rgba(56,189,248,0.06)" stroke="#38bdf8" stroke-width="2" stroke-dasharray="200" stroke-dashoffset="200">
+            <animate attributeName="stroke-dashoffset" from="200" to="0" dur="1s" fill="freeze" begin="indefinite" id="m1-draw"/>
+          </rect>
+          <text x="290" y="175" text-anchor="middle" fill="#38bdf8" font-family="Noto Sans SC" font-size="12" font-weight="700">自适应稀疏注意力</text>
+          <text x="290" y="195" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Sparse Attention</text>
+          <text x="290" y="215" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="10">O(n&radic;n)</text>
+
+          <!-- Module icon -->
+          <circle cx="210" cy="152" r="6" fill="#38bdf8" opacity="0.3"/>
+          <text x="210" y="155" text-anchor="middle" fill="#38bdf8" font-size="8" font-weight="700">1</text>
+        </g>
+
+        <!-- MODULE 2: External Memory -->
+        <g id="full-m2" opacity="0">
+          <rect x="200" y="270" width="180" height="100" rx="12" fill="rgba(167,139,250,0.06)" stroke="#a78bfa" stroke-width="2" stroke-dasharray="200" stroke-dashoffset="200">
+            <animate attributeName="stroke-dashoffset" from="200" to="0" dur="1s" fill="freeze" begin="indefinite" id="m2-draw"/>
+          </rect>
+          <text x="290" y="305" text-anchor="middle" fill="#a78bfa" font-family="Noto Sans SC" font-size="12" font-weight="700">外部可寻址记忆</text>
+          <text x="290" y="325" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">External Memory</text>
+          <text x="290" y="345" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="10">&#x221E; 容量</text>
+          <circle cx="210" cy="282" r="6" fill="#a78bfa" opacity="0.3"/>
+          <text x="210" y="285" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="700">2</text>
+        </g>
+
+        <!-- MODULE 3: Reasoning Engine -->
+        <g id="full-m3" opacity="0">
+          <rect x="450" y="140" width="180" height="100" rx="12" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="2" stroke-dasharray="200" stroke-dashoffset="200">
+            <animate attributeName="stroke-dashoffset" from="200" to="0" dur="1s" fill="freeze" begin="indefinite" id="m3-draw"/>
+          </rect>
+          <text x="540" y="175" text-anchor="middle" fill="#fbbf24" font-family="Noto Sans SC" font-size="12" font-weight="700">内置推理引擎</text>
+          <text x="540" y="195" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Reasoning Engine</text>
+          <text x="540" y="215" text-anchor="middle" fill="#fbbf24" font-family="JetBrains Mono" font-size="10">ACT</text>
+          <circle cx="460" cy="152" r="6" fill="#fbbf24" opacity="0.3"/>
+          <text x="460" y="155" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="700">3</text>
+        </g>
+
+        <!-- MODULE 4: Continual Learning -->
+        <g id="full-m4" opacity="0">
+          <rect x="450" y="270" width="180" height="100" rx="12" fill="rgba(74,222,128,0.06)" stroke="#4ade80" stroke-width="2" stroke-dasharray="200" stroke-dashoffset="200">
+            <animate attributeName="stroke-dashoffset" from="200" to="0" dur="1s" fill="freeze" begin="indefinite" id="m4-draw"/>
+          </rect>
+          <text x="540" y="305" text-anchor="middle" fill="#4ade80" font-family="Noto Sans SC" font-size="12" font-weight="700">持续学习模块</text>
+          <text x="540" y="325" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Continual Learning</text>
+          <text x="540" y="345" text-anchor="middle" fill="#4ade80" font-family="JetBrains Mono" font-size="10">EWC</text>
+          <circle cx="460" cy="282" r="6" fill="#4ade80" opacity="0.3"/>
+          <text x="460" y="285" text-anchor="middle" fill="#4ade80" font-size="8" font-weight="700">4</text>
+        </g>
+
+        <!-- OUTPUT -->
+        <g id="full-output" opacity="0">
+          <rect x="700" y="200" width="120" height="60" rx="10" fill="rgba(34,211,238,0.08)" stroke="#22d3ee" stroke-width="2"/>
+          <text x="760" y="225" text-anchor="middle" fill="#22d3ee" font-family="Noto Sans SC" font-size="13" font-weight="700">输出</text>
+          <text x="760" y="245" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="9">Output</text>
+        </g>
+
+        <!-- CONNECTION LINES (animated) -->
+        <g id="full-connections" opacity="0">
+          <!-- Input to M1 -->
+          <line x1="150" y1="220" x2="198" y2="195" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="6 4" class="conn-line" opacity="0.6"/>
+          <!-- Input to M2 -->
+          <line x1="150" y1="240" x2="198" y2="310" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="6 4" class="conn-line" opacity="0.6"/>
+
+          <!-- M1 to M3 -->
+          <line x1="380" y1="190" x2="448" y2="190" stroke="url(#flowGrad)" stroke-width="2" stroke-dasharray="6 4" class="conn-line"/>
+          <!-- M2 to M4 -->
+          <line x1="380" y1="320" x2="448" y2="320" stroke="url(#flowGrad)" stroke-width="2" stroke-dasharray="6 4" class="conn-line"/>
+
+          <!-- M1 <-> M2 (vertical) -->
+          <line x1="290" y1="240" x2="290" y2="268" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3 3" class="conn-line"/>
+          <!-- M3 <-> M4 (vertical) -->
+          <line x1="540" y1="240" x2="540" y2="268" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3 3" class="conn-line"/>
+
+          <!-- M1 <-> M4 (diagonal) -->
+          <line x1="375" y1="225" x2="455" y2="280" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="2 3"/>
+          <!-- M2 <-> M3 (diagonal) -->
+          <line x1="375" y1="285" x2="455" y2="225" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="2 3"/>
+
+          <!-- M3 to Output -->
+          <line x1="630" y1="195" x2="698" y2="220" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="6 4" class="conn-line" opacity="0.6"/>
+          <!-- M4 to Output -->
+          <line x1="630" y1="315" x2="698" y2="245" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="6 4" class="conn-line" opacity="0.6"/>
+        </g>
+
+        <!-- Data flow description -->
+        <g id="full-flow-labels" opacity="0">
+          <text x="530" y="35" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono" font-size="10" letter-spacing="1">DATA FLOW</text>
+
+          <g transform="translate(30, 50)">
+            <rect x="0" y="0" width="1000" height="55" rx="8" fill="rgba(34,211,238,0.03)" stroke="rgba(34,211,238,0.15)" stroke-width="1"/>
+            <text x="20" y="20" fill="#64748b" font-family="JetBrains Mono" font-size="9">
+              <tspan fill="#e2e8f0">1.</tspan> 输入 tokens 经过<tspan fill="#38bdf8"> 稀疏注意力 </tspan>提取关键关系（O(n&radic;n) 高效处理）
+            </text>
+            <text x="20" y="36" fill="#64748b" font-family="JetBrains Mono" font-size="9">
+              <tspan fill="#e2e8f0">2.</tspan><tspan fill="#a78bfa"> 外部记忆 </tspan>补充上下文外知识 →<tspan fill="#fbbf24"> 推理引擎 </tspan>执行自适应多步推理 →<tspan fill="#4ade80"> 持续学习 </tspan>将新知识写入专家模块
+            </text>
+          </g>
+        </g>
+
+        <!-- Architecture label -->
+        <g id="full-arch-label" opacity="0">
+          <rect x="850" y="140" width="180" height="190" rx="12" fill="rgba(255,255,255,0.02)" stroke="rgba(34,211,238,0.15)" stroke-width="1" stroke-dasharray="5 3"/>
+          <text x="940" y="165" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono" font-size="10" letter-spacing="1">ASC SPECS</text>
+
+          <text x="865" y="190" fill="#38bdf8" font-family="JetBrains Mono" font-size="9">Attention: O(n&radic;n)</text>
+          <text x="865" y="210" fill="#a78bfa" font-family="JetBrains Mono" font-size="9">Memory: &infin;</text>
+          <text x="865" y="230" fill="#fbbf24" font-family="JetBrains Mono" font-size="9">Reasoning: ACT</text>
+          <text x="865" y="250" fill="#4ade80" font-family="JetBrains Mono" font-size="9">Learning: EWC+MoE</text>
+          <line x1="865" y1="262" x2="1015" y2="262" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/>
+          <text x="865" y="280" fill="#64748b" font-family="JetBrains Mono" font-size="9">Interpretable: Yes</text>
+          <text x="865" y="300" fill="#64748b" font-family="JetBrains Mono" font-size="9">Scalable: Linear</text>
+          <text x="865" y="320" fill="#64748b" font-family="JetBrains Mono" font-size="9">Updatable: Online</text>
+        </g>
+
+        <!-- Bottom bar: module legend -->
+        <g id="full-legend" opacity="0" transform="translate(0, 420)">
+          <rect x="180" y="0" width="700" height="40" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+          <circle cx="220" cy="20" r="6" fill="var(--mod1-color)" opacity="0.6"/>
+          <text x="232" y="24" fill="#64748b" font-family="JetBrains Mono" font-size="9">稀疏注意力</text>
+          <circle cx="360" cy="20" r="6" fill="var(--mod2-color)" opacity="0.6"/>
+          <text x="372" y="24" fill="#64748b" font-family="JetBrains Mono" font-size="9">外部记忆</text>
+          <circle cx="490" cy="20" r="6" fill="var(--mod3-color)" opacity="0.6"/>
+          <text x="502" y="24" fill="#64748b" font-family="JetBrains Mono" font-size="9">推理引擎</text>
+          <circle cx="620" cy="20" r="6" fill="var(--mod4-color)" opacity="0.6"/>
+          <text x="632" y="24" fill="#64748b" font-family="JetBrains Mono" font-size="9">持续学习</text>
+          <circle cx="750" cy="20" r="6" fill="var(--accent-cyan)" opacity="0.6"/>
+          <text x="762" y="24" fill="#64748b" font-family="JetBrains Mono" font-size="9">数据流</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ==================== COMPARISON ==================== -->
+  <div class="panel compare-panel" id="panel-compare">
+    <div class="module-header" style="border-color: rgba(248,113,113,0.3);">
+      <div class="module-tag" style="color: var(--accent-red);">COMPARISON</div>
+      <h2>Transformer vs ASC</h2>
+      <div class="en-name">现有架构 vs 理想架构 — 全面对比</div>
+    </div>
+
+    <div class="compare-table-wrap">
+      <table class="compare-table" id="compareTable">
+        <thead>
+          <tr>
+            <th>能力</th>
+            <th>Transformer</th>
+            <th>ASC (Adaptive Sparse Cortex)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>注意力复杂度</td>
+            <td><span class="mono">O(n&sup2;)</span> — 序列翻倍，计算量翻4倍</td>
+            <td><span class="mono">O(n&radic;n)</span> — 稀疏路由，高效精准</td>
+          </tr>
+          <tr>
+            <td>记忆容量</td>
+            <td>有限 — 受上下文窗口约束 (128K~1M)</td>
+            <td>无限 — 外部记忆矩阵，可无限扩展</td>
+          </tr>
+          <tr>
+            <td>推理能力</td>
+            <td>依赖 Chain-of-Thought prompting</td>
+            <td>内置推理引擎 + 自适应计算时间</td>
+          </tr>
+          <tr>
+            <td>知识更新</td>
+            <td>需完全重训练 — 成本巨大</td>
+            <td>增量学习 — EWC 保护 + 新专家模块</td>
+          </tr>
+          <tr>
+            <td>可解释性</td>
+            <td>黑箱 — 无法追踪推理过程</td>
+            <td>推理链可追踪、可审计、可纠正</td>
+          </tr>
+          <tr>
+            <td>长文本处理</td>
+            <td>二次增长的 KV Cache 导致瓶颈</td>
+            <td>稀疏注意力 + 外部记忆无缝接力</td>
+          </tr>
+          <tr>
+            <td>计算效率</td>
+            <td>所有问题使用相同计算量</td>
+            <td>ACT 按需分配 — 简单快答、复杂深思</td>
+          </tr>
+          <tr>
+            <td>灾难性遗忘</td>
+            <td>微调新数据后旧知识退化</td>
+            <td>EWC 弹性保护 + 模块化专家隔离</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="verdict">
+      <h3>为什么 ASC 还只是思想实验？</h3>
+      <p>
+        ASC 综合了 <span class="highlight">Sparse Transformer、Neural Turing Machine、ACT、EWC</span> 等多项前沿研究的精华。
+        每个模块单独来看都有论文支持，但将四者无缝整合到一个端到端可训练的架构中，仍然是未解决的工程挑战。
+        不过，这些方向正在被各大实验室独立推进 — <span class="highlight">或许下一代 AI 架构，真的会长这个样子。</span>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="blueprint-stamp">ASC BLUEPRINT v1.0 // THOUGHT EXPERIMENT</div>
+
+<script>
+// ============================================
+// Background floating particles
+// ============================================
+(function initBgCanvas() {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  const PARTICLE_COUNT = 40;
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.5 + 0.5,
+      alpha: Math.random() * 0.15 + 0.05,
+      color: ['#38bdf8', '#a78bfa', '#fbbf24', '#4ade80'][Math.floor(Math.random() * 4)]
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(function(p) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0) p.x = canvas.width;
+      if (p.x > canvas.width) p.x = 0;
+      if (p.y < 0) p.y = canvas.height;
+      if (p.y > canvas.height) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Draw faint lines between close particles
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        var dx = particles[i].x - particles[j].x;
+        var dy = particles[i].y - particles[j].y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 150) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = particles[i].color;
+          ctx.globalAlpha = 0.03 * (1 - dist / 150);
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ============================================
+// Panel switching
+// ============================================
+var currentPanel = 'mod1';
+var panelNames = {
+  mod1: { step: '01', label: 'ADAPTIVE SPARSE ATTENTION' },
+  mod2: { step: '02', label: 'EXTERNAL ADDRESSABLE MEMORY' },
+  mod3: { step: '03', label: 'BUILT-IN REASONING ENGINE' },
+  mod4: { step: '04', label: 'CONTINUAL LEARNING MODULE' },
+  full: { step: '05', label: 'COMPLETE ASC ARCHITECTURE' },
+  compare: { step: '06', label: 'TRANSFORMER vs ASC' }
+};
+
+function showPanel(name) {
+  if (currentPanel === name) return;
+  currentPanel = name;
+
+  // Update nav buttons
+  document.querySelectorAll('.nav-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+    if (btn.dataset.panel === name) btn.classList.add('active');
+  });
+
+  // Update step indicator
+  var info = panelNames[name];
+  document.getElementById('stepIndicator').innerHTML =
+    '<span class="current">MODULE ' + info.step + '</span> / 06 — ' + info.label;
+
+  // Switch panels
+  document.querySelectorAll('.panel').forEach(function(p) {
+    p.classList.remove('active');
+  });
+  var panel = document.getElementById('panel-' + name);
+  panel.classList.remove('active');
+  // Force reflow for animation
+  void panel.offsetWidth;
+  panel.classList.add('active');
+
+  // Trigger panel-specific animations
+  switch (name) {
+    case 'mod1': animateMod1(); break;
+    case 'mod2': animateMod2(); break;
+    case 'mod3': animateMod3(); break;
+    case 'mod4': animateMod4(); break;
+    case 'full': animateFull(); break;
+    case 'compare': animateCompare(); break;
+  }
+}
+
+// ============================================
+// Module 1 Animation: Sparse Attention
+// ============================================
+function animateMod1() {
+  // Reset
+  var fullAttn = document.getElementById('fullAttnGrid');
+  var hashRouting = document.getElementById('hashRouting');
+  var sparseResult = document.getElementById('sparseResult');
+  var arrow12 = document.getElementById('arrow12');
+  var arrow23 = document.getElementById('arrow23');
+
+  fullAttn.setAttribute('opacity', '0');
+  hashRouting.setAttribute('opacity', '0');
+  sparseResult.setAttribute('opacity', '0');
+  arrow12.setAttribute('opacity', '0');
+  arrow23.setAttribute('opacity', '0');
+
+  // Generate full attention grid cells
+  var fullCells = document.getElementById('fullCells');
+  fullCells.innerHTML = '';
+  for (var r = 0; r < 8; r++) {
+    for (var c = 0; c < 8; c++) {
+      var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', c * 25);
+      rect.setAttribute('y', r * 25);
+      rect.setAttribute('width', 24);
+      rect.setAttribute('height', 24);
+      rect.setAttribute('rx', '2');
+      rect.setAttribute('fill', 'rgba(248, 113, 113, 0.25)');
+      rect.setAttribute('stroke', 'rgba(248, 113, 113, 0.4)');
+      rect.setAttribute('stroke-width', '0.5');
+      rect.setAttribute('opacity', '0');
+      rect.style.transition = 'opacity 0.1s ease ' + (r * 8 + c) * 15 + 'ms';
+      fullCells.appendChild(rect);
+    }
+  }
+
+  // Generate sparse attention cells
+  var sparseCells = document.getElementById('sparseCells');
+  sparseCells.innerHTML = '';
+  // Local window (diagonal band) + some global anchor points
+  var sparsePositions = [
+    // Diagonal band (local window, width 3)
+    [0,0],[0,1],[0,2],
+    [1,0],[1,1],[1,2],[1,3],
+    [2,1],[2,2],[2,3],[2,4],
+    [3,2],[3,3],[3,4],[3,5],
+    [4,3],[4,4],[4,5],[4,6],
+    [5,4],[5,5],[5,6],[5,7],
+    [6,5],[6,6],[6,7],
+    [7,6],[7,7],
+    // Global anchors (column 0 and column 4 as anchor points)
+    [3,0],[4,0],[5,0],[6,0],[7,0],
+    [0,4],[1,4],[2,4],[5,4],[6,4],[7,4]
+  ];
+  // Deduplicate
+  var seen = {};
+  sparsePositions = sparsePositions.filter(function(p) {
+    var key = p[0] + ',' + p[1];
+    if (seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+
+  sparsePositions.forEach(function(pos, i) {
+    var r = pos[0], c = pos[1];
+    var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', c * 25);
+    rect.setAttribute('y', r * 25);
+    rect.setAttribute('width', 24);
+    rect.setAttribute('height', 24);
+    rect.setAttribute('rx', '2');
+    // Color: local window = cyan, global anchor = blue
+    var isLocal = Math.abs(r - c) <= 2;
+    rect.setAttribute('fill', isLocal ? 'rgba(34, 211, 238, 0.35)' : 'rgba(56, 189, 248, 0.4)');
+    rect.setAttribute('stroke', isLocal ? 'rgba(34, 211, 238, 0.5)' : 'rgba(56, 189, 248, 0.6)');
+    rect.setAttribute('stroke-width', '0.5');
+    rect.setAttribute('opacity', '0');
+    rect.style.transition = 'opacity 0.15s ease ' + i * 30 + 'ms';
+    sparseCells.appendChild(rect);
+  });
+
+  // Animate sequence
+  setTimeout(function() {
+    fullAttn.setAttribute('opacity', '1');
+    // Show cells one by one
+    setTimeout(function() {
+      fullCells.querySelectorAll('rect').forEach(function(r) { r.setAttribute('opacity', '1'); });
+    }, 200);
+  }, 100);
+
+  setTimeout(function() {
+    arrow12.setAttribute('opacity', '1');
+    hashRouting.setAttribute('opacity', '1');
+    // Animate hash arrows
+    setTimeout(function() {
+      document.getElementById('hashArrows').setAttribute('opacity', '1');
+    }, 300);
+    // Show buckets
+    setTimeout(function() {
+      document.getElementById('bucketA').setAttribute('opacity', '1');
+      document.getElementById('bucketB').setAttribute('opacity', '1');
+      document.getElementById('bucketC').setAttribute('opacity', '1');
+    }, 600);
+    setTimeout(function() {
+      document.getElementById('hashResult').setAttribute('opacity', '1');
+    }, 900);
+  }, 1200);
+
+  setTimeout(function() {
+    arrow23.setAttribute('opacity', '1');
+    sparseResult.setAttribute('opacity', '1');
+    setTimeout(function() {
+      sparseCells.querySelectorAll('rect').forEach(function(r) { r.setAttribute('opacity', '1'); });
+    }, 200);
+  }, 2200);
+
+  // Solution cards
+  animateSolutionCards('sol-mod1', 2800);
+}
+
+// ============================================
+// Module 2 Animation: External Memory
+// ============================================
+function animateMod2() {
+  var groups = ['mem-controller', 'mem-readhead', 'mem-writehead', 'mem-matrix', 'mem-expand'];
+  groups.forEach(function(id) {
+    document.getElementById(id).setAttribute('opacity', '0');
+  });
+
+  // Generate memory cells
+  var memCells = document.getElementById('memCells');
+  memCells.innerHTML = '';
+  for (var i = 0; i < 20; i++) {
+    var x = 200 + i * 33;
+    var isWorking = i < 8;
+    var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x);
+    rect.setAttribute('y', 258);
+    rect.setAttribute('width', 28);
+    rect.setAttribute('height', 40);
+    rect.setAttribute('rx', '3');
+    rect.setAttribute('fill', isWorking ? 'rgba(34,211,238,0.1)' : 'rgba(74,222,128,0.1)');
+    rect.setAttribute('stroke', isWorking ? 'rgba(34,211,238,0.3)' : 'rgba(74,222,128,0.3)');
+    rect.setAttribute('stroke-width', '0.5');
+    rect.setAttribute('opacity', '0');
+    rect.style.transition = 'opacity 0.15s ease ' + i * 50 + 'ms';
+    memCells.appendChild(rect);
+
+    // Data visualization inside cells
+    for (var j = 0; j < 3; j++) {
+      var bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bar.setAttribute('x', x + 4);
+      bar.setAttribute('y', 264 + j * 10);
+      bar.setAttribute('width', Math.random() * 16 + 4);
+      bar.setAttribute('height', 5);
+      bar.setAttribute('rx', '1');
+      bar.setAttribute('fill', isWorking ? 'rgba(34,211,238,0.3)' : 'rgba(74,222,128,0.3)');
+      bar.setAttribute('opacity', '0');
+      bar.style.transition = 'opacity 0.15s ease ' + (i * 50 + 100) + 'ms';
+      memCells.appendChild(bar);
+    }
+  }
+
+  // Staggered reveal
+  var delays = [100, 500, 800, 1200, 1800];
+  groups.forEach(function(id, idx) {
+    setTimeout(function() {
+      var el = document.getElementById(id);
+      el.setAttribute('opacity', '1');
+      el.style.transition = 'opacity 0.6s ease';
+    }, delays[idx]);
+  });
+
+  // Show memory cells
+  setTimeout(function() {
+    memCells.querySelectorAll('rect').forEach(function(r) { r.setAttribute('opacity', '1'); });
+  }, 1400);
+
+  animateSolutionCards('sol-mod2', 2200);
+}
+
+// ============================================
+// Module 3 Animation: Reasoning Engine
+// ============================================
+function animateMod3() {
+  var groups = ['reason-simple', 'reason-complex', 'reason-act'];
+  groups.forEach(function(id) {
+    document.getElementById(id).setAttribute('opacity', '0');
+  });
+
+  // Step boxes
+  ['rstep1', 'rstep2', 'rstep3', 'rstep4'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+      el.setAttribute('opacity', '0.3');
+      el.style.transition = 'opacity 0.4s ease, filter 0.4s ease';
+    }
+  });
+
+  // Simple question first
+  setTimeout(function() {
+    document.getElementById('reason-simple').setAttribute('opacity', '1');
+  }, 100);
+
+  // Complex question
+  setTimeout(function() {
+    document.getElementById('reason-complex').setAttribute('opacity', '1');
+  }, 800);
+
+  // Light up reasoning steps one by one
+  var steps = ['rstep1', 'rstep2', 'rstep3', 'rstep4'];
+  steps.forEach(function(id, i) {
+    setTimeout(function() {
+      var el = document.getElementById(id);
+      if (el) {
+        el.setAttribute('opacity', '1');
+        el.style.filter = 'drop-shadow(0 0 6px rgba(251,191,36,0.4))';
+      }
+    }, 1200 + i * 400);
+  });
+
+  // ACT bar
+  setTimeout(function() {
+    document.getElementById('reason-act').setAttribute('opacity', '1');
+  }, 2800);
+
+  animateSolutionCards('sol-mod3', 3200);
+}
+
+// ============================================
+// Module 4 Animation: Continual Learning
+// ============================================
+function animateMod4() {
+  var groups = ['cl-existing', 'cl-ewc', 'cl-newknowledge', 'cl-distill', 'cl-newexpert', 'cl-router', 'cl-result'];
+  groups.forEach(function(id) {
+    document.getElementById(id).setAttribute('opacity', '0');
+  });
+
+  var delays = [100, 500, 900, 1400, 1900, 2400, 3000];
+  groups.forEach(function(id, idx) {
+    setTimeout(function() {
+      var el = document.getElementById(id);
+      el.setAttribute('opacity', '1');
+      el.style.transition = 'opacity 0.6s ease';
+    }, delays[idx]);
+  });
+
+  animateSolutionCards('sol-mod4', 3200);
+}
+
+// ============================================
+// Full Architecture Animation
+// ============================================
+function animateFull() {
+  var elements = ['full-input', 'full-m1', 'full-m2', 'full-m3', 'full-m4', 'full-output', 'full-connections', 'full-flow-labels', 'full-arch-label', 'full-legend'];
+  elements.forEach(function(id) {
+    document.getElementById(id).setAttribute('opacity', '0');
+  });
+
+  // Show input
+  setTimeout(function() {
+    document.getElementById('full-input').setAttribute('opacity', '1');
+    document.getElementById('full-input').style.transition = 'opacity 0.5s ease';
+  }, 200);
+
+  // Install Module 1
+  setTimeout(function() {
+    var m1 = document.getElementById('full-m1');
+    m1.setAttribute('opacity', '1');
+    m1.style.transition = 'opacity 0.6s ease';
+    // Trigger stroke animation
+    var rect = m1.querySelector('rect');
+    if (rect) {
+      rect.setAttribute('stroke-dashoffset', '0');
+      rect.style.transition = 'stroke-dashoffset 1s ease';
+    }
+  }, 600);
+
+  // Install Module 2
+  setTimeout(function() {
+    var m2 = document.getElementById('full-m2');
+    m2.setAttribute('opacity', '1');
+    m2.style.transition = 'opacity 0.6s ease';
+    var rect = m2.querySelector('rect');
+    if (rect) {
+      rect.setAttribute('stroke-dashoffset', '0');
+      rect.style.transition = 'stroke-dashoffset 1s ease';
+    }
+  }, 1100);
+
+  // Install Module 3
+  setTimeout(function() {
+    var m3 = document.getElementById('full-m3');
+    m3.setAttribute('opacity', '1');
+    m3.style.transition = 'opacity 0.6s ease';
+    var rect = m3.querySelector('rect');
+    if (rect) {
+      rect.setAttribute('stroke-dashoffset', '0');
+      rect.style.transition = 'stroke-dashoffset 1s ease';
+    }
+  }, 1600);
+
+  // Install Module 4
+  setTimeout(function() {
+    var m4 = document.getElementById('full-m4');
+    m4.setAttribute('opacity', '1');
+    m4.style.transition = 'opacity 0.6s ease';
+    var rect = m4.querySelector('rect');
+    if (rect) {
+      rect.setAttribute('stroke-dashoffset', '0');
+      rect.style.transition = 'stroke-dashoffset 1s ease';
+    }
+  }, 2100);
+
+  // Show output
+  setTimeout(function() {
+    document.getElementById('full-output').setAttribute('opacity', '1');
+    document.getElementById('full-output').style.transition = 'opacity 0.5s ease';
+  }, 2600);
+
+  // Power up connections (circuit trace effect)
+  setTimeout(function() {
+    var conn = document.getElementById('full-connections');
+    conn.setAttribute('opacity', '1');
+    conn.style.transition = 'opacity 0.8s ease';
+  }, 3000);
+
+  // Show flow labels
+  setTimeout(function() {
+    document.getElementById('full-flow-labels').setAttribute('opacity', '1');
+    document.getElementById('full-flow-labels').style.transition = 'opacity 0.6s ease';
+  }, 3500);
+
+  // Show specs
+  setTimeout(function() {
+    document.getElementById('full-arch-label').setAttribute('opacity', '1');
+    document.getElementById('full-arch-label').style.transition = 'opacity 0.6s ease';
+  }, 3800);
+
+  // Show legend
+  setTimeout(function() {
+    document.getElementById('full-legend').setAttribute('opacity', '1');
+    document.getElementById('full-legend').style.transition = 'opacity 0.6s ease';
+  }, 4100);
+}
+
+// ============================================
+// Comparison Table Animation
+// ============================================
+function animateCompare() {
+  var rows = document.querySelectorAll('#compareTable tbody tr');
+  rows.forEach(function(row) {
+    row.classList.remove('visible');
+  });
+  // Also reset header
+  var headerRow = document.querySelector('#compareTable thead tr');
+  if (headerRow) {
+    headerRow.classList.remove('visible');
+    setTimeout(function() { headerRow.classList.add('visible'); }, 100);
+  }
+
+  rows.forEach(function(row, i) {
+    setTimeout(function() {
+      row.classList.add('visible');
+    }, 200 + i * 200);
+  });
+}
+
+// ============================================
+// Solution Card Stagger Animation
+// ============================================
+function animateSolutionCards(containerId, baseDelay) {
+  var cards = document.querySelectorAll('#' + containerId + ' .solution-card');
+  cards.forEach(function(card) {
+    card.classList.remove('visible');
+  });
+  cards.forEach(function(card, i) {
+    setTimeout(function() {
+      card.classList.add('visible');
+    }, baseDelay + i * 200);
+  });
+}
+
+// ============================================
+// Initialize first panel
+// ============================================
+animateMod1();
+
+// ============================================
+// Keyboard navigation
+// ============================================
+var panelOrder = ['mod1', 'mod2', 'mod3', 'mod4', 'full', 'compare'];
+document.addEventListener('keydown', function(e) {
+  var idx = panelOrder.indexOf(currentPanel);
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (idx < panelOrder.length - 1) showPanel(panelOrder[idx + 1]);
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (idx > 0) showPanel(panelOrder[idx - 1]);
+  }
+});
+</script>
+
+<!-- Glossary Panel -->
+<style>
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(20, 20, 40, 0.85);
+  color: #e2e8f0;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: all 0.3s ease;
+}
+.glossary-btn:hover {
+  background: rgba(40, 40, 80, 0.95);
+  border-color: rgba(255,255,255,0.3);
+  transform: scale(1.08);
+}
+.glossary-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.glossary-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.glossary-panel {
+  position: fixed;
+  top: 50%;
+  right: -420px;
+  transform: translateY(-50%);
+  width: 400px;
+  max-width: 90vw;
+  max-height: 70vh;
+  z-index: 9999;
+  background: rgba(15, 15, 35, 0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  box-shadow: -4px 0 40px rgba(0,0,0,0.5);
+  overflow-y: auto;
+  padding: 24px;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glossary-panel.visible {
+  right: 24px;
+}
+.glossary-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.glossary-panel::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+.glossary-panel h3 {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.glossary-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.glossary-item:last-child {
+  border-bottom: none;
+}
+.glossary-term {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #93c5fd;
+}
+.glossary-cn {
+  font-size: 13px;
+  color: #c4b5fd;
+  margin-left: 4px;
+}
+.glossary-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-top: 3px;
+}
+</style>
+
+<button class="glossary-btn" id="glossaryBtn" onclick="toggleGlossary()" title="术语表">&#10067;</button>
+<div class="glossary-overlay" id="glossaryOverlay" onclick="toggleGlossary()"></div>
+<div class="glossary-panel" id="glossaryPanel">
+  <h3>&#128218; 术语表</h3>
+  <div class="glossary-item"><div><span class="glossary-term">ASC</span><span class="glossary-cn">（Adaptive Sparse Cortex, 自适应稀疏皮质）</span></div><div class="glossary-desc">本动画设计的理想架构名称</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">LSH</span><span class="glossary-cn">（Locality-Sensitive Hashing, 局部敏感哈希）</span></div><div class="glossary-desc">用哈希函数快速找到相似项，用于稀疏注意力的粗筛</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">NTM</span><span class="glossary-cn">（Neural Turing Machine, 神经图灵机）</span></div><div class="glossary-desc">带外部记忆的神经网络，可读写记忆矩阵</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">DNC</span><span class="glossary-cn">（Differentiable Neural Computer）</span></div><div class="glossary-desc">NTM的改进版，记忆寻址更精确</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">ACT</span><span class="glossary-cn">（Adaptive Computation Time, 自适应计算时间）</span></div><div class="glossary-desc">让模型自主决定"思考多久"</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">EWC</span><span class="glossary-cn">（Elastic Weight Consolidation, 弹性权重巩固）</span></div><div class="glossary-desc">保护重要权重不被新任务覆盖</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">灾难性遗忘</span><span class="glossary-cn">（Catastrophic Forgetting）</span></div><div class="glossary-desc">学习新知识时丢失旧知识的问题</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">知识蒸馏</span><span class="glossary-cn">（Knowledge Distillation）</span></div><div class="glossary-desc">将大模型的知识"蒸馏"到小模型中</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">可微分</span><span class="glossary-cn">（Differentiable）</span></div><div class="glossary-desc">可以计算梯度，因此可以用反向传播训练</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Chain-of-Thought</span><span class="glossary-cn">（CoT, 思维链）</span></div><div class="glossary-desc">让模型展示推理步骤而非直接给答案</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">工作记忆</span><span class="glossary-cn">（Working Memory）</span></div><div class="glossary-desc">短期活跃的记忆，类似人脑的短期记忆</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">长期记忆</span><span class="glossary-cn">（Long-Term Memory）</span></div><div class="glossary-desc">持久存储的知识，不随对话结束而消失</div></div>
+</div>
+
+<script>
+var glossaryVisible = false;
+function toggleGlossary() {
+  glossaryVisible = !glossaryVisible;
+  document.getElementById('glossaryPanel').classList.toggle('visible', glossaryVisible);
+  document.getElementById('glossaryOverlay').classList.toggle('visible', glossaryVisible);
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && glossaryVisible) toggleGlossary();
+});
+</script>
+</body>
+</html>

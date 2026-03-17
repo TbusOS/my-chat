@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer 架构全景</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #050a18;
+  --bg-secondary: #0a1628;
+  --bg-card: rgba(15, 25, 50, 0.85);
+  --border-glow: rgba(56, 189, 248, 0.25);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-blue: #38bdf8;
+  --accent-cyan: #22d3ee;
+  --accent-purple: #a78bfa;
+  --accent-pink: #f472b6;
+  --accent-green: #4ade80;
+  --accent-amber: #fbbf24;
+  --accent-orange: #fb923c;
+  --encoder-color: #38bdf8;
+  --decoder-color: #a78bfa;
+  --particle-encoder: #38bdf8;
+  --particle-decoder: #a78bfa;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Background grid */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 28px 20px 12px;
+  position: relative;
+  z-index: 10;
+}
+
+.header h1 {
+  font-size: 30px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan), var(--accent-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.header p {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+/* Canvas container for particles */
+#particleCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Main layout */
+.arch-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 32px;
+  padding: 8px 24px 24px;
+  position: relative;
+  z-index: 5;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Column styles */
+.column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.column-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 6px 18px;
+  border-radius: 20px;
+  margin-bottom: 4px;
+}
+
+.encoder-label {
+  color: var(--encoder-color);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.decoder-label {
+  color: var(--decoder-color);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  background: rgba(167, 139, 250, 0.08);
+}
+
+/* Nx badge */
+.nx-badge {
+  position: absolute;
+  right: -36px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(15, 25, 50, 0.9);
+  border: 1px dashed var(--text-muted);
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+/* Stack wrapper */
+.stack-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px;
+  border: 1.5px dashed rgba(100, 116, 139, 0.3);
+  border-radius: 14px;
+  background: rgba(10, 22, 40, 0.4);
+}
+
+.encoder-stack {
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.decoder-stack {
+  border-color: rgba(167, 139, 250, 0.2);
+}
+
+/* Component module */
+.module {
+  position: relative;
+  width: 220px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid transparent;
+  text-align: center;
+  user-select: none;
+  overflow: hidden;
+}
+
+.module::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.module:hover {
+  transform: translateY(-2px) scale(1.03);
+  z-index: 20;
+}
+
+.module:hover::before {
+  opacity: 1;
+}
+
+.module.highlighted {
+  transform: translateY(-2px) scale(1.05);
+  z-index: 20;
+}
+
+.module .module-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  position: relative;
+  z-index: 2;
+}
+
+.module .module-en {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Module color variants */
+.module-embed {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+.module-embed .module-name { color: var(--accent-amber); }
+.module-embed:hover, .module-embed.highlighted {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.2), inset 0 0 24px rgba(251, 191, 36, 0.05);
+}
+.module-embed::before { background: radial-gradient(circle at center, rgba(251, 191, 36, 0.12), transparent 70%); }
+
+.module-pos {
+  background: rgba(251, 146, 60, 0.1);
+  border-color: rgba(251, 146, 60, 0.3);
+}
+.module-pos .module-name { color: var(--accent-orange); }
+.module-pos:hover, .module-pos.highlighted {
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 24px rgba(251, 146, 60, 0.2), inset 0 0 24px rgba(251, 146, 60, 0.05);
+}
+.module-pos::before { background: radial-gradient(circle at center, rgba(251, 146, 60, 0.12), transparent 70%); }
+
+.module-attn {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+.module-attn .module-name { color: var(--accent-blue); }
+.module-attn:hover, .module-attn.highlighted {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.25), inset 0 0 24px rgba(56, 189, 248, 0.05);
+}
+.module-attn::before { background: radial-gradient(circle at center, rgba(56, 189, 248, 0.12), transparent 70%); }
+
+.module-norm {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.3);
+}
+.module-norm .module-name { color: var(--accent-green); }
+.module-norm:hover, .module-norm.highlighted {
+  border-color: var(--accent-green);
+  box-shadow: 0 0 24px rgba(74, 222, 128, 0.2), inset 0 0 24px rgba(74, 222, 128, 0.05);
+}
+.module-norm::before { background: radial-gradient(circle at center, rgba(74, 222, 128, 0.12), transparent 70%); }
+
+.module-ff {
+  background: rgba(34, 211, 238, 0.1);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+.module-ff .module-name { color: var(--accent-cyan); }
+.module-ff:hover, .module-ff.highlighted {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.2), inset 0 0 24px rgba(34, 211, 238, 0.05);
+}
+.module-ff::before { background: radial-gradient(circle at center, rgba(34, 211, 238, 0.12), transparent 70%); }
+
+.module-mask {
+  background: rgba(244, 114, 182, 0.1);
+  border-color: rgba(244, 114, 182, 0.3);
+}
+.module-mask .module-name { color: var(--accent-pink); }
+.module-mask:hover, .module-mask.highlighted {
+  border-color: var(--accent-pink);
+  box-shadow: 0 0 24px rgba(244, 114, 182, 0.2), inset 0 0 24px rgba(244, 114, 182, 0.05);
+}
+.module-mask::before { background: radial-gradient(circle at center, rgba(244, 114, 182, 0.12), transparent 70%); }
+
+.module-cross {
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.3);
+}
+.module-cross .module-name { color: var(--accent-purple); }
+.module-cross:hover, .module-cross.highlighted {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 24px rgba(167, 139, 250, 0.25), inset 0 0 24px rgba(167, 139, 250, 0.05);
+}
+.module-cross::before { background: radial-gradient(circle at center, rgba(167, 139, 250, 0.12), transparent 70%); }
+
+.module-output {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+.module-output .module-name { color: var(--accent-amber); }
+.module-output:hover, .module-output.highlighted {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.2), inset 0 0 24px rgba(251, 191, 36, 0.05);
+}
+.module-output::before { background: radial-gradient(circle at center, rgba(251, 191, 36, 0.12), transparent 70%); }
+
+/* Flow arrows between modules */
+.flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  color: var(--text-muted);
+  font-size: 16px;
+  opacity: 0.5;
+}
+
+/* Cross attention connector */
+.cross-connector {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Center connector area */
+.center-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  position: relative;
+}
+
+.connector-line {
+  width: 2px;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Arrow label for cross attention */
+.cross-arrow-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  position: relative;
+}
+
+.cross-arrow-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 2px;
+  opacity: 0.6;
+}
+
+/* SVG overlay for connection lines */
+#connectionSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Detail panel */
+.detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 10, 24, 0.7);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.detail-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.detail-panel {
+  background: rgba(15, 25, 50, 0.95);
+  border: 1.5px solid var(--border-glow);
+  border-radius: 18px;
+  padding: 32px 36px;
+  max-width: 540px;
+  width: 90%;
+  position: relative;
+  transform: translateY(20px) scale(0.95);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 60px rgba(56, 189, 248, 0.1), 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.detail-overlay.active .detail-panel {
+  transform: translateY(0) scale(1);
+}
+
+.detail-panel .close-btn {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.detail-panel .close-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.detail-panel h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.detail-panel .detail-en {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.detail-panel .detail-body {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+.detail-panel .detail-body strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.detail-panel .detail-body .formula {
+  font-family: 'JetBrains Mono', monospace;
+  display: block;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  font-size: 13px;
+  color: var(--accent-cyan);
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+
+.detail-panel .detail-body ul {
+  margin: 8px 0 8px 18px;
+  list-style: none;
+}
+
+.detail-panel .detail-body ul li {
+  position: relative;
+  padding-left: 14px;
+  margin-bottom: 4px;
+}
+
+.detail-panel .detail-body ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  opacity: 0.6;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 20px 28px;
+  position: relative;
+  z-index: 10;
+}
+
+.btn {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 24px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--accent-blue);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  letter-spacing: 0.3px;
+}
+
+.btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+}
+
+.btn.active {
+  background: var(--accent-blue);
+  color: var(--bg-primary);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.3);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Progress indicator for auto-demo */
+.demo-progress {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.demo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(100, 116, 139, 0.3);
+  transition: all 0.3s ease;
+}
+
+.demo-dot.active {
+  background: var(--accent-blue);
+  box-shadow: 0 0 8px var(--accent-blue);
+}
+
+.demo-dot.done {
+  background: var(--accent-cyan);
+}
+
+/* Input/Output labels */
+.io-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.input-label {
+  color: var(--accent-green);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.output-label {
+  color: var(--accent-amber);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .arch-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 12px 24px;
+  }
+  .module {
+    width: 200px;
+  }
+  .center-column {
+    display: none;
+  }
+  .header h1 {
+    font-size: 22px;
+  }
+  .nx-badge {
+    right: -30px;
+    font-size: 11px;
+  }
+}
+
+/* Subtle glow pulse for highlighted module */
+@keyframes glowPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); }
+}
+
+.module.highlighted {
+  animation: glowPulse 1.5s ease-in-out infinite;
+}
+
+/* Scroll hint for center */
+.scroll-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 0 0;
+  opacity: 0.6;
+}
+
+/* Glossary button & panel */
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  background: rgba(10, 14, 26, 0.9);
+  color: var(--accent-blue);
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.glossary-btn:hover {
+  border-color: var(--accent-blue);
+  background: rgba(56, 189, 248, 0.15);
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.25);
+  transform: scale(1.08);
+}
+
+.glossary-panel {
+  position: fixed;
+  top: 0;
+  right: -420px;
+  width: 400px;
+  max-width: 90vw;
+  height: 100vh;
+  background: rgba(10, 14, 26, 0.95);
+  border-left: 1.5px solid rgba(56, 189, 248, 0.2);
+  backdrop-filter: blur(16px);
+  z-index: 210;
+  overflow-y: auto;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
+  padding: 28px 24px 40px;
+}
+
+.glossary-panel.open {
+  right: 0;
+}
+
+.glossary-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.glossary-panel-title {
+  font-size: 18px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glossary-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.glossary-close-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.glossary-item {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.25s ease;
+}
+
+.glossary-item:hover {
+  border-color: rgba(56, 189, 248, 0.2);
+  background: rgba(56, 189, 248, 0.04);
+}
+
+.glossary-term {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  margin-bottom: 4px;
+}
+
+.glossary-def {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.glossary-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 10, 24, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 205;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.glossary-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1>Transformer 架构全景</h1>
+  <p>Attention is All You Need</p>
+</header>
+
+<canvas id="particleCanvas"></canvas>
+
+<div class="arch-container" id="archContainer">
+  <!-- Encoder Column -->
+  <div class="column" id="encoderColumn">
+    <div class="column-label encoder-label">Encoder</div>
+
+    <div class="io-label input-label">源序列输入 (Source)</div>
+    <div class="flow-arrow">&darr;</div>
+
+    <div class="module module-embed" data-key="enc-embed" onclick="showDetail('enc-embed')">
+      <div class="module-name">输入嵌入</div>
+      <div class="module-en">Input Embedding</div>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+
+    <div class="module module-pos" data-key="enc-pos" onclick="showDetail('enc-pos')">
+      <div class="module-name">位置编码</div>
+      <div class="module-en">Positional Encoding</div>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+
+    <div class="stack-wrapper encoder-stack" id="encoderStack">
+      <div class="nx-badge">&times; N</div>
+      <div class="module module-attn" data-key="enc-mha" onclick="showDetail('enc-mha')">
+        <div class="module-name">多头自注意力</div>
+        <div class="module-en">Multi-Head Self-Attention</div>
+      </div>
+      <div class="flow-arrow">&darr;</div>
+      <div class="module module-norm" data-key="enc-norm1" onclick="showDetail('enc-norm1')">
+        <div class="module-name">残差连接 & 层归一化</div>
+        <div class="module-en">Add &amp; Norm</div>
+      </div>
+      <div class="flow-arrow">&darr;</div>
+      <div class="module module-ff" data-key="enc-ff" onclick="showDetail('enc-ff')">
+        <div class="module-name">前馈网络</div>
+        <div class="module-en">Feed Forward Network</div>
+      </div>
+      <div class="flow-arrow">&darr;</div>
+      <div class="module module-norm" data-key="enc-norm2" onclick="showDetail('enc-norm2')">
+        <div class="module-name">残差连接 & 层归一化</div>
+        <div class="module-en">Add &amp; Norm</div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">&darr;</div>
+    <div class="io-label" style="color:var(--accent-blue);border-color:rgba(56,189,248,0.3);background:rgba(56,189,248,0.08);">编码器输出 &rarr; K, V</div>
+  </div>
+
+  <!-- Center connector -->
+  <div class="center-column" id="centerColumn">
+    <svg id="connectionSvg" width="80" height="100%" style="overflow:visible;">
+    </svg>
+  </div>
+
+  <!-- Decoder Column -->
+  <div class="column" id="decoderColumn">
+    <div class="column-label decoder-label">Decoder</div>
+
+    <div class="io-label input-label">目标序列输入 (Target)</div>
+    <div class="flow-arrow">&darr;</div>
+
+    <div class="module module-embed" data-key="dec-embed" onclick="showDetail('dec-embed')">
+      <div class="module-name">输出嵌入</div>
+      <div class="module-en">Output Embedding</div>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+
+    <div class="module module-pos" data-key="dec-pos" onclick="showDetail('dec-pos')">
+      <div class="module-name">位置编码</div>
+      <div class="module-en">Positional Encoding</div>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+
+    <div class="stack-wrapper decoder-stack" id="decoderStack">
+      <div class="nx-badge">&times; N</div>
+      <div class="module module-mask" data-key="dec-mask" onclick="showDetail('dec-mask')">
+        <div class="module-name">掩码多头自注意力</div>
+        <div class="module-en">Masked Multi-Head Self-Attention</div>
+      </div>
+      <div class="flow-arrow">&darr;</div>
+      <div class="module module-norm" data-key="dec-norm1" onclick="showDetail('dec-norm1')">
+        <div class="module-name">残差连接 & 层归一化</div>
+        <div class="module-en">Add &amp; Norm</div>
+      </div>
+      <div class="flow-arrow">&darr;</div>
+      <div class="module module-cross" data-key="dec-cross" onclick="showDetail('dec-cross')">
+        <div class="module-name">交叉注意力</div>
+        <div class="module-en">Cross-Attention (Enc K,V)</div>
+      </div>
+      <div class="flow-arrow">&darr;</div>
+      <div class="module module-norm" data-key="dec-norm2" onclick="showDetail('dec-norm2')">
+        <div class="module-name">残差连接 & 层归一化</div>
+        <div class="module-en">Add &amp; Norm</div>
+      </div>
+      <div class="flow-arrow">&darr;</div>
+      <div class="module module-ff" data-key="dec-ff" onclick="showDetail('dec-ff')">
+        <div class="module-name">前馈网络</div>
+        <div class="module-en">Feed Forward Network</div>
+      </div>
+      <div class="flow-arrow">&darr;</div>
+      <div class="module module-norm" data-key="dec-norm3" onclick="showDetail('dec-norm3')">
+        <div class="module-name">残差连接 & 层归一化</div>
+        <div class="module-en">Add &amp; Norm</div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">&darr;</div>
+
+    <div class="module module-output" data-key="dec-linear" onclick="showDetail('dec-linear')">
+      <div class="module-name">线性层 + Softmax</div>
+      <div class="module-en">Linear + Softmax</div>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+    <div class="io-label output-label">输出概率 (Output Probabilities)</div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="demo-progress" id="demoProgress"></div>
+  <button class="btn" id="autoDemoBtn" onclick="toggleAutoDemo()">&#9654; 自动演示</button>
+  <button class="btn" id="resetBtn" onclick="resetDemo()">&#8635; 重置</button>
+</div>
+
+<!-- Detail Overlay -->
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetailOverlay(event)">
+  <div class="detail-panel" id="detailPanel">
+    <button class="close-btn" onclick="closeDetail()">&times;</button>
+    <h2 id="detailTitle"></h2>
+    <div class="detail-en" id="detailEn"></div>
+    <div class="detail-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Glossary Button -->
+<button class="glossary-btn" id="glossaryBtn" title="术语表" onclick="toggleGlossary()">&#10067;</button>
+
+<!-- Glossary Backdrop -->
+<div class="glossary-backdrop" id="glossaryBackdrop" onclick="toggleGlossary()"></div>
+
+<!-- Glossary Panel -->
+<div class="glossary-panel" id="glossaryPanel">
+  <div class="glossary-panel-header">
+    <div class="glossary-panel-title">术语表 Glossary</div>
+    <button class="glossary-close-btn" onclick="toggleGlossary()">&times;</button>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Transformer</div>
+    <div class="glossary-def">一种神经网络架构，2017年由Google提出，是当前几乎所有大模型的基础</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Encoder（编码器）</div>
+    <div class="glossary-def">将输入文本转换为数学表示（向量）的模块</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Decoder（解码器）</div>
+    <div class="glossary-def">将向量转换回文本输出的模块</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Embedding（嵌入）</div>
+    <div class="glossary-def">将文字转换成数字向量的过程</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Positional Encoding（位置编码）</div>
+    <div class="glossary-def">告诉模型每个词在句子中的位置</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Multi-Head Attention（多头注意力）</div>
+    <div class="glossary-def">多个"视角"同时关注输入的不同方面</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Q/K/V (Query/Key/Value)</div>
+    <div class="glossary-def">注意力机制的三个核心矩阵：查询、键、值</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Feed Forward Network (FFN)</div>
+    <div class="glossary-def">前馈神经网络，对每个位置独立做非线性变换</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Residual Connection（残差连接）</div>
+    <div class="glossary-def">跳过某些层直接传递信息，防止信息丢失</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Layer Normalization（层归一化）</div>
+    <div class="glossary-def">标准化数据使训练更稳定</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Softmax</div>
+    <div class="glossary-def">将数字转换为概率分布的函数</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Masked Attention（掩码注意力）</div>
+    <div class="glossary-def">防止解码器"偷看"未来的词</div>
+  </div>
+</div>
+
+<script>
+// ===================== GLOSSARY =====================
+function toggleGlossary() {
+  var panel = document.getElementById('glossaryPanel');
+  var backdrop = document.getElementById('glossaryBackdrop');
+  var isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+    backdrop.classList.remove('open');
+  } else {
+    panel.classList.add('open');
+    backdrop.classList.add('open');
+  }
+}
+
+// ===================== DATA =====================
+const moduleData = {
+  'enc-embed': {
+    title: '输入嵌入',
+    en: 'Input Embedding',
+    color: '#fbbf24',
+    body: `
+      <p>将离散的 token（词/子词）映射为连续的高维向量表示。</p>
+      <span class="formula">x<sub>embed</sub> = Embedding(token_id) &times; &radic;d<sub>model</sub></span>
+      <p><strong>关键要点：</strong></p>
+      <ul>
+        <li>嵌入维度 d<sub>model</sub> = 512（原论文）</li>
+        <li>权重矩阵大小：词表大小 V &times; d<sub>model</sub></li>
+        <li>乘以 &radic;d<sub>model</sub> 是为了缩放，使嵌入值与位置编码量级匹配</li>
+        <li>编码器和解码器可以共享嵌入权重</li>
+      </ul>
+    `
+  },
+  'enc-pos': {
+    title: '位置编码',
+    en: 'Positional Encoding',
+    color: '#fb923c',
+    body: `
+      <p>由于注意力机制不含位置信息，需要显式注入每个 token 的位置信号。</p>
+      <span class="formula">PE(pos, 2i) = sin(pos / 10000<sup>2i/d</sup>)<br>PE(pos, 2i+1) = cos(pos / 10000<sup>2i/d</sup>)</span>
+      <p><strong>关键要点：</strong></p>
+      <ul>
+        <li>使用正弦/余弦函数的不同频率编码位置</li>
+        <li>相对位置可以通过线性变换表示</li>
+        <li>与嵌入相加（而非拼接），不增加维度</li>
+        <li>现代变体：RoPE、ALiBi 等可学习位置编码</li>
+      </ul>
+    `
+  },
+  'enc-mha': {
+    title: '多头自注意力',
+    en: 'Multi-Head Self-Attention',
+    color: '#38bdf8',
+    body: `
+      <p>Transformer 的核心机制：让每个位置能关注序列中所有其他位置。</p>
+      <span class="formula">Attention(Q,K,V) = softmax(QK<sup>T</sup> / &radic;d<sub>k</sub>) V</span>
+      <p><strong>Q / K / V 三兄弟：</strong></p>
+      <ul>
+        <li><strong>Query (Q)</strong>：「我在找什么？」— 当前位置的查询向量</li>
+        <li><strong>Key (K)</strong>：「我能提供什么？」— 其他位置的索引向量</li>
+        <li><strong>Value (V)</strong>：「我的实际内容」— 被加权求和的信息</li>
+      </ul>
+      <p><strong>多头的意义：</strong></p>
+      <ul>
+        <li>h 个注意力头并行计算（原论文 h=8）</li>
+        <li>每个头关注不同的子空间特征</li>
+        <li>最后拼接所有头的输出并线性投影</li>
+      </ul>
+    `
+  },
+  'enc-norm1': {
+    title: '残差连接 & 层归一化',
+    en: 'Add & Layer Normalization',
+    color: '#4ade80',
+    body: `
+      <p>两个关键技术的组合，保障深层网络的训练稳定性。</p>
+      <span class="formula">output = LayerNorm(x + SubLayer(x))</span>
+      <p><strong>残差连接 (Residual Connection)：</strong></p>
+      <ul>
+        <li>将子层的输入直接加到输出上（跳跃连接）</li>
+        <li>缓解梯度消失，让梯度可以直接回传</li>
+        <li>要求子层输入/输出维度一致（d<sub>model</sub>）</li>
+      </ul>
+      <p><strong>层归一化 (Layer Norm)：</strong></p>
+      <ul>
+        <li>对每个样本的特征维度做归一化</li>
+        <li>稳定训练过程，加速收敛</li>
+        <li>Post-LN（原论文）vs Pre-LN（现代常用）</li>
+      </ul>
+    `
+  },
+  'enc-ff': {
+    title: '前馈网络',
+    en: 'Position-wise Feed Forward Network',
+    color: '#22d3ee',
+    body: `
+      <p>对每个位置独立施加相同的两层全连接网络。</p>
+      <span class="formula">FFN(x) = max(0, xW<sub>1</sub> + b<sub>1</sub>)W<sub>2</sub> + b<sub>2</sub></span>
+      <p><strong>关键要点：</strong></p>
+      <ul>
+        <li>两层线性变换，中间夹 ReLU 激活</li>
+        <li>内层维度 d<sub>ff</sub> = 2048（4 倍于 d<sub>model</sub>）</li>
+        <li>可理解为 1&times;1 卷积的两次堆叠</li>
+        <li>存储了大量「知识」，类似记忆网络</li>
+        <li>现代变体常用 GeLU / SwiGLU 激活函数</li>
+      </ul>
+    `
+  },
+  'enc-norm2': {
+    title: '残差连接 & 层归一化',
+    en: 'Add & Layer Normalization',
+    color: '#4ade80',
+    body: `
+      <p>编码器中第二个 Add & Norm，位于前馈网络之后。</p>
+      <span class="formula">output = LayerNorm(x + FFN(x))</span>
+      <p>结构与第一个 Add & Norm 完全相同，确保前馈网络的输出也能通过残差连接保留原始信息。</p>
+      <p><strong>编码器层完整流程：</strong></p>
+      <ul>
+        <li>输入 &rarr; 多头自注意力 &rarr; Add & Norm</li>
+        <li>&rarr; 前馈网络 &rarr; Add & Norm &rarr; 输出</li>
+        <li>整个流程重复 N 次（原论文 N=6）</li>
+      </ul>
+    `
+  },
+  'dec-embed': {
+    title: '输出嵌入',
+    en: 'Output Embedding',
+    color: '#fbbf24',
+    body: `
+      <p>将目标序列的 token 映射为连续向量，结构与输入嵌入相同。</p>
+      <span class="formula">y<sub>embed</sub> = Embedding(target_token_id) &times; &radic;d<sub>model</sub></span>
+      <p><strong>关键区别：</strong></p>
+      <ul>
+        <li>训练时：使用完整目标序列（右移一位）作为输入</li>
+        <li>推理时：自回归生成，每次输入已生成的 token</li>
+        <li>原论文中编码器/解码器共享嵌入权重矩阵</li>
+        <li>输出层的权重矩阵也可与嵌入层共享（权重绑定）</li>
+      </ul>
+    `
+  },
+  'dec-pos': {
+    title: '位置编码',
+    en: 'Positional Encoding',
+    color: '#fb923c',
+    body: `
+      <p>与编码器端使用相同的位置编码方案。</p>
+      <span class="formula">PE(pos, 2i) = sin(pos / 10000<sup>2i/d</sup>)</span>
+      <p><strong>解码器端的特殊之处：</strong></p>
+      <ul>
+        <li>位置编码公式相同，但作用于目标序列</li>
+        <li>训练时目标序列有确定长度</li>
+        <li>推理时序列长度逐步增长（自回归）</li>
+        <li>正弦编码天然支持变长序列，无需重新训练</li>
+      </ul>
+    `
+  },
+  'dec-mask': {
+    title: '掩码多头自注意力',
+    en: 'Masked Multi-Head Self-Attention',
+    color: '#f472b6',
+    body: `
+      <p>与编码器的自注意力类似，但添加了<strong>因果掩码</strong>，防止「偷看未来」。</p>
+      <span class="formula">Mask: 将未来位置的注意力权重设为 -&infin;</span>
+      <p><strong>为什么需要掩码？</strong></p>
+      <ul>
+        <li>解码器按从左到右顺序生成</li>
+        <li>位置 i 只能关注位置 0 ~ i（不能看到 i+1 之后的内容）</li>
+        <li>掩码矩阵是一个下三角矩阵</li>
+        <li>训练时可并行计算所有位置（Teacher Forcing）</li>
+        <li>推理时天然满足因果约束（逐 token 生成）</li>
+      </ul>
+    `
+  },
+  'dec-norm1': {
+    title: '残差连接 & 层归一化',
+    en: 'Add & Layer Normalization',
+    color: '#4ade80',
+    body: `
+      <p>解码器中第一个 Add & Norm，位于掩码自注意力之后。</p>
+      <span class="formula">output = LayerNorm(x + MaskedMHA(x))</span>
+      <p>确保掩码自注意力的输出能与原始输入信息融合，为下一步的交叉注意力提供稳定的输入。</p>
+    `
+  },
+  'dec-cross': {
+    title: '交叉注意力',
+    en: 'Encoder-Decoder Cross-Attention',
+    color: '#a78bfa',
+    body: `
+      <p>解码器与编码器之间的桥梁 — 让解码器「阅读」编码器的输出。</p>
+      <span class="formula">Q = 解码器上层输出<br>K, V = 编码器最终输出</span>
+      <p><strong>核心机制：</strong></p>
+      <ul>
+        <li><strong>Q</strong> 来自解码器（「我需要什么信息？」）</li>
+        <li><strong>K, V</strong> 来自编码器（「源序列的全部信息」）</li>
+        <li>每个解码位置都能关注所有源序列位置</li>
+        <li>这是 Encoder-Decoder 架构的核心连接点</li>
+      </ul>
+      <p><strong>在翻译任务中：</strong></p>
+      <ul>
+        <li>解码器生成中文时，通过交叉注意力查看英文原文</li>
+        <li>自动学会对齐（类似传统的 alignment）</li>
+      </ul>
+    `
+  },
+  'dec-norm2': {
+    title: '残差连接 & 层归一化',
+    en: 'Add & Layer Normalization',
+    color: '#4ade80',
+    body: `
+      <p>解码器中第二个 Add & Norm，位于交叉注意力之后。</p>
+      <span class="formula">output = LayerNorm(x + CrossAttention(x))</span>
+      <p>将交叉注意力获取的源序列信息与解码器自身的表示融合。</p>
+    `
+  },
+  'dec-ff': {
+    title: '前馈网络',
+    en: 'Position-wise Feed Forward Network',
+    color: '#22d3ee',
+    body: `
+      <p>与编码器中的 FFN 结构完全相同。</p>
+      <span class="formula">FFN(x) = Activation(xW<sub>1</sub> + b<sub>1</sub>)W<sub>2</sub> + b<sub>2</sub></span>
+      <p><strong>解码器 FFN 的作用：</strong></p>
+      <ul>
+        <li>整合自注意力 + 交叉注意力的融合信息</li>
+        <li>进行非线性变换，提取高层特征</li>
+        <li>为最终的输出预测提供丰富的语义表示</li>
+      </ul>
+    `
+  },
+  'dec-norm3': {
+    title: '残差连接 & 层归一化',
+    en: 'Add & Layer Normalization',
+    color: '#4ade80',
+    body: `
+      <p>解码器层中最后一个 Add & Norm。</p>
+      <span class="formula">output = LayerNorm(x + FFN(x))</span>
+      <p><strong>解码器层完整流程：</strong></p>
+      <ul>
+        <li>输入 &rarr; 掩码自注意力 &rarr; Add & Norm</li>
+        <li>&rarr; 交叉注意力 &rarr; Add & Norm</li>
+        <li>&rarr; 前馈网络 &rarr; Add & Norm &rarr; 输出</li>
+        <li>整个流程重复 N 次（原论文 N=6）</li>
+      </ul>
+    `
+  },
+  'dec-linear': {
+    title: '线性层 + Softmax',
+    en: 'Linear Projection + Softmax',
+    color: '#fbbf24',
+    body: `
+      <p>将解码器最终输出映射为词表上的概率分布。</p>
+      <span class="formula">P(next_token) = Softmax(Linear(decoder_output))</span>
+      <p><strong>关键要点：</strong></p>
+      <ul>
+        <li>线性层将 d<sub>model</sub> 维向量映射到词表大小 V 维</li>
+        <li>Softmax 将 logits 转换为概率分布</li>
+        <li>训练时用交叉熵损失与真实标签对比</li>
+        <li>推理时取 argmax 或采样得到下一个 token</li>
+        <li>线性层权重可与嵌入矩阵共享（Weight Tying）</li>
+      </ul>
+      <p><strong>解码策略：</strong></p>
+      <ul>
+        <li>Greedy：取概率最高的 token</li>
+        <li>Beam Search：维护 k 个候选序列</li>
+        <li>Top-k / Top-p：从概率最高的子集中采样</li>
+        <li>Temperature：控制分布的尖锐程度</li>
+      </ul>
+    `
+  }
+};
+
+// Demo order
+const demoOrder = [
+  'enc-embed', 'enc-pos', 'enc-mha', 'enc-norm1', 'enc-ff', 'enc-norm2',
+  'dec-embed', 'dec-pos', 'dec-mask', 'dec-norm1', 'dec-cross', 'dec-norm2',
+  'dec-ff', 'dec-norm3', 'dec-linear'
+];
+
+// ===================== PARTICLE SYSTEM =====================
+const canvas = document.getElementById('particleCanvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+let animId = null;
+let canvasW, canvasH;
+
+function resizeCanvas() {
+  canvasW = canvas.width = window.innerWidth;
+  canvasH = canvas.height = window.innerHeight;
+}
+
+function createParticle(side) {
+  const isEncoder = side === 'encoder';
+  const col = isEncoder
+    ? document.getElementById('encoderColumn')
+    : document.getElementById('decoderColumn');
+  if (!col) return null;
+  const rect = col.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const startY = rect.bottom - 20;
+  const endY = rect.top + 30;
+
+  return {
+    x: cx + (Math.random() - 0.5) * 40,
+    y: startY + Math.random() * 30,
+    targetY: endY,
+    startY: startY,
+    speed: 0.3 + Math.random() * 0.5,
+    size: 1.5 + Math.random() * 2,
+    alpha: 0.4 + Math.random() * 0.5,
+    color: isEncoder ? [56, 189, 248] : [167, 139, 250],
+    wobble: Math.random() * Math.PI * 2,
+    wobbleSpeed: 0.02 + Math.random() * 0.02,
+    wobbleAmp: 2 + Math.random() * 4
+  };
+}
+
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < 18; i++) {
+    const p = createParticle(i < 9 ? 'encoder' : 'decoder');
+    if (p) {
+      p.y = p.startY - Math.random() * (p.startY - p.targetY);
+      particles.push(p);
+    }
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.y -= p.speed;
+    p.wobble += p.wobbleSpeed;
+    p.x += Math.sin(p.wobble) * 0.3;
+
+    const progress = 1 - (p.y - p.targetY) / (p.startY - p.targetY);
+    p.alpha = progress < 0.1 ? progress * 10 * 0.6
+      : progress > 0.9 ? (1 - progress) * 10 * 0.6
+      : 0.6;
+
+    if (p.y < p.targetY - 10) {
+      const side = p.color[0] === 56 ? 'encoder' : 'decoder';
+      const np = createParticle(side);
+      if (np) {
+        particles[i] = np;
+      } else {
+        particles.splice(i, 1);
+      }
+    }
+  }
+
+  if (Math.random() < 0.08 && particles.length < 30) {
+    const side = Math.random() < 0.5 ? 'encoder' : 'decoder';
+    const p = createParticle(side);
+    if (p) particles.push(p);
+  }
+}
+
+function drawParticles() {
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  for (const p of particles) {
+    const [r, g, b] = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r},${g},${b},${p.alpha})`;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
+    grad.addColorStop(0, `rgba(${r},${g},${b},${p.alpha * 0.3})`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+}
+
+function animLoop() {
+  updateParticles();
+  drawParticles();
+  animId = requestAnimationFrame(animLoop);
+}
+
+// ===================== CONNECTION LINE (SVG) =====================
+function drawConnectionLine() {
+  const svg = document.getElementById('connectionSvg');
+  if (!svg) return;
+  const container = document.getElementById('archContainer');
+  if (!container) return;
+
+  const encOutput = document.querySelector('#encoderColumn .io-label:last-child');
+  const crossMod = document.querySelector('[data-key="dec-cross"]');
+  if (!encOutput || !crossMod) return;
+
+  const containerRect = container.getBoundingClientRect();
+  const encRect = encOutput.getBoundingClientRect();
+  const crossRect = crossMod.getBoundingClientRect();
+
+  const x1 = encRect.right - containerRect.left + 4;
+  const y1 = encRect.top + encRect.height / 2 - containerRect.top;
+  const x2 = crossRect.left - containerRect.left - 4;
+  const y2 = crossRect.top + crossRect.height / 2 - containerRect.top;
+
+  const midX = (x1 + x2) / 2;
+
+  svg.setAttribute('width', container.scrollWidth);
+  svg.setAttribute('height', container.scrollHeight);
+  svg.style.position = 'absolute';
+  svg.style.top = '0';
+  svg.style.left = '0';
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="rgba(56,189,248,0.5)" />
+        <stop offset="50%" stop-color="rgba(167,139,250,0.5)" />
+        <stop offset="100%" stop-color="rgba(167,139,250,0.5)" />
+      </linearGradient>
+      <marker id="arrowHead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="rgba(167,139,250,0.6)" />
+      </marker>
+      <filter id="glowLine">
+        <feGaussianBlur stdDeviation="3" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </defs>
+    <path d="M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}"
+      stroke="url(#lineGrad)" stroke-width="2" fill="none"
+      stroke-dasharray="6,4" marker-end="url(#arrowHead)"
+      filter="url(#glowLine)" opacity="0.7" />
+    <text x="${midX}" y="${Math.min(y1, y2) - 8}" text-anchor="middle"
+      font-family="JetBrains Mono" font-size="10" fill="rgba(148,163,184,0.6)">K, V</text>
+  `;
+}
+
+// ===================== DETAIL PANEL =====================
+function showDetail(key) {
+  const data = moduleData[key];
+  if (!data) return;
+
+  document.getElementById('detailTitle').textContent = data.title;
+  document.getElementById('detailTitle').style.color = data.color;
+  document.getElementById('detailEn').textContent = data.en;
+  document.getElementById('detailBody').innerHTML = data.body;
+  document.getElementById('detailOverlay').classList.add('active');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('active');
+}
+
+function closeDetailOverlay(e) {
+  if (e.target === document.getElementById('detailOverlay')) {
+    closeDetail();
+  }
+}
+
+// ===================== AUTO DEMO =====================
+let demoRunning = false;
+let demoIndex = -1;
+let demoTimer = null;
+
+function buildDemoProgress() {
+  const container = document.getElementById('demoProgress');
+  container.innerHTML = '';
+  for (let i = 0; i < demoOrder.length; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'demo-dot';
+    dot.dataset.index = i;
+    container.appendChild(dot);
+  }
+}
+
+function highlightModule(key, on) {
+  const mod = document.querySelector(`[data-key="${key}"]`);
+  if (mod) {
+    if (on) {
+      mod.classList.add('highlighted');
+      mod.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      mod.classList.remove('highlighted');
+    }
+  }
+}
+
+function clearAllHighlights() {
+  document.querySelectorAll('.module.highlighted').forEach(function(m) {
+    m.classList.remove('highlighted');
+  });
+  document.querySelectorAll('.demo-dot').forEach(function(d) {
+    d.classList.remove('active', 'done');
+  });
+}
+
+function demoStep() {
+  if (!demoRunning) return;
+
+  if (demoIndex >= 0) {
+    highlightModule(demoOrder[demoIndex], false);
+    const prevDot = document.querySelector(`.demo-dot[data-index="${demoIndex}"]`);
+    if (prevDot) {
+      prevDot.classList.remove('active');
+      prevDot.classList.add('done');
+    }
+  }
+
+  demoIndex++;
+  if (demoIndex >= demoOrder.length) {
+    stopAutoDemo();
+    return;
+  }
+
+  const key = demoOrder[demoIndex];
+  highlightModule(key, true);
+  showDetail(key);
+
+  const dot = document.querySelector(`.demo-dot[data-index="${demoIndex}"]`);
+  if (dot) dot.classList.add('active');
+
+  demoTimer = setTimeout(function() {
+    closeDetail();
+    setTimeout(demoStep, 600);
+  }, 3500);
+}
+
+function toggleAutoDemo() {
+  if (demoRunning) {
+    stopAutoDemo();
+  } else {
+    startAutoDemo();
+  }
+}
+
+function startAutoDemo() {
+  demoRunning = true;
+  demoIndex = -1;
+  clearAllHighlights();
+  document.getElementById('autoDemoBtn').classList.add('active');
+  document.getElementById('autoDemoBtn').innerHTML = '&#9646;&#9646; 暂停演示';
+  demoStep();
+}
+
+function stopAutoDemo() {
+  demoRunning = false;
+  clearTimeout(demoTimer);
+  document.getElementById('autoDemoBtn').classList.remove('active');
+  document.getElementById('autoDemoBtn').innerHTML = '&#9654; 自动演示';
+}
+
+function resetDemo() {
+  stopAutoDemo();
+  demoIndex = -1;
+  clearAllHighlights();
+  closeDetail();
+}
+
+// ===================== KEYBOARD =====================
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (document.getElementById('detailOverlay').classList.contains('active')) {
+      closeDetail();
+    }
+  }
+});
+
+// ===================== INIT =====================
+function init() {
+  resizeCanvas();
+  buildDemoProgress();
+  initParticles();
+  animLoop();
+
+  setTimeout(drawConnectionLine, 300);
+
+  window.addEventListener('resize', function() {
+    resizeCanvas();
+    drawConnectionLine();
+  });
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

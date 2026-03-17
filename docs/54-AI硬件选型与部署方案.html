@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 硬件选型与部署方案 — 从预算到配置的完整指南</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-card: #1a2035;
+  --bg-card-hover: #1e2744;
+  --border: #2a3454;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-blue: #3b82f6;
+  --accent-green: #22c55e;
+  --accent-red: #ef4444;
+  --accent-yellow: #eab308;
+  --accent-purple: #a855f7;
+  --accent-orange: #f97316;
+  --nvidia-green: #76b900;
+  --apple-silver: #a1a1aa;
+  --amd-red: #ed1c24;
+  --gold: #fbbf24;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 40px 20px 20px;
+  position: relative;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #3b82f6, #a855f7, #22c55e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+/* Glossary Button */
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+  z-index: 1000;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glossary-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(59, 130, 246, 0.6);
+}
+
+/* Glossary Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.modal h2 {
+  font-size: 22px;
+  margin-bottom: 20px;
+  color: var(--accent-blue);
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.glossary-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.glossary-item:last-child { border-bottom: none; }
+
+.glossary-term {
+  font-family: var(--font-mono);
+  color: var(--accent-green);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.glossary-def {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  max-width: 1200px;
+  margin: 16px auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-nav::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.3s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.tab-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--bg-card);
+  color: var(--accent-blue);
+  border-bottom-color: var(--bg-card);
+  font-weight: 700;
+}
+
+.tab-btn .tab-icon {
+  margin-right: 6px;
+}
+
+/* Tab Content */
+.tab-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+.tab-panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+
+.tab-panel.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Section Card */
+.section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  transition: border-color 0.3s;
+}
+
+.section-card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title .icon {
+  font-size: 24px;
+}
+
+/* Hardware Basics - Tab 1 */
+.hw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.hw-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.hw-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 12px 12px 0 0;
+}
+
+.hw-card.gpu::before { background: var(--nvidia-green); }
+.hw-card.cpu::before { background: var(--accent-blue); }
+.hw-card.ram::before { background: var(--accent-purple); }
+.hw-card.storage::before { background: var(--accent-orange); }
+.hw-card.network::before { background: var(--text-muted); }
+
+.hw-card:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.hw-card.expanded {
+  grid-column: 1 / -1;
+}
+
+.hw-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.hw-card-icon {
+  font-size: 32px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.hw-card.gpu .hw-card-icon { background: rgba(118, 185, 0, 0.15); }
+.hw-card.cpu .hw-card-icon { background: rgba(59, 130, 246, 0.15); }
+.hw-card.ram .hw-card-icon { background: rgba(168, 85, 247, 0.15); }
+.hw-card.storage .hw-card-icon { background: rgba(249, 115, 22, 0.15); }
+.hw-card.network .hw-card-icon { background: rgba(100, 116, 139, 0.15); }
+
+.hw-card-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.hw-card-role {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hw-card-body {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.hw-card-body ul {
+  list-style: none;
+  padding: 0;
+}
+
+.hw-card-body li {
+  padding: 4px 0;
+  padding-left: 20px;
+  position: relative;
+}
+
+.hw-card-body li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 11px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  opacity: 0.6;
+}
+
+.hw-card.gpu .hw-card-body li::before { background: var(--nvidia-green); }
+.hw-card.cpu .hw-card-body li::before { background: var(--accent-blue); }
+.hw-card.ram .hw-card-body li::before { background: var(--accent-purple); }
+.hw-card.storage .hw-card-body li::before { background: var(--accent-orange); }
+.hw-card.network .hw-card-body li::before { background: var(--text-muted); }
+
+.key-metric {
+  display: inline-block;
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--gold);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+/* VRAM Animation */
+.vram-demo {
+  margin-top: 16px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+}
+
+.vram-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.vram-label {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  min-width: 80px;
+}
+
+.vram-bar {
+  flex: 1;
+  height: 28px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.vram-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 1s ease, background 0.5s;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: white;
+}
+
+.vram-fill.fit { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.vram-fill.tight { background: linear-gradient(90deg, #eab308, #ca8a04); }
+.vram-fill.overflow { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+.vram-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.vram-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  transition: all 0.2s;
+}
+
+.vram-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.vram-btn.active {
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-blue);
+}
+
+.vram-status {
+  font-size: 13px;
+  margin-top: 8px;
+  font-weight: 500;
+  min-height: 20px;
+}
+
+/* GPU Tier List - Tab 2 */
+.tier-section {
+  margin-bottom: 24px;
+}
+
+.tier-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tier-badge {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tier-badge.consumer { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+.tier-badge.apple { background: rgba(161, 161, 170, 0.15); color: var(--apple-silver); }
+.tier-badge.pro { background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); }
+.tier-badge.cloud { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+
+.gpu-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.gpu-table th {
+  background: var(--bg-primary);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+}
+
+.gpu-table th:first-child { border-radius: 8px 0 0 0; }
+.gpu-table th:last-child { border-radius: 0 8px 0 0; }
+
+.gpu-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.gpu-table tr {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gpu-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.gpu-table tbody tr:hover td {
+  color: var(--text-primary);
+}
+
+.gpu-name {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.gpu-name.nvidia { color: var(--nvidia-green); }
+.gpu-name.apple { color: var(--apple-silver); }
+
+.gpu-price {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.gpu-vram {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-blue);
+}
+
+.gpu-detail-panel {
+  display: none;
+  background: var(--bg-primary);
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin: 8px 12px;
+  border: 1px solid var(--border);
+  animation: fadeIn 0.3s ease;
+}
+
+.gpu-detail-panel.active { display: block; }
+
+.gpu-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.gpu-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gpu-detail-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.gpu-detail-value {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.vram-visual {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.vram-visual-title {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.model-fit-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.model-fit-tag {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.model-fit-tag.fits {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--accent-green);
+}
+
+.model-fit-tag.tight {
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--gold);
+}
+
+.model-fit-tag.nope {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+/* Configurator - Tab 3 */
+.configurator {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.config-step {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+  transition: all 0.3s;
+}
+
+.config-step.completed {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.config-step.active-step {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  margin-right: 10px;
+}
+
+.step-number.done {
+  background: var(--accent-green);
+}
+
+.config-step h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.option-card {
+  padding: 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.option-card:hover {
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.option-card.selected {
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+}
+
+.option-icon {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.option-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.option-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Multi-select */
+.pref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.pref-chip {
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pref-chip:hover {
+  border-color: var(--accent-blue);
+}
+
+.pref-chip.selected {
+  border-color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.pref-chip .check {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.pref-chip.selected .check {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: white;
+}
+
+/* Generate Button */
+.generate-btn {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  margin: 24px auto;
+  padding: 16px 32px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+.generate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.5);
+}
+
+.generate-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Build Result */
+.build-result {
+  display: none;
+  animation: slideUp 0.6s ease;
+}
+
+.build-result.active { display: block; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.build-card {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.build-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), var(--accent-green));
+}
+
+.build-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--accent-blue);
+}
+
+.build-parts {
+  margin-bottom: 20px;
+}
+
+.build-part {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  animation: partSlide 0.4s ease forwards;
+  opacity: 0;
+}
+
+@keyframes partSlide {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.part-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.part-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 44px;
+}
+
+.part-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.part-price {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.build-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 2px solid var(--accent-blue);
+  margin-top: 8px;
+}
+
+.build-total-label {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.build-total-price {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--gold);
+  font-family: var(--font-mono);
+}
+
+.build-notes {
+  margin-top: 16px;
+}
+
+.build-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.build-note .note-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.build-note.good { color: var(--accent-green); }
+.build-note.warn { color: var(--gold); }
+.build-note.bad { color: var(--accent-red); }
+
+/* Distributed - Tab 4 */
+.arch-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .arch-compare { grid-template-columns: 1fr; }
+}
+
+.arch-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.arch-card h3 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.arch-card .arch-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.arch-diagram {
+  background: var(--bg-primary);
+  border-radius: 8px;
+  padding: 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  text-align: center;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arch-pros, .arch-cons {
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.arch-pros li::marker { content: '+ '; color: var(--accent-green); }
+.arch-cons li::marker { content: '- '; color: var(--accent-red); }
+
+.arch-pros, .arch-cons {
+  padding-left: 20px;
+}
+
+/* Decision Tree */
+.decision-tree {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.tree-node {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.tree-question {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid var(--accent-blue);
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.tree-yes {
+  background: rgba(34, 197, 94, 0.08);
+  border-left: 3px solid var(--accent-green);
+  margin-left: 24px;
+  color: var(--accent-green);
+}
+
+.tree-no {
+  background: rgba(239, 68, 68, 0.08);
+  border-left: 3px solid var(--accent-red);
+  margin-left: 24px;
+}
+
+.tree-sub {
+  margin-left: 48px;
+}
+
+/* Cost Table */
+.cost-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.cost-table th {
+  background: var(--bg-primary);
+  padding: 10px;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.cost-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.cost-table td:last-child {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+/* Model-Hardware Match - Tab 5 */
+.match-table-wrap {
+  overflow-x: auto;
+}
+
+.match-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  min-width: 800px;
+}
+
+.match-table th {
+  background: var(--bg-primary);
+  padding: 10px 8px;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.match-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.match-table tbody tr {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.match-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.model-name-cell {
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.match-expand {
+  display: none;
+  padding: 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 4px 0 8px;
+  font-size: 13px;
+  animation: fadeIn 0.3s ease;
+}
+
+.match-expand.active { display: block; }
+
+.match-expand h4 {
+  color: var(--accent-blue);
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.match-expand pre {
+  background: rgba(0,0,0,0.3);
+  padding: 12px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-green);
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.match-expand .tip {
+  color: var(--gold);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* Money Saving Tips - Tab 6 */
+.tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.tip-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.tip-card:hover {
+  border-color: rgba(251, 191, 36, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+.tip-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.tip-content h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.tip-content p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.tip-highlight {
+  display: inline-block;
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--gold);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Single/Distributed diagram animation */
+.diagram-box {
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  transition: all 0.3s;
+}
+
+.diagram-box.server {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.diagram-box .gpu-chip {
+  display: inline-block;
+  padding: 4px 8px;
+  background: rgba(118, 185, 0, 0.2);
+  border: 1px solid rgba(118, 185, 0, 0.3);
+  border-radius: 4px;
+  color: var(--nvidia-green);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.diagram-connector {
+  width: 40px;
+  height: 3px;
+  background: var(--accent-blue);
+  position: relative;
+}
+
+.diagram-connector::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  top: -3px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid var(--accent-blue);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .header h1 { font-size: 24px; }
+  .tab-btn { padding: 8px 12px; font-size: 12px; }
+  .hw-grid { grid-template-columns: 1fr; }
+  .option-grid { grid-template-columns: 1fr 1fr; }
+  .tips-grid { grid-template-columns: 1fr; }
+  .arch-compare { grid-template-columns: 1fr; }
+  .gpu-detail-grid { grid-template-columns: 1fr; }
+  .section-card { padding: 16px; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Glow effects */
+.glow-green { box-shadow: 0 0 20px rgba(118, 185, 0, 0.2); }
+.glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); }
+.glow-purple { box-shadow: 0 0 20px rgba(168, 85, 247, 0.2); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>AI 硬件选型与部署方案</h1>
+  <p>从预算到配置的完整指南 | 2026年3月</p>
+</div>
+
+<!-- Tab Navigation -->
+<nav class="tab-nav" id="tabNav">
+  <button class="tab-btn active" data-tab="tab1"><span class="tab-icon">🖥</span>核心硬件科普</button>
+  <button class="tab-btn" data-tab="tab2"><span class="tab-icon">📊</span>GPU 选购天梯图</button>
+  <button class="tab-btn" data-tab="tab3"><span class="tab-icon">⚙</span>交互式配置推荐器</button>
+  <button class="tab-btn" data-tab="tab4"><span class="tab-icon">🔗</span>单机 vs 分布式</button>
+  <button class="tab-btn" data-tab="tab5"><span class="tab-icon">🎯</span>模型硬件匹配表</button>
+  <button class="tab-btn" data-tab="tab6"><span class="tab-icon">💰</span>省钱秘籍</button>
+</nav>
+
+<!-- Tab Content -->
+<div class="tab-content">
+
+<!-- ==================== TAB 1: Hardware Basics ==================== -->
+<div class="tab-panel active" id="tab1">
+  <div class="section-card">
+    <div class="section-title"><span class="icon">🧠</span> AI 工作负载中，每个硬件扮演什么角色？</div>
+    <p style="color:var(--text-secondary); font-size:14px; margin-bottom:16px;">点击任意组件卡片查看详情。GPU 是 AI 工作负载中最关键的组件。</p>
+    <div class="hw-grid" id="hwGrid">
+
+      <!-- GPU Card -->
+      <div class="hw-card gpu" onclick="toggleHwCard(this)">
+        <div class="hw-card-header">
+          <div class="hw-card-icon">🎮</div>
+          <div>
+            <div class="hw-card-name">GPU / 显卡</div>
+            <div class="hw-card-role">AI 的"大脑" — 最重要!</div>
+          </div>
+        </div>
+        <div class="hw-card-body">
+          <ul>
+            <li><strong>VRAM (显存)</strong> = 能装多大的模型</li>
+            <li><strong>CUDA / Tensor Cores</strong> = 计算有多快</li>
+            <li><strong>显存带宽</strong> = 数据喂给计算核心的速度</li>
+          </ul>
+          <div class="key-metric">关键指标优先级: VRAM容量 > 显存带宽 > 算力(TFLOPS)</div>
+        </div>
+        <div class="vram-demo" onclick="event.stopPropagation()">
+          <div style="font-size:13px; font-weight:600; margin-bottom:10px; color:var(--text-primary);">显存装载模拟器</div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">选择 GPU，再选择模型，看看能不能装下：</div>
+          <div class="vram-controls">
+            <button class="vram-btn active" onclick="setVRAM(24, this)" data-vram="24">RTX 4090 (24GB)</button>
+            <button class="vram-btn" onclick="setVRAM(32, this)" data-vram="32">RTX 5090 (32GB)</button>
+            <button class="vram-btn" onclick="setVRAM(80, this)" data-vram="80">A100 (80GB)</button>
+            <button class="vram-btn" onclick="setVRAM(128, this)" data-vram="128">M4 Max (128GB)</button>
+          </div>
+          <div style="margin-top:12px;">
+            <div class="vram-controls">
+              <button class="vram-btn" onclick="loadModel(2, 'Qwen3.5-0.8B Q4', this)">0.8B Q4 (0.5GB)</button>
+              <button class="vram-btn" onclick="loadModel(5.5, 'Qwen3.5-9B Q4', this)">9B Q4 (5.5GB)</button>
+              <button class="vram-btn" onclick="loadModel(18, 'Qwen3.5-9B FP16', this)">9B FP16 (18GB)</button>
+              <button class="vram-btn" onclick="loadModel(42, '72B Q4', this)">72B Q4 (42GB)</button>
+              <button class="vram-btn" onclick="loadModel(140, '70B FP16', this)">70B FP16 (140GB)</button>
+            </div>
+          </div>
+          <div class="vram-bar-container" style="margin-top:14px;">
+            <div class="vram-label" id="vramLabel">24 GB</div>
+            <div class="vram-bar">
+              <div class="vram-fill fit" id="vramFill" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="vram-status" id="vramStatus"></div>
+        </div>
+      </div>
+
+      <!-- CPU Card -->
+      <div class="hw-card cpu" onclick="toggleHwCard(this)">
+        <div class="hw-card-header">
+          <div class="hw-card-icon">⚡</div>
+          <div>
+            <div class="hw-card-name">CPU / 处理器</div>
+            <div class="hw-card-role">调度员 — 协调数据流</div>
+          </div>
+        </div>
+        <div class="hw-card-body">
+          <ul>
+            <li>不直接做 AI 计算，但负责<strong>数据预处理、调度 GPU</strong></li>
+            <li>核心数影响数据加载 Pipeline 效率</li>
+            <li><strong>推理场景:</strong> 高主频优先 (单线程性能)</li>
+            <li><strong>训练场景:</strong> 多核优先 (数据并行加载)</li>
+            <li>llama.cpp CPU 推理: 核心数越多越快</li>
+          </ul>
+          <div class="key-metric">推理选高频，训练选多核</div>
+        </div>
+      </div>
+
+      <!-- RAM Card -->
+      <div class="hw-card ram" onclick="toggleHwCard(this)">
+        <div class="hw-card-header">
+          <div class="hw-card-icon">🗄</div>
+          <div>
+            <div class="hw-card-name">RAM / 内存</div>
+            <div class="hw-card-role">临时仓库 — 数据中转站</div>
+          </div>
+        </div>
+        <div class="hw-card-body">
+          <ul>
+            <li>数据集加载、模型加载前的<strong>中转站</strong></li>
+            <li>CPU 推理时: RAM = "显存"（模型放在内存里）</li>
+            <li>Apple Silicon 统一内存: RAM 就是 VRAM</li>
+          </ul>
+          <div class="key-metric">RAM >= 2x GPU VRAM（至少等于模型大小）</div>
+        </div>
+      </div>
+
+      <!-- Storage Card -->
+      <div class="hw-card storage" onclick="toggleHwCard(this)">
+        <div class="hw-card-header">
+          <div class="hw-card-icon">💾</div>
+          <div>
+            <div class="hw-card-name">Storage / 存储</div>
+            <div class="hw-card-role">模型仓库 — 持久化存储</div>
+          </div>
+        </div>
+        <div class="hw-card-body">
+          <ul>
+            <li><strong>NVMe SSD:</strong> 70B 模型 ~40GB，NVMe 8秒 vs SATA 30秒</li>
+            <li>每个模型 10-100GB，加上数据集，建议 <strong>2TB 起</strong></li>
+            <li>训练时: 数据集 IO 是瓶颈，必须 NVMe</li>
+          </ul>
+          <div class="key-metric">NVMe Gen4 起步，容量 2TB+</div>
+        </div>
+      </div>
+
+      <!-- Network Card -->
+      <div class="hw-card network" onclick="toggleHwCard(this)">
+        <div class="hw-card-header">
+          <div class="hw-card-icon">🌐</div>
+          <div>
+            <div class="hw-card-name">Network / 网络</div>
+            <div class="hw-card-role">多机必需 — 单机可忽略</div>
+          </div>
+        </div>
+        <div class="hw-card-body">
+          <ul>
+            <li>单机不需要特殊网络配置</li>
+            <li>多机分布式: <strong>InfiniBand</strong>(最佳) > RoCE > 万兆以太网</li>
+            <li>带宽决定 GPU 间梯度同步速度</li>
+            <li>InfiniBand 400Gb/s vs 以太网 100Gb/s</li>
+          </ul>
+          <div class="key-metric">单机忽略，多机必须 InfiniBand</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 2: GPU Tier List ==================== -->
+<div class="tab-panel" id="tab2">
+
+  <!-- Consumer GPUs -->
+  <div class="section-card">
+    <div class="tier-header">
+      <span class="tier-badge consumer">消费级</span>
+      <span style="font-size:14px; color:var(--text-muted);">个人 / 小团队 — 性价比之选</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="gpu-table">
+        <thead>
+          <tr><th>GPU</th><th>VRAM</th><th>带宽</th><th>FP16</th><th>参考价</th><th>能跑什么</th></tr>
+        </thead>
+        <tbody id="consumerGPUs"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Apple Silicon -->
+  <div class="section-card">
+    <div class="tier-header">
+      <span class="tier-badge apple">Apple Silicon</span>
+      <span style="font-size:14px; color:var(--text-muted);">本地推理神器 — 统一内存大容量</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="gpu-table">
+        <thead>
+          <tr><th>芯片</th><th>统一内存</th><th>带宽</th><th>Neural Engine</th><th>参考价(整机)</th><th>能跑什么</th></tr>
+        </thead>
+        <tbody id="appleGPUs"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Professional GPUs -->
+  <div class="section-card">
+    <div class="tier-header">
+      <span class="tier-badge pro">专业级</span>
+      <span style="font-size:14px; color:var(--text-muted);">企业 / 研究 — 训练利器</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="gpu-table">
+        <thead>
+          <tr><th>GPU</th><th>VRAM</th><th>带宽</th><th>FP8</th><th>参考价</th><th>能跑什么</th></tr>
+        </thead>
+        <tbody id="proGPUs"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Cloud GPUs -->
+  <div class="section-card">
+    <div class="tier-header">
+      <span class="tier-badge cloud">云端租用</span>
+      <span style="font-size:14px; color:var(--text-muted);">按需付费 — 灵活扩展</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="gpu-table">
+        <thead>
+          <tr><th>云 GPU</th><th>VRAM</th><th>价格/小时</th><th>适用场景</th></tr>
+        </thead>
+        <tbody id="cloudGPUs"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="gpuDetailContainer"></div>
+</div>
+
+<!-- ==================== TAB 3: Interactive Configurator ==================== -->
+<div class="tab-panel" id="tab3">
+  <div class="configurator">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div style="font-size:20px; font-weight:700; color:var(--accent-blue);">AI 硬件配置推荐器</div>
+      <div style="font-size:14px; color:var(--text-muted); margin-top:4px;">回答 4 个问题，获取个性化硬件方案</div>
+    </div>
+
+    <!-- Step 1: Goal -->
+    <div class="config-step active-step" id="configStep1">
+      <h3><span class="step-number" id="sn1">1</span> 你的目标是什么？</h3>
+      <div class="option-grid">
+        <div class="option-card" onclick="selectOption('goal', 'inference', this)">
+          <div class="option-icon">🔍</div>
+          <div class="option-label">本地推理</div>
+          <div class="option-desc">跑现成模型</div>
+        </div>
+        <div class="option-card" onclick="selectOption('goal', 'finetune', this)">
+          <div class="option-icon">🎯</div>
+          <div class="option-label">模型微调</div>
+          <div class="option-desc">Fine-tuning</div>
+        </div>
+        <div class="option-card" onclick="selectOption('goal', 'pretrain', this)">
+          <div class="option-icon">🏋</div>
+          <div class="option-label">从头训练</div>
+          <div class="option-desc">Pre-training</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Model Size -->
+    <div class="config-step" id="configStep2">
+      <h3><span class="step-number" id="sn2">2</span> 你要跑多大的模型？</h3>
+      <div class="option-grid">
+        <div class="option-card" onclick="selectOption('modelSize', 'small', this)">
+          <div class="option-icon">📦</div>
+          <div class="option-label">1-7B</div>
+          <div class="option-desc">小模型</div>
+        </div>
+        <div class="option-card" onclick="selectOption('modelSize', 'medium', this)">
+          <div class="option-icon">📦</div>
+          <div class="option-label">7-13B</div>
+          <div class="option-desc">中模型</div>
+        </div>
+        <div class="option-card" onclick="selectOption('modelSize', 'large', this)">
+          <div class="option-icon">📦</div>
+          <div class="option-label">13-70B</div>
+          <div class="option-desc">大模型</div>
+        </div>
+        <div class="option-card" onclick="selectOption('modelSize', 'xlarge', this)">
+          <div class="option-icon">📦</div>
+          <div class="option-label">70B+</div>
+          <div class="option-desc">超大模型</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Budget -->
+    <div class="config-step" id="configStep3">
+      <h3><span class="step-number" id="sn3">3</span> 你的预算范围？</h3>
+      <div class="option-grid">
+        <div class="option-card" onclick="selectOption('budget', 'student', this)">
+          <div class="option-icon">🎓</div>
+          <div class="option-label">5千以下</div>
+          <div class="option-desc">学生/个人</div>
+        </div>
+        <div class="option-card" onclick="selectOption('budget', 'dev', this)">
+          <div class="option-icon">💻</div>
+          <div class="option-label">5千-2万</div>
+          <div class="option-desc">开发者</div>
+        </div>
+        <div class="option-card" onclick="selectOption('budget', 'team', this)">
+          <div class="option-icon">👥</div>
+          <div class="option-label">2万-10万</div>
+          <div class="option-desc">小团队</div>
+        </div>
+        <div class="option-card" onclick="selectOption('budget', 'enterprise', this)">
+          <div class="option-icon">🏢</div>
+          <div class="option-label">10万-50万</div>
+          <div class="option-desc">企业</div>
+        </div>
+        <div class="option-card" onclick="selectOption('budget', 'research', this)">
+          <div class="option-icon">🔬</div>
+          <div class="option-label">50万+</div>
+          <div class="option-desc">研究机构</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Preferences -->
+    <div class="config-step" id="configStep4">
+      <h3><span class="step-number" id="sn4">4</span> 你的偏好？<span style="font-size:12px; color:var(--text-muted); font-weight:400; margin-left:8px;">可多选</span></h3>
+      <div class="pref-grid">
+        <div class="pref-chip" onclick="togglePref('silent', this)">
+          <span class="check"></span>
+          <span>🤫 静音优先 (Apple Silicon)</span>
+        </div>
+        <div class="pref-chip" onclick="togglePref('value', this)">
+          <span class="check"></span>
+          <span>💰 性价比优先 (NVIDIA消费级)</span>
+        </div>
+        <div class="pref-chip" onclick="togglePref('expand', this)">
+          <span class="check"></span>
+          <span>📈 扩展性优先 (可加显卡)</span>
+        </div>
+        <div class="pref-chip" onclick="togglePref('mac', this)">
+          <span class="check"></span>
+          <span>🍎 已有 Mac 生态</span>
+        </div>
+        <div class="pref-chip" onclick="togglePref('cuda', this)">
+          <span class="check"></span>
+          <span>🟢 需要 CUDA 生态</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="generate-btn" id="generateBtn" onclick="generateBuild()">
+      生成推荐方案!
+    </button>
+
+    <div class="build-result" id="buildResult"></div>
+  </div>
+</div>
+
+<!-- ==================== TAB 4: Single vs Distributed ==================== -->
+<div class="tab-panel" id="tab4">
+  <div class="section-card">
+    <div class="section-title"><span class="icon">⚖</span> 单机 vs 分布式：如何选择？</div>
+
+    <div class="arch-compare">
+      <!-- Single Machine -->
+      <div class="arch-card">
+        <h3 style="color:var(--accent-green);">🖥 单机方案</h3>
+        <div class="arch-subtitle">一台搞定 — 推理、小规模微调</div>
+        <div class="arch-diagram">
+          <div>
+            <div class="diagram-box server" style="padding:20px;">
+              <div style="text-align:center;">
+                <div style="font-weight:700; margin-bottom:8px;">工作站</div>
+                <div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px;">
+                  <span class="gpu-chip">G1</span>
+                  <span style="color:var(--accent-blue); font-size:10px; align-self:center;">NVLink</span>
+                  <span class="gpu-chip">G2</span>
+                </div>
+                <div style="font-size:11px; color:var(--text-muted);">RAM: 128GB | SSD: 4TB</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="arch-pros">
+          <li>简单，无网络开销</li>
+          <li>维护容易，开箱即用</li>
+          <li>延迟最低（GPU 直连）</li>
+        </ul>
+        <ul class="arch-cons" style="margin-top:8px;">
+          <li>扩展有限（最多 4-8 张 GPU）</li>
+          <li>单点故障风险</li>
+          <li>散热/供电挑战</li>
+        </ul>
+      </div>
+
+      <!-- Distributed -->
+      <div class="arch-card">
+        <h3 style="color:var(--accent-purple);">🔗 多机分布式</h3>
+        <div class="arch-subtitle">集群方案 — 大规模训练、生产推理</div>
+        <div class="arch-diagram">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center;">
+              <div class="diagram-box server" style="flex-direction:column; gap:4px;">
+                <div style="font-weight:700; font-size:12px;">Node 1</div>
+                <div style="display:flex; gap:3px; flex-wrap:wrap; justify-content:center;">
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                </div>
+              </div>
+              <div style="font-size:10px; color:var(--accent-blue);">IB</div>
+              <div class="diagram-box server" style="flex-direction:column; gap:4px;">
+                <div style="font-weight:700; font-size:12px;">Node 2</div>
+                <div style="display:flex; gap:3px; flex-wrap:wrap; justify-content:center;">
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                </div>
+              </div>
+              <div style="font-size:10px; color:var(--accent-blue);">IB</div>
+              <div class="diagram-box server" style="flex-direction:column; gap:4px;">
+                <div style="font-weight:700; font-size:12px;">Node 3</div>
+                <div style="display:flex; gap:3px; flex-wrap:wrap; justify-content:center;">
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                  <span class="gpu-chip" style="font-size:9px; padding:2px 4px;">G</span>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:center; font-size:11px; color:var(--text-muted); margin-top:8px;">12 GPU 集群 + 共享存储</div>
+          </div>
+        </div>
+        <ul class="arch-pros">
+          <li>算力无上限，可水平扩展</li>
+          <li>高可用（节点冗余）</li>
+          <li>适合大规模训练</li>
+        </ul>
+        <ul class="arch-cons" style="margin-top:8px;">
+          <li>网络通信开销大</li>
+          <li>运维复杂（需专人）</li>
+          <li>成本指数级增长</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decision Tree -->
+  <div class="section-card">
+    <div class="section-title"><span class="icon">🌲</span> 何时需要分布式？决策树</div>
+    <div class="decision-tree">
+      <div class="tree-node tree-question">模型能放进单机 GPU 总 VRAM 吗？</div>
+      <div class="tree-node tree-yes">能 → 单机就够了</div>
+      <div class="tree-node tree-no">不能 →</div>
+      <div class="tree-node tree-question tree-sub">只做推理？</div>
+      <div class="tree-node tree-yes tree-sub">是 → Apple Silicon 大内存 或 多GPU单机</div>
+      <div class="tree-node tree-no tree-sub">要训练 →</div>
+      <div class="tree-node tree-question" style="margin-left:72px;">微调 (LoRA)？</div>
+      <div class="tree-node tree-yes" style="margin-left:72px;">是 → 单机可能够（LoRA 只需 1 张卡）</div>
+      <div class="tree-node tree-no" style="margin-left:72px;">全量训练 → 必须分布式</div>
+    </div>
+  </div>
+
+  <!-- Real Cost of Distributed -->
+  <div class="section-card">
+    <div class="section-title"><span class="icon">💸</span> 分布式的真实成本</div>
+    <table class="cost-table">
+      <thead>
+        <tr><th>规模</th><th>硬件</th><th>网络</th><th>运维</th><th>电费/月</th><th>总投入</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">1x H100</td>
+          <td>~200K</td><td>-</td><td>低</td><td>~2K</td>
+          <td>~20万</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">8x H100 (单机)</td>
+          <td>~1.5M</td><td>NVLink 内置</td><td>中</td><td>~15K</td>
+          <td>~160万</td>
+        </tr>
+        <tr>
+          <td style="font-weight:600;">32x H100 (4节点)</td>
+          <td>~6M</td><td>IB ~500K</td><td>高 (需专人)</td><td>~60K</td>
+          <td>~700万+</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== TAB 5: Model-Hardware Match ==================== -->
+<div class="tab-panel" id="tab5">
+  <div class="section-card">
+    <div class="section-title"><span class="icon">🎯</span> 模型与硬件匹配速查表</div>
+    <p style="color:var(--text-secondary); font-size:14px; margin-bottom:16px;">点击任意行展开部署指令和速度预估。数据基于 2026 年 3 月主流模型。</p>
+    <div class="match-table-wrap">
+      <table class="match-table" id="matchTable">
+        <thead>
+          <tr>
+            <th>模型</th>
+            <th>参数量</th>
+            <th>FP16 大小</th>
+            <th>Q4 大小</th>
+            <th>最低 GPU (推理)</th>
+            <th>推荐 GPU (推理)</th>
+            <th>微调需求</th>
+          </tr>
+        </thead>
+        <tbody id="matchBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 6: Money-Saving Tips ==================== -->
+<div class="tab-panel" id="tab6">
+  <div class="section-card">
+    <div class="section-title"><span class="icon">💰</span> 8 个省钱秘籍</div>
+    <p style="color:var(--text-secondary); font-size:14px; margin-bottom:16px;">聪明花钱，不多花冤枉钱。</p>
+    <div class="tips-grid">
+      <div class="tip-card">
+        <div class="tip-number">1</div>
+        <div class="tip-content">
+          <h4>二手 GPU</h4>
+          <p>A100 40GB 二手约 <span class="tip-highlight">3万</span>（新品 10万+），性价比极高。矿卡 RTX 3090 有风险，检查显存是否正常。</p>
+        </div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-number">2</div>
+        <div class="tip-content">
+          <h4>云端按需</h4>
+          <p>不需要 24/7 跑的话，Lambda / Vast.ai / RunPod 按小时租比买划算。偶尔微调用云端，日常推理用本地。</p>
+        </div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-number">3</div>
+        <div class="tip-content">
+          <h4>量化是王道</h4>
+          <p>70B Q4 约 <span class="tip-highlight">40GB</span>，质量下降仅约 5%，但硬件需求降 75%。Q5 性价比更好。</p>
+        </div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-number">4</div>
+        <div class="tip-content">
+          <h4>LoRA 微调</h4>
+          <p>不需要全量训练，LoRA 只需 <span class="tip-highlight">1张卡</span> 就能微调 70B 模型。QLoRA 更省显存。</p>
+        </div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-number">5</div>
+        <div class="tip-content">
+          <h4>Apple Silicon 隐藏优势</h4>
+          <p>M4 Max <span class="tip-highlight">2.5万</span> = 128GB 统一内存，跑 70B 模型不需要 10万+ 的 GPU 集群。速度慢但能跑。</p>
+        </div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-number">6</div>
+        <div class="tip-content">
+          <h4>组合方案</h4>
+          <p>Mac 本地开发 + 云端训练 = 最佳性价比。本地跑 7B 调试，上云微调 70B。</p>
+        </div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-number">7</div>
+        <div class="tip-content">
+          <h4>开源优先</h4>
+          <p>DeepSeek R1 / Qwen3.5 免费下载，不用花钱买 API。本地部署零边际成本。</p>
+        </div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-number">8</div>
+        <div class="tip-content">
+          <h4>共享 GPU</h4>
+          <p>团队合买一台多卡服务器，比每人一张卡划算。用 <span class="tip-highlight">vLLM</span> 做推理服务共享。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- tab-content -->
+
+<!-- Glossary Button -->
+<button class="glossary-btn" onclick="openGlossary()" title="术语表">?</button>
+
+<!-- Glossary Modal -->
+<div class="modal-overlay" id="glossaryModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeGlossary()">✕</button>
+    <h2>术语表 Glossary</h2>
+    <div class="glossary-item"><div class="glossary-term">VRAM (Video RAM, 显存)</div><div class="glossary-def">GPU 专属内存，决定能装多大的模型。24GB VRAM 能装约 13B FP16 模型。</div></div>
+    <div class="glossary-item"><div class="glossary-term">统一内存 (Unified Memory)</div><div class="glossary-def">Apple Silicon 的 CPU/GPU 共享内存，M4 Max 最高 128GB，全部可用于模型推理。</div></div>
+    <div class="glossary-item"><div class="glossary-term">HBM (High Bandwidth Memory)</div><div class="glossary-def">高端 GPU 使用的高带宽堆叠显存，如 H100 使用 HBM3，带宽 3,350 GB/s。</div></div>
+    <div class="glossary-item"><div class="glossary-term">TFLOPS</div><div class="glossary-def">每秒万亿次浮点运算，衡量 GPU 算力。RTX 4090 FP16 约 83 TFLOPS。</div></div>
+    <div class="glossary-item"><div class="glossary-term">NVLink</div><div class="glossary-def">NVIDIA 多 GPU 直连高速通道，允许 GPU 间共享显存，带宽可达 900 GB/s。</div></div>
+    <div class="glossary-item"><div class="glossary-term">InfiniBand</div><div class="glossary-def">多机 GPU 集群的高速网络，400Gb/s，是分布式训练的关键基础设施。</div></div>
+    <div class="glossary-item"><div class="glossary-term">量化 (Quantization)</div><div class="glossary-def">降低模型精度以减小体积。FP16 → Q4 可减小 75% 体积，质量下降约 5%。</div></div>
+    <div class="glossary-item"><div class="glossary-term">Q4 / Q5 / Q8</div><div class="glossary-def">GGUF 格式的不同量化级别。Q4=4bit 最小，Q8=8bit 最接近原始质量。</div></div>
+    <div class="glossary-item"><div class="glossary-term">LoRA (Low-Rank Adaptation)</div><div class="glossary-def">低秩微调，用少量参数高效微调大模型，显存需求仅为全量训练的 1/10。</div></div>
+    <div class="glossary-item"><div class="glossary-term">tok/s (tokens per second)</div><div class="glossary-def">推理速度指标，人类阅读速度约 5-8 tok/s，>20 tok/s 体验流畅。</div></div>
+    <div class="glossary-item"><div class="glossary-term">batch size</div><div class="glossary-def">同时处理的样本数，影响训练效率和显存占用。越大训练越快但越吃显存。</div></div>
+    <div class="glossary-item"><div class="glossary-term">NVMe SSD</div><div class="glossary-def">高速固态硬盘，读取速度 5-7 GB/s（Gen4），影响模型加载速度。</div></div>
+  </div>
+</div>
+
+<script>
+// ========== Tab Navigation ==========
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tabId = btn.getAttribute('data-tab');
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+  });
+});
+
+// ========== Tab 1: Hardware Cards ==========
+function toggleHwCard(card) {
+  var wasExpanded = card.classList.contains('expanded');
+  document.querySelectorAll('.hw-card').forEach(function(c) { c.classList.remove('expanded'); });
+  if (!wasExpanded) {
+    card.classList.add('expanded');
+  }
+}
+
+// ========== Tab 1: VRAM Simulator ==========
+var currentVRAM = 24;
+var currentModelSize = 0;
+var currentModelName = '';
+
+function setVRAM(size, btn) {
+  currentVRAM = size;
+  document.querySelectorAll('.vram-demo .vram-controls:first-of-type .vram-btn').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  if (btn) btn.classList.add('active');
+  document.getElementById('vramLabel').textContent = size + ' GB';
+  updateVRAMBar();
+}
+
+function loadModel(size, name, btn) {
+  currentModelSize = size;
+  currentModelName = name;
+  updateVRAMBar();
+}
+
+function updateVRAMBar() {
+  var fill = document.getElementById('vramFill');
+  var status = document.getElementById('vramStatus');
+  if (currentModelSize === 0) {
+    fill.style.width = '0%';
+    fill.className = 'vram-fill fit';
+    status.innerHTML = '';
+    return;
+  }
+  var pct = (currentModelSize / currentVRAM) * 100;
+  var cappedPct = Math.min(pct, 100);
+
+  fill.style.width = cappedPct + '%';
+  fill.textContent = currentModelSize + 'GB';
+
+  if (pct <= 75) {
+    fill.className = 'vram-fill fit';
+    status.innerHTML = '<span style="color:var(--accent-green);">&#10003; ' + currentModelName + ' 轻松装入！剩余 ' + (currentVRAM - currentModelSize).toFixed(1) + 'GB 可用于 KV Cache</span>';
+  } else if (pct <= 100) {
+    fill.className = 'vram-fill tight';
+    status.innerHTML = '<span style="color:var(--gold);">&#9888; ' + currentModelName + ' 勉强装入，显存几乎满载，推理速度可能受限</span>';
+  } else {
+    fill.className = 'vram-fill overflow';
+    status.innerHTML = '<span style="color:var(--accent-red);">&#10007; ' + currentModelName + ' 装不下！超出 ' + (currentModelSize - currentVRAM).toFixed(1) + 'GB，需要更大显存或量化</span>';
+  }
+}
+
+// ========== Tab 2: GPU Tier List Data ==========
+var consumerGPUs = [
+  { name: 'RTX 4060 Ti 16GB', brand: 'nvidia', vram: '16GB', bw: '288 GB/s', perf: '22 TFLOPS', price: '~$400 / ~2,900', use: '7B Q4 量化推理', models: ['Qwen3.5-9B Q4', 'Llama 3.2 3B FP16'], tight: ['Qwen3.5-9B FP16'], nope: ['72B Q4'] },
+  { name: 'RTX 4070 Ti Super', brand: 'nvidia', vram: '16GB', bw: '672 GB/s', perf: '44 TFLOPS', price: '~$800 / ~5,800', use: '7B-13B Q4 推理', models: ['Qwen3.5-9B Q4', 'Phi-4-mini FP16'], tight: ['Qwen3.5-9B FP16'], nope: ['72B Q4'] },
+  { name: 'RTX 4090', brand: 'nvidia', vram: '24GB', bw: '1,008 GB/s', perf: '83 TFLOPS', price: '~$1,600 / ~11,500', use: '13B FP16, 70B Q4(offload)', models: ['Qwen3.5-9B FP16', 'Llama 3.2 3B FP16'], tight: ['13B FP16'], nope: ['72B Q4 (24<42GB)'] },
+  { name: 'RTX 5090', brand: 'nvidia', vram: '32GB', bw: '1,792 GB/s', perf: '105 TFLOPS', price: '~$2,000 / ~16,000', use: '32B FP16, 70B Q4/Q5', models: ['Qwen3.5-9B FP16', '13B FP16'], tight: ['32B FP16'], nope: ['72B Q4 (32<42GB)'] },
+  { name: '2x RTX 5090', brand: 'nvidia', vram: '64GB(分离)', bw: '-', perf: '210 TFLOPS', price: '~$4,000 / ~35,000', use: '70B FP16(需NVLink)', models: ['72B Q4', '70B Q5'], tight: ['70B FP16(NVLink)'], nope: ['200B+'] }
+];
+
+var appleGPUs = [
+  { name: 'M4 Max', brand: 'apple', vram: '128GB', bw: '546 GB/s', perf: '38 TOPS', price: '~$3,500 / ~25,000', use: '70B Q4 流畅推理', models: ['72B Q4 (42GB)', 'Qwen3.5-9B FP16'], tight: ['70B Q5/Q6'], nope: ['200B+'] },
+  { name: 'M5 Max', brand: 'apple', vram: '128GB', bw: '614 GB/s', perf: '~150 TOPS', price: '~$4,000 / ~28,000', use: '70B Q5/Q6 更快', models: ['72B Q4/Q5', '70B FP16(offload)'], tight: ['70B Q8'], nope: ['200B+'] },
+  { name: 'M3 Ultra', brand: 'apple', vram: '192-512GB', bw: '819 GB/s', perf: '76 TOPS', price: '~$5K-$12K / 35K-85K', use: '200B+ 模型, 全量推理', models: ['70B FP16', '72B FP16', '200B Q4'], tight: ['671B MoE Q4'], nope: [] }
+];
+
+var proGPUs = [
+  { name: 'A100 80GB', brand: 'nvidia', vram: '80GB', bw: '2,039 GB/s', perf: '~624 TFLOPS', price: '~$15,000 / ~100K', use: '70B FP16 训练', models: ['70B FP16 推理', '13B 全量训练'], tight: ['70B LoRA 微调'], nope: [] },
+  { name: 'H100 80GB', brand: 'nvidia', vram: '80GB', bw: '3,350 GB/s', perf: '3,958 TFLOPS', price: '~$30,000 / ~200K', use: '大规模训练/推理', models: ['70B FP16', '70B 训练(多卡)'], tight: [], nope: [] },
+  { name: 'H200', brand: 'nvidia', vram: '141GB', bw: '4,800 GB/s', perf: '3,958 TFLOPS', price: '~$35,000 / ~250K', use: '更大模型单卡', models: ['70B FP16 单卡训练', '130B 推理'], tight: [], nope: [] },
+  { name: 'B200', brand: 'nvidia', vram: '192GB', bw: '8,000 GB/s', perf: '20,000 TFLOPS', price: '~$40,000 / ~280K', use: '旗舰训练推理', models: ['200B+ 推理', '70B 训练极速'], tight: [], nope: [] }
+];
+
+var cloudGPUs = [
+  { name: 'A100 80GB', vram: '80GB', price: '$1.50-$3.00/h', use: '中等规模微调' },
+  { name: 'H100', vram: '80GB', price: '$2.50-$5.00/h', use: '大规模训练' },
+  { name: 'H200', vram: '141GB', price: '$3.50-$8.00/h', use: '旗舰推理' },
+  { name: '8x H100', vram: '640GB', price: '$20-$40/h', use: '千亿参数训练' }
+];
+
+function renderGPUTable(data, containerId, isCloud) {
+  var tbody = document.getElementById(containerId);
+  var html = '';
+  data.forEach(function(gpu, i) {
+    if (isCloud) {
+      html += '<tr onclick="toggleGPUDetail(\'' + containerId + '-' + i + '\')">';
+      html += '<td><span class="gpu-name nvidia">' + gpu.name + '</span></td>';
+      html += '<td class="gpu-vram">' + gpu.vram + '</td>';
+      html += '<td class="gpu-price">' + gpu.price + '</td>';
+      html += '<td>' + gpu.use + '</td>';
+      html += '</tr>';
+    } else {
+      var nameClass = gpu.brand === 'apple' ? 'gpu-name apple' : 'gpu-name nvidia';
+      html += '<tr onclick="toggleGPUDetail(\'' + containerId + '-' + i + '\')">';
+      html += '<td><span class="' + nameClass + '">' + gpu.name + '</span></td>';
+      html += '<td class="gpu-vram">' + gpu.vram + '</td>';
+      html += '<td>' + gpu.bw + '</td>';
+      html += '<td>' + gpu.perf + '</td>';
+      html += '<td class="gpu-price">' + gpu.price + '</td>';
+      html += '<td>' + gpu.use + '</td>';
+      html += '</tr>';
+      if (gpu.models) {
+        html += '<tr><td colspan="6" style="padding:0;"><div class="gpu-detail-panel" id="' + containerId + '-' + i + '">';
+        html += '<div class="vram-visual"><div class="vram-visual-title">能跑的模型：</div><div class="model-fit-list">';
+        gpu.models.forEach(function(m) { html += '<span class="model-fit-tag fits">' + m + '</span>'; });
+        if (gpu.tight) gpu.tight.forEach(function(m) { html += '<span class="model-fit-tag tight">' + m + '</span>'; });
+        if (gpu.nope) gpu.nope.forEach(function(m) { html += '<span class="model-fit-tag nope">' + m + '</span>'; });
+        html += '</div></div></div></td></tr>';
+      }
+    }
+  });
+  tbody.innerHTML = html;
+}
+
+function toggleGPUDetail(id) {
+  var panel = document.getElementById(id);
+  if (!panel) return;
+  var wasActive = panel.classList.contains('active');
+  document.querySelectorAll('.gpu-detail-panel').forEach(function(p) { p.classList.remove('active'); });
+  if (!wasActive) panel.classList.add('active');
+}
+
+renderGPUTable(consumerGPUs, 'consumerGPUs', false);
+renderGPUTable(appleGPUs, 'appleGPUs', false);
+renderGPUTable(proGPUs, 'proGPUs', false);
+renderGPUTable(cloudGPUs, 'cloudGPUs', true);
+
+// ========== Tab 3: Interactive Configurator ==========
+var configState = {
+  goal: null,
+  modelSize: null,
+  budget: null,
+  prefs: {}
+};
+
+function selectOption(category, value, el) {
+  configState[category] = value;
+  var parent = el.closest('.config-step');
+  parent.querySelectorAll('.option-card').forEach(function(c) { c.classList.remove('selected'); });
+  el.classList.add('selected');
+
+  var stepNum = category === 'goal' ? 1 : category === 'modelSize' ? 2 : 3;
+  var sn = document.getElementById('sn' + stepNum);
+  sn.classList.add('done');
+  sn.textContent = '\u2713';
+  parent.classList.remove('active-step');
+  parent.classList.add('completed');
+
+  var nextStep = document.getElementById('configStep' + (stepNum + 1));
+  if (nextStep) {
+    nextStep.classList.add('active-step');
+    nextStep.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function togglePref(key, el) {
+  if (configState.prefs[key]) {
+    delete configState.prefs[key];
+    el.classList.remove('selected');
+    el.querySelector('.check').textContent = '';
+  } else {
+    configState.prefs[key] = true;
+    el.classList.add('selected');
+    el.querySelector('.check').textContent = '\u2713';
+  }
+}
+
+// ========== Preset Configurations ==========
+var presets = {
+  'student_inference_small': {
+    title: '学生入门 — 本地推理小模型',
+    parts: [
+      { label: '方案A', value: 'Mac Mini M4 16GB', price: '3,999' },
+    ],
+    altParts: [
+      { label: '方案B', value: 'RTX 4060 Ti 16GB + AMD R5 7600 + 32GB DDR5 + 1TB NVMe', price: '5,500' }
+    ],
+    total: '~3,999 - 5,500',
+    notes: [
+      { type: 'good', text: '能跑: Qwen3.5-9B Q4, Phi-4-mini, Llama 3.2 3B FP16' },
+      { type: 'good', text: '推理速度: 7B Q4 ~20-30 tok/s' },
+      { type: 'warn', text: '不适合: 13B+ 模型，微调训练' }
+    ]
+  },
+  'dev_inference_medium': {
+    title: '个人开发者 — 中等模型推理',
+    parts: [
+      { label: 'GPU', value: 'RTX 4070 Ti Super 16GB', price: '5,800' },
+      { label: 'CPU', value: 'AMD R5 7600X 6核', price: '1,200' },
+      { label: 'RAM', value: '32GB DDR5-5600', price: '500' },
+      { label: 'SSD', value: '1TB NVMe Gen4', price: '500' },
+      { label: '电源', value: '700W 80+ Gold', price: '400' }
+    ],
+    total: '~8,400',
+    notes: [
+      { type: 'good', text: '能跑: Qwen3.5-9B Q4, 7B FP16, 13B Q4' },
+      { type: 'good', text: '推理速度: 7B Q4 ~40 tok/s' },
+      { type: 'good', text: '可用于: 3B-7B LoRA 微调' },
+      { type: 'warn', text: '不适合: 70B 模型，大规模微调' }
+    ]
+  },
+  'power_inference_large': {
+    title: '重度推理 — RTX 5090 大模型方案',
+    parts: [
+      { label: 'GPU', value: 'RTX 5090 32GB', price: '16,000' },
+      { label: 'CPU', value: 'AMD R9 7950X 16核', price: '3,500' },
+      { label: 'RAM', value: '64GB DDR5-6000', price: '1,200' },
+      { label: 'SSD', value: '2TB NVMe Gen4', price: '900' },
+      { label: '电源', value: '850W 80+ Gold', price: '600' }
+    ],
+    total: '~22,200',
+    notes: [
+      { type: 'good', text: '能跑: 32B FP16, 72B Q4(部分offload), 13B FP16' },
+      { type: 'good', text: '推理速度: 72B Q4 ~10-15 tok/s (offload)' },
+      { type: 'good', text: '也支持: 7B-13B FP16 LoRA 微调' },
+      { type: 'warn', text: '72B Q4 需 offload 到内存，速度受限' }
+    ]
+  },
+  'mac_inference_large': {
+    title: 'Mac 生态 — M4/M5 Max 大模型推理',
+    parts: [
+      { label: '整机', value: 'MacBook Pro M4 Max 128GB / M5 Max 128GB', price: '25,000 - 28,000' },
+    ],
+    total: '~25,000 - 28,000',
+    notes: [
+      { type: 'good', text: '能跑: 72B Q4 流畅 (128GB统一内存 >> 42GB模型)' },
+      { type: 'good', text: '推理速度: 72B Q4 ~10-15 tok/s' },
+      { type: 'good', text: '静音、便携、macOS 生态' },
+      { type: 'warn', text: '不支持 CUDA，部分框架兼容性差' },
+      { type: 'warn', text: '不适合训练/微调（GPU 算力不足）' }
+    ]
+  },
+  'mac_ultra_xlarge': {
+    title: 'Mac 极致 — M3 Ultra 超大模型',
+    parts: [
+      { label: '整机', value: 'Mac Studio M3 Ultra 192GB-512GB', price: '35,000 - 85,000' },
+    ],
+    total: '~35,000 - 85,000',
+    notes: [
+      { type: 'good', text: '能跑: 70B FP16, 200B+ Q4, DeepSeek R1 Q4' },
+      { type: 'good', text: '512GB 版可跑几乎任何开源模型' },
+      { type: 'good', text: '静音台式机，无需散热方案' },
+      { type: 'warn', text: '推理速度慢于同价位 NVIDIA 方案' },
+      { type: 'bad', text: '不适合训练，性价比低于云端方案' }
+    ]
+  },
+  'team_finetune': {
+    title: '小团队微调 — 双 A100 方案',
+    parts: [
+      { label: 'GPU', value: '2x A100 80GB (二手)', price: '60,000' },
+      { label: 'CPU', value: 'AMD EPYC 7543 32核', price: '8,000' },
+      { label: 'RAM', value: '256GB DDR4 ECC', price: '4,000' },
+      { label: 'SSD', value: '4TB NVMe Gen4', price: '2,000' },
+      { label: '机箱电源', value: '塔式工作站 + 1600W', price: '6,000' }
+    ],
+    total: '~80,000',
+    notes: [
+      { type: 'good', text: '能跑: 70B FP16 推理，70B LoRA 微调' },
+      { type: 'good', text: '160GB 总显存，足够大多数场景' },
+      { type: 'good', text: '二手 A100 性价比极高' },
+      { type: 'warn', text: '功耗大，需要良好散热' },
+      { type: 'warn', text: '全量训练 70B 仍需 4+ 卡' }
+    ]
+  },
+  'enterprise_train': {
+    title: '企业训练 — 多 H100 集群',
+    parts: [
+      { label: 'GPU', value: '8x H100 80GB (DGX H100)', price: '2,000,000' },
+      { label: '网络', value: 'NVSwitch + InfiniBand', price: '内含' },
+      { label: '存储', value: '分布式 NVMe 阵列 50TB', price: '200,000' },
+      { label: '运维', value: '专业运维团队/托管', price: '100,000/年' }
+    ],
+    total: '~300万+',
+    notes: [
+      { type: 'good', text: '能做: 70B 全量训练，千亿参数模型推理' },
+      { type: 'good', text: '640GB 总显存 + NVLink 高速互联' },
+      { type: 'warn', text: '需要专业运维团队' },
+      { type: 'warn', text: '电费约 1.5万/月' }
+    ]
+  },
+  'cloud_ondemand': {
+    title: '云端按需 — 灵活弹性方案',
+    parts: [
+      { label: '推荐', value: 'Lambda Cloud / Vast.ai / RunPod', price: '按需' },
+      { label: 'A100', value: '80GB, 微调 70B LoRA', price: '~$2/h ≈ ¥14/h' },
+      { label: 'H100', value: '80GB, 大规模训练', price: '~$3.5/h ≈ ¥25/h' },
+      { label: '8xH100', value: '640GB, 千亿参数', price: '~$28/h ≈ ¥200/h' }
+    ],
+    total: '按使用量付费',
+    notes: [
+      { type: 'good', text: '零前期投入，随用随开' },
+      { type: 'good', text: '适合偶尔训练/微调，日常用本地推理' },
+      { type: 'good', text: 'Vast.ai 竞价模式价格极低' },
+      { type: 'warn', text: '长期 24/7 使用比买卡贵' },
+      { type: 'warn', text: '数据安全需要额外考虑' }
+    ]
+  }
+};
+
+function getBuildKey() {
+  var g = configState.goal;
+  var m = configState.modelSize;
+  var b = configState.budget;
+  var p = configState.prefs;
+
+  // Cloud preference
+  if (b === 'research' && g === 'pretrain') return 'enterprise_train';
+  if (b === 'enterprise' && (g === 'pretrain' || g === 'finetune')) return 'enterprise_train';
+  if (b === 'enterprise' && g === 'inference' && (m === 'xlarge')) return 'mac_ultra_xlarge';
+
+  // Apple preference
+  if (p.silent || p.mac) {
+    if (m === 'xlarge' || (m === 'large' && (b === 'team' || b === 'enterprise'))) return 'mac_ultra_xlarge';
+    if (m === 'large') return 'mac_inference_large';
+    if (m === 'medium' || m === 'small') return 'mac_inference_large';
+  }
+
+  // Budget-based
+  if (b === 'student') return 'student_inference_small';
+
+  if (b === 'dev') {
+    if (g === 'inference' && (m === 'small' || m === 'medium')) return 'dev_inference_medium';
+    if (g === 'inference' && m === 'large') return 'power_inference_large';
+    if (g === 'finetune') return 'dev_inference_medium';
+    return 'dev_inference_medium';
+  }
+
+  if (b === 'team') {
+    if (g === 'finetune' || g === 'pretrain') return 'team_finetune';
+    if (m === 'xlarge') return 'mac_ultra_xlarge';
+    if (m === 'large') return 'power_inference_large';
+    if (p.cuda || p.expand) return 'power_inference_large';
+    return 'mac_inference_large';
+  }
+
+  if (b === 'enterprise') {
+    if (g === 'finetune') return 'team_finetune';
+    return 'enterprise_train';
+  }
+
+  if (b === 'research') {
+    return 'enterprise_train';
+  }
+
+  // Cloud fallback for large pretrain on low budget
+  if (g === 'pretrain' && (b === 'student' || b === 'dev')) return 'cloud_ondemand';
+
+  return 'dev_inference_medium';
+}
+
+function generateBuild() {
+  if (!configState.goal || !configState.modelSize || !configState.budget) {
+    alert('Please complete Steps 1-3 first.');
+    return;
+  }
+
+  var key = getBuildKey();
+  var preset = presets[key];
+  if (!preset) {
+    preset = presets['dev_inference_medium'];
+  }
+
+  var resultDiv = document.getElementById('buildResult');
+  var html = '<div class="build-card">';
+  html += '<div class="build-title">' + preset.title + '</div>';
+  html += '<div class="build-parts">';
+
+  preset.parts.forEach(function(part, i) {
+    var delay = (i * 0.1) + 's';
+    html += '<div class="build-part" style="animation-delay:' + delay + '">';
+    html += '<div class="part-name"><span class="part-label">' + part.label + '</span><span class="part-value">' + part.value + '</span></div>';
+    html += '<div class="part-price">\u00a5' + part.price + '</div>';
+    html += '</div>';
+  });
+
+  if (preset.altParts) {
+    html += '<div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">';
+    html += '<div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">替代方案:</div>';
+    preset.altParts.forEach(function(part, i) {
+      var delay = ((preset.parts.length + i) * 0.1) + 's';
+      html += '<div class="build-part" style="animation-delay:' + delay + '">';
+      html += '<div class="part-name"><span class="part-label">' + part.label + '</span><span class="part-value">' + part.value + '</span></div>';
+      html += '<div class="part-price">\u00a5' + part.price + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  html += '<div class="build-total"><span class="build-total-label">预估总价</span><span class="build-total-price">' + preset.total + '</span></div>';
+
+  html += '<div class="build-notes">';
+  preset.notes.forEach(function(note) {
+    var icon = note.type === 'good' ? '\u2705' : note.type === 'warn' ? '\u26a0\ufe0f' : '\u274c';
+    html += '<div class="build-note ' + note.type + '"><span class="note-icon">' + icon + '</span><span>' + note.text + '</span></div>';
+  });
+  html += '</div>';
+  html += '</div>';
+
+  resultDiv.innerHTML = html;
+  resultDiv.classList.add('active');
+  resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ========== Tab 5: Model-Hardware Match Data ==========
+var matchData = [
+  {
+    model: 'Qwen3.5-0.8B', params: '0.8B', fp16: '1.6GB', q4: '0.5GB',
+    minGPU: '任何 GPU / CPU', recGPU: '手机 NPU',
+    finetune: '8GB VRAM',
+    ollama: 'ollama run qwen3.5:0.8b',
+    speed: 'RTX 4060: ~120 tok/s | M4: ~80 tok/s | CPU: ~30 tok/s',
+    tip: '非常小的模型，适合嵌入式设备和学习用途。质量有限。'
+  },
+  {
+    model: 'Llama 3.2 3B', params: '3B', fp16: '6GB', q4: '2GB',
+    minGPU: '4GB VRAM', recGPU: 'RTX 3060 12GB',
+    finetune: '12GB VRAM',
+    ollama: 'ollama run llama3.2:3b',
+    speed: 'RTX 4060: ~80 tok/s | M4: ~50 tok/s',
+    tip: '轻量好用，适合代码补全、简单对话。'
+  },
+  {
+    model: 'Phi-4-mini', params: '3.8B', fp16: '7.6GB', q4: '2.5GB',
+    minGPU: '4GB VRAM', recGPU: 'RTX 3060 12GB',
+    finetune: '12GB VRAM',
+    ollama: 'ollama run phi4-mini',
+    speed: 'RTX 4060: ~70 tok/s | M4: ~45 tok/s',
+    tip: '微软出品，推理能力强，小模型中的佼佼者。'
+  },
+  {
+    model: 'Qwen3.5-9B', params: '9B', fp16: '18GB', q4: '5.5GB',
+    minGPU: '8GB VRAM', recGPU: 'RTX 4070 16GB',
+    finetune: '24GB VRAM',
+    ollama: 'ollama run qwen3.5:9b',
+    speed: 'RTX 4070: ~40 tok/s | RTX 4090: ~60 tok/s | M4 Max: ~25 tok/s',
+    tip: '性价比极高，中文能力突出。Q4 量化只需 5.5GB，几乎任何显卡都能跑。'
+  },
+  {
+    model: 'Llama 3.3 70B', params: '70B', fp16: '140GB', q4: '40GB',
+    minGPU: '48GB / M4 Max 128GB', recGPU: 'RTX 5090x2 / M3 Ultra',
+    finetune: '4x A100 80GB',
+    ollama: 'ollama run llama3.3:70b-q4_K_M',
+    speed: 'M4 Max 128GB: ~10 tok/s | 2x RTX 5090: ~20 tok/s | A100: ~30 tok/s',
+    tip: 'Meta 旗舰开源模型。Q4 量化 40GB，M4 Max 128GB 可以流畅推理。'
+  },
+  {
+    model: 'Qwen3.5-72B', params: '72B', fp16: '144GB', q4: '42GB',
+    minGPU: '48GB / M4 Max 128GB', recGPU: 'M3 Ultra 192GB',
+    finetune: '4x A100 80GB',
+    ollama: 'ollama run qwen3.5:72b-q4_K_M',
+    speed: 'M4 Max 128GB: ~10 tok/s | M3 Ultra 192GB: ~15 tok/s | A100: ~28 tok/s',
+    tip: '中文最强开源模型之一。建议 Apple Silicon 大内存机型或双 A100。'
+  },
+  {
+    model: 'DeepSeek R1', params: '671B MoE (37B active)', fp16: '特殊部署', q4: '~150GB',
+    minGPU: '多 GPU', recGPU: '4x H100',
+    finetune: '8x H100+',
+    ollama: 'ollama run deepseek-r1:671b  # 需要 >200GB 内存/显存',
+    speed: 'M3 Ultra 512GB: ~3 tok/s | 4x H100: ~25 tok/s',
+    tip: 'MoE 架构，虽然 671B 参数但只激活 37B。蒸馏版 7B/14B/70B 更实用。'
+  }
+];
+
+function renderMatchTable() {
+  var tbody = document.getElementById('matchBody');
+  var html = '';
+  matchData.forEach(function(row, i) {
+    html += '<tr onclick="toggleMatchExpand(' + i + ')">';
+    html += '<td class="model-name-cell">' + row.model + '</td>';
+    html += '<td style="font-family:var(--font-mono);font-size:12px;">' + row.params + '</td>';
+    html += '<td style="font-family:var(--font-mono);font-size:12px;">' + row.fp16 + '</td>';
+    html += '<td style="font-family:var(--font-mono);font-size:12px;color:var(--accent-green);">' + row.q4 + '</td>';
+    html += '<td style="font-size:12px;">' + row.minGPU + '</td>';
+    html += '<td style="font-size:12px;">' + row.recGPU + '</td>';
+    html += '<td style="font-size:12px;">' + row.finetune + '</td>';
+    html += '</tr>';
+    html += '<tr><td colspan="7" style="padding:0;"><div class="match-expand" id="matchExpand' + i + '">';
+    html += '<h4>' + row.model + ' 部署指南</h4>';
+    html += '<pre>' + row.ollama + '</pre>';
+    html += '<div style="margin:8px 0;"><strong style="color:var(--text-primary);">预估速度:</strong> <span style="font-family:var(--font-mono);font-size:13px;">' + row.speed + '</span></div>';
+    html += '<div class="tip">' + row.tip + '</div>';
+    html += '</div></td></tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function toggleMatchExpand(i) {
+  var panel = document.getElementById('matchExpand' + i);
+  var wasActive = panel.classList.contains('active');
+  document.querySelectorAll('.match-expand').forEach(function(p) { p.classList.remove('active'); });
+  if (!wasActive) panel.classList.add('active');
+}
+
+renderMatchTable();
+
+// ========== Glossary Modal ==========
+function openGlossary() {
+  document.getElementById('glossaryModal').classList.add('active');
+}
+
+function closeGlossary() {
+  document.getElementById('glossaryModal').classList.remove('active');
+}
+
+document.getElementById('glossaryModal').addEventListener('click', function(e) {
+  if (e.target === this) closeGlossary();
+});
+
+// ========== Keyboard Navigation ==========
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeGlossary();
+});
+</script>
+</body>
+</html>

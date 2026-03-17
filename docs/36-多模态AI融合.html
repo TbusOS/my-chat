@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多模态 AI 融合 — 看、听、读、懂的统一大脑</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a0e1a;
+  color: #e2e8f0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Canvas background */
+#bgCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Main container */
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 24px 20px 12px;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #60a5fa, #34d399, #fbbf24, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Tab navigation */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 8px 18px;
+  border: 1px solid #1e293b;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #94a3b8;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+
+.tab-btn:hover {
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.tab-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+/* Panel container */
+.panel {
+  display: none;
+  animation: fadeIn 0.5s ease;
+}
+
+.panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== Architecture Panel ========== */
+.arch-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 560px;
+  margin: 12px 0;
+}
+
+#archCanvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #1e293b;
+}
+
+.arch-legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* ========== Encoder Panel ========== */
+.encoder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.encoder-card {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.encoder-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.encoder-card:hover::before {
+  opacity: 1;
+}
+
+.encoder-card[data-modal="text"]::before { background: #60a5fa; }
+.encoder-card[data-modal="vision"]::before { background: #34d399; }
+.encoder-card[data-modal="audio"]::before { background: #fbbf24; }
+.encoder-card[data-modal="video"]::before { background: #a78bfa; }
+
+.encoder-card:hover {
+  transform: translateY(-4px);
+  border-color: #334155;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.encoder-card.expanded {
+  grid-column: 1 / -1;
+}
+
+.encoder-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.encoder-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.encoder-card[data-modal="text"] .encoder-title { color: #60a5fa; }
+.encoder-card[data-modal="vision"] .encoder-title { color: #34d399; }
+.encoder-card[data-modal="audio"] .encoder-title { color: #fbbf24; }
+.encoder-card[data-modal="video"] .encoder-title { color: #a78bfa; }
+
+.encoder-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.encoder-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.7;
+}
+
+/* Encoder animation area */
+.encoder-anim {
+  display: none;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #1e293b;
+}
+
+.encoder-card.expanded .encoder-anim {
+  display: block;
+  animation: fadeIn 0.4s ease;
+}
+
+.pipeline-flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 0;
+}
+
+.pipeline-step {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  min-width: 90px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.4s ease;
+}
+
+.pipeline-step.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pipeline-arrow {
+  flex-shrink: 0;
+  font-size: 16px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pipeline-arrow.visible {
+  opacity: 0.6;
+}
+
+.text-step { background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); }
+.vision-step { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+.audio-step { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
+.video-step { background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.3); }
+
+/* ========== Scenarios Panel ========== */
+.scenario-selector {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.scenario-btn {
+  padding: 12px 20px;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #94a3b8;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.scenario-btn:hover {
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.scenario-btn.active {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
+.scenario-display {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  margin: 12px 0;
+}
+
+#scenarioCanvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #1e293b;
+}
+
+.scenario-info {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 12px;
+}
+
+.scenario-info h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #fbbf24;
+}
+
+.scenario-info p {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.7;
+}
+
+/* ========== Concepts Panel ========== */
+.concepts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.concept-card {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+
+.concept-card:hover {
+  border-color: #334155;
+  transform: translateY(-2px);
+}
+
+.concept-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 12px;
+}
+
+.concept-card:nth-child(1) .concept-badge { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+.concept-card:nth-child(2) .concept-badge { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+.concept-card:nth-child(3) .concept-badge { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+
+.concept-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #f1f5f9;
+}
+
+.concept-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.8;
+}
+
+.concept-visual {
+  margin-top: 16px;
+  height: 140px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.concept-visual canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Auto-play controls */
+.auto-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.auto-btn {
+  padding: 8px 20px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #94a3b8;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.auto-btn:hover {
+  color: #e2e8f0;
+  border-color: #60a5fa;
+}
+
+.auto-btn.playing {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+/* Hint text */
+.hint {
+  text-align: center;
+  font-size: 12px;
+  color: #475569;
+  margin: 8px 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header h1 { font-size: 22px; }
+  .encoder-grid { grid-template-columns: 1fr; }
+  .concepts-grid { grid-template-columns: 1fr; }
+  .arch-canvas-wrap { height: 440px; }
+  .scenario-display { height: 340px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="container">
+  <div class="header">
+    <h1>多模态 AI 融合 — 看、听、读、懂的统一大脑</h1>
+    <p>文本 / 图像 / 音频 / 视频，四路感知汇入同一个理解空间</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="architecture">融合架构</button>
+    <button class="tab-btn" data-tab="encoders">编码过程</button>
+    <button class="tab-btn" data-tab="scenarios">应用场景</button>
+    <button class="tab-btn" data-tab="concepts">核心概念</button>
+  </div>
+
+  <!-- ===== Architecture Panel ===== -->
+  <div class="panel active" id="panel-architecture">
+    <div class="auto-controls">
+      <button class="auto-btn" id="autoPlayBtn">自动演示</button>
+      <button class="auto-btn" id="resetBtn">重置</button>
+    </div>
+    <div class="arch-canvas-wrap">
+      <canvas id="archCanvas"></canvas>
+    </div>
+    <div class="arch-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>文本 Text</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>图像 Vision</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>音频 Audio</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>视频 Video</div>
+      <div class="legend-item"><div class="legend-dot" style="background:linear-gradient(135deg,#60a5fa,#34d399,#fbbf24,#a78bfa)"></div>融合层</div>
+    </div>
+    <p class="hint">点击画布上的模态节点查看编码过程，或使用自动演示</p>
+  </div>
+
+  <!-- ===== Encoders Panel ===== -->
+  <div class="panel" id="panel-encoders">
+    <p class="hint">点击卡片展开查看编码流水线动画</p>
+    <div class="encoder-grid">
+      <div class="encoder-card" data-modal="text">
+        <div class="encoder-icon">T</div>
+        <div class="encoder-title">文本编码器</div>
+        <div class="encoder-subtitle">Tokenizer + Embedding</div>
+        <div class="encoder-desc">
+          文本先经过 Tokenizer 分词，将自然语言拆成 token 序列，再通过 Embedding 层映射为高维向量。每个 token 变成一个 768/1024 维的稠密向量，承载语义信息。
+        </div>
+        <div class="encoder-anim">
+          <div class="pipeline-flow" id="pipeline-text">
+            <div class="pipeline-step text-step">原始文本</div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step text-step">Tokenizer<br><span style="font-size:10px;opacity:0.7">分词</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step text-step">Token IDs<br><span style="font-size:10px;opacity:0.7">[101, 2456, ...]</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step text-step">Embedding<br><span style="font-size:10px;opacity:0.7">查表映射</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step text-step">序列向量<br><span style="font-size:10px;opacity:0.7">768-dim</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="encoder-card" data-modal="vision">
+        <div class="encoder-icon">V</div>
+        <div class="encoder-title">图像编码器</div>
+        <div class="encoder-subtitle">ViT (Vision Transformer)</div>
+        <div class="encoder-desc">
+          图像被切成 16x16 像素的 patch，每个 patch 线性映射为一个向量，加上位置编码后送入 Transformer。最终得到一组图像 token，和文本 token 在同一空间。
+        </div>
+        <div class="encoder-anim">
+          <div class="pipeline-flow" id="pipeline-vision">
+            <div class="pipeline-step vision-step">原始图片</div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step vision-step">切 Patch<br><span style="font-size:10px;opacity:0.7">16x16 px</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step vision-step">线性投影<br><span style="font-size:10px;opacity:0.7">Flatten+Proj</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step vision-step">+ 位置编码<br><span style="font-size:10px;opacity:0.7">Pos Embed</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step vision-step">Transformer<br><span style="font-size:10px;opacity:0.7">Self-Attn</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step vision-step">图像向量<br><span style="font-size:10px;opacity:0.7">768-dim</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="encoder-card" data-modal="audio">
+        <div class="encoder-icon">A</div>
+        <div class="encoder-title">音频编码器</div>
+        <div class="encoder-subtitle">Spectrogram + CNN/Transformer</div>
+        <div class="encoder-desc">
+          音频波形先转为梅尔声谱图（Mel Spectrogram），然后通过 CNN 或 Transformer 提取时频特征。声谱图本质是"声音的图片"，所以图像处理的方法同样适用。
+        </div>
+        <div class="encoder-anim">
+          <div class="pipeline-flow" id="pipeline-audio">
+            <div class="pipeline-step audio-step">音频波形</div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step audio-step">Mel 声谱图<br><span style="font-size:10px;opacity:0.7">时频转换</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step audio-step">CNN 特征<br><span style="font-size:10px;opacity:0.7">局部模式</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step audio-step">Transformer<br><span style="font-size:10px;opacity:0.7">时序建模</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step audio-step">音频向量<br><span style="font-size:10px;opacity:0.7">768-dim</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="encoder-card" data-modal="video">
+        <div class="encoder-icon">M</div>
+        <div class="encoder-title">视频编码器</div>
+        <div class="encoder-subtitle">Frame Extraction + Temporal Modeling</div>
+        <div class="encoder-desc">
+          视频先按帧提取关键帧，每帧用 ViT 编码得到空间特征，再用时序 Transformer 建模帧间关系。兼顾"每一帧看到什么"和"帧之间发生了什么"。
+        </div>
+        <div class="encoder-anim">
+          <div class="pipeline-flow" id="pipeline-video">
+            <div class="pipeline-step video-step">视频流</div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step video-step">关键帧提取<br><span style="font-size:10px;opacity:0.7">Sampling</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step video-step">ViT 编码<br><span style="font-size:10px;opacity:0.7">逐帧</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step video-step">时序建模<br><span style="font-size:10px;opacity:0.7">Temporal Attn</span></div>
+            <div class="pipeline-arrow">→</div>
+            <div class="pipeline-step video-step">视频向量<br><span style="font-size:10px;opacity:0.7">768-dim</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Scenarios Panel ===== -->
+  <div class="panel" id="panel-scenarios">
+    <div class="scenario-selector">
+      <button class="scenario-btn active" data-scene="captioning">看图说话</button>
+      <button class="scenario-btn" data-scene="video-qa">视频理解</button>
+      <button class="scenario-btn" data-scene="search">多模态搜索</button>
+    </div>
+    <div class="scenario-display">
+      <canvas id="scenarioCanvas"></canvas>
+    </div>
+    <div class="scenario-info" id="scenarioInfo">
+      <h3>场景1：看图说话（图像 + 文本）</h3>
+      <p>将图片通过 ViT 编码为视觉 token，和文本 prompt 的 token 拼接后送入大语言模型。模型在统一的 token 空间中理解图片内容，生成自然语言描述。GPT-4V、Gemini 都使用这一架构。</p>
+    </div>
+  </div>
+
+  <!-- ===== Concepts Panel ===== -->
+  <div class="panel" id="panel-concepts">
+    <div class="concepts-grid">
+      <div class="concept-card">
+        <div class="concept-badge">CLIP</div>
+        <div class="concept-title">图文对齐模型</div>
+        <div class="concept-desc">
+          OpenAI 的 CLIP 模型同时训练一个图像编码器和一个文本编码器，让匹配的图文对在向量空间中距离最近。训练了 4 亿图文对，实现了零样本图像分类。
+        </div>
+        <div class="concept-visual"><canvas id="clipCanvas"></canvas></div>
+      </div>
+
+      <div class="concept-card">
+        <div class="concept-badge">Contrastive Learning</div>
+        <div class="concept-title">对比学习</div>
+        <div class="concept-desc">
+          核心思想：相关的图文对应该靠近，不相关的应该远离。通过 InfoNCE 损失函数，在一个 batch 中将正对拉近、负对推远，学出统一的表征空间。
+        </div>
+        <div class="concept-visual"><canvas id="contrastCanvas"></canvas></div>
+      </div>
+
+      <div class="concept-card">
+        <div class="concept-badge">Unified Tokens</div>
+        <div class="concept-title">统一 Token 空间</div>
+        <div class="concept-desc">
+          将图像、音频、视频都"翻译"成 token 序列，和文本 token 共享同一个 Transformer。对模型来说，一切都是 token 流 — 图片是 token，声音是 token，视频也是 token。
+        </div>
+        <div class="concept-visual"><canvas id="tokenCanvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== Utilities ==========
+const COLORS = {
+  text: { main: '#60a5fa', light: 'rgba(96,165,250,0.3)', glow: 'rgba(96,165,250,0.15)' },
+  vision: { main: '#34d399', light: 'rgba(52,211,153,0.3)', glow: 'rgba(52,211,153,0.15)' },
+  audio: { main: '#fbbf24', light: 'rgba(251,191,36,0.3)', glow: 'rgba(251,191,36,0.15)' },
+  video: { main: '#a78bfa', light: 'rgba(167,139,250,0.3)', glow: 'rgba(167,139,250,0.15)' },
+  fusion: { main: '#f1f5f9', light: 'rgba(241,245,249,0.3)', glow: 'rgba(251,191,36,0.2)' }
+};
+
+function setupCanvas(canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, w: rect.width, h: rect.height, dpr };
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function easeInOut(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
+
+// ========== Background Particles ==========
+(function initBg() {
+  const canvas = document.getElementById('bgCanvas');
+  const { ctx, w, h } = setupCanvas(canvas);
+  const particles = [];
+  const COUNT = 60;
+
+  for (let i = 0; i < COUNT; i++) {
+    particles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 1.5 + 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      color: ['#60a5fa', '#34d399', '#fbbf24', '#a78bfa'][Math.floor(Math.random() * 4)],
+      alpha: Math.random() * 0.3 + 0.1
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0) p.x = w;
+      if (p.x > w) p.x = 0;
+      if (p.y < 0) p.y = h;
+      if (p.y > h) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Connect nearby particles
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = particles[i].color;
+          ctx.globalAlpha = (1 - dist / 120) * 0.06;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  window.addEventListener('resize', () => {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+  });
+})();
+
+// ========== Tab Switching ==========
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('.panel');
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const target = document.getElementById('panel-' + btn.dataset.tab);
+    target.classList.add('active');
+
+    if (btn.dataset.tab === 'architecture') {
+      initArchCanvas();
+    }
+    if (btn.dataset.tab === 'scenarios') {
+      initScenarioCanvas();
+    }
+    if (btn.dataset.tab === 'concepts') {
+      initConceptCanvases();
+    }
+  });
+});
+
+// ========== Architecture Canvas ==========
+let archState = {
+  phase: 0,       // 0=idle, 1=text, 2=vision, 3=audio, 4=video, 5=fusion, 6=output
+  progress: 0,
+  particles: [],
+  fusionGlow: 0,
+  autoPlay: false,
+  animFrame: null
+};
+
+function initArchCanvas() {
+  const canvas = document.getElementById('archCanvas');
+  const { ctx, w, h } = setupCanvas(canvas);
+  archState.particles = [];
+  archState.fusionGlow = 0;
+
+  const cx = w / 2;
+  const cy = h / 2;
+
+  // Node positions
+  const nodes = {
+    text:   { x: cx - 200, y: 80, label: '文本', sub: 'Tokenizer + Embedding', color: COLORS.text },
+    vision: { x: cx + 200, y: 80, label: '图像', sub: 'ViT Encoder', color: COLORS.vision },
+    audio:  { x: cx - 200, y: h - 80, label: '音频', sub: 'Spectrogram + Transformer', color: COLORS.audio },
+    video:  { x: cx + 200, y: h - 80, label: '视频', sub: 'Frame + Temporal Model', color: COLORS.video },
+    fusion: { x: cx, y: cy, label: '融合层', sub: 'Cross-Attention / Concat', color: COLORS.fusion },
+    output: { x: cx, y: cy + 160, label: '统一输出', sub: '文本/图片/语音', color: COLORS.fusion }
+  };
+
+  // Encoder boxes between modality and fusion
+  const encoders = {
+    text:   { x: (nodes.text.x + cx) / 2, y: (nodes.text.y + cy) / 2, label: '文本编码器', color: COLORS.text },
+    vision: { x: (nodes.vision.x + cx) / 2, y: (nodes.vision.y + cy) / 2, label: '图像编码器', color: COLORS.vision },
+    audio:  { x: (nodes.audio.x + cx) / 2, y: (nodes.audio.y + cy) / 2, label: '音频编码器', color: COLORS.audio },
+    video:  { x: (nodes.video.x + cx) / 2, y: (nodes.video.y + cy) / 2, label: '视频编码器', color: COLORS.video }
+  };
+
+  // Click detection
+  canvas.onclick = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    for (const [key, node] of Object.entries(nodes)) {
+      const dx = mx - node.x;
+      const dy = my - node.y;
+      if (dx * dx + dy * dy < 50 * 50) {
+        if (key === 'text') triggerArchPhase(1);
+        if (key === 'vision') triggerArchPhase(2);
+        if (key === 'audio') triggerArchPhase(3);
+        if (key === 'video') triggerArchPhase(4);
+        if (key === 'fusion') triggerArchPhase(5);
+        break;
+      }
+    }
+  };
+
+  function triggerArchPhase(p) {
+    archState.phase = p;
+    archState.progress = 0;
+    spawnParticlesForPhase(p);
+  }
+
+  function spawnParticlesForPhase(phase) {
+    const modals = ['text', 'vision', 'audio', 'video'];
+    const keys = phase <= 4 ? [modals[phase - 1]] : modals;
+
+    for (const key of keys) {
+      const node = nodes[key];
+      for (let i = 0; i < 20; i++) {
+        archState.particles.push({
+          x: node.x + (Math.random() - 0.5) * 30,
+          y: node.y + (Math.random() - 0.5) * 30,
+          tx: cx + (Math.random() - 0.5) * 20,
+          ty: cy + (Math.random() - 0.5) * 20,
+          r: Math.random() * 3 + 1.5,
+          color: node.color.main,
+          life: 1,
+          speed: Math.random() * 0.008 + 0.005,
+          t: 0
+        });
+      }
+    }
+  }
+
+  let lastTime = 0;
+
+  function draw(time) {
+    archState.animFrame = requestAnimationFrame(draw);
+    const dt = Math.min((time - lastTime) / 16.67, 2);
+    lastTime = time;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Draw connections (dotted lines)
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    for (const key of ['text', 'vision', 'audio', 'video']) {
+      const n = nodes[key];
+      const enc = encoders[key];
+      ctx.strokeStyle = n.color.light;
+      ctx.beginPath();
+      ctx.moveTo(n.x, n.y);
+      ctx.lineTo(enc.x, enc.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(enc.x, enc.y);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+    }
+    // Fusion to output
+    ctx.strokeStyle = COLORS.fusion.light;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + 30);
+    ctx.lineTo(cx, nodes.output.y - 20);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Draw encoder boxes
+    for (const [key, enc] of Object.entries(encoders)) {
+      ctx.fillStyle = 'rgba(15,23,42,0.9)';
+      ctx.strokeStyle = enc.color.light;
+      ctx.lineWidth = 1;
+      const bw = 80, bh = 30;
+      ctx.beginPath();
+      ctx.roundRect(enc.x - bw/2, enc.y - bh/2, bw, bh, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = enc.color.main;
+      ctx.font = '10px "Noto Sans SC"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(enc.label, enc.x, enc.y);
+    }
+
+    // Draw nodes
+    for (const [key, node] of Object.entries(nodes)) {
+      const isFusion = key === 'fusion';
+      const isOutput = key === 'output';
+      const radius = isFusion ? 42 : isOutput ? 32 : 36;
+
+      // Glow
+      if (isFusion && archState.fusionGlow > 0) {
+        const grd = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, 80);
+        grd.addColorStop(0, `rgba(251,191,36,${archState.fusionGlow * 0.4})`);
+        grd.addColorStop(0.5, `rgba(96,165,250,${archState.fusionGlow * 0.15})`);
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, 80, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Circle
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+
+      if (isFusion) {
+        const grd = ctx.createLinearGradient(node.x - radius, node.y, node.x + radius, node.y);
+        grd.addColorStop(0, 'rgba(96,165,250,0.2)');
+        grd.addColorStop(0.33, 'rgba(52,211,153,0.2)');
+        grd.addColorStop(0.66, 'rgba(251,191,36,0.2)');
+        grd.addColorStop(1, 'rgba(167,139,250,0.2)');
+        ctx.fillStyle = grd;
+        ctx.strokeStyle = 'rgba(241,245,249,0.4)';
+      } else if (isOutput) {
+        ctx.fillStyle = 'rgba(241,245,249,0.08)';
+        ctx.strokeStyle = 'rgba(241,245,249,0.3)';
+      } else {
+        ctx.fillStyle = node.color.glow;
+        ctx.strokeStyle = node.color.light;
+      }
+
+      ctx.lineWidth = 1.5;
+      ctx.fill();
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = isFusion || isOutput ? '#f1f5f9' : node.color.main;
+      ctx.font = `${isFusion ? 14 : 13}px "Noto Sans SC"`;
+      ctx.fontWeight = '700';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(node.label, node.x, node.y - 6);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '9px "JetBrains Mono"';
+      ctx.fillText(node.sub, node.x, node.y + 10);
+    }
+
+    // Draw & update particles
+    const alive = [];
+    for (const p of archState.particles) {
+      p.t += p.speed * dt;
+      if (p.t > 1) p.t = 1;
+      const et = easeInOut(p.t);
+      const px = lerp(p.x, p.tx, et);
+      const py = lerp(p.y, p.ty, et);
+
+      ctx.beginPath();
+      ctx.arc(px, py, p.r * (1 - p.t * 0.3), 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 1 - p.t * 0.7;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Trail
+      if (p.t < 0.9) {
+        ctx.beginPath();
+        ctx.arc(px, py, p.r * 2, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = 0.1 * (1 - p.t);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      if (p.t >= 1) {
+        archState.fusionGlow = Math.min(archState.fusionGlow + 0.05, 1);
+      } else {
+        alive.push(p);
+      }
+    }
+    archState.particles = alive;
+
+    // Decay glow
+    if (archState.particles.length === 0 && archState.fusionGlow > 0) {
+      archState.fusionGlow -= 0.005 * dt;
+      if (archState.fusionGlow < 0) archState.fusionGlow = 0;
+    }
+  }
+
+  if (archState.animFrame) cancelAnimationFrame(archState.animFrame);
+  archState.animFrame = requestAnimationFrame(draw);
+
+  // Auto play
+  document.getElementById('autoPlayBtn').onclick = function() {
+    if (archState.autoPlay) {
+      archState.autoPlay = false;
+      this.classList.remove('playing');
+      this.textContent = '自动演示';
+      return;
+    }
+    archState.autoPlay = true;
+    this.classList.add('playing');
+    this.textContent = '停止';
+
+    let step = 0;
+    const steps = [1, 2, 3, 4, 5];
+    function nextStep() {
+      if (!archState.autoPlay) return;
+      if (step >= steps.length) {
+        step = 0;
+      }
+      triggerArchPhase(steps[step]);
+      step++;
+      setTimeout(nextStep, 2000);
+    }
+    nextStep();
+  };
+
+  document.getElementById('resetBtn').onclick = function() {
+    archState.autoPlay = false;
+    archState.phase = 0;
+    archState.progress = 0;
+    archState.particles = [];
+    archState.fusionGlow = 0;
+    const btn = document.getElementById('autoPlayBtn');
+    btn.classList.remove('playing');
+    btn.textContent = '自动演示';
+  };
+}
+
+// Init on load
+setTimeout(initArchCanvas, 100);
+
+// ========== Encoder Cards ==========
+document.querySelectorAll('.encoder-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const wasExpanded = card.classList.contains('expanded');
+
+    // Collapse all
+    document.querySelectorAll('.encoder-card').forEach(c => c.classList.remove('expanded'));
+
+    if (!wasExpanded) {
+      card.classList.add('expanded');
+      const modal = card.dataset.modal;
+      animatePipeline(modal);
+    }
+  });
+});
+
+function animatePipeline(modal) {
+  const flow = document.getElementById('pipeline-' + modal);
+  if (!flow) return;
+
+  const steps = flow.querySelectorAll('.pipeline-step');
+  const arrows = flow.querySelectorAll('.pipeline-arrow');
+
+  steps.forEach(s => s.classList.remove('visible'));
+  arrows.forEach(a => a.classList.remove('visible'));
+
+  let idx = 0;
+  const items = flow.children;
+
+  function showNext() {
+    if (idx >= items.length) return;
+    items[idx].classList.add('visible');
+    idx++;
+    setTimeout(showNext, 200);
+  }
+  setTimeout(showNext, 100);
+}
+
+// ========== Scenario Canvas ==========
+let scenarioState = {
+  current: 'captioning',
+  animFrame: null,
+  particles: [],
+  time: 0
+};
+
+const scenarioData = {
+  captioning: {
+    title: '场景1：看图说话（图像 + 文本）',
+    desc: '将图片通过 ViT 编码为视觉 token，和文本 prompt 的 token 拼接后送入大语言模型。模型在统一的 token 空间中理解图片内容，生成自然语言描述。GPT-4V、Gemini 都使用这一架构。',
+    modals: ['vision', 'text'],
+    inputLabels: ['输入图片', '文本提示'],
+    outputLabel: '图片描述文本'
+  },
+  'video-qa': {
+    title: '场景2：视频理解（视频 + 音频 + 文本）',
+    desc: '视频逐帧编码，音轨单独编码，再和问题文本一起送入融合层。模型能回答"视频中发生了什么？""说话人的情绪如何？"等需要多模态推理的问题。',
+    modals: ['video', 'audio', 'text'],
+    inputLabels: ['视频帧', '音频轨', '问题文本'],
+    outputLabel: '视频回答'
+  },
+  search: {
+    title: '场景3：多模态搜索（文字搜图片 / 图片搜文字）',
+    desc: '利用 CLIP 等模型，将图片和文本编码到同一向量空间。搜索时计算向量余弦相似度，文字可以搜图片，图片也可以搜文字。这就是"统一表征空间"的威力。',
+    modals: ['text', 'vision'],
+    inputLabels: ['文字查询', '图片库'],
+    outputLabel: '匹配结果'
+  }
+};
+
+function initScenarioCanvas() {
+  const canvas = document.getElementById('scenarioCanvas');
+  const { ctx, w, h } = setupCanvas(canvas);
+  scenarioState.particles = [];
+  scenarioState.time = 0;
+
+  function getModalColor(m) {
+    return COLORS[m === 'text' ? 'text' : m === 'vision' ? 'vision' : m === 'audio' ? 'audio' : 'video'];
+  }
+
+  function draw(time) {
+    scenarioState.animFrame = requestAnimationFrame(draw);
+    scenarioState.time = time * 0.001;
+    ctx.clearRect(0, 0, w, h);
+
+    const scene = scenarioData[scenarioState.current];
+    const count = scene.modals.length;
+    const cx = w / 2;
+    const fusionY = h / 2;
+    const inputY = 60;
+    const outputY = h - 60;
+
+    // Draw input nodes
+    const spacing = Math.min(160, (w - 100) / count);
+    const startX = cx - (count - 1) * spacing / 2;
+
+    for (let i = 0; i < count; i++) {
+      const modal = scene.modals[i];
+      const color = getModalColor(modal);
+      const nx = startX + i * spacing;
+
+      // Connection line
+      ctx.beginPath();
+      ctx.moveTo(nx, inputY + 30);
+      ctx.quadraticCurveTo(nx, fusionY - 40, cx, fusionY);
+      ctx.strokeStyle = color.light;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Node circle
+      ctx.beginPath();
+      ctx.arc(nx, inputY, 28, 0, Math.PI * 2);
+      ctx.fillStyle = color.glow;
+      ctx.strokeStyle = color.main;
+      ctx.lineWidth = 1.5;
+      ctx.fill();
+      ctx.stroke();
+
+      // Pulsing ring
+      const pulse = Math.sin(scenarioState.time * 2 + i) * 0.3 + 0.7;
+      ctx.beginPath();
+      ctx.arc(nx, inputY, 34, 0, Math.PI * 2);
+      ctx.strokeStyle = color.main;
+      ctx.globalAlpha = pulse * 0.3;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // Icon
+      const icons = { text: 'T', vision: 'V', audio: 'A', video: 'M' };
+      ctx.fillStyle = color.main;
+      ctx.font = 'bold 16px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(icons[modal], nx, inputY);
+
+      // Label
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '11px "Noto Sans SC"';
+      ctx.fillText(scene.inputLabels[i], nx, inputY + 46);
+
+      // Emit particles
+      if (Math.random() < 0.06) {
+        scenarioState.particles.push({
+          x: nx,
+          y: inputY + 30,
+          tx: cx + (Math.random() - 0.5) * 15,
+          ty: fusionY,
+          t: 0,
+          speed: 0.008 + Math.random() * 0.006,
+          r: Math.random() * 2.5 + 1,
+          color: color.main
+        });
+      }
+    }
+
+    // Fusion node
+    const fusionPulse = Math.sin(scenarioState.time * 3) * 0.2 + 0.8;
+    const grd = ctx.createRadialGradient(cx, fusionY, 0, cx, fusionY, 60);
+    grd.addColorStop(0, `rgba(251,191,36,${fusionPulse * 0.25})`);
+    grd.addColorStop(0.5, `rgba(96,165,250,${fusionPulse * 0.1})`);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(cx, fusionY, 60, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx, fusionY, 36, 0, Math.PI * 2);
+    const fusionBg = ctx.createLinearGradient(cx - 36, fusionY, cx + 36, fusionY);
+    fusionBg.addColorStop(0, 'rgba(96,165,250,0.15)');
+    fusionBg.addColorStop(0.5, 'rgba(251,191,36,0.15)');
+    fusionBg.addColorStop(1, 'rgba(167,139,250,0.15)');
+    ctx.fillStyle = fusionBg;
+    ctx.strokeStyle = 'rgba(241,245,249,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = '12px "Noto Sans SC"';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('融合层', cx, fusionY);
+
+    // Output connection
+    ctx.beginPath();
+    ctx.moveTo(cx, fusionY + 36);
+    ctx.lineTo(cx, outputY - 28);
+    ctx.strokeStyle = 'rgba(241,245,249,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Output node
+    ctx.beginPath();
+    ctx.arc(cx, outputY, 28, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(241,245,249,0.08)';
+    ctx.strokeStyle = 'rgba(241,245,249,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = '11px "Noto Sans SC"';
+    ctx.fillText('输出', cx, outputY);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px "Noto Sans SC"';
+    ctx.fillText(scene.outputLabel, cx, outputY + 44);
+
+    // Output particles
+    if (Math.random() < 0.03) {
+      scenarioState.particles.push({
+        x: cx + (Math.random() - 0.5) * 10,
+        y: fusionY + 36,
+        tx: cx + (Math.random() - 0.5) * 10,
+        ty: outputY - 28,
+        t: 0,
+        speed: 0.008 + Math.random() * 0.004,
+        r: Math.random() * 2 + 1,
+        color: '#f1f5f9'
+      });
+    }
+
+    // Draw particles
+    const aliveP = [];
+    for (const p of scenarioState.particles) {
+      p.t += p.speed;
+      if (p.t > 1) continue;
+      const et = easeInOut(p.t);
+      const px = lerp(p.x, p.tx, et);
+      const py = lerp(p.y, p.ty, et);
+
+      ctx.beginPath();
+      ctx.arc(px, py, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.8 * (1 - p.t * 0.5);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(px, py, p.r * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.15 * (1 - p.t);
+      ctx.fill();
+
+      ctx.globalAlpha = 1;
+      aliveP.push(p);
+    }
+    scenarioState.particles = aliveP;
+  }
+
+  if (scenarioState.animFrame) cancelAnimationFrame(scenarioState.animFrame);
+  scenarioState.animFrame = requestAnimationFrame(draw);
+}
+
+// Scenario buttons
+document.querySelectorAll('.scenario-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    scenarioState.current = btn.dataset.scene;
+    scenarioState.particles = [];
+
+    const data = scenarioData[btn.dataset.scene];
+    const info = document.getElementById('scenarioInfo');
+    info.querySelector('h3').textContent = data.title;
+    info.querySelector('p').textContent = data.desc;
+  });
+});
+
+// ========== Concept Canvases ==========
+function initConceptCanvases() {
+  initClipCanvas();
+  initContrastCanvas();
+  initTokenCanvas();
+}
+
+function initClipCanvas() {
+  const canvas = document.getElementById('clipCanvas');
+  if (!canvas) return;
+  const { ctx, w, h } = setupCanvas(canvas);
+  let time = 0;
+
+  const imgPoints = [];
+  const txtPoints = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const r = 35;
+    imgPoints.push({ x: w * 0.3 + Math.cos(angle) * r, y: h / 2 + Math.sin(angle) * r });
+    txtPoints.push({ x: w * 0.7 + Math.cos(angle + 0.3) * r, y: h / 2 + Math.sin(angle + 0.3) * r });
+  }
+
+  function draw() {
+    requestAnimationFrame(draw);
+    time += 0.02;
+    ctx.clearRect(0, 0, w, h);
+
+    // Image encoder side
+    ctx.fillStyle = 'rgba(52,211,153,0.1)';
+    ctx.beginPath();
+    ctx.arc(w * 0.3, h / 2, 50, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#34d399';
+    ctx.font = '10px "JetBrains Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText('Image Encoder', w * 0.3, h / 2 - 56);
+
+    for (const p of imgPoints) {
+      const ox = Math.sin(time + p.x) * 3;
+      const oy = Math.cos(time + p.y) * 3;
+      ctx.beginPath();
+      ctx.arc(p.x + ox, p.y + oy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#34d399';
+      ctx.fill();
+    }
+
+    // Text encoder side
+    ctx.fillStyle = 'rgba(96,165,250,0.1)';
+    ctx.beginPath();
+    ctx.arc(w * 0.7, h / 2, 50, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#60a5fa';
+    ctx.font = '10px "JetBrains Mono"';
+    ctx.fillText('Text Encoder', w * 0.7, h / 2 - 56);
+
+    for (const p of txtPoints) {
+      const ox = Math.sin(time + p.x) * 3;
+      const oy = Math.cos(time + p.y) * 3;
+      ctx.beginPath();
+      ctx.arc(p.x + ox, p.y + oy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#60a5fa';
+      ctx.fill();
+    }
+
+    // Matching lines
+    for (let i = 0; i < 6; i++) {
+      const alpha = (Math.sin(time * 2 + i) + 1) / 2 * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(imgPoints[i].x, imgPoints[i].y);
+      ctx.lineTo(txtPoints[i].x, txtPoints[i].y);
+      ctx.strokeStyle = i % 3 === 0 ? `rgba(251,191,36,${alpha})` : `rgba(100,116,139,${alpha * 0.5})`;
+      ctx.lineWidth = i % 3 === 0 ? 1.5 : 0.8;
+      ctx.setLineDash(i % 3 === 0 ? [] : [2, 2]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Center label
+    ctx.fillStyle = '#64748b';
+    ctx.font = '9px "Noto Sans SC"';
+    ctx.fillText('对齐向量空间', w / 2, h - 12);
+  }
+  draw();
+}
+
+function initContrastCanvas() {
+  const canvas = document.getElementById('contrastCanvas');
+  if (!canvas) return;
+  const { ctx, w, h } = setupCanvas(canvas);
+  let time = 0;
+
+  // Positive pairs (close together)
+  const positive = [
+    { ix: w * 0.35, iy: h * 0.4, tx: w * 0.45, ty: h * 0.38 },
+    { ix: w * 0.55, iy: h * 0.6, tx: w * 0.65, ty: h * 0.58 }
+  ];
+
+  // Negative pairs (far apart)
+  const negative = [
+    { ix: w * 0.2, iy: h * 0.7, tx: w * 0.8, ty: h * 0.3 }
+  ];
+
+  function draw() {
+    requestAnimationFrame(draw);
+    time += 0.015;
+    ctx.clearRect(0, 0, w, h);
+
+    // Draw positive pairs (green lines, close)
+    for (const pair of positive) {
+      const pullFactor = Math.sin(time * 1.5) * 3;
+      const ix = pair.ix + pullFactor;
+      const tx = pair.tx - pullFactor;
+
+      ctx.beginPath();
+      ctx.moveTo(ix, pair.iy);
+      ctx.lineTo(tx, pair.ty);
+      ctx.strokeStyle = 'rgba(52,211,153,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Image dot
+      ctx.beginPath();
+      ctx.arc(ix, pair.iy, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#34d399';
+      ctx.fill();
+
+      // Text dot
+      ctx.beginPath();
+      ctx.arc(tx, pair.ty, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#60a5fa';
+      ctx.fill();
+    }
+
+    // Draw negative pairs (red dashed lines, pushed apart)
+    for (const pair of negative) {
+      const pushFactor = Math.sin(time * 1.5) * 5;
+      const ix = pair.ix - pushFactor;
+      const tx = pair.tx + pushFactor;
+
+      ctx.beginPath();
+      ctx.moveTo(ix, pair.iy);
+      ctx.lineTo(tx, pair.ty);
+      ctx.strokeStyle = 'rgba(239,68,68,0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.beginPath();
+      ctx.arc(ix, pair.iy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#34d399';
+      ctx.globalAlpha = 0.6;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      ctx.beginPath();
+      ctx.arc(tx, pair.ty, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#60a5fa';
+      ctx.globalAlpha = 0.6;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Labels
+    ctx.fillStyle = '#34d399';
+    ctx.font = '9px "JetBrains Mono"';
+    ctx.textAlign = 'left';
+    ctx.fillText('Image', 8, 16);
+    ctx.fillStyle = '#60a5fa';
+    ctx.fillText('Text', 8, 28);
+    ctx.fillStyle = 'rgba(52,211,153,0.7)';
+    ctx.fillText('--- pull close (positive)', w * 0.3, h - 10);
+    ctx.fillStyle = 'rgba(239,68,68,0.5)';
+    ctx.fillText('--- push apart (negative)', w * 0.65, h - 10);
+  }
+  draw();
+}
+
+function initTokenCanvas() {
+  const canvas = document.getElementById('tokenCanvas');
+  if (!canvas) return;
+  const { ctx, w, h } = setupCanvas(canvas);
+  let time = 0;
+
+  const tokenTypes = [
+    { label: 'T', color: '#60a5fa', name: '文本' },
+    { label: 'V', color: '#34d399', name: '图像' },
+    { label: 'A', color: '#fbbf24', name: '音频' },
+    { label: 'M', color: '#a78bfa', name: '视频' }
+  ];
+
+  // Generate token sequence
+  const tokens = [];
+  const tokenCount = Math.floor(w / 28);
+  for (let i = 0; i < tokenCount; i++) {
+    tokens.push({
+      type: tokenTypes[Math.floor(Math.random() * 4)],
+      x: 14 + i * 28,
+      baseY: h / 2
+    });
+  }
+
+  function draw() {
+    requestAnimationFrame(draw);
+    time += 0.02;
+    ctx.clearRect(0, 0, w, h);
+
+    // Label
+    ctx.fillStyle = '#64748b';
+    ctx.font = '9px "Noto Sans SC"';
+    ctx.textAlign = 'center';
+    ctx.fillText('Transformer: 一切都是 Token 流', w / 2, 16);
+
+    // Arrow
+    ctx.beginPath();
+    ctx.moveTo(10, h / 2);
+    ctx.lineTo(w - 10, h / 2);
+    ctx.strokeStyle = 'rgba(100,116,139,0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Arrow head
+    ctx.beginPath();
+    ctx.moveTo(w - 10, h / 2);
+    ctx.lineTo(w - 18, h / 2 - 4);
+    ctx.lineTo(w - 18, h / 2 + 4);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(100,116,139,0.2)';
+    ctx.fill();
+
+    // Tokens
+    for (let i = 0; i < tokens.length; i++) {
+      const tk = tokens[i];
+      const wave = Math.sin(time * 2 + i * 0.5) * 8;
+      const y = tk.baseY + wave;
+
+      // Token block
+      ctx.fillStyle = tk.type.color;
+      ctx.globalAlpha = 0.15;
+      ctx.beginPath();
+      ctx.roundRect(tk.x - 10, y - 12, 20, 24, 4);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      ctx.strokeStyle = tk.type.color;
+      ctx.globalAlpha = 0.4;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(tk.x - 10, y - 12, 20, 24, 4);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      // Letter
+      ctx.fillStyle = tk.type.color;
+      ctx.font = 'bold 10px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tk.type.label, tk.x, y);
+    }
+
+    // Legend at bottom
+    let lx = w / 2 - 100;
+    for (const tt of tokenTypes) {
+      ctx.fillStyle = tt.color;
+      ctx.beginPath();
+      ctx.arc(lx, h - 14, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '9px "Noto Sans SC"';
+      ctx.textAlign = 'left';
+      ctx.fillText(tt.name, lx + 6, h - 11);
+      lx += 52;
+    }
+  }
+  draw();
+}
+
+// Init concept canvases if panel is visible
+setTimeout(() => {
+  if (document.getElementById('panel-concepts').classList.contains('active')) {
+    initConceptCanvases();
+  }
+}, 200);
+</script>
+
+</body>
+</html>

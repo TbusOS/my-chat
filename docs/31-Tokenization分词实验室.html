@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokenization 分词实验室 — AI 如何"读"文字</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Sans SC', 'Inter', system-ui, sans-serif;
+  background: #f8fafc; color: #1e293b; line-height: 1.6; min-height: 100vh;
+}
+.container { max-width: 1400px; margin: 0 auto; padding: 28px 28px 40px; }
+header { text-align: center; margin-bottom: 32px; }
+header h1 {
+  font-size: 32px; font-weight: 700; color: #0f172a; margin-bottom: 6px; letter-spacing: -0.5px;
+}
+header h1 .accent { color: #2563eb; }
+header h1 .accent2 { color: #7c3aed; }
+header .subtitle { font-size: 15px; color: #64748b; }
+
+/* Main layout */
+.main-layout { display: flex; gap: 24px; margin-bottom: 28px; }
+.left-panel { width: 38%; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; }
+.right-panel { width: 62%; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; }
+
+/* Card */
+.card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+  padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.card-title {
+  font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title .icon {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.card-title .icon.blue { background: #eff6ff; }
+.card-title .icon.purple { background: #f5f3ff; }
+.card-title .icon.green { background: #f0fdf4; }
+.card-title .icon.orange { background: #fff7ed; }
+.card-title .icon.pink { background: #fdf2f8; }
+
+/* Text input */
+.text-input {
+  width: 100%; min-height: 100px; padding: 14px; border: 1.5px solid #e2e8f0;
+  border-radius: 10px; font-size: 15px; font-family: inherit; color: #1e293b;
+  resize: vertical; outline: none; transition: border-color 0.2s; line-height: 1.6;
+  background: #fafbfc;
+}
+.text-input:focus { border-color: #2563eb; background: #fff; box-shadow: 0 0 0 3px rgba(37,99,235,0.08); }
+.text-input::placeholder { color: #94a3b8; }
+
+/* Preset chips */
+.preset-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.preset-chip {
+  padding: 6px 13px; border-radius: 20px; font-size: 12px; cursor: pointer;
+  border: 1.5px solid #e2e8f0; background: #fff; color: #475569;
+  transition: all 0.2s; white-space: nowrap; font-family: inherit;
+}
+.preset-chip:hover { border-color: #93c5fd; background: #f0f9ff; }
+.preset-chip.active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+
+/* Tokenizer selector */
+.tokenizer-selector { display: flex; gap: 8px; margin-bottom: 16px; }
+.tokenizer-btn {
+  flex: 1; padding: 9px 8px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid #e2e8f0; background: #fff; color: #475569;
+  transition: all 0.25s; text-align: center; font-family: inherit;
+}
+.tokenizer-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.tokenizer-btn.gpt4 { border-color: #bbf7d0; }
+.tokenizer-btn.gpt4:hover, .tokenizer-btn.gpt4.active { background: #dcfce7; color: #166534; border-color: #4ade80; }
+.tokenizer-btn.claude { border-color: #fde68a; }
+.tokenizer-btn.claude:hover, .tokenizer-btn.claude.active { background: #fef3c7; color: #92400e; border-color: #fbbf24; }
+.tokenizer-btn.bpe { border-color: #c4b5fd; }
+.tokenizer-btn.bpe:hover, .tokenizer-btn.bpe.active { background: #ede9fe; color: #5b21b6; border-color: #8b5cf6; }
+
+/* Run button */
+.run-btn {
+  width: 100%; padding: 12px 20px; background: #2563eb; color: #fff; border: none;
+  border-radius: 10px; font-size: 15px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: all 0.2s; display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+}
+.run-btn:hover { background: #1d4ed8; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+.run-btn:active { transform: scale(0.98); }
+
+/* Token display */
+.token-display {
+  display: flex; flex-wrap: wrap; gap: 6px; min-height: 50px;
+  padding: 4px 0; align-items: flex-start;
+}
+.token-block {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 3px;
+  opacity: 0; transform: translateY(8px) scale(0.9);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.token-block.show { opacity: 1; transform: translateY(0) scale(1); }
+.token-text {
+  padding: 5px 10px; border-radius: 6px; font-size: 14px; font-weight: 500;
+  white-space: pre; font-family: 'Inter', monospace; letter-spacing: 0.3px;
+  border: 1px solid rgba(0,0,0,0.06); min-width: 28px; text-align: center;
+}
+.token-id {
+  font-size: 10px; color: #94a3b8; font-family: 'Inter', monospace; font-weight: 500;
+}
+
+/* Token colors */
+.token-color-0 { background: #dbeafe; color: #1e40af; }
+.token-color-1 { background: #dcfce7; color: #166534; }
+.token-color-2 { background: #fef3c7; color: #92400e; }
+.token-color-3 { background: #fce7f3; color: #9d174d; }
+.token-color-4 { background: #ede9fe; color: #5b21b6; }
+.token-color-5 { background: #ffedd5; color: #9a3412; }
+.token-color-6 { background: #ccfbf1; color: #115e59; }
+.token-color-7 { background: #fef9c3; color: #854d0e; }
+.token-color-8 { background: #e0e7ff; color: #3730a3; }
+.token-color-9 { background: #fae8ff; color: #86198f; }
+.token-color-10 { background: #d1fae5; color: #065f46; }
+.token-color-11 { background: #fee2e2; color: #991b1b; }
+
+/* Stats grid */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+.stat-item {
+  text-align: center; padding: 14px 8px; background: #f8fafc; border-radius: 10px;
+  border: 1px solid #f1f5f9;
+}
+.stat-value {
+  font-size: 22px; font-weight: 700; color: #2563eb; font-family: 'Inter', sans-serif;
+  line-height: 1.2;
+}
+.stat-value.green { color: #16a34a; }
+.stat-value.purple { color: #7c3aed; }
+.stat-value.orange { color: #ea580c; }
+.stat-label { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
+/* BPE animation */
+.bpe-steps { display: flex; flex-direction: column; gap: 12px; }
+.bpe-step {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;
+  opacity: 0; transform: translateX(-12px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.bpe-step.show { opacity: 1; transform: translateX(0); }
+.bpe-step-num {
+  width: 24px; height: 24px; border-radius: 50%; background: #eff6ff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #2563eb; flex-shrink: 0;
+}
+.bpe-step-content { flex: 1; }
+.bpe-step-label { font-size: 11px; color: #94a3b8; margin-bottom: 3px; }
+.bpe-step-tokens {
+  display: flex; flex-wrap: wrap; gap: 3px; align-items: center;
+}
+.bpe-mini-token {
+  padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: 'Inter', monospace;
+  background: #e2e8f0; color: #475569; transition: all 0.3s;
+}
+.bpe-mini-token.merged {
+  background: #dbeafe; color: #1e40af; font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+}
+.bpe-mini-token.highlight {
+  background: #fef3c7; color: #92400e;
+  box-shadow: 0 0 0 2px rgba(251,191,36,0.3);
+}
+.bpe-arrow {
+  font-size: 14px; color: #94a3b8; margin: 4px 0;
+  display: flex; align-items: center; gap: 4px; padding-left: 32px;
+}
+.bpe-arrow .merge-label {
+  font-size: 10px; background: #fef3c7; color: #92400e; padding: 1px 8px;
+  border-radius: 10px; font-weight: 600;
+}
+
+/* Bottom chart section */
+.bottom-section { margin-top: 4px; }
+.chart-container {
+  display: flex; gap: 24px; align-items: flex-end; padding: 20px 0 0;
+}
+.chart-group {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.chart-group-label { font-size: 13px; font-weight: 600; color: #475569; }
+.chart-bars { display: flex; gap: 10px; align-items: flex-end; height: 140px; }
+.chart-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.chart-bar {
+  width: 42px; border-radius: 6px 6px 0 0; transition: height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative; min-height: 4px;
+}
+.chart-bar .bar-value {
+  position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+  font-size: 12px; font-weight: 700; font-family: 'Inter', sans-serif; white-space: nowrap;
+}
+.chart-bar-label { font-size: 10px; color: #94a3b8; font-weight: 500; }
+.chart-bar.gpt4-bar { background: linear-gradient(180deg, #4ade80, #22c55e); }
+.chart-bar.gpt4-bar .bar-value { color: #16a34a; }
+.chart-bar.claude-bar { background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+.chart-bar.claude-bar .bar-value { color: #d97706; }
+.chart-bar.bpe-bar { background: linear-gradient(180deg, #a78bfa, #8b5cf6); }
+.chart-bar.bpe-bar .bar-value { color: #7c3aed; }
+
+.chart-legend { display: flex; gap: 20px; justify-content: center; margin-top: 16px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+.legend-dot.gpt4 { background: #22c55e; }
+.legend-dot.claude { background: #f59e0b; }
+.legend-dot.bpe { background: #8b5cf6; }
+
+.chart-insight {
+  margin-top: 16px; padding: 12px 16px; background: #fffbeb; border: 1px solid #fef3c7;
+  border-radius: 10px; font-size: 13px; color: #92400e; line-height: 1.6;
+}
+.chart-insight strong { font-weight: 600; }
+
+/* Empty state */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100px; color: #94a3b8; gap: 8px;
+}
+.empty-state .empty-icon { font-size: 28px; opacity: 0.5; }
+.empty-state .empty-text { font-size: 13px; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .main-layout { flex-direction: column; }
+  .left-panel, .right-panel { width: 100%; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .chart-bars { height: 100px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1><span class="accent">Tokenization</span> 分词实验室 — AI 如何<span class="accent2">"读"</span>文字</h1>
+    <p class="subtitle">输入文本，观察大模型如何将自然语言切分为 Token，理解 BPE 算法的合并过程</p>
+  </header>
+
+  <div class="main-layout">
+    <!-- Left Panel -->
+    <div class="left-panel">
+      <div class="card">
+        <div class="card-title"><div class="icon blue">📝</div>输入文本</div>
+        <textarea class="text-input" id="textInput" placeholder="在此输入任意文本..."></textarea>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="icon green">💡</div>预设示例</div>
+        <div class="preset-chips">
+          <button class="preset-chip" data-text="Hello, world!">Hello, world!</button>
+          <button class="preset-chip" data-text="我喜欢人工智能">我喜欢人工智能</button>
+          <button class="preset-chip" data-text="function add(a, b) { return a + b; }">function add(a,b)</button>
+          <button class="preset-chip" data-text="こんにちは世界">こんにちは世界</button>
+          <button class="preset-chip" data-text="The transformer architecture revolutionized NLP">Transformer 长句</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="icon purple">🔧</div>选择分词器</div>
+        <div class="tokenizer-selector">
+          <button class="tokenizer-btn gpt4 active" data-tokenizer="gpt4">GPT-4</button>
+          <button class="tokenizer-btn claude" data-tokenizer="claude">Claude</button>
+          <button class="tokenizer-btn bpe" data-tokenizer="bpe">通用 BPE</button>
+        </div>
+      </div>
+
+      <button class="run-btn" id="runBtn">⚡ 开始分词</button>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-title"><div class="icon blue">🧩</div>分词结果</div>
+        <div class="token-display" id="tokenDisplay">
+          <div class="empty-state">
+            <div class="empty-icon">🔤</div>
+            <div class="empty-text">输入文本并点击"开始分词"查看结果</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="icon orange">📊</div>统计信息</div>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value" id="statChars">0</div>
+            <div class="stat-label">字符数</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value green" id="statTokens">0</div>
+            <div class="stat-label">Token 数</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value purple" id="statRatio">0</div>
+            <div class="stat-label">压缩比</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value orange" id="statCost">$0</div>
+            <div class="stat-label">预估成本 / 1M次</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="icon pink">🔄</div>BPE 合并过程</div>
+        <div class="bpe-steps" id="bpeSteps">
+          <div class="empty-state">
+            <div class="empty-icon">⚙️</div>
+            <div class="empty-text">运行分词后展示 BPE 算法的逐步合并过程</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom: Language comparison chart -->
+  <div class="bottom-section">
+    <div class="card">
+      <div class="card-title"><div class="icon green">📈</div>语言对比 — 同一含义在不同分词器下的 Token 数量</div>
+      <div id="chartArea">
+        <div class="chart-container" id="chartContainer"></div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot gpt4"></div>GPT-4</div>
+          <div class="legend-item"><div class="legend-dot claude"></div>Claude</div>
+          <div class="legend-item"><div class="legend-dot bpe"></div>通用 BPE</div>
+        </div>
+        <div class="chart-insight" id="chartInsight">
+          <strong>💡 观察：</strong>中文和日文通常会产生更多的 Token，因为 BPE 词表以英文语料为主。
+          同样含义的文本，中文 Token 数约为英文的 1.5~2 倍，这直接影响 API 调用成本。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Simplified BPE Tokenizer ───
+// Pre-defined token mapping tables for simulated tokenization
+
+const TOKEN_TABLES = {
+  gpt4: {
+    // Common English words/subwords
+    'Hello': 9906, ',': 11, ' world': 1917, '!': 0,
+    'The': 791, ' transform': 5276, 'er': 261, ' architecture': 18112,
+    ' revolution': 14110, 'ized': 1534, ' NL': 27829, 'P': 47,
+    'function': 1723, ' add': 923, '(': 7, 'a': 64, ' b': 293,
+    ')': 8, ' {': 314, ' return': 471, ' ': 220, '+': 10,
+    ';': 26, '}': 534,
+    // Chinese - each character is often 1-2 tokens
+    '我': 37046, '喜': 46349, '欢': 33643, '人': 21689,
+    '工': 33966, '智': 47541, '能': 33232, '爱': 29567,
+    // Japanese
+    'こん': 88714, 'にち': 78342, 'は': 15682, '世': 41437, '界': 35271,
+  },
+  claude: {
+    'Hello': 10245, ',': 12, ' world': 2035, '!': 1,
+    'The': 845, ' transformer': 37821, ' architecture': 19543,
+    ' revolutionized': 62417, ' NLP': 48273,
+    'function': 1845, ' add': 987, '(': 8, 'a': 68, ',': 12,
+    ' b': 312, ')': 9, ' {': 338, ' return': 502, ' ': 235,
+    '+': 11, ';': 28, '}': 567,
+    '我': 39821, '喜欢': 51243, '人工': 42156, '智能': 53214,
+    '爱': 31245,
+    'こんにちは': 91234, '世界': 78456,
+  },
+  bpe: {
+    'He': 4521, 'll': 1342, 'o': 112, ',': 11, ' ': 32, 'w': 98,
+    'or': 273, 'ld': 421, '!': 0,
+    'Th': 2341, 'e': 68, ' t': 345, 'rans': 8921, 'form': 5432,
+    'er': 261, ' arc': 12453, 'hi': 3421, 'te': 2134, 'ct': 1245,
+    'ur': 876, ' re': 2345, 'vol': 8765, 'ut': 3456, 'ion': 1234,
+    'iz': 6789, 'ed': 432, ' N': 567, 'L': 78, 'P': 47,
+    'f': 67, 'un': 345, 'c': 89, 'ti': 234, 'on': 178, ' a': 256,
+    'dd': 678, '(': 7, 'a': 64, ',': 11, ' b': 293, ')': 8,
+    ' {': 314, ' r': 289, 'et': 432, 'n': 110, ' ': 32,
+    '+': 10, ';': 26, '}': 534,
+    '我': 38123, '喜': 47234, '欢': 34567, '人': 22345,
+    '工': 34567, '智': 48234, '能': 34123, '爱': 30234,
+    'こ': 89123, 'ん': 81234, 'に': 79345, 'ち': 83456,
+    'は': 16234, '世': 42345, '界': 36234,
+  }
+};
+
+// Tokenization rules per tokenizer
+function tokenize(text, tokenizer) {
+  const table = TOKEN_TABLES[tokenizer];
+  const tokens = [];
+
+  if (tokenizer === 'gpt4') {
+    tokens.push(...tokenizeGPT4(text));
+  } else if (tokenizer === 'claude') {
+    tokens.push(...tokenizeClaude(text));
+  } else {
+    tokens.push(...tokenizeBPE(text));
+  }
+
+  return tokens;
+}
+
+function tokenizeGPT4(text) {
+  const patterns = [
+    // Common multi-char English tokens
+    /^(?:function|return|transform|er|ized|architecture|revolution|Hello|The|world)/,
+    /^(?:NLP|NL)/,
+    // Spaces + word
+    /^ [a-zA-Z]+/,
+    // Programming tokens
+    /^[{}();,=+\-*/<>!&|]+/,
+    // Single CJK characters (each is typically one token in GPT-4)
+    /^[\u4e00-\u9fff]/,
+    /^[\u3040-\u309f\u30a0-\u30ff]{1,2}/,
+    // Whitespace
+    /^ /,
+    // Any single char fallback
+    /^./,
+  ];
+
+  return greedyTokenize(text, patterns, 'gpt4');
+}
+
+function tokenizeClaude(text) {
+  const patterns = [
+    // Claude tends to merge more aggressively on common words
+    /^(?:function|return|transformer|revolutionized|architecture|Hello|The|world)/,
+    /^(?:NLP)/,
+    // Chinese: Claude merges common pairs
+    /^(?:喜欢|人工|智能|世界)/,
+    // Japanese: Claude may merge more
+    /^(?:こんにちは|世界)/,
+    // Spaces + word
+    /^ [a-zA-Z]+/,
+    // Programming tokens
+    /^[{}();,=+\-*/<>!&|]+/,
+    // Single CJK characters
+    /^[\u4e00-\u9fff]/,
+    /^[\u3040-\u309f\u30a0-\u30ff]+/,
+    /^ /,
+    /^./,
+  ];
+
+  return greedyTokenize(text, patterns, 'claude');
+}
+
+function tokenizeBPE(text) {
+  const patterns = [
+    // BPE splits more aggressively - smaller pieces
+    /^(?:Th|He|ll)/,
+    /^(?:rans|form|arc|vol|ut|ion|iz|ed|un|ct|ur|te|hi|et|dd|on|ti|or|ld)/,
+    /^ [a-z]/,
+    /^[a-zA-Z]{1,2}/,
+    /^[{}();,=+\-*/<>!&|]/,
+    /^[\u4e00-\u9fff]/,
+    /^[\u3040-\u309f\u30a0-\u30ff]/,
+    /^ /,
+    /^./,
+  ];
+
+  return greedyTokenize(text, patterns, 'bpe');
+}
+
+function greedyTokenize(text, patterns, tokenizer) {
+  const table = TOKEN_TABLES[tokenizer];
+  const result = [];
+  let remaining = text;
+  let idCounter = 1000;
+
+  while (remaining.length > 0) {
+    let matched = false;
+    for (const pattern of patterns) {
+      const m = remaining.match(pattern);
+      if (m) {
+        const tok = m[0];
+        const id = table[tok] || table[tok.trim()] || (idCounter++);
+        result.push({ text: tok, id: id });
+        remaining = remaining.slice(tok.length);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      result.push({ text: remaining[0], id: idCounter++ });
+      remaining = remaining.slice(1);
+    }
+  }
+
+  return result;
+}
+
+// ─── BPE merge steps simulation ───
+function generateBPESteps(text) {
+  // Simulate BPE process: start with characters, merge common pairs
+  const chars = Array.from(text);
+  const steps = [];
+
+  // Step 0: initial characters
+  steps.push({
+    label: '初始字符拆分',
+    tokens: chars.map(c => ({ text: c, merged: false })),
+    mergeInfo: null,
+  });
+
+  // Simulate merges based on common pairs
+  const mergePairs = [
+    ['t', 'h'], ['i', 'n'], ['e', 'r'], ['o', 'n'], ['t', 'i'],
+    ['a', 'n'], ['r', 'e'], ['a', 'l'], ['l', 'l'], ['H', 'e'],
+    ['w', 'o'], ['r', 'l'], ['l', 'd'], ['th', 'e'], ['in', 'g'],
+    ['ti', 'on'], ['er', 's'], ['re', 'v'], ['ol', 'u'],
+    ['an', 's'], ['fo', 'rm'], ['ar', 'ch'], ['He', 'llo'],
+    ['wor', 'ld'], ['trans', 'form'], ['archite', 'cture'],
+  ];
+
+  let currentTokens = chars.slice();
+  let stepCount = 0;
+  const maxSteps = 5;
+
+  for (const [a, b] of mergePairs) {
+    if (stepCount >= maxSteps) break;
+
+    let foundMerge = false;
+    const newTokens = [];
+    let i = 0;
+    const highlights = [];
+
+    while (i < currentTokens.length) {
+      if (i < currentTokens.length - 1 && currentTokens[i] === a && currentTokens[i + 1] === b) {
+        newTokens.push(a + b);
+        highlights.push(newTokens.length - 1);
+        i += 2;
+        foundMerge = true;
+      } else {
+        newTokens.push(currentTokens[i]);
+        i++;
+      }
+    }
+
+    if (foundMerge) {
+      stepCount++;
+      steps.push({
+        label: `合并 "${a}" + "${b}" → "${a + b}"`,
+        tokens: newTokens.map((t, idx) => ({
+          text: t,
+          merged: highlights.includes(idx),
+        })),
+        mergeInfo: { a, b, result: a + b },
+      });
+      currentTokens = newTokens;
+    }
+  }
+
+  // If we didn't find merges from the predefined list, do generic ones
+  if (stepCount === 0) {
+    let tokens = chars.slice();
+    for (let s = 0; s < Math.min(maxSteps, Math.floor(chars.length / 2)); s++) {
+      // Find most common adjacent pair
+      const pairCounts = {};
+      for (let i = 0; i < tokens.length - 1; i++) {
+        const pair = tokens[i] + '|' + tokens[i + 1];
+        pairCounts[pair] = (pairCounts[pair] || 0) + 1;
+      }
+
+      let bestPair = null;
+      let bestCount = 0;
+      for (const [pair, count] of Object.entries(pairCounts)) {
+        if (count > bestCount) {
+          bestCount = count;
+          bestPair = pair;
+        }
+      }
+
+      if (!bestPair || bestCount < 1) break;
+
+      const [pa, pb] = bestPair.split('|');
+      const newTokens = [];
+      const highlights = [];
+      let i = 0;
+
+      while (i < tokens.length) {
+        if (i < tokens.length - 1 && tokens[i] === pa && tokens[i + 1] === pb) {
+          newTokens.push(pa + pb);
+          highlights.push(newTokens.length - 1);
+          i += 2;
+        } else {
+          newTokens.push(tokens[i]);
+          i++;
+        }
+      }
+
+      steps.push({
+        label: `合并 "${pa}" + "${pb}" → "${pa + pb}"`,
+        tokens: newTokens.map((t, idx) => ({
+          text: t,
+          merged: highlights.includes(idx),
+        })),
+        mergeInfo: { a: pa, b: pb, result: pa + pb },
+      });
+      tokens = newTokens;
+    }
+  }
+
+  return steps;
+}
+
+// ─── Cost calculation ───
+function calculateCost(tokenCount, tokenizer) {
+  // Price per 1M input tokens
+  const prices = {
+    gpt4: 2.50,    // GPT-4o approximate
+    claude: 3.00,  // Claude 3.5 Sonnet approximate
+    bpe: 1.50,     // Generic estimate
+  };
+  return prices[tokenizer] * (tokenCount / 1000000);
+}
+
+// ─── Language comparison data ───
+function getComparisonData() {
+  const phrases = [
+    { label: '我爱人工智能', lang: 'zh', text: '我爱人工智能' },
+    { label: 'I love AI', lang: 'en', text: 'I love artificial intelligence' },
+    { label: '日本語テスト', lang: 'ja', text: 'こんにちは世界' },
+    { label: 'Code snippet', lang: 'code', text: 'function hello() {}' },
+  ];
+
+  return phrases.map(phrase => {
+    const gpt4Tokens = tokenize(phrase.text, 'gpt4');
+    const claudeTokens = tokenize(phrase.text, 'claude');
+    const bpeTokens = tokenize(phrase.text, 'bpe');
+    return {
+      label: phrase.label,
+      gpt4: gpt4Tokens.length,
+      claude: claudeTokens.length,
+      bpe: bpeTokens.length,
+    };
+  });
+}
+
+// ─── UI State ───
+let currentTokenizer = 'gpt4';
+let activePreset = null;
+
+// ─── DOM Elements ───
+const textInput = document.getElementById('textInput');
+const tokenDisplay = document.getElementById('tokenDisplay');
+const runBtn = document.getElementById('runBtn');
+const bpeStepsEl = document.getElementById('bpeSteps');
+const chartContainer = document.getElementById('chartContainer');
+
+// ─── Event Handlers ───
+document.querySelectorAll('.preset-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    textInput.value = chip.dataset.text;
+    activePreset = chip.dataset.text;
+  });
+});
+
+document.querySelectorAll('.tokenizer-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tokenizer-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTokenizer = btn.dataset.tokenizer;
+  });
+});
+
+runBtn.addEventListener('click', runTokenization);
+
+// Also allow Enter key in textarea (Shift+Enter for newline)
+textInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    runTokenization();
+  }
+});
+
+function runTokenization() {
+  const text = textInput.value.trim();
+  if (!text) return;
+
+  // Tokenize
+  const tokens = tokenize(text, currentTokenizer);
+
+  // Display tokens
+  renderTokens(tokens);
+
+  // Update stats
+  updateStats(text, tokens);
+
+  // Show BPE steps
+  renderBPESteps(text);
+
+  // Render comparison chart
+  renderChart();
+}
+
+function renderTokens(tokens) {
+  tokenDisplay.innerHTML = '';
+
+  tokens.forEach((token, index) => {
+    const block = document.createElement('div');
+    block.className = 'token-block';
+
+    const colorClass = 'token-color-' + (index % 12);
+    const displayText = token.text.replace(/ /g, '\u2423'); // Show spaces visually
+
+    block.innerHTML = `
+      <div class="token-text ${colorClass}">${escapeHtml(displayText)}</div>
+      <div class="token-id">${token.id}</div>
+    `;
+
+    tokenDisplay.appendChild(block);
+
+    // Staggered animation
+    setTimeout(() => {
+      block.classList.add('show');
+    }, index * 60);
+  });
+}
+
+function updateStats(text, tokens) {
+  const chars = Array.from(text).length;
+  const tokenCount = tokens.length;
+  const ratio = chars > 0 ? (chars / tokenCount).toFixed(2) : 0;
+  const cost = calculateCost(tokenCount, currentTokenizer);
+
+  animateValue('statChars', chars);
+  animateValue('statTokens', tokenCount);
+  document.getElementById('statRatio').textContent = ratio + 'x';
+  document.getElementById('statCost').textContent = '$' + cost.toFixed(4);
+}
+
+function animateValue(elementId, targetValue) {
+  const el = document.getElementById(elementId);
+  const start = parseInt(el.textContent) || 0;
+  const duration = 400;
+  const startTime = performance.now();
+
+  function update(now) {
+    const progress = Math.min((now - startTime) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(start + (targetValue - start) * eased);
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+function renderBPESteps(text) {
+  const steps = generateBPESteps(text);
+  bpeStepsEl.innerHTML = '';
+
+  steps.forEach((step, stepIndex) => {
+    if (stepIndex > 0) {
+      // Arrow between steps
+      const arrow = document.createElement('div');
+      arrow.className = 'bpe-arrow';
+      arrow.innerHTML = `↓ <span class="merge-label">${escapeHtml(step.label)}</span>`;
+      arrow.style.opacity = '0';
+      arrow.style.transform = 'translateX(-12px)';
+      arrow.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      bpeStepsEl.appendChild(arrow);
+
+      setTimeout(() => {
+        arrow.style.opacity = '1';
+        arrow.style.transform = 'translateX(0)';
+      }, stepIndex * 500 - 200);
+    }
+
+    const stepEl = document.createElement('div');
+    stepEl.className = 'bpe-step';
+
+    const tokensHtml = step.tokens.map(t => {
+      const cls = t.merged ? 'bpe-mini-token merged' : 'bpe-mini-token';
+      const display = t.text.replace(/ /g, '\u2423');
+      return `<span class="${cls}">${escapeHtml(display)}</span>`;
+    }).join('');
+
+    stepEl.innerHTML = `
+      <div class="bpe-step-num">${stepIndex}</div>
+      <div class="bpe-step-content">
+        <div class="bpe-step-label">${stepIndex === 0 ? '初始状态' : '第 ' + stepIndex + ' 步合并'} (${step.tokens.length} 片段)</div>
+        <div class="bpe-step-tokens">${tokensHtml}</div>
+      </div>
+    `;
+
+    bpeStepsEl.appendChild(stepEl);
+
+    setTimeout(() => {
+      stepEl.classList.add('show');
+    }, stepIndex * 500);
+  });
+}
+
+function renderChart() {
+  const data = getComparisonData();
+  const maxVal = Math.max(...data.flatMap(d => [d.gpt4, d.claude, d.bpe]));
+
+  chartContainer.innerHTML = '';
+
+  data.forEach(item => {
+    const group = document.createElement('div');
+    group.className = 'chart-group';
+
+    const barHeight = (val) => Math.max(8, (val / maxVal) * 120);
+
+    group.innerHTML = `
+      <div class="chart-group-label">${escapeHtml(item.label)}</div>
+      <div class="chart-bars">
+        <div class="chart-bar-wrap">
+          <div class="chart-bar gpt4-bar" style="height: 0px;" data-height="${barHeight(item.gpt4)}">
+            <div class="bar-value">${item.gpt4}</div>
+          </div>
+          <div class="chart-bar-label">GPT-4</div>
+        </div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar claude-bar" style="height: 0px;" data-height="${barHeight(item.claude)}">
+            <div class="bar-value">${item.claude}</div>
+          </div>
+          <div class="chart-bar-label">Claude</div>
+        </div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar bpe-bar" style="height: 0px;" data-height="${barHeight(item.bpe)}">
+            <div class="bar-value">${item.bpe}</div>
+          </div>
+          <div class="chart-bar-label">BPE</div>
+        </div>
+      </div>
+    `;
+
+    chartContainer.appendChild(group);
+  });
+
+  // Animate bars
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.chart-bar[data-height]').forEach((bar, i) => {
+      setTimeout(() => {
+        bar.style.height = bar.dataset.height + 'px';
+      }, i * 80);
+    });
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ─── Initialize chart on load ───
+renderChart();
+
+// Auto-select first preset
+document.querySelector('.preset-chip').click();
+</script>
+
+<!-- Glossary Button & Panel -->
+<button id="glossaryBtn" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:44px;height:44px;border-radius:50%;background:rgba(99,102,241,0.3);border:1px solid rgba(99,102,241,0.5);color:#a5b4fc;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.3s;" onclick="toggleGlossary()">&#10067;</button>
+<div id="glossaryPanel" style="position:fixed;right:0;top:0;height:100vh;width:340px;background:rgba(15,23,42,0.97);border-left:1px solid rgba(99,102,241,0.2);overflow-y:auto;padding:24px;z-index:10000;transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h3 style="color:#a5b4fc;font-size:17px;font-weight:700;margin:0;">&#128218; 术语表</h3>
+    <button onclick="toggleGlossary()" style="background:rgba(255,255,255,0.06);border:none;color:#94a3b8;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">&times;</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Token</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">模型处理的最小文本单元，可以是一个字、半个词或一个标点</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">BPE (Byte Pair Encoding, 字节对编码)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">最常用的分词算法，反复合并最频繁的字符对</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Tokenizer (分词器)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">将文本拆分为Token的工具/算法</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Vocabulary (词表)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">分词器认识的所有Token的集合，通常有3-10万个</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">压缩比</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">原始字符数与Token数的比值，越大说明分词效率越高</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Unicode</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">全球统一的字符编码标准，包含所有语言的文字</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Subword (子词)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">介于字符和完整单词之间的文本片段</div>
+    </div>
+  </div>
+</div>
+<script>
+function toggleGlossary() {
+  var panel = document.getElementById('glossaryPanel');
+  var isOpen = panel.style.transform === 'translateX(0%)';
+  panel.style.transform = isOpen ? 'translateX(100%)' : 'translateX(0%)';
+}
+</script>
+</body>
+</html>

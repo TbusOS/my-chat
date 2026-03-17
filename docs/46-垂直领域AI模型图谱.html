@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>垂直领域 AI 模型图谱 — 各行各业的 AI 专家</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0a0e1a;
+  --surface: #111827;
+  --surface-light: #1e293b;
+  --border: rgba(148, 163, 184, 0.12);
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --sidebar-w: 220px;
+  --header-h: 72px;
+  --cat-video: #ef4444;
+  --cat-image: #f97316;
+  --cat-music: #eab308;
+  --cat-voice: #22c55e;
+  --cat-code: #3b82f6;
+  --cat-search: #6366f1;
+  --cat-medical: #ec4899;
+  --cat-design: #a855f7;
+  --cat-robotics: #64748b;
+  --cat-science: #14b8a6;
+  --cat-3d: #f43f5e;
+  --cat-translation: #06b6d4;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============ STARS ============ */
+.stars-container {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  animation: twinkle var(--dur) ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: var(--omin); }
+  50% { opacity: var(--omax); }
+}
+
+/* ============ HEADER ============ */
+.header {
+  position: relative;
+  z-index: 20;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 14, 26, 0.85);
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header h1 {
+  font-size: 22px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.header-subtitle {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-box {
+  position: relative;
+}
+
+.search-box input {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 16px 7px 36px;
+  color: var(--text);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  width: 220px;
+  outline: none;
+  transition: border-color 0.3s, width 0.3s;
+}
+
+.search-box input:focus {
+  border-color: rgba(139, 92, 246, 0.5);
+  width: 280px;
+}
+
+.search-box input::placeholder {
+  color: var(--text-dim);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.btn-overview {
+  padding: 7px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.6);
+  color: var(--text-muted);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
+
+.btn-overview:hover {
+  border-color: rgba(148, 163, 184, 0.5);
+  color: var(--text);
+}
+
+.btn-overview.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3));
+  border-color: rgba(139, 92, 246, 0.6);
+  color: #fff;
+}
+
+.model-count-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+/* ============ MAIN LAYOUT ============ */
+.main-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+}
+
+/* ============ SIDEBAR ============ */
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.5);
+  backdrop-filter: blur(12px);
+  overflow-y: auto;
+  padding: 12px 0;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 2px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-item:hover {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.sidebar-item.active {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: transparent;
+  transition: background 0.25s;
+}
+
+.sidebar-item.active::before {
+  background: var(--accent);
+}
+
+.sidebar-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  transition: transform 0.25s;
+}
+
+.sidebar-item:hover .sidebar-icon {
+  transform: scale(1.1);
+}
+
+.sidebar-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 0.25s;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-item.active .sidebar-label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sidebar-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 8px;
+  padding: 2px 6px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ============ CONTENT AREA ============ */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  position: relative;
+}
+
+.content-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content-area::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 3px;
+}
+
+/* ============ OVERVIEW GRID ============ */
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.overview-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 20px;
+  cursor: pointer;
+  transition: all 0.35s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.overview-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  transition: opacity 0.35s;
+  pointer-events: none;
+}
+
+.overview-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--accent);
+}
+
+.overview-card:hover::before {
+  opacity: 1;
+}
+
+.overview-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  transition: transform 0.35s;
+}
+
+.overview-card:hover .overview-icon {
+  transform: scale(1.12) rotate(-3deg);
+}
+
+.overview-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.overview-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.overview-count-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: -6px;
+}
+
+.overview-leader {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 8px;
+  padding: 4px 10px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============ CATEGORY DETAIL VIEW ============ */
+.category-view {
+  animation: fadeIn 0.4s ease;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.category-header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.category-header-text h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.category-header-text p {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.model-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.model-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.model-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(148, 163, 184, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.model-card:hover::after {
+  opacity: 1;
+}
+
+.model-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.model-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.model-company {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-weight: 400;
+  margin-top: 1px;
+}
+
+.model-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.badge-leader {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.15));
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.badge-category {
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+}
+
+.model-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.model-card-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.model-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 6px;
+  padding: 2px 8px;
+  letter-spacing: 0.3px;
+}
+
+/* ============ SEARCH RESULTS ============ */
+.search-results {
+  animation: fadeIn 0.3s ease;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.search-results-title {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.search-results-title strong {
+  color: var(--text);
+}
+
+.search-highlight {
+  background: rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* ============ MODAL ============ */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal-card {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 18px;
+  padding: 32px;
+  max-width: 480px;
+  width: 92%;
+  position: relative;
+  transform: scale(0.9) translateY(20px);
+  transition: transform 0.3s ease;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal-card::-webkit-scrollbar {
+  width: 4px;
+}
+
+.modal-card::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 2px;
+}
+
+.modal-overlay.active .modal-card {
+  transform: scale(1) translateY(0);
+}
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+  z-index: 2;
+}
+
+.modal-close:hover {
+  color: var(--text);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.modal-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.modal-company-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.modal-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 10px;
+  margin-bottom: 18px;
+}
+
+.modal-section {
+  margin-bottom: 16px;
+}
+
+.modal-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+
+.modal-capability-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-capability-list li {
+  font-size: 14px;
+  color: var(--text-muted);
+  padding-left: 18px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.modal-capability-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+.modal-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modal-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 1100px) {
+  .overview-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .model-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .sidebar { display: none; }
+  .overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .model-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .header h1 { font-size: 18px; }
+  .search-box input { width: 160px; }
+  .search-box input:focus { width: 200px; }
+}
+
+@media (max-width: 600px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+  .model-grid {
+    grid-template-columns: 1fr;
+  }
+  .header { padding: 0 14px; }
+  .content-area { padding: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Stars -->
+<div class="stars-container" id="stars"></div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div>
+      <h1>垂直领域 AI 模型图谱</h1>
+      <div class="header-subtitle">各行各业的 AI 专家 &mdash; 2026.03</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="model-count-badge" id="totalBadge">48 个模型</div>
+    <div class="search-box">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="searchInput" placeholder="搜索模型或公司..." />
+    </div>
+    <button class="btn-overview active" id="btnOverview">总览</button>
+    <button class="btn-overview" id="btnAll">全部模型</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main-layout">
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar"></nav>
+  <!-- Content -->
+  <main class="content-area" id="content"></main>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-card" id="modalCard">
+    <button class="modal-close" id="modalClose">&times;</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ============ DATA ============
+const CATEGORIES = [
+  {
+    id: 'video',
+    name: '视频生成',
+    icon: '🎬',
+    color: '#ef4444',
+    rgb: '239,68,68',
+    desc: 'AI 视频创作与生成',
+    models: [
+      { name: 'Sora 2', company: 'OpenAI', badge: 'Leader', badgeType: 'leader',
+        desc: '电影级质量, 物理仿真, 同步音频, 20秒+片段',
+        capabilities: ['电影级视觉质量与物理仿真', '原生同步音频生成', '20秒以上连续片段', 'GPT 驱动的提示理解'],
+        pros: ['电影级视觉质量', '物理仿真最真实', '同步音频生成', 'GPT驱动提示理解'],
+        cons: ['价格昂贵($200/月Pro)', '生成速度较慢', '偶有物理Bug', '仅限ChatGPT Plus用户'],
+        tags: ['电影级', '物理引擎', '音频同步'] },
+      { name: 'Veo 3.1', company: 'Google', badge: 'Co-leader', badgeType: 'leader',
+        desc: '电影级写实, 原生同步音频',
+        capabilities: ['电影级写实视觉效果', '原生同步音频', 'Gemini 驱动的内容理解', 'YouTube 生态集成'],
+        pros: ['写实视觉效果顶级', '原生同步音频支持', 'Gemini深度内容理解', 'YouTube生态无缝集成'],
+        cons: ['非Google平台接入受限', '创意风格多样性不足', '生成速度不如Kling'],
+        tags: ['电影级', '写实', '音频'] },
+      { name: 'Veo 2', company: 'Google', badge: 'Gemini驱动', badgeType: 'category',
+        desc: 'Gemini驱动视频生成, 4K输出, YouTube集成',
+        capabilities: ['Gemini大模型驱动内容理解', '4K高分辨率输出', 'YouTube/Google生态集成', '物理世界理解优秀'],
+        pros: ['Gemini大模型驱动理解力强', '4K高分辨率输出', 'YouTube/Google生态集成', '物理世界理解优秀'],
+        cons: ['暂无公开API', '仅限Google平台使用', '创意自由度不如Runway'],
+        tags: ['Gemini', '4K', 'Google'] },
+      { name: 'Kling 3.0', company: '快手', badge: '中国领先', badgeType: 'category',
+        desc: '多镜头序列, 角色一致性, 多角色原生音频',
+        capabilities: ['多镜头序列编排', '角色跨镜头一致性', '多角色原生音频', '快影App集成'],
+        pros: ['多镜头编排能力强', '角色跨镜头一致性好', '国内最佳视频生成', '快影App生态完善'],
+        cons: ['海外市场覆盖不足', '英文提示理解较弱', '美学风格偏国风'],
+        tags: ['多镜头', '角色一致性', '国产'] },
+      { name: 'Runway Gen-4.5', company: 'Runway', badge: '创意首选', badgeType: 'category',
+        desc: '角色/风格跨场景一致性, 720p-1080p',
+        capabilities: ['角色与风格跨场景保持', '720p 到 1080p 输出', '创意工作流集成', '精确的美学控制'],
+        pros: ['创意工作流集成度最高', '美学控制精确', '角色风格跨场景一致', '专业影视团队首选'],
+        cons: ['价格在同类中偏高', '最大分辨率仅1080p', '生成时长受限'],
+        tags: ['创意', '一致性', '工作流'] },
+      { name: 'Seedance 2.0', company: '字节跳动', badge: '新秀', badgeType: 'category',
+        desc: '"导演式"提示, 好莱坞级争议',
+        capabilities: ['"导演式"自然语言提示', '好莱坞级视觉质量', '抖音/TikTok 生态集成', '争议性但强大的生成能力'],
+        pros: ['导演式提示交互创新', '视觉质量追赶一线', '抖音/TikTok生态加持', '迭代速度极快'],
+        cons: ['版权争议尚未解决', '输出稳定性待提升', '国际市场信任度不高'],
+        tags: ['导演式', '新秀', '字节'] },
+      { name: 'HunyuanVideo 1.5', company: '腾讯', badge: '最佳开源', badgeType: 'category',
+        desc: '13B参数, 开源, 运动质量最佳',
+        capabilities: ['13B 参数开源模型', '运动质量业界最佳', '完全可本地部署', '社区驱动持续改进'],
+        pros: ['完全开源可本地部署', '运动质量业界最佳', '13B参数模型强大', '社区生态活跃'],
+        cons: ['本地部署硬件要求高', '商业支持不如闭源', '细节质量不如Sora'],
+        tags: ['开源', '13B', '运动质量'] }
+    ]
+  },
+  {
+    id: 'image',
+    name: '图像生成',
+    icon: '🎨',
+    color: '#f97316',
+    rgb: '249,115,22',
+    desc: 'AI 图像创作与编辑',
+    models: [
+      { name: 'Midjourney v7', company: 'Midjourney', badge: '艺术品质领先', badgeType: 'leader',
+        desc: '无与伦比的美学质量, 角色一致性, 草稿模式10倍快',
+        capabilities: ['无与伦比的美学品质', '角色一致性保持', '草稿模式 10 倍速生成', '独特的艺术风格理解'],
+        pros: ['美学品质无可匹敌', '社区生态活跃', 'Discord集成独特', '草稿模式10倍速'],
+        cons: ['无API仅Discord使用', '写实人物偶有瑕疵', '商业使用需付费计划'],
+        tags: ['美学', '一致性', '艺术'] },
+      { name: 'GPT Image / DALL-E', company: 'OpenAI', badge: '文字渲染领先', badgeType: 'leader',
+        desc: '复杂提示理解最佳, 95%文字渲染准确率',
+        capabilities: ['复杂提示理解能力最佳', '95% 文字渲染准确率', 'ChatGPT 原生集成', '强大的多轮对话编辑'],
+        pros: ['文字渲染准确率95%', '复杂提示理解最佳', 'ChatGPT原生多轮编辑', 'API接入便捷'],
+        cons: ['艺术风格不如Midjourney', '生成速度中等', '高频使用有额度限制'],
+        tags: ['文字渲染', '提示理解', 'GPT'] },
+      { name: 'Imagen 3', company: 'Google', badge: 'Gemini原生', badgeType: 'category',
+        desc: 'Gemini原生图像生成, 文字渲染优秀, Google生态集成',
+        capabilities: ['Gemini原生集成', '文字渲染能力出色', 'Google Cloud API直接调用', '安全过滤机制成熟'],
+        pros: ['Gemini原生集成', '文字渲染能力出色', 'Google Cloud API直接调用', '安全过滤机制成熟'],
+        cons: ['创意风格不如Midjourney', '开放度有限', '生成速度偏慢'],
+        tags: ['Gemini', '文字', 'Google'] },
+      { name: 'Stable Diffusion 3.5', company: 'Stability AI', badge: '开源领先', badgeType: 'category',
+        desc: '开源, 完全可定制',
+        capabilities: ['完全开源可定制', 'LoRA/ControlNet 生态', '本地部署无限制', 'ComfyUI 工作流集成'],
+        pros: ['完全开源可定制', 'LoRA/ControlNet生态丰富', '本地部署无限制', 'ComfyUI工作流成熟'],
+        cons: ['默认质量不如Midjourney', '上手门槛较高', '需要GPU硬件投入'],
+        tags: ['开源', '可定制', 'SD'] },
+      { name: 'FLUX 1.1 Pro', company: 'Black Forest Labs', badge: '速度+真实感', badgeType: 'category',
+        desc: '4.5秒生成, 最佳真实感',
+        capabilities: ['4.5 秒极速生成', '最佳真实感表现', 'Stability AI 前团队打造', 'API 友好的企业接入'],
+        pros: ['4.5秒极速生成', '真实感表现最佳', 'API企业接入友好', 'SD前团队技术积累'],
+        cons: ['风格化能力偏弱', '社区生态不如SD', '闭源版本价格不低'],
+        tags: ['速度', '真实感', 'FLUX'] },
+      { name: 'Ideogram 3.0', company: 'Ideogram', badge: '图中文字领先', badgeType: 'category',
+        desc: '90%文字渲染准确率, 风格参考',
+        capabilities: ['90% 文字渲染准确率', '风格参考功能', '海报/标志设计首选', '精确的排版控制'],
+        pros: ['文字渲染准确率90%', '海报/标志设计首选', '风格参考功能实用', '排版控制精确'],
+        cons: ['整体美学不如Midjourney', '用户基数较小', '生态工具不够丰富'],
+        tags: ['文字', '风格参考', '设计'] }
+    ]
+  },
+  {
+    id: 'music',
+    name: '音乐/音频',
+    icon: '🎵',
+    color: '#eab308',
+    rgb: '234,179,8',
+    desc: 'AI 音乐创作与音频生成',
+    models: [
+      { name: 'Suno', company: 'Suno', badge: '整体领先', badgeType: 'leader',
+        desc: '200万付费用户, $3亿ARR, 流行/摇滚人声最佳, Warner合作',
+        capabilities: ['200 万付费用户, $3 亿 ARR', '流行/摇滚人声质量最佳', 'Warner Music 官方合作', '端到端歌曲创作'],
+        pros: ['端到端歌曲创作最便捷', '人声质量业界最佳', 'Warner Music官方合作', '用户基数最大'],
+        cons: ['细粒度控制不如Udio', '生成结果随机性较高', '版权归属仍有争议'],
+        tags: ['人声', '流行', '$3亿ARR'] },
+      { name: 'Udio', company: 'Udio', badge: '精度控制领先', badgeType: 'category',
+        desc: '精确控制, 分段重新生成, UMG/WMG授权',
+        capabilities: ['精确的音乐段落控制', '分段重新生成功能', 'UMG/WMG 正式授权', '专业音乐人首选'],
+        pros: ['精确段落控制能力', '分段重新生成功能', 'UMG/WMG正式授权', '专业音乐人首选'],
+        cons: ['用户基数不如Suno', '上手门槛较高', '免费额度较少'],
+        tags: ['精确控制', '分段生成', '授权'] },
+      { name: 'Stable Audio 2.5', company: 'Stability AI', badge: '合规领先', badgeType: 'category',
+        desc: '完全授权数据, 3分钟, 文转音/音转音',
+        capabilities: ['完全授权训练数据', '最长 3 分钟生成', '文转音 + 音转音', '商用合规无忧'],
+        pros: ['训练数据完全授权', '商用合规无顾虑', '支持文转音和音转音', '开源生态友好'],
+        cons: ['音乐质量不如Suno', '最长仅3分钟', '人声表现较弱'],
+        tags: ['合规', '授权数据', '商用'] }
+    ]
+  },
+  {
+    id: 'voice',
+    name: '语音/TTS',
+    icon: '🗣️',
+    color: '#22c55e',
+    rgb: '34,197,94',
+    desc: 'AI 语音合成与克隆',
+    models: [
+      { name: 'ElevenLabs v3', company: 'ElevenLabs', badge: '市场领先', badgeType: 'leader',
+        desc: '最自然TTS, 70+语言, 3分钟音频克隆',
+        capabilities: ['业界最自然的 TTS 效果', '70+ 语言支持', '3 分钟音频即可克隆', '播客/有声书行业标准'],
+        pros: ['自然度业界第一', '70+语言覆盖最广', '3分钟即可克隆音色', '播客/有声书行业标准'],
+        cons: ['价格相对较高', '中文效果不如英文', '克隆音色有伦理风险'],
+        tags: ['最自然', '70+语言', '克隆'] },
+      { name: 'Fish Speech S2', company: 'Fish Audio', badge: '开源领先', badgeType: 'category',
+        desc: '开源, GitHub 26K+ Stars, 情感控制, 延迟<150ms, 比ElevenLabs便宜70%',
+        capabilities: ['完全开源, GitHub 26K+ Stars', '情感控制能力', '端到端延迟 < 150ms', '比 ElevenLabs 便宜 70%'],
+        pros: ['完全开源可自部署', '延迟<150ms极低', '比ElevenLabs便宜70%', '情感控制能力出色'],
+        cons: ['语言覆盖不如ElevenLabs', '社区支持为主无企业SLA', '部分语言音质有差距'],
+        tags: ['开源', '低延迟', '高性价比'] },
+      { name: 'Gemini TTS', company: 'Google', badge: 'Gemini原生', badgeType: 'category',
+        desc: 'Gemini 2.0原生语音输出, 实时对话, 多语言',
+        capabilities: ['Gemini原生多模态输出', '实时对话级低延迟', '多语言支持广泛', 'Google生态集成'],
+        pros: ['Gemini原生多模态输出', '实时对话级低延迟', '多语言支持广泛'],
+        cons: ['音色种类有限', '克隆能力不如ElevenLabs', '仅限Gemini API使用'],
+        tags: ['Gemini', '实时', '多模态'] },
+      { name: 'Qwen3-TTS', company: '阿里巴巴', badge: '基准测试领先', badgeType: 'category',
+        desc: '开源, 10语言平均WER 1.835%, 超越ElevenLabs和MiniMax',
+        capabilities: ['开源 TTS 模型', '10 语言平均 WER 1.835%', '基准测试超越 ElevenLabs', '基准测试超越 MiniMax'],
+        pros: ['WER基准测试全球最佳', '开源可商用', '中文效果尤其优秀', '阿里云生态集成'],
+        cons: ['实际体验不完全等于基准分', '音色自然度仍有差距', '生态工具不如ElevenLabs'],
+        tags: ['开源', 'WER最佳', '阿里'] },
+      { name: 'GPT-4o mini TTS', company: 'OpenAI', badge: '灵活性领先', badgeType: 'category',
+        desc: '13种内置音色+自定义, 最灵活API',
+        capabilities: ['13 种内置音色', '自定义音色指令', '最灵活的 API 接口', 'OpenAI 生态无缝集成'],
+        pros: ['API灵活性最高', '13种内置音色可选', '自定义音色指令强大', 'OpenAI生态无缝集成'],
+        cons: ['自然度不如ElevenLabs', '价格按token计费较贵', '不支持音色克隆'],
+        tags: ['灵活API', '自定义', 'OpenAI'] }
+    ]
+  },
+  {
+    id: 'code',
+    name: 'AI 编程',
+    icon: '💻',
+    color: '#3b82f6',
+    rgb: '59,130,246',
+    desc: 'AI 辅助编程与代码生成',
+    models: [
+      { name: 'Cursor', company: 'Anysphere', badge: '最流行AI IDE', badgeType: 'leader',
+        desc: '100万+用户, 36万付费, AI IDE (VS Code fork), Composer多文件编辑',
+        capabilities: ['100 万+ 用户, 36 万付费', 'VS Code fork, 无缝迁移', 'Composer 多文件协同编辑', 'Tab 智能补全体验最佳'],
+        pros: ['VS Code生态无缝迁移', 'Composer多文件编辑强大', 'Tab补全体验最佳', '用户社区最活跃'],
+        cons: ['$20/月定价不便宜', '上下文窗口比Claude Code小', '重度使用有额度限制'],
+        tags: ['最流行', 'IDE', 'Composer'] },
+      { name: 'Claude Code', company: 'Anthropic', badge: '最强推理编码', badgeType: 'leader',
+        desc: '终端原生, 1M上下文, Opus 4.6 Agent工作流',
+        capabilities: ['终端原生 Agent 工作流', '1M token 上下文窗口', 'Opus 4.6 深度推理驱动', '复杂重构/调试能力最强'],
+        pros: ['1M上下文窗口', '推理能力最强', '终端原生无需IDE', '复杂重构/调试无敌'],
+        cons: ['纯终端界面不直观', '需要Anthropic付费计划', '不如Cursor的GUI友好'],
+        tags: ['Agent', '1M上下文', 'Opus'] },
+      { name: 'GitHub Copilot', company: 'Microsoft', badge: '企业领先', badgeType: 'category',
+        desc: '企业生态最佳, GitHub深度集成',
+        capabilities: ['GitHub 深度集成', '企业合规与安全', 'Copilot Workspace', '最大的企业用户基数'],
+        pros: ['GitHub生态深度集成', '企业合规安全完善', 'Copilot Workspace创新', '企业用户基数最大'],
+        cons: ['代码质量不如Claude Code', '补全准确率不是最高', '创新速度被Cursor追赶'],
+        tags: ['企业', 'GitHub', '合规'] },
+      { name: 'Devin 2.2', company: 'Cognition', badge: '自主Agent领先', badgeType: 'category',
+        desc: '自主AI工程师, Agent原生IDE, $102亿估值',
+        capabilities: ['自主 AI 软件工程师', 'Agent 原生 IDE 环境', '$102 亿估值', '端到端任务自主完成'],
+        pros: ['端到端自主完成任务', 'Agent原生设计理念先进', '全栈开发能力', '自主调试和修复'],
+        cons: ['价格昂贵', '自主决策偶有偏差', '复杂项目仍需人工介入'],
+        tags: ['自主Agent', '$102亿', '全栈'] },
+      { name: 'Windsurf', company: 'Cognition', badge: '性价比领先', badgeType: 'category',
+        desc: '$8200万ARR, Cascade模式, $15/月',
+        capabilities: ['$8200 万 ARR', 'Cascade 智能编辑模式', '$15/月高性价比', '新手友好的交互设计'],
+        pros: ['$15/月性价比最高', 'Cascade模式交互流畅', '新手友好上手快', '增长速度最快'],
+        cons: ['功能深度不如Cursor', '插件生态不够成熟', '高级功能仍在追赶'],
+        tags: ['性价比', 'Cascade', '$15/月'] }
+    ]
+  },
+  {
+    id: 'search',
+    name: 'AI 搜索',
+    icon: '🔍',
+    color: '#6366f1',
+    rgb: '99,102,241',
+    desc: 'AI 驱动的搜索引擎',
+    models: [
+      { name: 'Perplexity', company: 'Perplexity AI', badge: '市场领先', badgeType: 'leader',
+        desc: '答案引擎+引用, Deep Research, Model Council(GPT-5.2 vs Claude 4.6)',
+        capabilities: ['答案引擎 + 精确引用', 'Deep Research 深度研究', 'Model Council: GPT-5.2 vs Claude 4.6', 'Perplexity Computer 新形态'],
+        pros: ['答案精准引用透明', 'Deep Research深度研究', '多模型对比Council模式', '产品体验最流畅'],
+        cons: ['$20/月Pro订阅不便宜', '深度研究有时过度概括', '中文内容源不够丰富'],
+        tags: ['答案引擎', '引用', 'Deep Research'] },
+      { name: 'Google AI Overview', company: 'Google', badge: '覆盖最广', badgeType: 'category',
+        desc: '搜索集成生成式概览, 最大覆盖面',
+        capabilities: ['搜索结果集成生成式概览', '全球最大搜索覆盖面', 'Gemini 驱动', '多语言无缝支持'],
+        pros: ['全球最大搜索覆盖面', 'Gemini驱动内容理解', '多语言无缝支持', '无需额外付费'],
+        cons: ['生成内容偶有错误', '广告与内容界限模糊', '深度不如Perplexity'],
+        tags: ['覆盖最广', 'Gemini', '搜索集成'] },
+      { name: 'Gemini Deep Research', company: 'Google', badge: 'Gemini驱动', badgeType: 'category',
+        desc: 'Gemini驱动深度研究, 自动多轮搜索, Google数据源',
+        capabilities: ['Google全量数据源', '自动多轮深度搜索', 'Gemini驱动', 'Google生态无缝集成'],
+        pros: ['Google全量数据源', '自动多轮深度搜索', 'Gemini Pro驱动', 'Google生态无缝集成'],
+        cons: ['容易偏向Google自家内容', '结果不如Perplexity精准', '需要Google账号'],
+        tags: ['深度研究', 'Google', '多轮搜索'] },
+      { name: 'Genspark', company: 'Genspark', badge: '最创新架构', badgeType: 'category',
+        desc: '多Agent架构: 专门的研究/事实核查/编码Agent同时工作',
+        capabilities: ['多 Agent 协作架构', '专门的研究 Agent', '专门的事实核查 Agent', '专门的编码 Agent'],
+        pros: ['多Agent协作架构创新', '事实核查Agent专门验证', '搜索结果更可靠', '编码Agent辅助技术问题'],
+        cons: ['品牌知名度较低', '响应速度不如Perplexity', '部分语言支持不完善'],
+        tags: ['多Agent', '事实核查', '创新'] }
+    ]
+  },
+  {
+    id: 'medical',
+    name: '医疗 AI',
+    icon: '🏥',
+    color: '#ec4899',
+    rgb: '236,72,153',
+    desc: 'AI 医疗诊断与药物发现',
+    models: [
+      { name: 'Med-Gemini', company: 'Google', badge: '整体领先', badgeType: 'leader',
+        desc: '放射/病理/皮肤/眼科/基因组学多模态, 报告生成超SOTA 12%, 临床推理对话',
+        capabilities: ['放射/病理/皮肤/眼科多模态', '基因组学分析能力', '报告生成超 SOTA 12%', 'Gemini 医疗特化版本', '临床推理对话能力强', 'Google Health数据支持'],
+        pros: ['Gemini多模态能力领先', '临床推理对话能力强', '报告生成超SOTA 12%', 'Google Health数据支持'],
+        cons: ['尚未获FDA认证', '仅限研究用途', '数据隐私争议存在'],
+        tags: ['多模态', '报告生成', 'SOTA+12%'] },
+      { name: 'MMFundus', company: 'MMFundus', badge: '眼科数据领先', badgeType: 'category',
+        desc: '最大多模态眼底数据集: 124万图文对',
+        capabilities: ['最大多模态眼底数据集', '124 万图文对', '眼底疾病筛查标准', '多中心数据验证'],
+        pros: ['最大眼底多模态数据集', '124万图文对训练', '多中心数据验证可靠', '眼底筛查准确率高'],
+        cons: ['仅限眼科领域', '商业化路径不清晰', '依赖高质量标注数据'],
+        tags: ['眼底', '124万数据', '筛查'] },
+      { name: 'IsoDDE', company: 'Isomorphic Labs', badge: '药物发现领先', badgeType: 'category',
+        desc: '药物设计引擎, 蛋白质-配体预测准确度2倍于AlphaFold 3',
+        capabilities: ['药物设计引擎', '蛋白质-配体预测', '准确度 2 倍于 AlphaFold 3', 'DeepMind 旗下实验室'],
+        pros: ['配体预测精度2倍AlphaFold3', 'DeepMind技术背景', '从结构到药物全链路', 'Eli Lilly等合作伙伴'],
+        cons: ['非开源商业产品', '药物研发周期仍然很长', '临床验证尚需时间'],
+        tags: ['药物设计', '配体预测', '2x精度'] }
+    ]
+  },
+  {
+    id: 'design',
+    name: '设计 AI',
+    icon: '✨',
+    color: '#a855f7',
+    rgb: '168,85,247',
+    desc: 'AI 辅助设计与创意工具',
+    models: [
+      { name: 'Figma AI', company: 'Figma', badge: 'UI/UX领先', badgeType: 'leader',
+        desc: 'Check Designs AI检查器, Text-to-Layout, 设计系统一致性',
+        capabilities: ['Check Designs AI 检查器', 'Text-to-Layout 文转布局', '设计系统一致性保障', 'Figma 生态原生集成'],
+        pros: ['UI/UX设计行业标准', 'AI检查器自动发现问题', 'Text-to-Layout效率高', 'Figma生态原生集成'],
+        cons: ['仅限UI/UX领域', '高级功能需付费', 'AI生成质量仍需调整'],
+        tags: ['UI/UX', '检查器', '布局'] },
+      { name: 'Adobe Firefly', company: 'Adobe', badge: '专业创意领先', badgeType: 'category',
+        desc: 'Generative Workflow替代Generative Fill, Firefly Boards无限画布',
+        capabilities: ['Generative Workflow 工作流', '替代传统 Generative Fill', 'Firefly Boards 无限画布', 'Creative Cloud 深度集成'],
+        pros: ['Creative Cloud深度集成', '训练数据完全合规', 'Firefly Boards创新', '专业设计师工作流'],
+        cons: ['需Adobe订阅较贵', '生成质量不如Midjourney', '创意自由度受限于模板'],
+        tags: ['专业', 'Adobe', '工作流'] },
+      { name: 'Canva Magic Studio', company: 'Canva', badge: '易用性领先', badgeType: 'category',
+        desc: '提示词生成设计, 品牌一致性变体, 最易用',
+        capabilities: ['提示词直接生成设计', '品牌一致性自动变体', '最易用的 AI 设计工具', '团队协作无缝集成'],
+        pros: ['最易用的AI设计工具', '品牌一致性自动变体', '团队协作无缝', '免费版功能已很丰富'],
+        cons: ['专业度不如Figma', '高级定制能力有限', '模板化设计感明显'],
+        tags: ['易用', '品牌', '协作'] }
+    ]
+  },
+  {
+    id: 'robotics',
+    name: '机器人',
+    icon: '🤖',
+    color: '#64748b',
+    rgb: '100,116,139',
+    desc: 'AI 驱动的人形机器人',
+    models: [
+      { name: 'Figure 03', company: 'Figure AI', badge: '当前#1', badgeType: 'leader',
+        desc: '2026最佳人形机器人, BotQ工厂年产1.2万台',
+        capabilities: ['2026 年最佳人形机器人', 'BotQ 工厂年产 1.2 万台', '先进的视觉-语言-动作模型', 'OpenAI/微软/英伟达投资'],
+        pros: ['综合能力当前第一', '视觉-语言-动作模型先进', 'BotQ工厂年产1.2万台', '顶级投资背景'],
+        cons: ['价格尚未公开但预计昂贵', '商业化场景仍在探索', '量产爬坡挑战大'],
+        tags: ['#1人形', 'BotQ', '1.2万台/年'] },
+      { name: 'Tesla Optimus Gen 3', company: 'Tesla', badge: '最大规模量产', badgeType: 'leader',
+        desc: '量产(2026.1), 22自由度手, 消费者版2027',
+        capabilities: ['2026.1 开始量产', '22 自由度灵巧手', '消费者版 2027 年发售', 'Tesla 工厂内部部署'],
+        pros: ['Tesla供应链量产优势', '22自由度灵巧手', '消费者版2027发售', '自有工厂实际部署验证'],
+        cons: ['智能水平不如Figure 03', '初期仅限工厂场景', '消费者版时间表可能延迟'],
+        tags: ['量产', '22自由度', '2027消费版'] },
+      { name: 'Unitree G1', company: 'Unitree', badge: '价格领先', badgeType: 'category',
+        desc: '$2.15万起, 23-43自由度, 2026年1-2万台出货',
+        capabilities: ['$2.15 万起售价', '23-43 自由度可选', '2026 年 1-2 万台出货', '中国量产价格优势'],
+        pros: ['$2.15万极致性价比', '23-43自由度灵活配置', '中国供应链量产优势', '出货量增长迅速'],
+        cons: ['软件智能水平待提升', '海外售后服务不完善', '品牌认知度不如Tesla'],
+        tags: ['$2.15万', '高自由度', '国产'] },
+      { name: 'NEO', company: '1X', badge: '家用领先', badgeType: 'category',
+        desc: '家用: 洗碗/清洁/整理, $2万',
+        capabilities: ['家用场景: 洗碗/清洁/整理', '$2 万消费级定价', '安全的家庭交互设计', 'OpenAI 投资背景'],
+        pros: ['专注家用场景设计', '$2万消费级定价', '安全交互设计优先', 'OpenAI技术支持'],
+        cons: ['功能局限于家务场景', '产品成熟度较低', '市场验证尚不充分'],
+        tags: ['家用', '$2万', '安全'] }
+    ]
+  },
+  {
+    id: 'science',
+    name: '科学 AI',
+    icon: '🔬',
+    color: '#14b8a6',
+    rgb: '20,184,166',
+    desc: 'AI 科学研究与发现',
+    models: [
+      { name: 'AlphaFold 3', company: 'DeepMind', badge: '绝对领先', badgeType: 'leader',
+        desc: '蛋白质/DNA/RNA/配体结构预测, 比传统方法准确50%+',
+        capabilities: ['蛋白质/DNA/RNA/配体结构预测', '比传统方法准确 50%+', '2024 诺贝尔化学奖相关', '免费学术使用'],
+        pros: ['结构预测精度遥遥领先', '诺贝尔奖级别成果', '免费学术使用', '改变了整个结构生物学'],
+        cons: ['动态构象预测仍有限', '部分复杂结构不准确', '商业使用受限'],
+        tags: ['蛋白质', '诺贝尔奖', '+50%精度'] },
+      { name: 'IsoDDE', company: 'Isomorphic Labs', badge: '药物设计领先', badgeType: 'category',
+        desc: '药物设计引擎, 从结构预测到实际药物发现',
+        capabilities: ['药物设计引擎', '从结构预测到药物发现', 'AlphaFold 的产业化延伸', 'DeepMind 与 Eli Lilly 合作'],
+        pros: ['AlphaFold产业化延伸', '端到端药物设计', 'DeepMind技术加持', 'Eli Lilly等大药企合作'],
+        cons: ['药物研发仍需多年验证', '非开源限制学术研究', '成功案例尚待时间证明'],
+        tags: ['药物设计', '产业化', '合作'] },
+      { name: 'Gemini for Science', company: 'Google', badge: '科学推理', badgeType: 'category',
+        desc: 'Gemini驱动科学文献分析, 实验设计辅助, 数据分析',
+        capabilities: ['强大的长文本科学文献理解', '多模态数据(图表/公式)分析', 'Google Scholar深度集成', '实验设计辅助'],
+        pros: ['强大的长文本科学文献理解', '多模态数据(图表/公式)分析', 'Google Scholar深度集成'],
+        cons: ['科学计算精度有限', '缺乏领域特化训练', '幻觉风险在科学领域危害大'],
+        tags: ['文献', '实验设计', '数据分析'] }
+    ]
+  },
+  {
+    id: '3d',
+    name: '3D 生成',
+    icon: '🧊',
+    color: '#f43f5e',
+    rgb: '244,63,94',
+    desc: 'AI 3D 模型与资产生成',
+    models: [
+      { name: 'Tripo v3.0 Ultra', company: 'Tripo', badge: '游戏资产领先', badgeType: 'leader',
+        desc: '四边面拓扑, PBR支持, 2-5分钟生成, 游戏资产最佳',
+        capabilities: ['四边面拓扑自动生成', 'PBR 材质支持', '2-5 分钟生成完整资产', '游戏资产品质最佳'],
+        pros: ['四边面拓扑自动生成', 'PBR材质支持完善', '2-5分钟生成速度快', '游戏资产品质最佳'],
+        cons: ['风格化模型不如写实', '大场景生成能力有限', '细节精度仍需手动调整'],
+        tags: ['四边面', 'PBR', '游戏资产'] },
+      { name: 'Meshy-6', company: 'Meshy', badge: '最成熟', badgeType: 'category',
+        desc: '最干净网格/边流, 企业特性',
+        capabilities: ['最干净的网格拓扑', '优秀的边流质量', '企业级特性支持', '批量生成工作流'],
+        pros: ['网格拓扑最干净', '边流质量业界最佳', '企业级批量工作流', '产品最成熟稳定'],
+        cons: ['速度不如Tripo', '写实感不如Rodin', '定价偏高'],
+        tags: ['干净网格', '企业', '边流'] },
+      { name: 'Rodin', company: 'Deemos', badge: '写实领先', badgeType: 'category',
+        desc: '最佳真实感物体',
+        capabilities: ['最佳真实感物体生成', '高精度几何细节', '真实材质表现', '产品可视化首选'],
+        pros: ['真实感物体生成最佳', '高精度几何细节', '产品可视化首选', '材质表现逼真'],
+        cons: ['生成速度较慢', '风格化模型不擅长', '拓扑质量不如Meshy'],
+        tags: ['写实', '真实感', '产品'] }
+    ]
+  },
+  {
+    id: 'translation',
+    name: '翻译 AI',
+    icon: '🌐',
+    color: '#06b6d4',
+    rgb: '6,182,212',
+    desc: 'AI 翻译与语言服务',
+    models: [
+      { name: 'DeepL', company: 'DeepL', badge: '质量领先', badgeType: 'leader',
+        desc: '准确率80-95%, 欧洲语言首选(3:1胜Google), DeepL Agent',
+        capabilities: ['准确率 80-95%', '欧洲语言 3:1 胜 Google', 'DeepL Agent 智能翻译助手', '企业 API 与文档翻译'],
+        pros: ['翻译质量业界最高', '欧洲语言3:1胜Google', 'DeepL Agent智能助手', '企业API文档翻译完善'],
+        cons: ['语言覆盖不如Google广', '中日韩翻译不如Google', '高级功能需付费'],
+        tags: ['高准确率', '欧洲语言', 'Agent'] },
+      { name: 'Google Translate', company: 'Google', badge: '覆盖领先', badgeType: 'category',
+        desc: '249种语言覆盖, Gemini驱动上下文替换',
+        capabilities: ['249 种语言覆盖', 'Gemini 驱动上下文翻译', '全球最大翻译用户量', '实时相机翻译'],
+        pros: ['249种语言覆盖最广', 'Gemini驱动上下文理解', '实时相机翻译便捷', '完全免费使用'],
+        cons: ['翻译质量不如DeepL', '专业术语翻译偶有错误', '文档排版翻译不够精细'],
+        tags: ['249语言', 'Gemini', '实时'] }
+    ]
+  }
+];
+
+const TOTAL_MODELS = CATEGORIES.reduce((s, c) => s + c.models.length, 0);
+
+// ============ STATE ============
+let currentView = 'overview'; // 'overview' | 'category' | 'search' | 'all'
+let currentCategoryId = null;
+
+// ============ STARS ============
+function createStars() {
+  const container = document.getElementById('stars');
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < 80; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    const size = Math.random() * 2 + 0.5;
+    star.style.cssText = `
+      width:${size}px;height:${size}px;
+      top:${Math.random()*100}%;left:${Math.random()*100}%;
+      --dur:${Math.random()*4+2}s;
+      --omin:${Math.random()*0.2+0.05};
+      --omax:${Math.random()*0.5+0.3};
+    `;
+    fragment.appendChild(star);
+  }
+  container.appendChild(fragment);
+}
+
+// ============ SIDEBAR ============
+function renderSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const html = CATEGORIES.map(cat => `
+    <div class="sidebar-item${currentCategoryId === cat.id ? ' active' : ''}"
+         data-cat="${cat.id}"
+         style="--accent:${cat.color}">
+      <div class="sidebar-icon" style="background:${cat.color}20;color:${cat.color}">${cat.icon}</div>
+      <span class="sidebar-label">${cat.name}</span>
+      <span class="sidebar-count">${cat.models.length}</span>
+    </div>
+  `).join('');
+  sidebar.innerHTML = html;
+
+  sidebar.querySelectorAll('.sidebar-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const catId = item.dataset.cat;
+      showCategory(catId);
+    });
+  });
+}
+
+// ============ OVERVIEW ============
+function renderOverview() {
+  currentView = 'overview';
+  currentCategoryId = null;
+  updateButtons();
+  renderSidebar();
+
+  const content = document.getElementById('content');
+  const cards = CATEGORIES.map((cat, i) => {
+    const leader = cat.models.find(m => m.badgeType === 'leader');
+    return `
+      <div class="overview-card" data-cat="${cat.id}"
+           style="--accent:${cat.color};animation-delay:${i * 0.04}s"
+           onmouseenter="this.style.borderColor='${cat.color}'"
+           onmouseleave="this.style.borderColor=''">
+        <div class="overview-card__bg" style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle at 50% 0%,${cat.color}08,transparent 70%);pointer-events:none"></div>
+        <div class="overview-icon" style="background:${cat.color}18;color:${cat.color}">${cat.icon}</div>
+        <div class="overview-name">${cat.name}</div>
+        <div class="overview-count" style="color:${cat.color}">${cat.models.length}</div>
+        <div class="overview-count-label">个模型</div>
+        ${leader ? `<div class="overview-leader">${leader.name} — ${leader.badge}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  content.innerHTML = `<div class="overview-grid">${cards}</div>`;
+
+  content.querySelectorAll('.overview-card').forEach(card => {
+    card.addEventListener('click', () => showCategory(card.dataset.cat));
+  });
+}
+
+// ============ CATEGORY VIEW ============
+function showCategory(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) return;
+
+  currentView = 'category';
+  currentCategoryId = catId;
+  updateButtons();
+  renderSidebar();
+
+  const content = document.getElementById('content');
+  const modelCards = cat.models.map((m, i) => renderModelCard(m, cat, i)).join('');
+
+  content.innerHTML = `
+    <div class="category-view">
+      <div class="category-header">
+        <div class="category-header-icon" style="background:${cat.color}18;color:${cat.color}">${cat.icon}</div>
+        <div class="category-header-text">
+          <h2 style="color:${cat.color}">${cat.name}</h2>
+          <p>${cat.desc} &mdash; ${cat.models.length} 个模型</p>
+        </div>
+      </div>
+      <div class="model-grid">${modelCards}</div>
+    </div>
+  `;
+
+  bindModelCardClicks(cat);
+}
+
+function renderModelCard(m, cat, index) {
+  const badgeClass = m.badgeType === 'leader' ? 'badge-leader' : 'badge-category';
+  const proCon = (m.pros && m.cons)
+    ? `<div style="font-size:11px;line-height:1.5;margin-top:2px;display:flex;gap:6px;flex-wrap:wrap">
+        <span style="color:#4ade80">+${m.pros[0]}</span>
+        <span style="color:#f87171">-${m.cons[0]}</span>
+      </div>`
+    : '';
+  return `
+    <div class="model-card" data-model="${m.name}" style="--accent:${cat.color};--accent-rgb:${cat.rgb};animation-delay:${index * 0.05}s">
+      <div class="model-card-top">
+        <div>
+          <div class="model-name">${m.name}</div>
+          <div class="model-company">${m.company}</div>
+        </div>
+        <span class="model-badge ${badgeClass}">${m.badge}</span>
+      </div>
+      <div class="model-desc">${m.desc}</div>
+      ${proCon}
+      <div class="model-card-footer">
+        ${m.tags.slice(0, 3).map(t => `<span class="model-tag" style="color:${cat.color};background:${cat.color}12;border-color:${cat.color}30">${t}</span>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function bindModelCardClicks(cat) {
+  document.querySelectorAll('.model-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const modelName = card.dataset.model;
+      const model = cat.models.find(m => m.name === modelName);
+      if (model) openModal(model, cat);
+    });
+  });
+}
+
+// ============ ALL MODELS VIEW ============
+function renderAllModels() {
+  currentView = 'all';
+  currentCategoryId = null;
+  updateButtons();
+  renderSidebar();
+
+  const content = document.getElementById('content');
+  let html = '<div class="category-view">';
+  html += '<div class="category-header"><div class="category-header-text"><h2>全部模型</h2><p>按领域分类 &mdash; 共 ' + TOTAL_MODELS + ' 个模型</p></div></div>';
+
+  CATEGORIES.forEach(cat => {
+    html += `<div style="margin-bottom:32px">`;
+    html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:20px">${cat.icon}</span>
+      <span style="font-size:16px;font-weight:700;color:${cat.color}">${cat.name}</span>
+      <span style="font-size:12px;color:var(--text-dim)">${cat.models.length} 个模型</span>
+    </div>`;
+    html += `<div class="model-grid">${cat.models.map((m, i) => renderModelCard(m, cat, i)).join('')}</div>`;
+    html += `</div>`;
+  });
+
+  html += '</div>';
+  content.innerHTML = html;
+
+  // Bind clicks for all categories
+  CATEGORIES.forEach(cat => {
+    document.querySelectorAll(`.model-card`).forEach(card => {
+      const modelName = card.dataset.model;
+      const model = cat.models.find(m => m.name === modelName);
+      if (model && !card._bound) {
+        card._bound = true;
+        card.addEventListener('click', () => openModal(model, cat));
+      }
+    });
+  });
+}
+
+// ============ SEARCH ============
+function performSearch(query) {
+  if (!query.trim()) {
+    renderOverview();
+    return;
+  }
+
+  currentView = 'search';
+  currentCategoryId = null;
+  updateButtons();
+  renderSidebar();
+
+  const q = query.toLowerCase();
+  const results = [];
+  CATEGORIES.forEach(cat => {
+    cat.models.forEach(m => {
+      const searchText = `${m.name} ${m.company} ${m.desc} ${m.badge} ${m.tags.join(' ')}`.toLowerCase();
+      if (searchText.includes(q)) {
+        results.push({ model: m, category: cat });
+      }
+    });
+  });
+
+  const content = document.getElementById('content');
+  if (results.length === 0) {
+    content.innerHTML = `
+      <div class="search-results">
+        <div class="search-results-title">未找到匹配 "<strong>${escapeHtml(query)}</strong>" 的模型</div>
+        <div style="color:var(--text-dim);font-size:14px;margin-top:12px">试试其他关键词，如 "OpenAI"、"开源"、"视频"</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = `
+    <div class="search-results">
+      <div class="search-results-title">找到 <strong>${results.length}</strong> 个匹配 "<strong>${escapeHtml(query)}</strong>" 的模型</div>
+      <div class="model-grid">
+  `;
+
+  results.forEach(({ model, category }, i) => {
+    html += renderModelCard(model, category, i);
+  });
+
+  html += '</div></div>';
+  content.innerHTML = html;
+
+  // Bind clicks
+  results.forEach(({ model, category }) => {
+    document.querySelectorAll(`.model-card`).forEach(card => {
+      if (card.dataset.model === model.name && !card._bound) {
+        card._bound = true;
+        card.addEventListener('click', () => openModal(model, category));
+      }
+    });
+  });
+}
+
+// ============ MODAL ============
+function openModal(model, cat) {
+  const modal = document.getElementById('modal');
+  const body = document.getElementById('modalBody');
+  const badgeClass = model.badgeType === 'leader' ? 'badge-leader' : 'badge-category';
+
+  const prosHtml = (model.pros && model.pros.length > 0)
+    ? `<div class="modal-section">
+        <h4 style="color:#4ade80;font-size:13px;font-weight:700;margin-bottom:10px">&#9989; 优点</h4>
+        <ul class="modal-capability-list" style="--accent:#4ade80">
+          ${model.pros.map(p => `<li>${p}</li>`).join('')}
+        </ul>
+      </div>`
+    : '';
+
+  const consHtml = (model.cons && model.cons.length > 0)
+    ? `<div class="modal-section">
+        <h4 style="color:#f87171;font-size:13px;font-weight:700;margin-bottom:10px">&#9888;&#65039; 不足</h4>
+        <ul class="modal-capability-list" style="--accent:#f87171">
+          ${model.cons.map(c => `<li>${c}</li>`).join('')}
+        </ul>
+      </div>`
+    : '';
+
+  body.innerHTML = `
+    <div class="modal-header">
+      <div class="modal-icon" style="background:${cat.color}20;color:${cat.color};font-size:26px;display:flex;align-items:center;justify-content:center">${cat.icon}</div>
+      <div>
+        <div class="modal-title">${model.name}</div>
+        <div class="modal-company-text">${model.company} &bull; ${cat.name}</div>
+      </div>
+    </div>
+    <div class="modal-badge ${badgeClass}">${model.badge}</div>
+    <div class="modal-section">
+      <div class="modal-section-title">核心能力</div>
+      <ul class="modal-capability-list" style="--accent:${cat.color}">
+        ${model.capabilities.map(c => `<li>${c}</li>`).join('')}
+      </ul>
+    </div>
+    ${prosHtml}
+    ${consHtml}
+    <div class="modal-section">
+      <div class="modal-section-title">标签</div>
+      <div class="modal-tags">
+        ${model.tags.map(t => `<span class="modal-tag">${t}</span>`).join('')}
+      </div>
+    </div>
+    <div class="modal-section" style="margin-bottom:0">
+      <div class="modal-section-title">简介</div>
+      <div style="font-size:14px;color:var(--text-muted);line-height:1.6">${model.desc}</div>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+}
+
+// ============ BUTTONS ============
+function updateButtons() {
+  const btnOv = document.getElementById('btnOverview');
+  const btnAll = document.getElementById('btnAll');
+  btnOv.classList.toggle('active', currentView === 'overview');
+  btnAll.classList.toggle('active', currentView === 'all');
+}
+
+// ============ UTILS ============
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ============ INIT ============
+function init() {
+  createStars();
+
+  document.getElementById('totalBadge').textContent = TOTAL_MODELS + ' 个模型';
+
+  renderOverview();
+
+  // Sidebar clicks handled in renderSidebar()
+
+  // Overview button
+  document.getElementById('btnOverview').addEventListener('click', () => {
+    document.getElementById('searchInput').value = '';
+    renderOverview();
+  });
+
+  // All button
+  document.getElementById('btnAll').addEventListener('click', () => {
+    document.getElementById('searchInput').value = '';
+    renderAllModels();
+  });
+
+  // Search
+  let searchTimer = null;
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      performSearch(e.target.value);
+    }, 250);
+  });
+
+  // Modal close
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+}
+
+init();
+</script>
+</body>
+</html>

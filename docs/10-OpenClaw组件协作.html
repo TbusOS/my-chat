@@ -437,6 +437,18 @@ body {
   color: white;
 }
 .btn-success:hover { background: #059669; }
+.btn-step {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+.btn-step:hover {
+  background: #fef3c7;
+}
+.btn-step:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -642,10 +654,11 @@ body {
   </div>
 
   <div class="controls">
-    <button class="btn btn-secondary" id="btnReplay"><span class="btn-icon">↺</span> 重播</button>
     <button class="btn btn-secondary" id="btnPrev"><span class="btn-icon">←</span> 上一步</button>
+    <button class="btn btn-step" id="btnStep"><span class="btn-icon">▶|</span> 单步</button>
     <button class="btn btn-primary" id="btnNext">下一步 <span class="btn-icon">→</span></button>
     <button class="btn btn-success" id="btnAuto"><span class="btn-icon">▶</span> 自动播放</button>
+    <button class="btn btn-secondary" id="btnReplay"><span class="btn-icon">↺</span> 重播</button>
   </div>
 </div>
 
@@ -929,6 +942,7 @@ const stage = document.getElementById('stage');
 let currentPhase = 0;
 let autoPlayTimer = null;
 let isAutoPlaying = false;
+let playMode = 'idle'; // 'idle' | 'auto' | 'paused'
 const overlays = []; // dynamic overlays to clean up
 
 function initStage() {
@@ -1313,43 +1327,45 @@ async function goToPhase(phase) {
 document.getElementById('btnNext').addEventListener('click', () => {
   if (currentPhase < 6) {
     stopAutoPlay();
+    playMode = 'idle';
     goToPhase(currentPhase + 1);
+    updateControlUI();
   }
 });
 
 document.getElementById('btnPrev').addEventListener('click', () => {
   if (currentPhase > 0) {
     stopAutoPlay();
+    playMode = 'idle';
     goToPhase(currentPhase - 1);
+    updateControlUI();
   }
 });
 
 document.getElementById('btnReplay').addEventListener('click', () => {
   stopAutoPlay();
+  playMode = 'idle';
   goToPhase(0);
+  updateControlUI();
 });
 
 document.getElementById('btnAuto').addEventListener('click', () => {
-  if (isAutoPlaying) {
-    stopAutoPlay();
-  } else {
-    startAutoPlay();
-  }
+  toggleAutoPlay();
+});
+
+document.getElementById('btnStep').addEventListener('click', () => {
+  singleStep();
 });
 
 function startAutoPlay() {
   isAutoPlaying = true;
-  const btn = document.getElementById('btnAuto');
-  btn.innerHTML = '<span class="btn-icon">⏸</span> 暂停';
-  btn.classList.remove('btn-success');
-  btn.classList.add('btn-secondary');
+  playMode = 'auto';
 
-  // If at end, restart
-  if (currentPhase >= 6) {
-    goToPhase(0);
-  }
+  // Always reset to phase 0 first
+  goToPhase(0);
 
   autoPlayTick();
+  updateControlUI();
 }
 
 function autoPlayTick() {
@@ -1367,12 +1383,71 @@ function autoPlayTick() {
 
 function stopAutoPlay() {
   isAutoPlaying = false;
+  playMode = 'paused';
   if (autoPlayTimer) clearTimeout(autoPlayTimer);
   autoPlayTimer = null;
-  const btn = document.getElementById('btnAuto');
-  btn.innerHTML = '<span class="btn-icon">▶</span> 自动播放';
-  btn.classList.remove('btn-secondary');
-  btn.classList.add('btn-success');
+  updateControlUI();
+}
+
+function singleStep() {
+  if (playMode === 'auto') {
+    // Pause first, then advance
+    isAutoPlaying = false;
+    if (autoPlayTimer) clearTimeout(autoPlayTimer);
+    autoPlayTimer = null;
+    playMode = 'paused';
+  }
+  if (currentPhase < 6) {
+    goToPhase(currentPhase + 1);
+  }
+  updateControlUI();
+}
+
+function toggleAutoPlay() {
+  if (playMode === 'auto') {
+    // auto → paused
+    isAutoPlaying = false;
+    playMode = 'paused';
+    if (autoPlayTimer) clearTimeout(autoPlayTimer);
+    autoPlayTimer = null;
+    updateControlUI();
+  } else if (playMode === 'paused') {
+    // paused → resume from current phase
+    if (currentPhase >= 6) {
+      stopAutoPlay();
+      return;
+    }
+    isAutoPlaying = true;
+    playMode = 'auto';
+    autoPlayTick();
+    updateControlUI();
+  } else {
+    // idle → start from phase 0
+    startAutoPlay();
+  }
+}
+
+function updateControlUI() {
+  const btnAuto = document.getElementById('btnAuto');
+  const btnStep = document.getElementById('btnStep');
+
+  if (playMode === 'auto') {
+    btnAuto.innerHTML = '<span class="btn-icon">⏸</span> 暂停';
+    btnAuto.classList.remove('btn-success');
+    btnAuto.classList.add('btn-secondary');
+    btnStep.disabled = false;
+  } else if (playMode === 'paused') {
+    btnAuto.innerHTML = '<span class="btn-icon">▶</span> 继续';
+    btnAuto.classList.remove('btn-secondary');
+    btnAuto.classList.add('btn-success');
+    btnStep.disabled = (currentPhase >= 6);
+  } else {
+    // idle
+    btnAuto.innerHTML = '<span class="btn-icon">▶</span> 自动播放';
+    btnAuto.classList.remove('btn-secondary');
+    btnAuto.classList.add('btn-success');
+    btnStep.disabled = (currentPhase >= 6);
+  }
 }
 
 // Phase label click
@@ -1380,7 +1455,9 @@ document.querySelectorAll('.phase-label').forEach(el => {
   el.addEventListener('click', () => {
     const phase = parseInt(el.dataset.phase);
     stopAutoPlay();
+    playMode = 'idle';
     goToPhase(phase);
+    updateControlUI();
   });
 });
 
@@ -1405,18 +1482,28 @@ document.getElementById('charCardOverlay').addEventListener('click', (e) => {
 
 // ─── Keyboard Navigation ───
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowRight' || e.key === ' ') {
+  if (e.key === 'ArrowRight') {
     e.preventDefault();
     if (currentPhase < 6) {
       stopAutoPlay();
+      playMode = 'idle';
       goToPhase(currentPhase + 1);
+      updateControlUI();
     }
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault();
     if (currentPhase > 0) {
       stopAutoPlay();
+      playMode = 'idle';
       goToPhase(currentPhase - 1);
+      updateControlUI();
     }
+  } else if (e.key === ' ') {
+    e.preventDefault();
+    toggleAutoPlay();
+  } else if (e.key === 's' || e.key === 'S') {
+    e.preventDefault();
+    singleStep();
   } else if (e.key === 'Escape') {
     closeCard();
   }

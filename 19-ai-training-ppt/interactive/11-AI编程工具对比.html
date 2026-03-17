@@ -403,13 +403,122 @@
     color: #cbd5e1;
     margin: 0 2px;
   }
+
+  /* ===== Glossary Panel ===== */
+  .glossary-btn {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #475569;
+    background: #1e293b;
+    color: #94a3b8;
+    font-size: 20px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    z-index: 300;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  .glossary-btn:hover {
+    border-color: #60a5fa;
+    color: #60a5fa;
+    transform: scale(1.1);
+  }
+  .glossary-btn.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: white;
+  }
+
+  .glossary-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 250;
+    animation: fadeIn 0.2s ease;
+  }
+  .glossary-overlay.visible { display: block; }
+
+  .glossary-panel {
+    display: none;
+    position: fixed;
+    top: 68px;
+    right: 20px;
+    width: 420px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    padding: 24px;
+    z-index: 310;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.4);
+    animation: fadeSlideIn 0.3s ease;
+  }
+  .glossary-panel.visible { display: block; }
+  .glossary-panel h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .glossary-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #334155;
+  }
+  .glossary-item:last-child { border-bottom: none; }
+  .glossary-term {
+    font-size: 15px;
+    font-weight: 600;
+    color: #60a5fa;
+    margin-bottom: 4px;
+  }
+  .glossary-term .abbr {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 400;
+    margin-left: 8px;
+  }
+  .glossary-def {
+    font-size: 13px;
+    color: #cbd5e1;
+    line-height: 1.6;
+  }
+  .glossary-def-zh {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @media (max-width: 500px) {
+    .glossary-panel {
+      width: calc(100vw - 40px);
+      right: 20px;
+    }
+  }
 </style>
 </head>
 <body>
 
 <div class="header">
   <h1>AI 编程工具全景对比</h1>
-  <p>Cursor / Trae / Kiro / Claude Code / Windsurf / Copilot — 它们到底差在哪？</p>
+  <p>Cursor / Claude Code / Copilot / Devin / Windsurf / GPT-Codex / Augment — 2026.03 全景</p>
 </div>
 
 <nav class="tab-nav">
@@ -427,44 +536,51 @@
     <div class="tool-card" style="--card-color:#22d3ee" onclick="highlightCol(1)">
       <div class="icon">🧊</div>
       <h3>Cursor</h3>
-      <div class="subtitle">AI-native IDE（VS Code Fork）</div>
+      <div class="subtitle">最热门 AI IDE | 1M+ 用户 | VS Code Fork + Composer</div>
       <span class="tag tag-ide">IDE</span>
-      <span class="tag tag-paid">$20-200/月</span>
+      <span class="tag tag-paid">$20/月</span>
     </div>
-    <div class="tool-card" style="--card-color:#4ade80" onclick="highlightCol(2)">
-      <div class="icon">🌿</div>
-      <h3>Trae</h3>
-      <div class="subtitle">字节跳动 AI IDE（VS Code Fork）</div>
-      <span class="tag tag-ide">IDE</span>
-      <span class="tag tag-free">免费/$10</span>
-    </div>
-    <div class="tool-card" style="--card-color:#f59e0b" onclick="highlightCol(3)">
-      <div class="icon">🔶</div>
-      <h3>Kiro</h3>
-      <div class="subtitle">Amazon AI IDE（Spec-Driven）</div>
-      <span class="tag tag-ide">IDE</span>
-      <span class="tag tag-paid">$0-200/月</span>
-    </div>
-    <div class="tool-card" style="--card-color:#c084fc" onclick="highlightCol(4)">
+    <div class="tool-card" style="--card-color:#c084fc" onclick="highlightCol(2)">
       <div class="icon">🔮</div>
       <h3>Claude Code</h3>
-      <div class="subtitle">Anthropic 终端 AI 工程师</div>
+      <div class="subtitle">Anthropic 终端原生 Agent | Opus 4.6 1M 上下文</div>
       <span class="tag tag-cli">CLI</span>
-      <span class="tag tag-paid">按 Token</span>
+      <span class="tag tag-paid">$17-100+/月</span>
+    </div>
+    <div class="tool-card" style="--card-color:#f472b6" onclick="highlightCol(3)">
+      <div class="icon">🐙</div>
+      <h3>GitHub Copilot</h3>
+      <div class="subtitle">企业生态最强 | 多模型后端 | GitHub 深度集成</div>
+      <span class="tag tag-ide">插件</span>
+      <span class="tag tag-paid">$10-39/月</span>
+    </div>
+    <div class="tool-card" style="--card-color:#f59e0b" onclick="highlightCol(4)">
+      <div class="icon">🤖</div>
+      <h3>Devin 2.2</h3>
+      <div class="subtitle">Cognition 自主 AI 工程师 | $10.2B 估值 | 收购 Windsurf</div>
+      <span class="tag tag-cli">Agent</span>
+      <span class="tag tag-paid">$20/月起</span>
     </div>
     <div class="tool-card" style="--card-color:#60a5fa" onclick="highlightCol(5)">
       <div class="icon">🌊</div>
       <h3>Windsurf</h3>
-      <div class="subtitle">Cognition AI IDE（Cascade Flow）</div>
+      <div class="subtitle">Cognition 旗下平价 IDE | Cascade 模式 | $82M ARR</div>
       <span class="tag tag-ide">IDE</span>
       <span class="tag tag-paid">$15/月</span>
     </div>
-    <div class="tool-card" style="--card-color:#f472b6" onclick="highlightCol(6)">
-      <div class="icon">🐙</div>
-      <h3>GitHub Copilot</h3>
-      <div class="subtitle">VS Code / JetBrains 插件</div>
+    <div class="tool-card" style="--card-color:#4ade80" onclick="highlightCol(6)">
+      <div class="icon">🧠</div>
+      <h3>GPT-5.3-Codex</h3>
+      <div class="subtitle">OpenAI 最强编码模型 | ChatGPT/API | Agent 原生</div>
+      <span class="tag tag-cli">模型+Agent</span>
+      <span class="tag tag-paid">API 计费</span>
+    </div>
+    <div class="tool-card" style="--card-color:#a78bfa" onclick="highlightCol(7)">
+      <div class="icon">🔷</div>
+      <h3>Augment Code</h3>
+      <div class="subtitle">大型代码库专精 | 深度索引 | 企业级 RAG</div>
       <span class="tag tag-ide">插件</span>
-      <span class="tag tag-paid">$10/月</span>
+      <span class="tag tag-paid">$30/月</span>
     </div>
   </div>
 
@@ -482,11 +598,12 @@
         <tr>
           <th>功能</th>
           <th>Cursor</th>
-          <th>Trae</th>
-          <th>Kiro</th>
           <th>Claude Code</th>
-          <th>Windsurf</th>
           <th>Copilot</th>
+          <th>Devin 2.2</th>
+          <th>Windsurf</th>
+          <th>GPT-Codex</th>
+          <th>Augment</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -500,11 +617,12 @@
         <tr>
           <th>可用模型</th>
           <th>Cursor</th>
-          <th>Trae</th>
-          <th>Kiro</th>
           <th>Claude Code</th>
-          <th>Windsurf</th>
           <th>Copilot</th>
+          <th>Devin 2.2</th>
+          <th>Windsurf</th>
+          <th>GPT-Codex</th>
+          <th>Augment</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -554,49 +672,95 @@
   <div class="timeline" id="timeline"></div>
 </div>
 
+<button class="glossary-btn" onclick="toggleGlossary()" title="术语解释">?</button>
+<div class="glossary-overlay" id="glossaryOverlay" onclick="toggleGlossary()"></div>
+<div class="glossary-panel" id="glossaryPanel">
+  <h3>术语解释 Glossary</h3>
+  <div class="glossary-item">
+    <div class="glossary-term">IDE <span class="abbr">Integrated Development Environment</span></div>
+    <div class="glossary-def">集成开发环境，写代码用的软件（如 VS Code、Cursor）</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Agent / Agentic</div>
+    <div class="glossary-def">智能体 / 自主执行模式</div>
+    <div class="glossary-def-zh">AI 能自主规划和执行多步任务，而不只是回答问题</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Context Window</div>
+    <div class="glossary-def">上下文窗口 — 模型一次能理解的代码量上限</div>
+    <div class="glossary-def-zh">例如 1M tokens 约等于一次读懂 ~75 万行代码</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Copilot</div>
+    <div class="glossary-def">副驾驶 — 辅助编程的 AI 助手</div>
+    <div class="glossary-def-zh">你是驾驶员，AI 是副驾帮你导航和操作</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">MCP <span class="abbr">Model Context Protocol</span></div>
+    <div class="glossary-def">模型上下文协议 — AI 工具的标准接口</div>
+    <div class="glossary-def-zh">让 AI 能统一访问数据库、API、文件系统等外部资源</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">RAG <span class="abbr">Retrieval-Augmented Generation</span></div>
+    <div class="glossary-def">检索增强生成 — 从代码库检索相关代码辅助生成</div>
+    <div class="glossary-def-zh">先搜索找到相关代码片段，再让 AI 基于这些片段生成答案</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">LSP <span class="abbr">Language Server Protocol</span></div>
+    <div class="glossary-def">语言服务协议 — 代码智能提示的标准协议</div>
+    <div class="glossary-def-zh">让编辑器能理解代码结构，提供跳转定义、自动补全等功能</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Latency</div>
+    <div class="glossary-def">延迟 — AI 响应的等待时间</div>
+    <div class="glossary-def-zh">从你发送请求到 AI 开始回复的时间间隔</div>
+  </div>
+</div>
+
 <div class="kbd-hint">
-  <kbd>←</kbd> <kbd>→</kbd> 切换标签 &nbsp;|&nbsp; <kbd>1</kbd>-<kbd>4</kbd> 跳转标签
+  <kbd>←</kbd> <kbd>→</kbd> 切换标签 &nbsp;|&nbsp; <kbd>1</kbd>-<kbd>4</kbd> 跳转标签 &nbsp;|&nbsp; <kbd>?</kbd> 术语解释
 </div>
 
 <script>
 // ===== DATA (2026.03 verified) =====
 const features = [
-  // [name, cursor, trae, kiro, claude_code, windsurf, copilot]
+  // [name, cursor, claude_code, copilot, devin, windsurf, gpt_codex, augment]
   // y=yes, n=no, p=partial, b=best
-  ["代码补全（Tab）",        "y","y","y","n","y","y"],
-  ["侧栏聊天",              "y","y","y","n","y","y"],
-  ["行内编辑（选中改）",      "y","y","y","n","y","y"],
-  ["Agent 模式（自主执行）",  "b","y","y","b","y","y"],
-  ["多文件编辑",             "y","y","y","b","y","y"],
-  ["@引用系统",              "b","y","p","n","y","p"],
-  ["项目规则文件",           "y","y","y","y","p","p"],
-  ["MCP 支持（含 MCP Apps）","b","y","y","b","y","y"],
-  ["终端 / Shell 执行",     "p","p","p","b","p","p"],
-  ["Git 全流程集成",         "p","p","p","b","p","y"],
-  ["后台 / 云端 Agent",      "b","p","y","y","n","y"],
-  ["CI/CD 集成",            "y","n","n","b","n","y"],
-  ["SSH / 无 GUI 使用",     "n","n","n","b","n","y"],
-  ["Hooks（工具钩子）",      "n","n","y","b","n","p"],
-  ["Memory（跨会话记忆）",   "p","n","p","b","y","n"],
-  ["并行子 Agent",          "n","n","n","b","n","p"],
-  ["Spec-Driven 开发",     "n","n","b","n","n","n"],
-  ["图片理解（截图输入）",    "y","y","y","y","y","y"],
-  ["自有模型",              "y","n","n","n","y","n"],
-  ["Automations（事件触发）","b","n","n","n","n","n"],
+  ["代码补全（Tab）",        "y","n","y","n","y","n","y"],
+  ["侧栏聊天",              "y","n","y","y","y","n","y"],
+  ["行内编辑（选中改）",      "y","n","y","n","y","n","y"],
+  ["Agent 模式（自主执行）",  "b","b","y","b","y","b","p"],
+  ["多文件编辑（Composer）",  "b","b","y","b","y","y","y"],
+  ["@引用系统",              "b","n","p","p","y","n","y"],
+  ["项目规则文件",           "y","y","p","p","p","n","p"],
+  ["MCP 支持",              "b","b","y","p","y","p","p"],
+  ["终端 / Shell 执行",     "p","b","p","b","p","b","n"],
+  ["Git 全流程集成",         "p","b","y","b","p","p","p"],
+  ["后台 / 云端 Agent",      "b","y","y","b","n","y","n"],
+  ["CI/CD 集成",            "y","b","y","y","n","y","p"],
+  ["SSH / 无 GUI 使用",     "n","b","y","y","n","y","n"],
+  ["Hooks（工具钩子）",      "n","b","p","n","n","n","n"],
+  ["Memory（跨会话记忆）",   "p","b","n","y","y","n","p"],
+  ["并行子 Agent",          "n","b","p","y","n","p","n"],
+  ["自主任务执行（全自动）",  "p","p","p","b","p","y","n"],
+  ["图片理解（截图输入）",    "y","y","y","y","y","y","n"],
+  ["大型代码库深度索引",      "p","p","p","y","p","n","b"],
+  ["Automations（事件触发）","b","n","n","p","n","n","n"],
 ];
 
 const modelSupport = [
   // source: official docs of each tool, March 2026
-  ["Claude 4.6（Opus/Sonnet）",  "y","y","y","b","y","y"],
-  ["Claude 4.5（Opus/Sonnet）",  "y","p","y","y","y","y"],
-  ["GPT-5.x 系列",              "y","n","n","n","y","y"],
-  ["GPT-4.1（长上下文）",         "y","n","n","n","y","y"],
-  ["o3 / o4-mini（推理）",       "y","n","n","n","y","y"],
-  ["Gemini 2.5 / 3.x",          "y","n","n","n","y","y"],
-  ["DeepSeek V3/R1",             "y","y","n","n","y","n"],
-  ["Qwen 3.x",                  "p","y","n","n","y","n"],
-  ["自有模型",                   "y","n","n","n","y","n"],
-  ["自定义 API / 本地模型",       "y","p","n","n","y","n"],
+  // [name, cursor, claude_code, copilot, devin, windsurf, gpt_codex, augment]
+  ["Claude 4.6（Opus/Sonnet）",  "y","b","y","y","y","n","y"],
+  ["Claude 4.5（Opus/Sonnet）",  "y","y","y","y","y","n","y"],
+  ["GPT-5.x / Codex 系列",      "y","n","y","y","y","b","y"],
+  ["GPT-4.1（长上下文）",         "y","n","y","y","y","y","p"],
+  ["o3 / o4-mini（推理）",       "y","n","y","p","y","y","n"],
+  ["Gemini 2.5 / 3.x",          "y","n","y","p","y","n","p"],
+  ["DeepSeek V3/R1",             "y","n","n","n","y","n","n"],
+  ["Qwen 3.x",                  "p","n","n","n","y","n","n"],
+  ["自有模型",                   "y","n","n","y","y","y","n"],
+  ["自定义 API / 本地模型",       "y","n","n","n","y","n","n"],
 ];
 
 const models = [
@@ -750,13 +914,13 @@ const flowTree = {
         options: [
           {
             icon: "🎯", label: "功能全面 + 生态成熟",
-            desc: "多模型切换、插件丰富",
-            result: { name: "Cursor", why: "Agent 模式最成熟，@引用系统最强，多模型自由切换（含自有 Composer 模型），Background Agents 可云端并行，Automations 可事件触发。$20/月起。", combo: "<strong>Cursor</strong>（主力 IDE）+ <strong>Claude Code</strong>（复杂工程任务）" }
+            desc: "多模型切换、Composer 多文件编辑",
+            result: { name: "Cursor", why: "最热门 AI IDE（1M+ 用户，360K 付费）。Composer 模式多文件编辑最成熟，@引用系统最强，Background Agents 云端并行，Automations 事件触发。$20/月。", combo: "<strong>Cursor</strong>（主力 IDE）+ <strong>Claude Code</strong>（复杂工程任务）" }
           },
           {
-            icon: "💰", label: "免费 + 够用",
-            desc: "不想花钱，基本功能覆盖",
-            result: { name: "Trae", why: "字节免费提供 Claude + DeepSeek 算力，Builder/SOLO 两种 Agent 模式，MCP 市场一键安装。$0 起步，Pro 仅 $10/月。", combo: "<strong>Trae</strong>（免费 IDE）+ <strong>GitHub Copilot Free</strong>（补全兜底）" }
+            icon: "💰", label: "性价比优先",
+            desc: "功能够用，价格实惠",
+            result: { name: "Windsurf", why: "Cognition 旗下平价 AI IDE（$82M ARR），Cascade 模式自动分析上下文连续执行。$15/月性价比极高。", combo: "<strong>Windsurf</strong>（主力 IDE）+ <strong>GitHub Copilot Free</strong>（补全兜底）" }
           },
         ]
       }
@@ -765,17 +929,36 @@ const flowTree = {
       icon: "🏗️", label: "复杂工程",
       desc: "大规模重构、CI/CD、服务器端",
       next: {
-        q: "你的工作环境是？",
+        q: "你的工作方式是？",
         options: [
           {
-            icon: "🖥️", label: "终端 / SSH / 无 GUI",
-            desc: "服务器、容器、流水线",
-            result: { name: "Claude Code", why: "唯一纯终端 Agent：SSH 直连服务器、嵌入 CI/CD 流水线、并行子 Agent、Hooks（Pre/PostToolUse）、Memory 跨会话记忆、MCP 全功能。按 Claude API Token 计费。", combo: "<strong>Claude Code</strong>（主力）+ <strong>Cursor</strong>（偶尔需要 GUI 看代码时）" }
+            icon: "🖥️", label: "终端 / SSH / 深度推理",
+            desc: "服务器、容器、流水线、复杂架构",
+            result: { name: "Claude Code", why: "终端原生 Agent：Opus 4.6（1M token 上下文）驱动，SSH 直连服务器、嵌入 CI/CD、并行子 Agent、Hooks、Memory 跨会话记忆、MCP 全功能。Pro $17/月，Max $100+/月。", combo: "<strong>Claude Code</strong>（主力）+ <strong>Cursor</strong>（偶尔需要 GUI 时）" }
           },
           {
-            icon: "📋", label: "需求驱动 / Spec 优先",
-            desc: "先写规格再生成代码",
-            result: { name: "Kiro", why: "Amazon Spec-Driven 模式独一无二：requirements.md → design.md → tasks.md → 自动实现。Agent Hooks（文件保存触发）、Steering Files、Kiro Powers。仅用 Claude 模型（Bedrock），$20/月起。", combo: "<strong>Kiro</strong>（规格→代码）+ <strong>Claude Code</strong>（执行与调试）" }
+            icon: "🤖", label: "全自动 / 交给 AI 做",
+            desc: "描述需求，AI 自主完成整个任务",
+            result: { name: "Devin 2.2", why: "Cognition 的自主 AI 工程师（$10.2B 估值）。Agent-native IDE，能自主规划→编码→测试→部署。适合独立完成中等复杂度任务。$20/月起。", combo: "<strong>Devin</strong>（自主任务）+ <strong>Claude Code</strong>（需要深度推理时）" }
+          },
+        ]
+      }
+    },
+    {
+      icon: "🏢", label: "企业 / 大型代码库",
+      desc: "团队协作、安全合规、百万行代码",
+      next: {
+        q: "你更需要什么？",
+        options: [
+          {
+            icon: "🐙", label: "GitHub 生态 + 团队管理",
+            desc: "PR Review、Issues、Actions 集成",
+            result: { name: "GitHub Copilot", why: "企业生态最强：GitHub 全链路集成（PR/Issues/Actions），多模型后端（Claude/GPT/Gemini），Agent Mode + Copilot CLI。组织级安全管控。$10-39/月。", combo: "<strong>Copilot</strong>（团队标配）+ <strong>Claude Code</strong>（复杂任务）" }
+          },
+          {
+            icon: "🔷", label: "超大代码库理解",
+            desc: "百万行代码、深度索引、精准检索",
+            result: { name: "Augment Code", why: "专为大型代码库设计：深度索引全仓库代码，企业级 RAG 检索，理解跨文件依赖关系。在理解遗留代码和大规模重构方面表现突出。$30/月。", combo: "<strong>Augment Code</strong>（代码库理解）+ <strong>Cursor</strong>（日常编码）" }
           },
         ]
       }
@@ -783,12 +966,7 @@ const flowTree = {
     {
       icon: "🎓", label: "学习 / 探索",
       desc: "刚接触 AI 编程，想试试",
-      result: { name: "Trae + Copilot Free", why: "零成本入门：Trae 免费提供 Claude/DeepSeek 算力，Copilot Free 覆盖 50 次 Chat + 2000 次补全/月。先用起来再考虑付费。", combo: "<strong>Trae</strong>（主力 IDE，免费）+ <strong>Copilot Free</strong>（补全）+ <strong>ChatGPT</strong>（学习问答）" }
-    },
-    {
-      icon: "☁️", label: "AWS 生态深度绑定",
-      desc: "Bedrock、Lambda、CodeWhisperer",
-      result: { name: "Kiro", why: "Kiro 基于 AWS Bedrock 深度集成 Claude 模型，CodeWhisperer 血统。Kiro Powers 提供预配置的 MCP 服务器 + Steering 文件。全部模型仅限 Anthropic Claude 系列。", combo: "<strong>Kiro</strong>（AWS 原生 IDE）+ <strong>Claude Code</strong>（终端复杂任务）" }
+      result: { name: "Windsurf + Copilot Free", why: "Windsurf $15/月入门门槛低，Cascade 模式对新手友好。Copilot Free 覆盖 50 次 Chat + 2000 次补全/月。ChatGPT 内置 GPT-5.3-Codex 可免费体验 AI 编程。", combo: "<strong>Windsurf</strong>（主力 IDE）+ <strong>Copilot Free</strong>（补全）+ <strong>ChatGPT</strong>（学习问答）" }
     },
   ]
 };
@@ -796,17 +974,18 @@ const flowTree = {
 const timelineData = [
   { year: "2021", title: "GitHub Copilot 技术预览", desc: "OpenAI Codex 驱动的行内代码补全，开启 AI 编程时代。只有 Tab 补全，没有对话能力。", color: "#f472b6" },
   { year: "2023.03", title: "Cursor 发布", desc: "第一个 AI-native IDE。不只是补全，而是能和代码对话。引入 Cmd+K 行内编辑，颠覆编码体验。", color: "#22d3ee" },
+  { year: "2024.03", title: "Devin 首次亮相", desc: "Cognition 发布世界首个「AI 软件工程师」Devin，能自主完成完整开发任务。AI 编程从辅助走向自主。", color: "#f59e0b" },
   { year: "2024.06", title: "Claude 3.5 Sonnet 登顶编码", desc: "Anthropic 发布编码能力登顶的模型，Cursor 默认切换到 Claude。AI 编程进入「模型军备竞赛」。", color: "#c084fc" },
-  { year: "2024.11", title: "Windsurf 发布", desc: "Codeium 推出 Cascade Flow 模式 — 自动分析上下文、连续执行多步操作。后被 Cognition AI（Devin 团队）收购。", color: "#60a5fa" },
+  { year: "2024.11", title: "Windsurf 发布", desc: "Codeium 推出 Cascade Flow 模式 — 自动分析上下文、连续执行多步操作。平价 AI IDE 路线开启。", color: "#60a5fa" },
   { year: "2025.01", title: "DeepSeek R1 开源", desc: "中国团队以 1/30 成本的开源模型逼近 GPT-4o 推理能力，震动行业。证明「开源 + 低成本」路线可行。", color: "#f59e0b" },
   { year: "2025.02", title: "Claude Code（CLI）发布", desc: "Anthropic 跳过 IDE，直接发布终端 Agent。纯命令行，支持文件读写、Shell 执行、MCP 集成。开辟「无 GUI」路线。", color: "#c084fc" },
-  { year: "2025.04", title: "Trae 正式发布 + Qwen3 开源", desc: "字节跳动免费 AI IDE 搅动市场；阿里同期开源 Qwen3 全系列（Apache 2.0），MCP 原生支持。", color: "#4ade80" },
-  { year: "2025.07", title: "Kiro GA + Claude Code Hooks", desc: "Amazon Kiro 正式上线 Spec-Driven 开发；Claude Code 加入 Hooks/子 Agent/Memory，嵌入 CI/CD。", color: "#f59e0b" },
-  { year: "2025.10", title: "Kiro GA 商业化 + Cursor 信用制", desc: "Kiro 开始收费（$20-200/月信用制）。Cursor 改为信用制计费，推出 $60 Pro+ 和 $200 Ultra 档。", color: "#22d3ee" },
-  { year: "2025.12", title: "DeepSeek V3.2 + Windsurf 被收购", desc: "DeepSeek V3.2 Speciale 超越 GPT-5 推理能力。Cognition AI $2.5 亿收购 Windsurf，推出自有模型 SWE-1.5。", color: "#f59e0b" },
-  { year: "2026.02", title: "Claude 4.6 + Qwen 3.5 + Copilot CLI", desc: "Claude Opus/Sonnet 4.6（1M 上下文、Adaptive Thinking）。Qwen3.5 开源 397B。GitHub Copilot CLI GA + Agent Mode。", color: "#c084fc" },
-  { year: "2026.03", title: "Cursor 云端 Agent + GPT-5.4", desc: "Cursor 2.5 推出 Background Agents（云端 VM 并行）和 Automations（事件驱动）。OpenAI 发布 GPT-5.4（原生 Computer Use）。", color: "#22d3ee" },
-  { year: "趋势", title: "从补全到 Agent → 从 Agent 到团队", desc: "2025 年实现「一个 Agent 自主干活」；2026 年走向「多个 Agent 并行协作」+ 云端 Agent + 事件驱动自动化。下一步是 Agent 组成虚拟团队。", color: "#4ade80" },
+  { year: "2025.07", title: "Claude Code Hooks + Memory", desc: "Claude Code 加入 Hooks（Pre/PostToolUse）、并行子 Agent、Memory 跨会话记忆，成为终端 Agent 标杆。", color: "#c084fc" },
+  { year: "2025.10", title: "Cursor 突破 1M 用户", desc: "Cursor 成为最热门 AI IDE，用户超 100 万，360K 付费用户。Composer 模式成为多文件编辑标准。", color: "#22d3ee" },
+  { year: "2025.12", title: "Cognition 收购 Windsurf", desc: "Cognition AI（Devin 团队）$2.5 亿收购 Windsurf，估值达 $10.2B。Devin 2.0 发布，Agent-native IDE。", color: "#f59e0b" },
+  { year: "2026.01", title: "GPT-5.3-Codex + Augment 崛起", desc: "OpenAI 发布 GPT-5.3-Codex（最强 agentic 编码模型）。Augment Code 凭借大型代码库深度索引技术快速增长。", color: "#4ade80" },
+  { year: "2026.02", title: "Claude 4.6（1M 上下文）", desc: "Anthropic 发布 Claude Opus/Sonnet 4.6（1M 上下文、Adaptive Thinking）。Claude Code Pro $17/月 + Max $100+/月。", color: "#c084fc" },
+  { year: "2026.03", title: "Devin 2.2 + Cursor Background Agents", desc: "Devin 2.2 发布（更强自主能力）。Cursor 推出 Background Agents（云端 VM 并行）和 Automations（事件驱动）。AI 编程工具全面进入 Agent 时代。", color: "#22d3ee" },
+  { year: "趋势", title: "从辅助到自主 → 从单 Agent 到 Agent 团队", desc: "2025 年实现「一个 Agent 自主干活」；2026 年走向「多 Agent 并行协作 + 云端 Agent + 全自动开发流水线」。Cursor/Devin/Claude Code 三强鼎立，Augment 和 GPT-Codex 快速追赶。", color: "#4ade80" },
 ];
 
 
@@ -970,9 +1149,32 @@ function highlightCol(colIdx) {
   });
 }
 
+// ===== GLOSSARY =====
+function toggleGlossary() {
+  const panel = document.getElementById('glossaryPanel');
+  const overlay = document.getElementById('glossaryOverlay');
+  const btn = document.querySelector('.glossary-btn');
+  const isVisible = panel.classList.contains('visible');
+  panel.classList.toggle('visible', !isVisible);
+  overlay.classList.toggle('visible', !isVisible);
+  btn.classList.toggle('active', !isVisible);
+}
+
 // ===== KEYBOARD =====
 document.addEventListener('keydown', (e) => {
   const tabs = ['tools','models','choose','timeline'];
+  if (e.key === '?' || e.key === '/') {
+    e.preventDefault();
+    toggleGlossary();
+    return;
+  }
+  if (e.key === 'Escape') {
+    const panel = document.getElementById('glossaryPanel');
+    if (panel.classList.contains('visible')) {
+      toggleGlossary();
+      return;
+    }
+  }
   if (e.key >= '1' && e.key <= '4') {
     switchTab(tabs[parseInt(e.key) - 1]);
   }

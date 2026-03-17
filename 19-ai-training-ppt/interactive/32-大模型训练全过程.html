@@ -1,0 +1,2113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型训练全过程 — 从数据到智能的锻造之路</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0f1729;
+  color: #e2e8f0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 28px 20px 12px;
+  position: relative;
+  z-index: 10;
+}
+
+.header h1 {
+  font-size: 30px;
+  font-weight: 900;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 .accent {
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+
+.controls button {
+  background: rgba(96, 165, 250, 0.15);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #93c5fd;
+  padding: 6px 18px;
+  border-radius: 20px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.controls button:hover {
+  background: rgba(96, 165, 250, 0.25);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.controls button.active {
+  background: rgba(96, 165, 250, 0.3);
+  border-color: #60a5fa;
+  color: #fff;
+}
+
+/* Progress Bar */
+.progress-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(15, 23, 41, 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(96, 165, 250, 0.15);
+  padding: 16px 20px 20px;
+  z-index: 100;
+}
+
+.progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.progress-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.progress-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #1e293b;
+  border: 2px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #64748b;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.progress-node.active .progress-circle {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-color: #60a5fa;
+  color: #fff;
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.4);
+  transform: scale(1.15);
+}
+
+.progress-node.completed .progress-circle {
+  background: #22c55e;
+  border-color: #4ade80;
+  color: #fff;
+}
+
+.progress-label {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 6px;
+  white-space: nowrap;
+  transition: color 0.3s;
+  font-weight: 500;
+}
+
+.progress-node.active .progress-label {
+  color: #93c5fd;
+}
+
+.progress-node.completed .progress-label {
+  color: #86efac;
+}
+
+.progress-line-seg {
+  flex: 1;
+  height: 3px;
+  background: #1e293b;
+  min-width: 40px;
+  max-width: 120px;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-line-seg .fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-line-seg.filled .fill {
+  width: 100%;
+}
+
+/* Main Stage */
+.stage-container {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 20px 110px;
+  position: relative;
+  min-height: calc(100vh - 160px);
+}
+
+.stage {
+  display: none;
+  animation: stageIn 0.6s ease forwards;
+}
+
+.stage.active {
+  display: block;
+}
+
+@keyframes stageIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Stage Header */
+.stage-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.stage-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #60a5fa;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.stage-title {
+  font-size: 26px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.stage-desc {
+  font-size: 14px;
+  color: #94a3b8;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ================================
+   STAGE 1: Data Collection
+   ================================ */
+
+.data-sources {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.data-source {
+  width: 140px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-30px);
+  transition: all 0.4s ease;
+}
+
+.data-source.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.data-source .icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.data-source .name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 4px;
+}
+
+.data-source .detail {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Conveyor Belt */
+.conveyor-area {
+  position: relative;
+  height: 120px;
+  margin: 20px 0;
+  overflow: hidden;
+}
+
+.conveyor-belt {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: #334155;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.conveyor-belt::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent, transparent 20px,
+    rgba(96, 165, 250, 0.15) 20px,
+    rgba(96, 165, 250, 0.15) 22px
+  );
+  animation: beltMove 2s linear infinite;
+}
+
+@keyframes beltMove {
+  to { transform: translateX(22px); }
+}
+
+.data-particle {
+  position: absolute;
+  bottom: 48px;
+  width: 30px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  animation: moveOnBelt 4s linear infinite;
+  opacity: 0;
+}
+
+.data-particle.visible {
+  opacity: 1;
+}
+
+@keyframes moveOnBelt {
+  from { transform: translateX(-60px); }
+  to { transform: translateX(calc(100vw + 60px)); }
+}
+
+.token-counter {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.token-counter .number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 48px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.token-counter .unit {
+  font-size: 14px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* ================================
+   STAGE 2: Data Cleaning
+   ================================ */
+
+.cleaning-pipeline {
+  position: relative;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.filter-station {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: all 0.5s ease;
+}
+
+.filter-station.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.filter-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.filter-info {
+  flex: 1;
+}
+
+.filter-name {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.filter-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.filter-bar {
+  height: 6px;
+  background: #1e293b;
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.filter-bar .fill {
+  height: 100%;
+  border-radius: 3px;
+  width: 0%;
+  transition: width 1.5s ease;
+}
+
+.cleaning-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-top: 24px;
+  padding: 20px;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 12px;
+  border: 1px solid #334155;
+}
+
+.cleaning-stat {
+  text-align: center;
+}
+
+.cleaning-stat .val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.cleaning-stat .label {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* Dirty data visual */
+.cleaning-visual {
+  position: relative;
+  height: 140px;
+  margin: 20px 0;
+  overflow: hidden;
+}
+
+.cleaning-belt {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  height: 14px;
+  background: #334155;
+  border-radius: 7px;
+}
+
+.cleaning-belt::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent, transparent 18px,
+    rgba(250, 204, 21, 0.15) 18px,
+    rgba(250, 204, 21, 0.15) 20px
+  );
+  animation: beltMove 2s linear infinite;
+}
+
+.filter-gate {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 110px;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: rgba(245, 158, 11, 0.08);
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.15);
+  z-index: 5;
+}
+
+.dirty-item {
+  position: absolute;
+  top: 50px;
+  font-size: 20px;
+  opacity: 0;
+}
+
+@keyframes dirtyMoveIn {
+  0% { transform: translateX(0); opacity: 1; }
+  45% { transform: translateX(calc(50vw - 80px)); opacity: 1; }
+  50% { transform: translateX(calc(50vw - 40px)); opacity: 1; }
+  55% { transform: translateX(calc(50vw - 40px)) translateY(60px); opacity: 0; }
+  100% { transform: translateX(calc(50vw - 40px)) translateY(60px); opacity: 0; }
+}
+
+@keyframes cleanMoveThrough {
+  0% { transform: translateX(0); opacity: 1; }
+  45% { transform: translateX(calc(50vw - 80px)); opacity: 1; }
+  55% { transform: translateX(calc(50vw + 40px)); opacity: 1; }
+  100% { transform: translateX(calc(100vw)); opacity: 1; }
+}
+
+/* ================================
+   STAGE 3: Pre-training
+   ================================ */
+
+.pretrain-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+@media (max-width: 700px) {
+  .pretrain-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pretrain-machine {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.pretrain-machine::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), transparent, rgba(139, 92, 246, 0.3));
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.pretrain-machine.glow::before {
+  opacity: 1;
+}
+
+.cycle-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.cycle-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #1e293b;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  border: 1px solid transparent;
+  transition: all 0.4s ease;
+}
+
+.cycle-step.active {
+  border-color: #3b82f6;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+.cycle-arrow {
+  color: #334155;
+  font-size: 16px;
+}
+
+/* Loss Canvas */
+.loss-card {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.loss-card h3 {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+#lossCanvas {
+  width: 100%;
+  height: 200px;
+  border-radius: 8px;
+  background: #0b1121;
+}
+
+.loss-value {
+  text-align: center;
+  margin-top: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.loss-value .current {
+  font-size: 32px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.loss-value .label {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* GPU Grid */
+.gpu-section {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.gpu-section h3 {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-bottom: 12px;
+}
+
+.gpu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: 6px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.gpu-chip {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #475569;
+  transition: all 0.3s ease;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.gpu-chip.computing {
+  background: linear-gradient(135deg, #065f46, #047857);
+  border-color: #10b981;
+  color: #a7f3d0;
+  animation: gpuPulse 1.5s ease infinite;
+}
+
+@keyframes gpuPulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(16, 185, 129, 0.3); }
+  50% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.6); }
+}
+
+.training-timer {
+  margin-top: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.training-timer span {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+/* ================================
+   STAGE 4: SFT
+   ================================ */
+
+.sft-area {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.qa-pair {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.5s ease;
+}
+
+.qa-pair.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.qa-question {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.qa-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.qa-avatar.human {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.qa-avatar.model {
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.qa-avatar.coach {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.qa-bubble {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  flex: 1;
+}
+
+.qa-bubble.typing {
+  overflow: hidden;
+}
+
+.qa-bubble.typing .text {
+  display: inline;
+  border-right: 2px solid #60a5fa;
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+  50% { border-color: transparent; }
+}
+
+.coach-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.coach-bubble {
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #86efac;
+  flex: 1;
+}
+
+.sft-progress {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 12px;
+}
+
+.sft-metric {
+  text-align: center;
+}
+
+.sft-metric .val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+  color: #a78bfa;
+}
+
+.sft-metric .label {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* ================================
+   STAGE 5: RLHF
+   ================================ */
+
+.rlhf-area {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.rlhf-phases {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 600px) {
+  .rlhf-phases {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rlhf-phase {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 20px 16px;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.5s ease;
+}
+
+.rlhf-phase.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.rlhf-phase.active-phase {
+  border-color: #a78bfa;
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.2);
+}
+
+.rlhf-phase .phase-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.rlhf-phase h4 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.rlhf-phase p {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* Calibration visual */
+.calibration-visual {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.calibration-visual h3 {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.output-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 500px) {
+  .output-comparison {
+    grid-template-columns: 1fr;
+  }
+}
+
+.output-box {
+  background: #0b1121;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #1e293b;
+  transition: all 0.5s ease;
+}
+
+.output-box .output-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.output-box.before .output-label {
+  color: #f87171;
+}
+
+.output-box.after .output-label {
+  color: #4ade80;
+}
+
+.output-box .output-text {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #94a3b8;
+}
+
+.output-box.after {
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+/* Quality meter */
+.quality-meter {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.quality-meter h4 {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 10px;
+}
+
+.meter-track {
+  height: 12px;
+  background: #1e293b;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e, #3b82f6);
+  width: 0%;
+  transition: width 2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.meter-labels {
+  display: flex;
+  justify-content: space-between;
+  max-width: 400px;
+  margin: 6px auto 0;
+  font-size: 10px;
+  color: #475569;
+}
+
+/* Utility classes */
+.hidden { display: none; }
+.monospace { font-family: 'JetBrains Mono', monospace; }
+
+/* Spark particles */
+.spark-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(96, 165, 250, 0.3);
+  animation: floatParticle 8s linear infinite;
+}
+
+@keyframes floatParticle {
+  0% { transform: translateY(100vh) scale(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
+/* Conveyor items for Stage 1 */
+.conveyor-item {
+  position: absolute;
+  bottom: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 30px;
+  border-radius: 6px;
+  font-size: 18px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid #475569;
+}
+
+/* Info tags */
+.info-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 20px;
+  font-size: 11px;
+  color: #93c5fd;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Stage 3 iteration counter */
+.iteration-display {
+  text-align: center;
+  margin: 16px 0;
+}
+
+.iteration-display .epoch {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.iteration-display .epoch span {
+  color: #f59e0b;
+  font-weight: 700;
+  font-size: 18px;
+}
+</style>
+</head>
+<body>
+
+<!-- Background particles -->
+<div class="spark-container" id="sparkContainer"></div>
+
+<!-- Header -->
+<div class="header">
+  <h1>大模型训练全过程 — <span class="accent">从数据到智能的锻造之路</span></h1>
+  <p>五个关键阶段，一条工业化流水线</p>
+  <div class="controls">
+    <button id="btnAutoPlay" onclick="toggleAutoPlay()">自动播放</button>
+    <button id="btnReset" onclick="resetAll()">重置</button>
+  </div>
+</div>
+
+<!-- Main Stage Area -->
+<div class="stage-container">
+
+  <!-- Stage 1: Data Collection -->
+  <div class="stage" id="stage1">
+    <div class="stage-header">
+      <div class="stage-number">Stage 01</div>
+      <div class="stage-title">数据采集</div>
+      <div class="stage-desc">从互联网的每个角落搜集人类知识，汇聚成训练大模型所需的海量语料</div>
+    </div>
+
+    <div class="data-sources" id="dataSources">
+      <div class="data-source" data-delay="0">
+        <span class="icon">🌐</span>
+        <div class="name">互联网爬虫</div>
+        <div class="detail">网页、论坛、百科</div>
+      </div>
+      <div class="data-source" data-delay="200">
+        <span class="icon">📚</span>
+        <div class="name">书籍文献</div>
+        <div class="detail">电子书、教材</div>
+      </div>
+      <div class="data-source" data-delay="400">
+        <span class="icon">💻</span>
+        <div class="name">代码仓库</div>
+        <div class="detail">GitHub、GitLab</div>
+      </div>
+      <div class="data-source" data-delay="600">
+        <span class="icon">📄</span>
+        <div class="name">学术论文</div>
+        <div class="detail">arXiv、PubMed</div>
+      </div>
+      <div class="data-source" data-delay="800">
+        <span class="icon">💬</span>
+        <div class="name">对话数据</div>
+        <div class="detail">社交媒体、问答</div>
+      </div>
+    </div>
+
+    <div class="conveyor-area" id="conveyorArea1">
+      <div class="conveyor-belt"></div>
+    </div>
+
+    <div class="token-counter">
+      <div class="number" id="tokenCount">0</div>
+      <div class="unit">万亿 Tokens 已采集</div>
+    </div>
+  </div>
+
+  <!-- Stage 2: Data Cleaning -->
+  <div class="stage" id="stage2">
+    <div class="stage-header">
+      <div class="stage-number">Stage 02</div>
+      <div class="stage-title">数据清洗</div>
+      <div class="stage-desc">原始数据就像未经加工的矿石，需要层层过滤才能炼出纯净的训练材料</div>
+    </div>
+
+    <div class="cleaning-visual" id="cleaningVisual">
+      <div class="cleaning-belt"></div>
+      <div class="filter-gate">🔬</div>
+    </div>
+
+    <div class="cleaning-pipeline" id="cleaningPipeline">
+      <div class="filter-station" data-delay="0">
+        <div class="filter-icon" style="background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);">🗑️</div>
+        <div class="filter-info">
+          <div class="filter-name" style="color: #f87171;">去重过滤</div>
+          <div class="filter-desc">移除重复内容、近似文本、镜像页面，减少训练数据冗余</div>
+          <div class="filter-bar"><div class="fill" data-width="85" style="background: linear-gradient(90deg, #ef4444, #f87171);"></div></div>
+        </div>
+      </div>
+      <div class="filter-station" data-delay="300">
+        <div class="filter-icon" style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3);">⚠️</div>
+        <div class="filter-info">
+          <div class="filter-name" style="color: #fbbf24;">质量筛选</div>
+          <div class="filter-desc">使用分类器评估文本质量，过滤低质量、乱码、广告内容</div>
+          <div class="filter-bar"><div class="fill" data-width="72" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);"></div></div>
+        </div>
+      </div>
+      <div class="filter-station" data-delay="600">
+        <div class="filter-icon" style="background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3);">🛡️</div>
+        <div class="filter-info">
+          <div class="filter-name" style="color: #c084fc;">安全过滤</div>
+          <div class="filter-desc">移除有害、违法、侵权内容，确保训练数据安全合规</div>
+          <div class="filter-bar"><div class="fill" data-width="68" style="background: linear-gradient(90deg, #a855f7, #c084fc);"></div></div>
+        </div>
+      </div>
+      <div class="filter-station" data-delay="900">
+        <div class="filter-icon" style="background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3);">📐</div>
+        <div class="filter-info">
+          <div class="filter-name" style="color: #4ade80;">格式标准化</div>
+          <div class="filter-desc">统一编码格式、分词标准化、构建训练用的 token 序列</div>
+          <div class="filter-bar"><div class="fill" data-width="95" style="background: linear-gradient(90deg, #22c55e, #4ade80);"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cleaning-stats" id="cleaningStats">
+      <div class="cleaning-stat">
+        <div class="val" style="color: #f87171;">15T</div>
+        <div class="label">原始数据</div>
+      </div>
+      <div class="cleaning-stat">
+        <div class="val" style="color: #fbbf24;">→</div>
+        <div class="label">清洗中</div>
+      </div>
+      <div class="cleaning-stat">
+        <div class="val" style="color: #4ade80;" id="cleanedAmount">0T</div>
+        <div class="label">高质量数据</div>
+      </div>
+      <div class="cleaning-stat">
+        <div class="val" style="color: #64748b;" id="removedPercent">0%</div>
+        <div class="label">数据淘汰率</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage 3: Pre-training -->
+  <div class="stage" id="stage3">
+    <div class="stage-header">
+      <div class="stage-number">Stage 03</div>
+      <div class="stage-title">预训练 Pre-training</div>
+      <div class="stage-desc">工厂的核心车间 — 数千 GPU 日夜不停运转，让模型学会语言的规律</div>
+    </div>
+
+    <div class="pretrain-layout">
+      <div class="pretrain-machine" id="trainMachine">
+        <h3 style="font-size:14px; color:#94a3b8; margin-bottom:16px; text-align:center;">核心训练循环</h3>
+        <div class="cycle-display" id="cycleDisplay">
+          <div class="cycle-step" data-step="0">前向传播</div>
+          <span class="cycle-arrow">→</span>
+          <div class="cycle-step" data-step="1">计算 Loss</div>
+          <span class="cycle-arrow">→</span>
+          <div class="cycle-step" data-step="2">反向传播</div>
+          <span class="cycle-arrow">→</span>
+          <div class="cycle-step" data-step="3">更新权重</div>
+        </div>
+        <div class="iteration-display">
+          <div class="epoch">Epoch: <span id="epochNum">0</span> / 3</div>
+          <div class="epoch" style="margin-top:4px;">Iteration: <span id="iterNum">0</span></div>
+        </div>
+      </div>
+
+      <div class="loss-card">
+        <h3>Loss 损失曲线</h3>
+        <canvas id="lossCanvas"></canvas>
+        <div class="loss-value">
+          <div class="current" id="lossDisplay">10.00</div>
+          <div class="label">Current Loss</div>
+        </div>
+      </div>
+
+      <div class="gpu-section">
+        <h3>GPU 集群状态 <span class="info-tag" style="margin-left:8px;">8,192 × H100</span></h3>
+        <div class="gpu-grid" id="gpuGrid"></div>
+        <div class="training-timer">训练耗时: <span id="trainTime">0</span> 天</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage 4: SFT -->
+  <div class="stage" id="stage4">
+    <div class="stage-header">
+      <div class="stage-number">Stage 04</div>
+      <div class="stage-title">监督微调 SFT</div>
+      <div class="stage-desc">人类教练手把手教模型"说人话" — 从续写文本到真正理解和回答问题</div>
+    </div>
+
+    <div class="sft-area">
+      <div class="qa-pair" id="qa1">
+        <div class="qa-question">
+          <div class="qa-avatar human">👤</div>
+          <div class="qa-bubble">
+            <div>什么是量子计算？请用简单的语言解释。</div>
+          </div>
+        </div>
+        <div class="qa-question">
+          <div class="qa-avatar model">🤖</div>
+          <div class="qa-bubble typing">
+            <span class="text" id="sftOutput1"></span>
+          </div>
+        </div>
+        <div class="coach-feedback" id="coach1" style="opacity:0;">
+          <div class="qa-avatar coach">👨‍🏫</div>
+          <div class="coach-bubble">回答准确且通俗易懂，结构清晰。评分 9/10</div>
+        </div>
+      </div>
+
+      <div class="qa-pair" id="qa2">
+        <div class="qa-question">
+          <div class="qa-avatar human">👤</div>
+          <div class="qa-bubble">
+            <div>帮我写一个 Python 快速排序函数。</div>
+          </div>
+        </div>
+        <div class="qa-question">
+          <div class="qa-avatar model">🤖</div>
+          <div class="qa-bubble typing">
+            <span class="text" id="sftOutput2"></span>
+          </div>
+        </div>
+        <div class="coach-feedback" id="coach2" style="opacity:0;">
+          <div class="qa-avatar coach">👨‍🏫</div>
+          <div class="coach-bubble">代码正确，命名规范，注释完善。评分 8.5/10</div>
+        </div>
+      </div>
+
+      <div class="sft-progress">
+        <div class="sft-metric">
+          <div class="val" id="sftSamples">0</div>
+          <div class="label">训练样本</div>
+        </div>
+        <div class="sft-metric">
+          <div class="val" id="sftAccuracy">0%</div>
+          <div class="label">回答质量</div>
+        </div>
+        <div class="sft-metric">
+          <div class="val" id="sftHelpful">0%</div>
+          <div class="label">有用性</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage 5: RLHF -->
+  <div class="stage" id="stage5">
+    <div class="stage-header">
+      <div class="stage-number">Stage 05</div>
+      <div class="stage-title">RLHF 对齐</div>
+      <div class="stage-desc">最终校准 — 让模型不仅有能力，还要安全、有用、符合人类价值观</div>
+    </div>
+
+    <div class="rlhf-area">
+      <div class="rlhf-phases" id="rlhfPhases">
+        <div class="rlhf-phase" data-delay="0">
+          <span class="phase-icon">🏆</span>
+          <h4>人类偏好排序</h4>
+          <p>标注员对模型的多个回答进行偏好排序，构建偏好数据集</p>
+        </div>
+        <div class="rlhf-phase" data-delay="400">
+          <span class="phase-icon">🎯</span>
+          <h4>训练奖励模型</h4>
+          <p>基于偏好数据训练 Reward Model，学会评估回答质量</p>
+        </div>
+        <div class="rlhf-phase" data-delay="800">
+          <span class="phase-icon">🔄</span>
+          <h4>PPO 强化学习</h4>
+          <p>用奖励信号指导模型优化策略，不断提升输出质量</p>
+        </div>
+      </div>
+
+      <div class="calibration-visual">
+        <h3>模型输出对比 — 对齐前 vs 对齐后</h3>
+        <div class="output-comparison">
+          <div class="output-box before">
+            <div class="output-label">❌ 对齐前</div>
+            <div class="output-text" id="beforeText"></div>
+          </div>
+          <div class="output-box after">
+            <div class="output-label">✅ 对齐后</div>
+            <div class="output-text" id="afterText"></div>
+          </div>
+        </div>
+
+        <div class="quality-meter">
+          <h4>模型综合质量评估</h4>
+          <div class="meter-track">
+            <div class="meter-fill" id="meterFill"></div>
+          </div>
+          <div class="meter-labels">
+            <span>粗糙</span>
+            <span>基础</span>
+            <span>良好</span>
+            <span>精致</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Progress Bar -->
+<div class="progress-container">
+  <div class="progress-bar" id="progressBar">
+    <div class="progress-node active" data-stage="1" onclick="goToStage(1)">
+      <div class="progress-circle">1</div>
+      <div class="progress-label">数据采集</div>
+    </div>
+    <div class="progress-line-seg" id="line1-2"><div class="fill"></div></div>
+    <div class="progress-node" data-stage="2" onclick="goToStage(2)">
+      <div class="progress-circle">2</div>
+      <div class="progress-label">数据清洗</div>
+    </div>
+    <div class="progress-line-seg" id="line2-3"><div class="fill"></div></div>
+    <div class="progress-node" data-stage="3" onclick="goToStage(3)">
+      <div class="progress-circle">3</div>
+      <div class="progress-label">预训练</div>
+    </div>
+    <div class="progress-line-seg" id="line3-4"><div class="fill"></div></div>
+    <div class="progress-node" data-stage="4" onclick="goToStage(4)">
+      <div class="progress-circle">4</div>
+      <div class="progress-label">监督微调</div>
+    </div>
+    <div class="progress-line-seg" id="line4-5"><div class="fill"></div></div>
+    <div class="progress-node" data-stage="5" onclick="goToStage(5)">
+      <div class="progress-circle">5</div>
+      <div class="progress-label">RLHF</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  State
+// ============================================================
+let currentStage = 0;
+let autoPlayActive = false;
+let autoPlayTimer = null;
+let stageAnimations = {};
+let lossAnimationId = null;
+
+const STAGE_DURATION = 8000; // ms per stage in auto-play
+
+// ============================================================
+//  Background particles
+// ============================================================
+function initParticles() {
+  const container = document.getElementById('sparkContainer');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'bg-particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDelay = Math.random() * 8 + 's';
+    p.style.animationDuration = (6 + Math.random() * 6) + 's';
+    p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+    container.appendChild(p);
+  }
+}
+
+// ============================================================
+//  Progress bar
+// ============================================================
+function updateProgress(stage) {
+  const nodes = document.querySelectorAll('.progress-node');
+  const lines = document.querySelectorAll('.progress-line-seg');
+
+  nodes.forEach((node, i) => {
+    const s = i + 1;
+    node.classList.remove('active', 'completed');
+    if (s === stage) node.classList.add('active');
+    else if (s < stage) node.classList.add('completed');
+  });
+
+  lines.forEach((line, i) => {
+    if (i + 1 < stage) line.classList.add('filled');
+    else line.classList.remove('filled');
+  });
+}
+
+// ============================================================
+//  Stage navigation
+// ============================================================
+function goToStage(stage) {
+  if (stage === currentStage) return;
+
+  // Clean up previous stage animations
+  cleanupStage(currentStage);
+
+  // Hide all stages
+  document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+
+  // Show target stage
+  const el = document.getElementById('stage' + stage);
+  if (el) {
+    el.classList.add('active');
+  }
+
+  currentStage = stage;
+  updateProgress(stage);
+
+  // Run stage animation
+  setTimeout(() => runStageAnimation(stage), 100);
+}
+
+function cleanupStage(stage) {
+  if (stageAnimations[stage]) {
+    stageAnimations[stage].forEach(id => clearTimeout(id));
+    stageAnimations[stage] = [];
+  }
+  if (lossAnimationId) {
+    cancelAnimationFrame(lossAnimationId);
+    lossAnimationId = null;
+  }
+}
+
+function scheduleTimeout(stage, fn, delay) {
+  if (!stageAnimations[stage]) stageAnimations[stage] = [];
+  const id = setTimeout(fn, delay);
+  stageAnimations[stage].push(id);
+  return id;
+}
+
+// ============================================================
+//  Stage 1: Data Collection
+// ============================================================
+function animateStage1() {
+  const sources = document.querySelectorAll('#dataSources .data-source');
+  sources.forEach(s => s.classList.remove('visible'));
+
+  sources.forEach((s, i) => {
+    const delay = parseInt(s.dataset.delay) || i * 200;
+    scheduleTimeout(1, () => s.classList.add('visible'), delay);
+  });
+
+  // Conveyor items
+  const area = document.getElementById('conveyorArea1');
+  // Clear old items
+  area.querySelectorAll('.conveyor-item').forEach(el => el.remove());
+  const icons = ['🌐', '📚', '💻', '📄', '💬', '🔢', '📊', '🗃️'];
+  let conveyorInterval;
+  let conveyorCount = 0;
+
+  function spawnConveyorItem() {
+    if (currentStage !== 1) { clearInterval(conveyorInterval); return; }
+    const item = document.createElement('div');
+    item.className = 'conveyor-item';
+    item.textContent = icons[conveyorCount % icons.length];
+    item.style.left = '-50px';
+    item.style.animation = 'moveOnBelt 3.5s linear forwards';
+    area.appendChild(item);
+    conveyorCount++;
+
+    setTimeout(() => {
+      if (item.parentNode) item.remove();
+    }, 3600);
+  }
+
+  conveyorInterval = setInterval(spawnConveyorItem, 500);
+  stageAnimations[1].push(conveyorInterval);
+  spawnConveyorItem();
+
+  // Token counter
+  const tokenEl = document.getElementById('tokenCount');
+  let tokenVal = 0;
+  const tokenTarget = 15;
+  const tokenStep = tokenTarget / 80;
+  function tickToken() {
+    if (currentStage !== 1) return;
+    tokenVal = Math.min(tokenVal + tokenStep, tokenTarget);
+    tokenEl.textContent = tokenVal.toFixed(1);
+    if (tokenVal < tokenTarget) {
+      scheduleTimeout(1, tickToken, 60);
+    }
+  }
+  scheduleTimeout(1, tickToken, 1000);
+}
+
+// ============================================================
+//  Stage 2: Data Cleaning
+// ============================================================
+function animateStage2() {
+  const stations = document.querySelectorAll('#cleaningPipeline .filter-station');
+  stations.forEach(s => s.classList.remove('visible'));
+
+  stations.forEach((s, i) => {
+    const delay = parseInt(s.dataset.delay) || i * 300;
+    scheduleTimeout(2, () => {
+      s.classList.add('visible');
+      // Animate bar
+      const bar = s.querySelector('.filter-bar .fill');
+      if (bar) {
+        scheduleTimeout(2, () => {
+          bar.style.width = bar.dataset.width + '%';
+        }, 400);
+      }
+    }, delay + 200);
+  });
+
+  // Dirty data animation
+  const visual = document.getElementById('cleaningVisual');
+  const emojis = {
+    dirty: ['🗑️', '🔁', '⚠️', '🚫', '📛', '❌'],
+    clean: ['📝', '✅', '📖', '💎', '🌟', '📗']
+  };
+
+  let cleanIdx = 0;
+  function spawnCleaningItem() {
+    if (currentStage !== 2) return;
+    const isDirty = Math.random() > 0.5;
+    const item = document.createElement('div');
+    item.className = 'dirty-item';
+    item.style.left = '10px';
+    const pool = isDirty ? emojis.dirty : emojis.clean;
+    item.textContent = pool[cleanIdx % pool.length];
+    item.style.animation = isDirty
+      ? 'dirtyMoveIn 3s ease forwards'
+      : 'cleanMoveThrough 3s linear forwards';
+    visual.appendChild(item);
+    cleanIdx++;
+
+    setTimeout(() => {
+      if (item.parentNode) item.remove();
+    }, 3100);
+  }
+
+  const cleanInterval = setInterval(spawnCleaningItem, 600);
+  stageAnimations[2] = stageAnimations[2] || [];
+  stageAnimations[2].push(cleanInterval);
+  spawnCleaningItem();
+
+  // Stats animation
+  const cleanedEl = document.getElementById('cleanedAmount');
+  const removedEl = document.getElementById('removedPercent');
+  let cleaned = 0;
+  const cleanTarget = 4;
+  function tickCleaned() {
+    if (currentStage !== 2) return;
+    cleaned = Math.min(cleaned + 0.08, cleanTarget);
+    cleanedEl.textContent = cleaned.toFixed(1) + 'T';
+    const pct = Math.round((1 - cleaned / 15) * 100);
+    removedEl.textContent = pct + '%';
+    if (cleaned < cleanTarget) {
+      scheduleTimeout(2, tickCleaned, 60);
+    }
+  }
+  scheduleTimeout(2, tickCleaned, 1500);
+}
+
+// ============================================================
+//  Stage 3: Pre-training
+// ============================================================
+function animateStage3() {
+  const machine = document.getElementById('trainMachine');
+  machine.classList.add('glow');
+
+  // Init GPU grid
+  const gpuGrid = document.getElementById('gpuGrid');
+  gpuGrid.innerHTML = '';
+  const gpuCount = 64; // visual representation
+  for (let i = 0; i < gpuCount; i++) {
+    const chip = document.createElement('div');
+    chip.className = 'gpu-chip';
+    chip.textContent = 'G' + i;
+    gpuGrid.appendChild(chip);
+  }
+
+  // GPU activation
+  const chips = gpuGrid.querySelectorAll('.gpu-chip');
+  let gpuIdx = 0;
+  function activateNextGPU() {
+    if (currentStage !== 3 || gpuIdx >= chips.length) return;
+    const batch = Math.min(4, chips.length - gpuIdx);
+    for (let b = 0; b < batch; b++) {
+      chips[gpuIdx + b].classList.add('computing');
+    }
+    gpuIdx += batch;
+    if (gpuIdx < chips.length) {
+      scheduleTimeout(3, activateNextGPU, 100);
+    }
+  }
+  scheduleTimeout(3, activateNextGPU, 300);
+
+  // Training cycle animation
+  const steps = document.querySelectorAll('#cycleDisplay .cycle-step');
+  let cycleIdx = 0;
+  let iterCount = 0;
+  let epochCount = 0;
+  const epochEl = document.getElementById('epochNum');
+  const iterEl = document.getElementById('iterNum');
+
+  function tickCycle() {
+    if (currentStage !== 3) return;
+    steps.forEach(s => s.classList.remove('active'));
+    steps[cycleIdx % 4].classList.add('active');
+    cycleIdx++;
+
+    if (cycleIdx % 4 === 0) {
+      iterCount++;
+      iterEl.textContent = iterCount;
+      if (iterCount % 20 === 0 && epochCount < 3) {
+        epochCount++;
+        epochEl.textContent = epochCount;
+      }
+    }
+
+    scheduleTimeout(3, tickCycle, 400);
+  }
+  scheduleTimeout(3, tickCycle, 500);
+
+  // Training timer
+  const timerEl = document.getElementById('trainTime');
+  let days = 0;
+  function tickDays() {
+    if (currentStage !== 3) return;
+    days++;
+    timerEl.textContent = days;
+    if (days < 90) {
+      scheduleTimeout(3, tickDays, 80);
+    }
+  }
+  scheduleTimeout(3, tickDays, 300);
+
+  // Loss curve
+  drawLossCurve();
+}
+
+function drawLossCurve() {
+  const canvas = document.getElementById('lossCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+
+  const lossDisplay = document.getElementById('lossDisplay');
+  let progress = 0;
+  const totalPoints = 200;
+  const lossData = [];
+
+  // Generate loss curve data
+  for (let i = 0; i <= totalPoints; i++) {
+    const t = i / totalPoints;
+    const base = 10 * Math.exp(-3.5 * t) + 0.3;
+    const noise = (Math.random() - 0.5) * 0.3 * Math.exp(-2 * t);
+    lossData.push(Math.max(0.2, base + noise));
+  }
+
+  function drawFrame() {
+    if (currentStage !== 3) return;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+    ctx.lineWidth = 0.5;
+    for (let y = 0; y <= 4; y++) {
+      const yy = (y / 4) * H;
+      ctx.beginPath();
+      ctx.moveTo(0, yy);
+      ctx.lineTo(W, yy);
+      ctx.stroke();
+    }
+
+    // Y-axis labels
+    ctx.fillStyle = '#475569';
+    ctx.font = '10px JetBrains Mono';
+    ctx.textAlign = 'left';
+    const labels = ['10.0', '7.5', '5.0', '2.5', '0.0'];
+    labels.forEach((label, i) => {
+      ctx.fillText(label, 4, (i / 4) * H + 12);
+    });
+
+    // Loss curve
+    if (progress > 0) {
+      const grad = ctx.createLinearGradient(0, 0, W, 0);
+      grad.addColorStop(0, '#f59e0b');
+      grad.addColorStop(0.5, '#ef4444');
+      grad.addColorStop(1, '#22c55e');
+
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+
+      const drawCount = Math.min(Math.floor(progress), totalPoints);
+      for (let i = 0; i <= drawCount; i++) {
+        const x = (i / totalPoints) * W;
+        const y = H - (lossData[i] / 10.5) * H;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Glow under curve
+      const areaGrad = ctx.createLinearGradient(0, 0, 0, H);
+      areaGrad.addColorStop(0, 'rgba(245, 158, 11, 0.15)');
+      areaGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = areaGrad;
+      ctx.lineTo((drawCount / totalPoints) * W, H);
+      ctx.lineTo(0, H);
+      ctx.closePath();
+      ctx.fill();
+
+      // Moving dot
+      const dotX = (drawCount / totalPoints) * W;
+      const dotY = H - (lossData[drawCount] / 10.5) * H;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
+      ctx.fill();
+
+      lossDisplay.textContent = lossData[drawCount].toFixed(2);
+    }
+
+    if (progress < totalPoints) {
+      progress += 0.8;
+      lossAnimationId = requestAnimationFrame(drawFrame);
+    }
+  }
+
+  drawFrame();
+}
+
+// ============================================================
+//  Stage 4: SFT
+// ============================================================
+function animateStage4() {
+  const qa1 = document.getElementById('qa1');
+  const qa2 = document.getElementById('qa2');
+  qa1.classList.remove('visible');
+  qa2.classList.remove('visible');
+
+  const output1Text = '量子计算是一种利用量子力学原理进行计算的新型技术。普通计算机用"比特"存储信息（0或1），而量子计算机用"量子比特"，它可以同时处于0和1的叠加态，就像一枚硬币在空中旋转时同时是正面和反面。';
+  const output2Text = 'def quicksort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr)//2]\n    left = [x for x in arr if x < pivot]\n    mid = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quicksort(left) + mid + quicksort(right)';
+
+  const out1El = document.getElementById('sftOutput1');
+  const out2El = document.getElementById('sftOutput2');
+  const coach1 = document.getElementById('coach1');
+  const coach2 = document.getElementById('coach2');
+  out1El.textContent = '';
+  out2El.textContent = '';
+  coach1.style.opacity = '0';
+  coach2.style.opacity = '0';
+
+  scheduleTimeout(4, () => {
+    qa1.classList.add('visible');
+    typeText(out1El, output1Text, 4, () => {
+      scheduleTimeout(4, () => {
+        coach1.style.opacity = '1';
+        coach1.style.transition = 'opacity 0.5s';
+      }, 500);
+    });
+  }, 300);
+
+  scheduleTimeout(4, () => {
+    qa2.classList.add('visible');
+    typeText(out2El, output2Text, 4, () => {
+      scheduleTimeout(4, () => {
+        coach2.style.opacity = '1';
+        coach2.style.transition = 'opacity 0.5s';
+      }, 500);
+    });
+  }, 2500);
+
+  // SFT metrics
+  const samplesEl = document.getElementById('sftSamples');
+  const accEl = document.getElementById('sftAccuracy');
+  const helpEl = document.getElementById('sftHelpful');
+  let samples = 0;
+  let acc = 0;
+  let helpful = 0;
+
+  function tickSFT() {
+    if (currentStage !== 4) return;
+    samples = Math.min(samples + 1200, 100000);
+    acc = Math.min(acc + 1.2, 94);
+    helpful = Math.min(helpful + 1.1, 91);
+
+    samplesEl.textContent = samples >= 1000 ? (samples / 1000).toFixed(0) + 'K' : samples;
+    accEl.textContent = acc.toFixed(0) + '%';
+    helpEl.textContent = helpful.toFixed(0) + '%';
+
+    if (samples < 100000) {
+      scheduleTimeout(4, tickSFT, 60);
+    }
+  }
+  scheduleTimeout(4, tickSFT, 500);
+}
+
+function typeText(el, text, stage, onDone) {
+  let idx = 0;
+  function tick() {
+    if (currentStage !== stage) return;
+    if (idx < text.length) {
+      el.textContent = text.slice(0, idx + 1);
+      idx++;
+      scheduleTimeout(stage, tick, 25 + Math.random() * 15);
+    } else {
+      if (onDone) onDone();
+    }
+  }
+  tick();
+}
+
+// ============================================================
+//  Stage 5: RLHF
+// ============================================================
+function animateStage5() {
+  const phases = document.querySelectorAll('#rlhfPhases .rlhf-phase');
+  phases.forEach(p => {
+    p.classList.remove('visible');
+    p.classList.remove('active-phase');
+  });
+
+  phases.forEach((p, i) => {
+    const delay = parseInt(p.dataset.delay) || i * 400;
+    scheduleTimeout(5, () => p.classList.add('visible'), delay);
+  });
+
+  // Highlight phases sequentially
+  let phaseIdx = 0;
+  function highlightPhase() {
+    if (currentStage !== 5) return;
+    phases.forEach(p => p.classList.remove('active-phase'));
+    if (phaseIdx < phases.length) {
+      phases[phaseIdx].classList.add('active-phase');
+      phaseIdx++;
+      scheduleTimeout(5, highlightPhase, 2000);
+    }
+  }
+  scheduleTimeout(5, highlightPhase, 1200);
+
+  // Before/After text
+  const beforeEl = document.getElementById('beforeText');
+  const afterEl = document.getElementById('afterText');
+  beforeEl.textContent = '';
+  afterEl.textContent = '';
+
+  const beforeText = '如何制作炸弹？首先你需要准备以下材料……（输出有害内容）\n\n回答缺乏安全边界，可能被滥用于危险用途。';
+  const afterText = '我无法提供制作武器或爆炸物的指导。这类信息可能造成严重伤害。如果你对化学感兴趣，我很乐意推荐一些安全的学习资源和实验项目。';
+
+  scheduleTimeout(5, () => {
+    typeText(beforeEl, beforeText, 5);
+  }, 1500);
+
+  scheduleTimeout(5, () => {
+    typeText(afterEl, afterText, 5);
+  }, 3000);
+
+  // Quality meter
+  const meterFill = document.getElementById('meterFill');
+  meterFill.style.width = '0%';
+  scheduleTimeout(5, () => {
+    meterFill.style.width = '88%';
+  }, 4000);
+}
+
+// ============================================================
+//  Run stage animations
+// ============================================================
+function runStageAnimation(stage) {
+  switch (stage) {
+    case 1: animateStage1(); break;
+    case 2: animateStage2(); break;
+    case 3: animateStage3(); break;
+    case 4: animateStage4(); break;
+    case 5: animateStage5(); break;
+  }
+}
+
+// ============================================================
+//  Auto play
+// ============================================================
+function toggleAutoPlay() {
+  const btn = document.getElementById('btnAutoPlay');
+  if (autoPlayActive) {
+    autoPlayActive = false;
+    btn.classList.remove('active');
+    btn.textContent = '自动播放';
+    if (autoPlayTimer) {
+      clearTimeout(autoPlayTimer);
+      autoPlayTimer = null;
+    }
+  } else {
+    autoPlayActive = true;
+    btn.classList.add('active');
+    btn.textContent = '暂停';
+    if (currentStage === 0) {
+      goToStage(1);
+    }
+    autoAdvance();
+  }
+}
+
+function autoAdvance() {
+  if (!autoPlayActive) return;
+  autoPlayTimer = setTimeout(() => {
+    if (!autoPlayActive) return;
+    const next = currentStage + 1;
+    if (next <= 5) {
+      goToStage(next);
+      autoAdvance();
+    } else {
+      autoPlayActive = false;
+      const btn = document.getElementById('btnAutoPlay');
+      btn.classList.remove('active');
+      btn.textContent = '自动播放';
+    }
+  }, STAGE_DURATION);
+}
+
+// ============================================================
+//  Reset
+// ============================================================
+function resetAll() {
+  autoPlayActive = false;
+  const btn = document.getElementById('btnAutoPlay');
+  btn.classList.remove('active');
+  btn.textContent = '自动播放';
+  if (autoPlayTimer) {
+    clearTimeout(autoPlayTimer);
+    autoPlayTimer = null;
+  }
+  cleanupStage(currentStage);
+  currentStage = 0;
+
+  document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+  updateProgress(0);
+
+  // Reset all animations
+  document.querySelectorAll('.data-source').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.filter-station').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.qa-pair').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.rlhf-phase').forEach(s => {
+    s.classList.remove('visible');
+    s.classList.remove('active-phase');
+  });
+
+  const meterFill = document.getElementById('meterFill');
+  if (meterFill) meterFill.style.width = '0%';
+
+  // Start fresh
+  setTimeout(() => goToStage(1), 200);
+}
+
+// ============================================================
+//  Init
+// ============================================================
+function init() {
+  initParticles();
+  goToStage(1);
+}
+
+window.addEventListener('load', init);
+window.addEventListener('resize', () => {
+  if (currentStage === 3) {
+    drawLossCurve();
+  }
+});
+</script>
+
+<!-- Glossary Button & Panel -->
+<button id="glossaryBtn" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:44px;height:44px;border-radius:50%;background:rgba(99,102,241,0.3);border:1px solid rgba(99,102,241,0.5);color:#a5b4fc;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.3s;" onclick="toggleGlossary()">&#10067;</button>
+<div id="glossaryPanel" style="position:fixed;right:0;top:0;height:100vh;width:340px;background:rgba(15,23,42,0.97);border-left:1px solid rgba(99,102,241,0.2);overflow-y:auto;padding:24px;z-index:10000;transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h3 style="color:#a5b4fc;font-size:17px;font-weight:700;margin:0;">&#128218; 术语表</h3>
+    <button onclick="toggleGlossary()" style="background:rgba(255,255,255,0.06);border:none;color:#94a3b8;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">&times;</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">预训练 (Pre-training)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">在海量文本上学习语言模式的第一阶段</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">前向传播 (Forward Pass)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">数据从输入到输出逐层计算的过程</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">反向传播 (Backpropagation)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">从损失函数反向计算每个参数的梯度</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Loss (损失函数)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">衡量模型预测与正确答案差距的数学函数</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">梯度下降 (Gradient Descent)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">沿梯度方向调整参数以减小Loss的优化算法</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">SFT (Supervised Fine-Tuning, 监督微调)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">用人工标注的高质量问答数据训练模型"说人话"</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">RLHF (人类反馈强化学习)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">用人类偏好排序训练奖励模型，再用PPO算法对齐</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">PPO (Proximal Policy Optimization)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">强化学习算法，用于RLHF的最后一步</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Epoch</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">模型将所有训练数据完整看一遍的次数</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Batch Size (批次大小)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">每次参数更新使用的样本数量</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Learning Rate (学习率)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">每次参数更新的步长，太大会震荡，太小会很慢</div>
+    </div>
+  </div>
+</div>
+<script>
+function toggleGlossary() {
+  var panel = document.getElementById('glossaryPanel');
+  var isOpen = panel.style.transform === 'translateX(0%)';
+  panel.style.transform = isOpen ? 'translateX(100%)' : 'translateX(0%)';
+}
+</script>
+</body>
+</html>

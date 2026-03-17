@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型量化与边缘部署 — 大模型的瘦身之旅</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 40%, #24243e 100%);
+  color: #e2e8f0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 36px 20px 12px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.header .subtitle {
+  font-size: 15px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* Section tabs */
+.section-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 20px auto 28px;
+  max-width: 700px;
+  padding: 0 16px;
+  flex-wrap: wrap;
+}
+
+.section-tab {
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1.5px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255,255,255,0.04);
+  color: #94a3b8;
+  transition: all 0.3s;
+  font-family: inherit;
+}
+
+.section-tab:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+  color: #c4b5fd;
+}
+
+.section-tab.active {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+  font-weight: 700;
+}
+
+/* Container */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px 60px;
+}
+
+/* Section panels */
+.section-panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+
+.section-panel.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Cards */
+.card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 28px;
+  backdrop-filter: blur(10px);
+  margin-bottom: 24px;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-title .icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+}
+
+/* ============================
+   Section 1: Precision Comparison
+   ============================ */
+.precision-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.precision-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 20px 16px;
+  text-align: center;
+  transition: all 0.4s ease;
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.precision-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 14px 14px 0 0;
+}
+
+.precision-card.fp32::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.precision-card.fp16::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.precision-card.int8::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.precision-card.int4::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+.precision-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+
+.precision-label {
+  font-size: 22px;
+  font-weight: 900;
+  margin-bottom: 4px;
+}
+
+.precision-card.fp32 .precision-label { color: #60a5fa; }
+.precision-card.fp16 .precision-label { color: #a78bfa; }
+.precision-card.int8 .precision-label { color: #fbbf24; }
+.precision-card.int4 .precision-label { color: #f87171; }
+
+.precision-bits {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
+.precision-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.3);
+  margin-bottom: 12px;
+  word-break: break-all;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.5s;
+}
+
+.precision-card.fp32 .precision-number { color: #93c5fd; }
+.precision-card.fp16 .precision-number { color: #c4b5fd; }
+.precision-card.int8 .precision-number { color: #fde68a; }
+.precision-card.int4 .precision-number { color: #fca5a5; }
+
+.precision-size {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.precision-bar-track {
+  width: 80px;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.precision-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s ease;
+}
+
+.precision-card.fp32 .precision-bar-fill { width: 100%; background: #3b82f6; }
+.precision-card.fp16 .precision-bar-fill { width: 50%; background: #8b5cf6; }
+.precision-card.int8 .precision-bar-fill { width: 25%; background: #f59e0b; }
+.precision-card.int4 .precision-bar-fill { width: 12.5%; background: #ef4444; }
+
+.precision-pct {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.precision-card.fp32 .precision-pct { color: #60a5fa; }
+.precision-card.fp16 .precision-pct { color: #a78bfa; }
+.precision-card.int8 .precision-pct { color: #fbbf24; }
+.precision-card.int4 .precision-pct { color: #f87171; }
+
+.precision-loss {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 8px;
+}
+
+/* Number highlight animation */
+@keyframes digitReveal {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.digit-highlight {
+  display: inline-block;
+  animation: digitReveal 0.3s ease forwards;
+}
+
+.digit-lost {
+  color: rgba(255,255,255,0.15);
+  text-decoration: line-through;
+}
+
+/* ============================
+   Section 2: Slimming Journey
+   ============================ */
+.journey-timeline {
+  position: relative;
+  padding: 20px 0;
+}
+
+.journey-track {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  min-height: 320px;
+  padding-bottom: 60px;
+  position: relative;
+}
+
+.journey-track::after {
+  content: '';
+  position: absolute;
+  bottom: 30px;
+  left: 5%;
+  right: 5%;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #f59e0b, #ef4444);
+  border-radius: 2px;
+}
+
+.journey-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.journey-cube-wrapper {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 200px;
+  margin-bottom: 16px;
+}
+
+.journey-cube {
+  perspective: 600px;
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cube-3d {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: cubeRotate 8s linear infinite;
+}
+
+@keyframes cubeRotate {
+  from { transform: rotateY(0deg) rotateX(-15deg); }
+  to { transform: rotateY(360deg) rotateX(-15deg); }
+}
+
+.cube-face {
+  position: absolute;
+  border: 1px solid rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  backface-visibility: visible;
+}
+
+.journey-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid;
+  background: #1a1a3e;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 12px;
+}
+
+.journey-info {
+  text-align: center;
+}
+
+.journey-type {
+  font-size: 18px;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+
+.journey-size {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.journey-note {
+  font-size: 12px;
+  color: #94a3b8;
+  max-width: 140px;
+}
+
+.step-fp32 .journey-dot { border-color: #3b82f6; }
+.step-fp32 .journey-type { color: #60a5fa; }
+.step-fp32 .journey-size { color: #93c5fd; }
+
+.step-fp16 .journey-dot { border-color: #8b5cf6; }
+.step-fp16 .journey-type { color: #a78bfa; }
+.step-fp16 .journey-size { color: #c4b5fd; }
+
+.step-int8 .journey-dot { border-color: #f59e0b; }
+.step-int8 .journey-type { color: #fbbf24; }
+.step-int8 .journey-size { color: #fde68a; }
+
+.step-int4 .journey-dot { border-color: #ef4444; }
+.step-int4 .journey-type { color: #f87171; }
+.step-int4 .journey-size { color: #fca5a5; }
+
+.journey-arrow {
+  position: absolute;
+  bottom: 22px;
+  font-size: 24px;
+  color: #64748b;
+  z-index: 3;
+}
+
+/* MacBook celebration */
+.macbook-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 8px;
+  animation: celebrate 2s ease infinite;
+}
+
+@keyframes celebrate {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* ============================
+   Section 3: Deploy Scenarios
+   ============================ */
+.deploy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.deploy-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 24px 20px;
+  text-align: center;
+  transition: all 0.4s;
+  cursor: default;
+  position: relative;
+}
+
+.deploy-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+
+.deploy-icon {
+  font-size: 52px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.deploy-name {
+  font-size: 20px;
+  font-weight: 900;
+  margin-bottom: 4px;
+}
+
+.deploy-device {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 16px;
+}
+
+.deploy-specs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.deploy-spec {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.2);
+  font-size: 12px;
+}
+
+.deploy-spec-label { color: #94a3b8; }
+.deploy-spec-value { font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+.deploy-models {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 14px;
+}
+
+.deploy-models-title {
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.deploy-model-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin: 3px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.deploy-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.tool-tag {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(139, 92, 246, 0.12);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.deploy-card.cloud .deploy-name { color: #60a5fa; }
+.deploy-card.cloud .deploy-model-tag {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+.deploy-card.cloud .deploy-spec-value { color: #93c5fd; }
+
+.deploy-card.edge .deploy-name { color: #a78bfa; }
+.deploy-card.edge .deploy-model-tag {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+.deploy-card.edge .deploy-spec-value { color: #c4b5fd; }
+
+.deploy-card.mobile .deploy-name { color: #4ade80; }
+.deploy-card.mobile .deploy-model-tag {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.deploy-card.mobile .deploy-spec-value { color: #86efac; }
+
+.deploy-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 20px 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.deploy-arrow-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #4ade80);
+}
+
+/* ============================
+   Section 4: Interactive Slider
+   ============================ */
+.slider-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.slider-cube-area {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 200px;
+  width: 100%;
+  position: relative;
+}
+
+.interactive-cube {
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  perspective: 600px;
+}
+
+.interactive-cube .cube-3d {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: cubeRotateSlow 12s linear infinite;
+}
+
+@keyframes cubeRotateSlow {
+  from { transform: rotateY(0deg) rotateX(-15deg); }
+  to { transform: rotateY(360deg) rotateX(-15deg); }
+}
+
+.interactive-cube .cube-face {
+  position: absolute;
+  border: 1px solid rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  backface-visibility: visible;
+}
+
+.cube-label-float {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  font-weight: 900;
+  white-space: nowrap;
+  transition: all 0.4s;
+}
+
+.cube-size-float {
+  position: absolute;
+  bottom: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: all 0.4s;
+}
+
+/* Slider control */
+.slider-control {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.slider-label {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-bottom: 12px;
+}
+
+.range-track {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 33%, #f59e0b 66%, #ef4444 100%);
+  outline: none;
+  cursor: pointer;
+}
+
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  cursor: grab;
+  transition: transform 0.2s;
+}
+
+.range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.range-input::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+.range-input::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  cursor: grab;
+  border: none;
+}
+
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.range-labels span { transition: all 0.3s; }
+.range-labels span.active-label { transform: scale(1.15); }
+
+/* Dashboards */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: 100%;
+}
+
+.dash-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+}
+
+.dash-title {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* Bar chart */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  height: 120px;
+  padding: 0 8px;
+}
+
+.bar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.bar-rect {
+  width: 100%;
+  max-width: 48px;
+  border-radius: 6px 6px 2px 2px;
+  transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s;
+  min-height: 4px;
+  position: relative;
+}
+
+.bar-value {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.bar-label {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Gauge */
+.gauge-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.gauge {
+  width: 120px;
+  height: 60px;
+  position: relative;
+  overflow: hidden;
+}
+
+.gauge-bg {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 10px solid rgba(255,255,255,0.06);
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  transform: rotate(225deg);
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.gauge-fill {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 10px solid transparent;
+  border-top-color: currentColor;
+  border-right-color: currentColor;
+  transform: rotate(225deg);
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.gauge-needle {
+  width: 2px;
+  height: 50px;
+  background: #fff;
+  position: absolute;
+  bottom: 0;
+  left: 59px;
+  transform-origin: bottom center;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 2px;
+}
+
+.gauge-center {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  bottom: -6px;
+  left: 54px;
+}
+
+.gauge-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  margin-top: 4px;
+  transition: all 0.4s;
+}
+
+.gauge-unit {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Quality preview */
+.quality-preview {
+  text-align: left;
+  padding: 4px 0;
+}
+
+.quality-prompt {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.2);
+}
+
+.quality-output {
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.15);
+  border-left: 3px solid;
+  transition: all 0.4s;
+  min-height: 90px;
+}
+
+.quality-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.quality-stars {
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+
+.quality-text {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Flow arrow between deploy cards */
+.deploy-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-top: 16px;
+}
+
+.flow-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.flow-arrow {
+  font-size: 18px;
+  margin: 0 10px;
+  color: #64748b;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .precision-grid { grid-template-columns: repeat(2, 1fr); }
+  .deploy-grid { grid-template-columns: 1fr; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .journey-track { flex-direction: column; align-items: center; min-height: auto; padding-bottom: 0; }
+  .journey-track::after { display: none; }
+  .header h1 { font-size: 24px; }
+}
+
+@media (max-width: 500px) {
+  .precision-grid { grid-template-columns: 1fr; }
+  .section-tabs { gap: 4px; }
+  .section-tab { padding: 6px 12px; font-size: 12px; }
+}
+
+/* Animate on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Active precision highlight */
+.precision-card.highlighted {
+  border-color: rgba(255,255,255,0.3);
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.2);
+}
+
+/* Pulse animation for journey steps */
+@keyframes stepPulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50% { box-shadow: 0 0 0 8px transparent; }
+}
+
+.journey-dot.pulsing {
+  animation: stepPulse 2s ease infinite;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>模型量化与边缘部署 — 大模型的瘦身之旅</h1>
+  <p class="subtitle">从 140GB 到 17.5GB，让大模型跑在你的 MacBook 上</p>
+</div>
+
+<div class="section-tabs">
+  <button class="section-tab active" data-section="precision" onclick="switchSection('precision')">精度对比</button>
+  <button class="section-tab" data-section="journey" onclick="switchSection('journey')">瘦身旅程</button>
+  <button class="section-tab" data-section="deploy" onclick="switchSection('deploy')">部署场景</button>
+  <button class="section-tab" data-section="interactive" onclick="switchSection('interactive')">交互实验</button>
+</div>
+
+<div class="container">
+
+  <!-- ==================== Section 1: Precision ==================== -->
+  <div class="section-panel active" id="section-precision">
+    <div class="card">
+      <div class="card-title">
+        <div class="icon" style="background: rgba(96, 165, 250, 0.15);">🔢</div>
+        精度压缩：同一个数字的不同"分辨率"
+      </div>
+      <p style="font-size:14px; color:#94a3b8; margin-bottom:20px;">
+        量化的本质，就是用更少的 bit 来表示同一个数字。精度越低，体积越小，但信息损失也越多。
+      </p>
+      <div class="precision-grid" id="precisionGrid">
+        <div class="precision-card fp32">
+          <div class="precision-label">FP32</div>
+          <div class="precision-bits">32 位浮点 · 完整精度</div>
+          <div class="precision-number mono" id="num-fp32">3.14159265</div>
+          <div class="precision-size">
+            <div class="precision-bar-track"><div class="precision-bar-fill"></div></div>
+            <span class="precision-pct">100%</span>
+          </div>
+          <div class="precision-loss">精度损失：无</div>
+        </div>
+        <div class="precision-card fp16">
+          <div class="precision-label">FP16</div>
+          <div class="precision-bits">16 位浮点 · 半精度</div>
+          <div class="precision-number mono" id="num-fp16">3.14160</div>
+          <div class="precision-size">
+            <div class="precision-bar-track"><div class="precision-bar-fill"></div></div>
+            <span class="precision-pct">50%</span>
+          </div>
+          <div class="precision-loss">精度损失：极小 (0.0001%)</div>
+        </div>
+        <div class="precision-card int8">
+          <div class="precision-label">INT8</div>
+          <div class="precision-bits">8 位整数 · 量化</div>
+          <div class="precision-number mono" id="num-int8">3.14</div>
+          <div class="precision-size">
+            <div class="precision-bar-track"><div class="precision-bar-fill"></div></div>
+            <span class="precision-pct">25%</span>
+          </div>
+          <div class="precision-loss">精度损失：略有 (~0.05%)</div>
+        </div>
+        <div class="precision-card int4">
+          <div class="precision-label">INT4</div>
+          <div class="precision-bits">4 位整数 · 激进量化</div>
+          <div class="precision-number mono" id="num-int4">3.1</div>
+          <div class="precision-size">
+            <div class="precision-bar-track"><div class="precision-bar-fill"></div></div>
+            <span class="precision-pct">12.5%</span>
+          </div>
+          <div class="precision-loss">精度损失：明显但可接受 (~1%)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="icon" style="background: rgba(167, 139, 250, 0.15);">💡</div>
+        类比理解
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:16px;">
+        <div style="padding:16px; border-radius:12px; background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.15);">
+          <div style="font-size:24px; margin-bottom:8px;">📸</div>
+          <div style="font-size:14px; font-weight:700; color:#60a5fa; margin-bottom:4px;">FP32 = RAW 原片</div>
+          <div style="font-size:12px; color:#94a3b8;">专业摄影师使用，完美保留所有细节，但文件巨大</div>
+        </div>
+        <div style="padding:16px; border-radius:12px; background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.15);">
+          <div style="font-size:24px; margin-bottom:8px;">🖼️</div>
+          <div style="font-size:14px; font-weight:700; color:#a78bfa; margin-bottom:4px;">FP16 = PNG 无损</div>
+          <div style="font-size:12px; color:#94a3b8;">体积减半，肉眼几乎看不出差别</div>
+        </div>
+        <div style="padding:16px; border-radius:12px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.15);">
+          <div style="font-size:24px; margin-bottom:8px;">📱</div>
+          <div style="font-size:14px; font-weight:700; color:#fbbf24; margin-bottom:4px;">INT8 = JPEG 高质量</div>
+          <div style="font-size:12px; color:#94a3b8;">体积 1/4，仔细看有轻微压缩痕迹</div>
+        </div>
+        <div style="padding:16px; border-radius:12px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.15);">
+          <div style="font-size:24px; margin-bottom:8px;">💬</div>
+          <div style="font-size:14px; font-weight:700; color:#f87171; margin-bottom:4px;">INT4 = JPEG 缩略图</div>
+          <div style="font-size:12px; color:#94a3b8;">体积 1/8，模糊但能看清主题，适合快速预览</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Section 2: Slimming Journey ==================== -->
+  <div class="section-panel" id="section-journey">
+    <div class="card">
+      <div class="card-title">
+        <div class="icon" style="background: rgba(250, 204, 21, 0.15);">🏋️</div>
+        70B 模型的瘦身之旅
+      </div>
+      <p style="font-size:14px; color:#94a3b8; margin-bottom:24px;">
+        以 Llama 2 70B 为例，看看量化如何一步步把 140GB 的"大胖子"变成能塞进 MacBook 的"轻量选手"。
+      </p>
+
+      <div class="journey-timeline">
+        <div class="journey-track">
+          <div class="journey-step step-fp32">
+            <div class="journey-cube-wrapper">
+              <div class="journey-cube" id="jcube-fp32">
+                <div class="cube-3d" id="jcube3d-fp32"></div>
+              </div>
+            </div>
+            <div class="journey-dot pulsing"></div>
+            <div class="journey-info">
+              <div class="journey-type">FP32</div>
+              <div class="journey-size">140 GB</div>
+              <div class="journey-note">原始模型，需要专业服务器</div>
+            </div>
+          </div>
+
+          <div class="journey-step step-fp16">
+            <div class="journey-cube-wrapper">
+              <div class="journey-cube" id="jcube-fp16">
+                <div class="cube-3d" id="jcube3d-fp16"></div>
+              </div>
+            </div>
+            <div class="journey-dot pulsing"></div>
+            <div class="journey-info">
+              <div class="journey-type">FP16</div>
+              <div class="journey-size">70 GB</div>
+              <div class="journey-note">训练后首选，精度几乎无损</div>
+            </div>
+          </div>
+
+          <div class="journey-step step-int8">
+            <div class="journey-cube-wrapper">
+              <div class="journey-cube" id="jcube-int8">
+                <div class="cube-3d" id="jcube3d-int8"></div>
+              </div>
+            </div>
+            <div class="journey-dot pulsing"></div>
+            <div class="journey-info">
+              <div class="journey-type">INT8</div>
+              <div class="journey-size">35 GB</div>
+              <div class="journey-note">推理常用，性价比最高</div>
+            </div>
+          </div>
+
+          <div class="journey-step step-int4">
+            <div class="journey-cube-wrapper">
+              <div class="journey-cube" id="jcube-int4">
+                <div class="cube-3d" id="jcube3d-int4"></div>
+              </div>
+            </div>
+            <div class="journey-dot pulsing"></div>
+            <div class="journey-info">
+              <div class="journey-type">INT4</div>
+              <div class="journey-size">17.5 GB</div>
+              <div class="journey-note">边缘部署首选</div>
+              <div class="macbook-badge">💻 可在 MacBook Pro 运行！</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="icon" style="background: rgba(34, 197, 94, 0.15);">📊</div>
+        瘦身效果对比
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; text-align:center;">
+        <div>
+          <div style="font-size:11px; color:#64748b; margin-bottom:8px; font-weight:600;">FP32</div>
+          <div style="height:140px; display:flex; align-items:flex-end; justify-content:center;">
+            <div style="width:60px; border-radius:8px 8px 2px 2px; background:linear-gradient(180deg, #3b82f6, #1d4ed8); height:140px; transition:height 1s;"></div>
+          </div>
+          <div class="mono" style="font-size:14px; font-weight:700; color:#60a5fa; margin-top:8px;">140 GB</div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:2px;">质量 100%</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:#64748b; margin-bottom:8px; font-weight:600;">FP16</div>
+          <div style="height:140px; display:flex; align-items:flex-end; justify-content:center;">
+            <div style="width:60px; border-radius:8px 8px 2px 2px; background:linear-gradient(180deg, #8b5cf6, #6d28d9); height:70px; transition:height 1s;"></div>
+          </div>
+          <div class="mono" style="font-size:14px; font-weight:700; color:#a78bfa; margin-top:8px;">70 GB</div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:2px;">质量 99.9%</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:#64748b; margin-bottom:8px; font-weight:600;">INT8</div>
+          <div style="height:140px; display:flex; align-items:flex-end; justify-content:center;">
+            <div style="width:60px; border-radius:8px 8px 2px 2px; background:linear-gradient(180deg, #f59e0b, #d97706); height:35px; transition:height 1s;"></div>
+          </div>
+          <div class="mono" style="font-size:14px; font-weight:700; color:#fbbf24; margin-top:8px;">35 GB</div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:2px;">质量 99%</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:#64748b; margin-bottom:8px; font-weight:600;">INT4</div>
+          <div style="height:140px; display:flex; align-items:flex-end; justify-content:center;">
+            <div style="width:60px; border-radius:8px 8px 2px 2px; background:linear-gradient(180deg, #ef4444, #dc2626); height:17.5px; transition:height 1s;"></div>
+          </div>
+          <div class="mono" style="font-size:14px; font-weight:700; color:#f87171; margin-top:8px;">17.5 GB</div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:2px;">质量 95%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Section 3: Deploy ==================== -->
+  <div class="section-panel" id="section-deploy">
+    <div class="card">
+      <div class="card-title">
+        <div class="icon" style="background: rgba(96, 165, 250, 0.15);">🌐</div>
+        从云端到终端：模型部署的三大场景
+      </div>
+
+      <div class="deploy-flow" style="margin-bottom:24px;">
+        <span class="flow-step">☁️ 云端</span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-step">💻 边缘</span>
+        <span class="flow-arrow">&rarr;</span>
+        <span class="flow-step">📱 终端</span>
+      </div>
+
+      <div class="deploy-grid">
+        <div class="deploy-card cloud">
+          <div class="deploy-icon">🖥️</div>
+          <div class="deploy-name">云端部署</div>
+          <div class="deploy-device">A100 / H100 GPU 集群</div>
+          <div class="deploy-specs">
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">显存</span>
+              <span class="deploy-spec-value">80GB+</span>
+            </div>
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">算力</span>
+              <span class="deploy-spec-value">312 TFLOPS</span>
+            </div>
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">精度</span>
+              <span class="deploy-spec-value">FP32 / FP16</span>
+            </div>
+          </div>
+          <div class="deploy-models">
+            <div class="deploy-models-title">可运行模型</div>
+            <span class="deploy-model-tag">GPT-4 (1.8T)</span>
+            <span class="deploy-model-tag">Llama 70B</span>
+            <span class="deploy-model-tag">Qwen 72B</span>
+          </div>
+          <div class="deploy-tools">
+            <span class="tool-tag">vLLM</span>
+            <span class="tool-tag">TensorRT-LLM</span>
+            <span class="tool-tag">DeepSpeed</span>
+          </div>
+        </div>
+
+        <div class="deploy-card edge">
+          <div class="deploy-icon">💻</div>
+          <div class="deploy-name">边缘部署</div>
+          <div class="deploy-device">MacBook Pro / 游戏笔记本</div>
+          <div class="deploy-specs">
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">显存/内存</span>
+              <span class="deploy-spec-value">16-96GB</span>
+            </div>
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">算力</span>
+              <span class="deploy-spec-value">~40 TFLOPS</span>
+            </div>
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">精度</span>
+              <span class="deploy-spec-value">INT8 / INT4</span>
+            </div>
+          </div>
+          <div class="deploy-models">
+            <div class="deploy-models-title">可运行模型</div>
+            <span class="deploy-model-tag">Llama 7B-13B</span>
+            <span class="deploy-model-tag">Qwen 7B-14B</span>
+            <span class="deploy-model-tag">Mistral 7B</span>
+          </div>
+          <div class="deploy-tools">
+            <span class="tool-tag">Ollama</span>
+            <span class="tool-tag">llama.cpp</span>
+            <span class="tool-tag">GGUF</span>
+          </div>
+        </div>
+
+        <div class="deploy-card mobile">
+          <div class="deploy-icon">📱</div>
+          <div class="deploy-name">终端部署</div>
+          <div class="deploy-device">手机 NPU / 嵌入式设备</div>
+          <div class="deploy-specs">
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">内存</span>
+              <span class="deploy-spec-value">4-12GB</span>
+            </div>
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">算力</span>
+              <span class="deploy-spec-value">~15 TOPS</span>
+            </div>
+            <div class="deploy-spec">
+              <span class="deploy-spec-label">精度</span>
+              <span class="deploy-spec-value">INT4 / INT2</span>
+            </div>
+          </div>
+          <div class="deploy-models">
+            <div class="deploy-models-title">可运行模型</div>
+            <span class="deploy-model-tag">Phi-3 Mini</span>
+            <span class="deploy-model-tag">Gemma 2B</span>
+            <span class="deploy-model-tag">Qwen 1.5B</span>
+          </div>
+          <div class="deploy-tools">
+            <span class="tool-tag">MLC LLM</span>
+            <span class="tool-tag">ExecuTorch</span>
+            <span class="tool-tag">ONNX Runtime</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <div class="icon" style="background: rgba(139, 92, 246, 0.15);">🔧</div>
+        常用量化工具链
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:14px;">
+        <div style="padding:14px; border-radius:10px; background:rgba(59,130,246,0.06); border:1px solid rgba(59,130,246,0.12);">
+          <div style="font-size:15px; font-weight:700; color:#60a5fa; margin-bottom:4px;" class="mono">GGUF</div>
+          <div style="font-size:12px; color:#94a3b8;">llama.cpp 的模型格式，支持 Q2-Q8 多档量化，CPU 也能跑</div>
+        </div>
+        <div style="padding:14px; border-radius:10px; background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.12);">
+          <div style="font-size:15px; font-weight:700; color:#a78bfa; margin-bottom:4px;" class="mono">GPTQ</div>
+          <div style="font-size:12px; color:#94a3b8;">GPU 加速量化，支持 3/4/8 bit，HuggingFace 生态友好</div>
+        </div>
+        <div style="padding:14px; border-radius:10px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.12);">
+          <div style="font-size:15px; font-weight:700; color:#fbbf24; margin-bottom:4px;" class="mono">AWQ</div>
+          <div style="font-size:12px; color:#94a3b8;">激活感知量化，保护重要权重，同等比特数质量更高</div>
+        </div>
+        <div style="padding:14px; border-radius:10px; background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.12);">
+          <div style="font-size:15px; font-weight:700; color:#4ade80; margin-bottom:4px;" class="mono">Ollama</div>
+          <div style="font-size:12px; color:#94a3b8;">一键部署，自动选择最佳量化版本，本地运行首选</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Section 4: Interactive ==================== -->
+  <div class="section-panel" id="section-interactive">
+    <div class="card">
+      <div class="card-title">
+        <div class="icon" style="background: rgba(244, 114, 182, 0.15);">🎛️</div>
+        交互实验：拖动滑块，体验精度 vs 质量
+      </div>
+
+      <div class="slider-section">
+        <!-- Cube visualization -->
+        <div class="slider-cube-area">
+          <div class="interactive-cube" id="interactiveCube">
+            <div class="cube-label-float" id="cubeLabel">FP32</div>
+            <div class="cube-3d" id="interactiveCube3d"></div>
+            <div class="cube-size-float" id="cubeSize">140 GB</div>
+          </div>
+        </div>
+
+        <!-- Slider -->
+        <div class="slider-control">
+          <div class="slider-label">拖动滑块选择量化精度</div>
+          <div class="range-track">
+            <input type="range" class="range-input" id="precisionSlider" min="0" max="3" step="1" value="0">
+          </div>
+          <div class="range-labels">
+            <span id="rl-0" class="active-label" style="color:#60a5fa;">FP32</span>
+            <span id="rl-1" style="color:#a78bfa;">FP16</span>
+            <span id="rl-2" style="color:#fbbf24;">INT8</span>
+            <span id="rl-3" style="color:#f87171;">INT4</span>
+          </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div class="dashboard-grid">
+          <!-- Bar: Model Size -->
+          <div class="dash-card">
+            <div class="dash-title">模型体积</div>
+            <div class="bar-chart" id="sizeChart">
+              <div class="bar-item">
+                <div class="bar-rect" id="bar-fp32" style="height:120px; background:linear-gradient(180deg, #3b82f6, #1d4ed8);">
+                  <div class="bar-value" style="color:#93c5fd;">140G</div>
+                </div>
+                <div class="bar-label">FP32</div>
+              </div>
+              <div class="bar-item">
+                <div class="bar-rect" id="bar-fp16" style="height:60px; background:linear-gradient(180deg, #8b5cf6, #6d28d9);">
+                  <div class="bar-value" style="color:#c4b5fd;">70G</div>
+                </div>
+                <div class="bar-label">FP16</div>
+              </div>
+              <div class="bar-item">
+                <div class="bar-rect" id="bar-int8" style="height:30px; background:linear-gradient(180deg, #f59e0b, #d97706);">
+                  <div class="bar-value" style="color:#fde68a;">35G</div>
+                </div>
+                <div class="bar-label">INT8</div>
+              </div>
+              <div class="bar-item">
+                <div class="bar-rect" id="bar-int4" style="height:15px; background:linear-gradient(180deg, #ef4444, #dc2626);">
+                  <div class="bar-value" style="color:#fca5a5;">17.5G</div>
+                </div>
+                <div class="bar-label">INT4</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gauge: Speed -->
+          <div class="dash-card">
+            <div class="dash-title">推理速度</div>
+            <div class="gauge-wrapper">
+              <div class="gauge">
+                <div class="gauge-bg"></div>
+                <div class="gauge-fill" id="gaugeFill" style="color:#3b82f6;"></div>
+                <div class="gauge-needle" id="gaugeNeedle" style="transform: rotate(-90deg);"></div>
+                <div class="gauge-center"></div>
+              </div>
+              <div class="gauge-number" id="gaugeNumber" style="color:#60a5fa;">15</div>
+              <div class="gauge-unit">tokens / sec</div>
+            </div>
+          </div>
+
+          <!-- Quality preview -->
+          <div class="dash-card">
+            <div class="dash-title">输出质量</div>
+            <div class="quality-preview">
+              <div class="quality-prompt">Q: 解释量子计算的基本原理</div>
+              <div class="quality-output" id="qualityOutput" style="border-left-color:#3b82f6; color:#cbd5e1;">
+                量子计算利用量子力学的叠加态和纠缠态进行计算。与经典比特不同，量子比特可以同时处于 0 和 1 的叠加状态，从而实现并行计算。
+              </div>
+              <div class="quality-score">
+                <div class="quality-stars" id="qualityStars">★★★★★</div>
+                <div class="quality-text" id="qualityText" style="color:#60a5fa;">完美</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Section switching
+function switchSection(name) {
+  document.querySelectorAll('.section-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.section-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('section-' + name).classList.add('active');
+  document.querySelector('[data-section="' + name + '"]').classList.add('active');
+
+  if (name === 'journey') { initJourneyCubes(); }
+  if (name === 'interactive') { initInteractiveCube(); updateDashboard(parseInt(document.getElementById('precisionSlider').value)); }
+}
+
+// ================================
+// 3D Cube Builder
+// ================================
+function buildCube(container, size, color, label) {
+  container.innerHTML = '';
+  var half = size / 2;
+  var faces = [
+    { transform: 'rotateY(0deg) translateZ(' + half + 'px)', bg: color + '33' },
+    { transform: 'rotateY(180deg) translateZ(' + half + 'px)', bg: color + '22' },
+    { transform: 'rotateY(90deg) translateZ(' + half + 'px)', bg: color + '28' },
+    { transform: 'rotateY(-90deg) translateZ(' + half + 'px)', bg: color + '28' },
+    { transform: 'rotateX(90deg) translateZ(' + half + 'px)', bg: color + '18' },
+    { transform: 'rotateX(-90deg) translateZ(' + half + 'px)', bg: color + '38' }
+  ];
+
+  container.style.width = size + 'px';
+  container.style.height = size + 'px';
+
+  faces.forEach(function(f, i) {
+    var face = document.createElement('div');
+    face.className = 'cube-face';
+    face.style.width = size + 'px';
+    face.style.height = size + 'px';
+    face.style.transform = f.transform;
+    face.style.background = f.bg;
+    face.style.borderColor = color + '44';
+    if (i === 0 && label) {
+      face.textContent = label;
+      face.style.color = color;
+      face.style.fontSize = Math.max(10, size / 6) + 'px';
+    }
+    container.appendChild(face);
+  });
+}
+
+// Journey cubes
+function initJourneyCubes() {
+  var configs = [
+    { id: 'jcube3d-fp32', size: 140, color: '#3b82f6', label: 'FP32' },
+    { id: 'jcube3d-fp16', size: 110, color: '#8b5cf6', label: 'FP16' },
+    { id: 'jcube3d-int8', size: 80, color: '#f59e0b', label: 'INT8' },
+    { id: 'jcube3d-int4', size: 55, color: '#ef4444', label: 'INT4' }
+  ];
+  configs.forEach(function(c) {
+    var el = document.getElementById(c.id);
+    if (el) { buildCube(el, c.size, c.color, c.label); }
+  });
+}
+
+// Interactive cube
+var interactiveConfigs = [
+  { size: 160, color: '#3b82f6', label: 'FP32', sizeText: '140 GB', labelColor: '#60a5fa' },
+  { size: 120, color: '#8b5cf6', label: 'FP16', sizeText: '70 GB', labelColor: '#a78bfa' },
+  { size: 85, color: '#f59e0b', label: 'INT8', sizeText: '35 GB', labelColor: '#fbbf24' },
+  { size: 60, color: '#ef4444', label: 'INT4', sizeText: '17.5 GB', labelColor: '#f87171' }
+];
+
+function initInteractiveCube() {
+  var val = parseInt(document.getElementById('precisionSlider').value);
+  updateInteractiveCube(val);
+}
+
+function updateInteractiveCube(idx) {
+  var cfg = interactiveConfigs[idx];
+  var container = document.getElementById('interactiveCube3d');
+  var wrapper = document.getElementById('interactiveCube');
+  var labelEl = document.getElementById('cubeLabel');
+  var sizeEl = document.getElementById('cubeSize');
+
+  buildCube(container, cfg.size, cfg.color, cfg.label);
+  wrapper.style.width = cfg.size + 'px';
+  wrapper.style.height = cfg.size + 'px';
+
+  labelEl.textContent = cfg.label;
+  labelEl.style.color = cfg.labelColor;
+  sizeEl.textContent = cfg.sizeText;
+  sizeEl.style.color = cfg.labelColor;
+}
+
+// Dashboard data
+var dashData = [
+  { speed: 15, needle: -90, quality: 5, qualityText: '完美', qualityColor: '#60a5fa', barHighlight: 0,
+    output: '量子计算利用量子力学的叠加态和纠缠态进行计算。与经典比特不同，量子比特可以同时处于 0 和 1 的叠加状态，从而实现并行计算。这使得量子计算机在特定问题上具有指数级的速度优势。' },
+  { speed: 30, needle: -45, quality: 5, qualityText: '优秀', qualityColor: '#a78bfa', barHighlight: 1,
+    output: '量子计算利用量子力学的叠加态和纠缠态进行计算。与经典比特不同，量子比特可以同时处于 0 和 1 的叠加状态，从而实现并行计算。在特定问题上有指数级优势。' },
+  { speed: 55, needle: 15, quality: 4, qualityText: '良好', qualityColor: '#fbbf24', barHighlight: 2,
+    output: '量子计算利用叠加态和纠缠进行并行计算。量子比特可以同时处于 0 和 1 状态，比传统计算机在某些任务上快得多。' },
+  { speed: 80, needle: 60, quality: 3, qualityText: '可接受', qualityColor: '#f87171', barHighlight: 3,
+    output: '量子计算用量子力学做并行计算。量子比特能同时是 0 和 1，所以某些问题算得快。' }
+];
+
+var barHeights = [120, 60, 30, 15];
+var barOpacityNormal = '0.35';
+var barOpacityActive = '1';
+
+function updateDashboard(idx) {
+  var d = dashData[idx];
+
+  // Highlight active bar
+  ['fp32', 'fp16', 'int8', 'int4'].forEach(function(key, i) {
+    var bar = document.getElementById('bar-' + key);
+    bar.style.opacity = (i === d.barHighlight) ? barOpacityActive : barOpacityNormal;
+  });
+
+  // Speed gauge
+  document.getElementById('gaugeNeedle').style.transform = 'rotate(' + d.needle + 'deg)';
+  var gaugeNum = document.getElementById('gaugeNumber');
+  gaugeNum.textContent = d.speed;
+  gaugeNum.style.color = interactiveConfigs[idx].labelColor;
+
+  // Quality output
+  var qOutput = document.getElementById('qualityOutput');
+  qOutput.textContent = d.output;
+  qOutput.style.borderLeftColor = interactiveConfigs[idx].color;
+
+  var stars = '';
+  for (var i = 0; i < 5; i++) {
+    stars += (i < d.quality) ? '★' : '☆';
+  }
+  document.getElementById('qualityStars').textContent = stars;
+  var qText = document.getElementById('qualityText');
+  qText.textContent = d.qualityText;
+  qText.style.color = d.qualityColor;
+
+  // Range labels
+  for (var j = 0; j < 4; j++) {
+    var rl = document.getElementById('rl-' + j);
+    rl.classList.toggle('active-label', j === idx);
+    rl.style.opacity = (j === idx) ? '1' : '0.5';
+  }
+}
+
+// Slider event
+document.getElementById('precisionSlider').addEventListener('input', function() {
+  var val = parseInt(this.value);
+  updateInteractiveCube(val);
+  updateDashboard(val);
+});
+
+// Precision number animation
+function animatePrecisionNumbers() {
+  var numbers = {
+    'num-fp32': { value: '3.14159265', full: '3.14159265' },
+    'num-fp16': { value: '3.14160', full: '3.14159265' },
+    'num-int8': { value: '3.14', full: '3.14159265' },
+    'num-int4': { value: '3.1', full: '3.14159265' }
+  };
+
+  Object.keys(numbers).forEach(function(id) {
+    var el = document.getElementById(id);
+    var kept = numbers[id].value;
+    var full = numbers[id].full;
+    var html = '';
+
+    for (var i = 0; i < full.length; i++) {
+      if (i < kept.length) {
+        html += '<span class="digit-highlight" style="animation-delay:' + (i * 0.05) + 's">' + full[i] + '</span>';
+      } else {
+        html += '<span class="digit-lost">' + full[i] + '</span>';
+      }
+    }
+    el.innerHTML = html;
+  });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+  animatePrecisionNumbers();
+  initJourneyCubes();
+  initInteractiveCube();
+  updateDashboard(0);
+});
+</script>
+
+<!-- Glossary Button & Panel -->
+<button id="glossaryBtn" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:44px;height:44px;border-radius:50%;background:rgba(99,102,241,0.3);border:1px solid rgba(99,102,241,0.5);color:#a5b4fc;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.3s;" onclick="toggleGlossary()">&#10067;</button>
+<div id="glossaryPanel" style="position:fixed;right:0;top:0;height:100vh;width:340px;background:rgba(15,23,42,0.97);border-left:1px solid rgba(99,102,241,0.2);overflow-y:auto;padding:24px;z-index:10000;transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h3 style="color:#a5b4fc;font-size:17px;font-weight:700;margin:0;">&#128218; 术语表</h3>
+    <button onclick="toggleGlossary()" style="background:rgba(255,255,255,0.06);border:none;color:#94a3b8;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">&times;</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">量化 (Quantization)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">用更少的bit表示模型参数，减小体积和加速推理</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">FP32 (32位浮点)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">标准训练精度，每个参数占4字节</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">FP16 (16位浮点)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">半精度，体积减半，精度损失极小</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">INT8 (8位整数)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">体积为FP32的1/4，推理速度大幅提升</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">INT4 (4位整数)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">极致压缩，体积仅FP32的1/8</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">GGUF</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">llama.cpp使用的量化模型格式，方便本地部署</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">GPTQ</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">GPU上的量化方法，保持较高精度</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">AWQ (Activation-aware Weight Quantization)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">感知激活值的量化方法，精度更高</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Ollama</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">本地运行大模型的工具，一键下载和部署</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">llama.cpp</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">C/C++实现的大模型推理引擎，支持CPU推理</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">边缘部署 (Edge Deployment)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">在手机、笔记本等终端设备上运行AI</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">NPU (Neural Processing Unit)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">手机/笔记本中专为AI设计的芯片</div>
+    </div>
+  </div>
+</div>
+<script>
+function toggleGlossary() {
+  var panel = document.getElementById('glossaryPanel');
+  var isOpen = panel.style.transform === 'translateX(0%)';
+  panel.style.transform = isOpen ? 'translateX(100%)' : 'translateX(0%)';
+}
+</script>
+</body>
+</html>

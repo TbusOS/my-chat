@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>理想 AI 硬件架构 — 光电混合神经处理器</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --cyan: #00e5ff;
+  --cyan-dim: #00838f;
+  --cyan-glow: rgba(0, 229, 255, 0.4);
+  --warm: #ff9100;
+  --warm-dim: #e65100;
+  --warm-glow: rgba(255, 145, 0, 0.35);
+  --purple: #b388ff;
+  --purple-dim: #7c4dff;
+  --purple-glow: rgba(179, 136, 255, 0.35);
+  --green: #69f0ae;
+  --green-dim: #00c853;
+  --green-glow: rgba(105, 240, 174, 0.35);
+  --bg: #0a0e1a;
+  --bg-card: rgba(15, 23, 42, 0.85);
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --border: rgba(100, 116, 139, 0.25);
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Blueprint grid background */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(rgba(0, 229, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.015) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating particles */
+.particles {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  animation: float linear infinite;
+  opacity: 0;
+}
+
+@keyframes float {
+  0% { transform: translateY(100vh) scale(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
+/* Header */
+.header {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 40px 20px 20px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--cyan), var(--purple), var(--cyan));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s ease infinite;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.header .subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.header .thought-tag {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 14px;
+  border: 1px solid var(--cyan-dim);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--cyan);
+  background: rgba(0, 229, 255, 0.06);
+}
+
+/* Architecture overview diagram */
+.arch-overview {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 0 20px;
+}
+
+.arch-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+  padding: 20px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.arch-flow::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+}
+
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  min-width: 90px;
+}
+
+.flow-node:hover {
+  transform: translateY(-3px);
+}
+
+.flow-node .node-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 6px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.flow-node.active .node-icon {
+  box-shadow: 0 0 20px var(--cyan-glow);
+}
+
+.flow-node .node-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.3;
+  color: var(--text-dim);
+  transition: color 0.3s ease;
+}
+
+.flow-node.active .node-label {
+  color: var(--text);
+}
+
+.flow-arrow {
+  font-size: 18px;
+  color: var(--text-dim);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.flow-arrow.animated {
+  animation: arrowPulse 1.5s ease infinite;
+}
+
+@keyframes arrowPulse {
+  0%, 100% { opacity: 0.3; color: var(--text-dim); }
+  50% { opacity: 1; color: var(--cyan); }
+}
+
+/* Node colors */
+.node-photon .node-icon {
+  background: rgba(0, 229, 255, 0.12);
+  border: 1.5px solid var(--cyan-dim);
+  color: var(--cyan);
+}
+.node-electron .node-icon {
+  background: rgba(255, 145, 0, 0.12);
+  border: 1.5px solid var(--warm-dim);
+  color: var(--warm);
+}
+.node-sram .node-icon {
+  background: rgba(179, 136, 255, 0.12);
+  border: 1.5px solid var(--purple-dim);
+  color: var(--purple);
+}
+.node-spike .node-icon {
+  background: rgba(105, 240, 174, 0.12);
+  border: 1.5px solid var(--green-dim);
+  color: var(--green);
+}
+.node-input .node-icon, .node-output .node-icon {
+  background: rgba(226, 232, 240, 0.08);
+  border: 1.5px solid var(--border);
+  color: var(--text-dim);
+}
+
+/* Tabs */
+.tab-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 20px;
+  margin: 16px auto 0;
+  max-width: 900px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 10px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  color: var(--text-dim);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  border-color: var(--cyan-dim);
+  color: var(--text);
+}
+
+.tab-btn.active {
+  color: #fff;
+}
+
+.tab-btn .tab-icon {
+  font-size: 16px;
+}
+
+.tab-btn[data-tab="photon"].active {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.1);
+  box-shadow: 0 0 20px var(--cyan-glow);
+}
+.tab-btn[data-tab="electron"].active {
+  border-color: var(--warm);
+  background: rgba(255, 145, 0, 0.1);
+  box-shadow: 0 0 20px var(--warm-glow);
+}
+.tab-btn[data-tab="sram"].active {
+  border-color: var(--purple);
+  background: rgba(179, 136, 255, 0.1);
+  box-shadow: 0 0 20px var(--purple-glow);
+}
+.tab-btn[data-tab="spike"].active {
+  border-color: var(--green);
+  background: rgba(105, 240, 174, 0.1);
+  box-shadow: 0 0 20px var(--green-glow);
+}
+.tab-btn[data-tab="compare"].active {
+  border-color: #f44;
+  background: rgba(255, 68, 68, 0.1);
+  box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+}
+
+/* Content area */
+.content-area {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 16px auto 30px;
+  padding: 0 20px;
+  width: 100%;
+}
+
+.tab-content {
+  display: none;
+  animation: fadeSlideIn 0.5s ease;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Card styles */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.card-photon::before { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+.card-electron::before { background: linear-gradient(90deg, transparent, var(--warm), transparent); }
+.card-sram::before { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+.card-spike::before { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+
+.card-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-title .title-icon {
+  font-size: 24px;
+}
+
+.card-en {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+}
+
+.why-section {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border-left: 3px solid;
+}
+
+.why-section.photon { border-color: var(--cyan); }
+.why-section.electron { border-color: var(--warm); }
+.why-section.sram { border-color: var(--purple); }
+.why-section.spike { border-color: var(--green); }
+
+.why-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.why-list {
+  list-style: none;
+  padding: 0;
+}
+
+.why-list li {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  padding-left: 20px;
+  position: relative;
+}
+
+.why-list li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--cyan);
+}
+
+.electron .why-list li::before { color: var(--warm); }
+.sram .why-list li::before { color: var(--purple); }
+.spike .why-list li::before { color: var(--green); }
+
+/* Animation canvas areas */
+.anim-canvas {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 16px 0;
+  border: 1px solid var(--border);
+}
+
+.anim-canvas svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Photon beam animations */
+.photon-beam {
+  stroke: var(--cyan);
+  stroke-width: 2;
+  fill: none;
+  filter: url(#glowCyan);
+  stroke-dasharray: 8 4;
+  animation: beamFlow 1s linear infinite;
+}
+
+@keyframes beamFlow {
+  to { stroke-dashoffset: -24; }
+}
+
+.mzi-box {
+  fill: rgba(0, 229, 255, 0.08);
+  stroke: var(--cyan-dim);
+  stroke-width: 1.5;
+  rx: 6;
+}
+
+/* Electronic circuit pattern */
+.circuit-line {
+  stroke: var(--warm);
+  stroke-width: 1.5;
+  fill: none;
+  opacity: 0.6;
+}
+
+.circuit-node {
+  fill: var(--warm);
+  r: 3;
+}
+
+/* Spike pulse animation */
+.spike-pulse {
+  fill: var(--green);
+  opacity: 0;
+  animation: spikeFire 2s ease infinite;
+}
+
+@keyframes spikeFire {
+  0% { opacity: 0; r: 2; }
+  10% { opacity: 1; r: 5; }
+  30% { opacity: 0.3; r: 3; }
+  100% { opacity: 0; r: 2; }
+}
+
+/* Data flow animation for full pipeline */
+.data-packet {
+  fill: var(--cyan);
+  filter: url(#glowCyan);
+  opacity: 0;
+}
+
+/* Full flow button */
+.flow-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px auto 0;
+  padding: 12px 28px;
+  border: 2px solid var(--cyan);
+  border-radius: 30px;
+  background: rgba(0, 229, 255, 0.08);
+  color: var(--cyan);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.flow-btn:hover {
+  background: rgba(0, 229, 255, 0.18);
+  box-shadow: 0 0 30px var(--cyan-glow);
+  transform: scale(1.03);
+}
+
+.flow-btn:active {
+  transform: scale(0.98);
+}
+
+.flow-btn.running {
+  pointer-events: none;
+  border-color: var(--cyan);
+  animation: btnPulse 1s ease infinite;
+}
+
+@keyframes btnPulse {
+  0%, 100% { box-shadow: 0 0 15px var(--cyan-glow); }
+  50% { box-shadow: 0 0 40px var(--cyan-glow); }
+}
+
+/* Compare table */
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 16px 0;
+}
+
+.compare-table th {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--border);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.compare-table th:nth-child(2) {
+  color: #76ff03;
+}
+
+.compare-table th:nth-child(3) {
+  color: var(--cyan);
+}
+
+.compare-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.12);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+}
+
+.compare-table td:first-child {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.compare-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.compare-bar {
+  height: 6px;
+  border-radius: 3px;
+  margin-top: 4px;
+  transition: width 1s ease;
+}
+
+.bar-gpu { background: #76ff03; }
+.bar-penp { background: var(--cyan); }
+
+/* Challenge section */
+.challenge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.challenge-item {
+  padding: 14px;
+  background: rgba(255, 68, 68, 0.06);
+  border: 1px solid rgba(255, 68, 68, 0.2);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.challenge-item .ch-icon {
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.challenge-item .ch-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: #ff8a80;
+}
+
+.challenge-item .ch-desc {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* Stat highlight */
+.stat-row {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.stat-box {
+  flex: 1;
+  min-width: 120px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.stat-box .stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.stat-box .stat-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.stat-photon .stat-value { color: var(--cyan); }
+.stat-electron .stat-value { color: var(--warm); }
+.stat-sram .stat-value { color: var(--purple); }
+.stat-spike .stat-value { color: var(--green); }
+
+/* Anim label */
+.anim-label {
+  position: absolute;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .header h1 { font-size: 24px; }
+  .card { padding: 20px; }
+  .tab-btn { padding: 8px 12px; font-size: 12px; }
+  .flow-node { min-width: 60px; padding: 8px 4px; }
+  .flow-node .node-icon { width: 38px; height: 38px; font-size: 18px; }
+  .flow-node .node-label { font-size: 9px; }
+  .anim-canvas { height: 220px; }
+  .stat-box .stat-value { font-size: 18px; }
+}
+
+/* Connection explanation */
+.conn-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 10px 0 0;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.conn-note .conn-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Legend for full flow */
+.flow-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* Full pipeline SVG */
+#fullFlowSvg .stage-bg {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#fullFlowSvg .stage-bg.lit {
+  opacity: 1;
+}
+
+/* Colophon */
+.colophon {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 20px;
+  font-size: 11px;
+  color: rgba(148, 163, 184, 0.4);
+  font-family: 'JetBrains Mono', monospace;
+}
+</style>
+</head>
+<body>
+
+<!-- Floating particles -->
+<div class="particles" id="particles"></div>
+
+<header class="header">
+  <h1>理想 AI 硬件架构 — 光电混合神经处理器</h1>
+  <div class="subtitle">PENP: Photonic-Electronic Neural Processor</div>
+  <div class="thought-tag">一个思想实验 / A Thought Experiment</div>
+</header>
+
+<!-- Architecture overview flow -->
+<div class="arch-overview">
+  <div class="arch-flow" id="archFlow">
+    <div class="flow-node node-input" data-stage="input">
+      <div class="node-icon">📥</div>
+      <div class="node-label">输入<br>向量</div>
+    </div>
+    <div class="flow-arrow" id="arrow1">→</div>
+    <div class="flow-node node-photon" data-stage="photon" id="nodePhoton">
+      <div class="node-icon">💠</div>
+      <div class="node-label">光子MVM<br>线性运算</div>
+    </div>
+    <div class="flow-arrow" id="arrow2">→</div>
+    <div class="flow-node node-electron" data-stage="electron" id="nodeElectron">
+      <div class="node-icon">⚡</div>
+      <div class="node-label">光电转换<br>非线性激活</div>
+    </div>
+    <div class="flow-arrow" id="arrow3">→</div>
+    <div class="flow-node node-spike" data-stage="spike" id="nodeSpike">
+      <div class="node-icon">🔀</div>
+      <div class="node-label">脉冲路由<br>下一层</div>
+    </div>
+    <div class="flow-arrow" id="arrow4">→</div>
+    <div class="flow-node node-output" data-stage="output">
+      <div class="node-icon">📤</div>
+      <div class="node-label">输出<br>结果</div>
+    </div>
+  </div>
+  <div style="text-align:center; margin-top:8px;">
+    <div class="conn-note" style="display:inline-flex;">
+      <span class="conn-icon">💾</span>
+      <span>CIM-SRAM 存算一体阵列 — 权重存储 + 就地计算，与光子阵列协同工作</span>
+    </div>
+  </div>
+  <button class="flow-btn" id="flowBtn" onclick="runFullFlow()">
+    <span>▶</span> 完整数据流动画
+  </button>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="photon" onclick="switchTab('photon')">
+    <span class="tab-icon">💠</span> 光子矩阵乘法
+  </button>
+  <button class="tab-btn" data-tab="electron" onclick="switchTab('electron')">
+    <span class="tab-icon">⚡</span> 电子非线性
+  </button>
+  <button class="tab-btn" data-tab="sram" onclick="switchTab('sram')">
+    <span class="tab-icon">💾</span> 存算一体
+  </button>
+  <button class="tab-btn" data-tab="spike" onclick="switchTab('spike')">
+    <span class="tab-icon">🔀</span> 脉冲路由
+  </button>
+  <button class="tab-btn" data-tab="compare" onclick="switchTab('compare')">
+    <span class="tab-icon">📊</span> 对比 & 挑战
+  </button>
+</div>
+
+<!-- Content -->
+<div class="content-area">
+
+  <!-- Tab 1: Photonic MVM -->
+  <div class="tab-content active" id="tab-photon">
+    <div class="card card-photon">
+      <div class="card-title" style="color:var(--cyan)">
+        <span class="title-icon">💠</span> 光子矩阵乘法阵列
+      </div>
+      <div class="card-en">Photonic MVM Array — Mach-Zehnder Interferometer Matrix</div>
+
+      <div class="why-section photon">
+        <div class="why-title" style="color:var(--cyan)">💡 为什么用光做矩阵乘法？</div>
+        <ul class="why-list">
+          <li>矩阵乘法占 AI 计算 <strong style="color:var(--cyan)">90%+</strong> 的算力需求</li>
+          <li>光子在 MZI 阵列中完成干涉叠加 = 矩阵乘法，光速运算（<strong style="color:var(--cyan)">~3×10⁸ m/s</strong>）</li>
+          <li>光子没有电荷，运算不产热，能耗降低 <strong style="color:var(--cyan)">100-1000×</strong></li>
+          <li>天然并行：多波长复用 = 同时算多组矩阵乘法</li>
+        </ul>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-box stat-photon"><div class="stat-value">3×10⁸</div><div class="stat-label">光速 m/s</div></div>
+        <div class="stat-box stat-photon"><div class="stat-value">~0</div><div class="stat-label">运算产热</div></div>
+        <div class="stat-box stat-photon"><div class="stat-value">1000×</div><div class="stat-label">能效提升</div></div>
+        <div class="stat-box stat-photon"><div class="stat-value">WDM</div><div class="stat-label">波分复用并行</div></div>
+      </div>
+
+      <!-- Photon animation -->
+      <div class="anim-canvas" id="photonAnim">
+        <svg viewBox="0 0 860 280" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="glowCyan" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="glowWarm" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:rgba(0,229,255,0)"/>
+              <stop offset="30%" style="stop-color:rgba(0,229,255,1)"/>
+              <stop offset="70%" style="stop-color:rgba(0,229,255,1)"/>
+              <stop offset="100%" style="stop-color:rgba(0,229,255,0)"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Input vectors -->
+          <text x="30" y="30" fill="#94a3b8" font-size="12" font-family="JetBrains Mono">输入向量</text>
+          <g id="inputVecs">
+            <rect x="20" y="45" width="60" height="20" rx="4" fill="rgba(0,229,255,0.1)" stroke="var(--cyan-dim)" stroke-width="1"/>
+            <text x="50" y="59" text-anchor="middle" fill="var(--cyan)" font-size="11" font-family="JetBrains Mono">x₁=0.7</text>
+            <rect x="20" y="75" width="60" height="20" rx="4" fill="rgba(0,229,255,0.1)" stroke="var(--cyan-dim)" stroke-width="1"/>
+            <text x="50" y="89" text-anchor="middle" fill="var(--cyan)" font-size="11" font-family="JetBrains Mono">x₂=0.3</text>
+            <rect x="20" y="105" width="60" height="20" rx="4" fill="rgba(0,229,255,0.1)" stroke="var(--cyan-dim)" stroke-width="1"/>
+            <text x="50" y="119" text-anchor="middle" fill="var(--cyan)" font-size="11" font-family="JetBrains Mono">x₃=0.9</text>
+            <rect x="20" y="135" width="60" height="20" rx="4" fill="rgba(0,229,255,0.1)" stroke="var(--cyan-dim)" stroke-width="1"/>
+            <text x="50" y="149" text-anchor="middle" fill="var(--cyan)" font-size="11" font-family="JetBrains Mono">x₄=0.5</text>
+          </g>
+
+          <!-- Light modulators -->
+          <text x="115" y="30" fill="#94a3b8" font-size="12" font-family="JetBrains Mono">光调制器</text>
+          <g id="modulators">
+            <circle cx="130" cy="55" r="12" fill="rgba(0,229,255,0.15)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="130" y="59" text-anchor="middle" fill="var(--cyan)" font-size="9">M</text>
+            <circle cx="130" cy="85" r="12" fill="rgba(0,229,255,0.15)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="130" y="89" text-anchor="middle" fill="var(--cyan)" font-size="9">M</text>
+            <circle cx="130" cy="115" r="12" fill="rgba(0,229,255,0.15)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="130" y="119" text-anchor="middle" fill="var(--cyan)" font-size="9">M</text>
+            <circle cx="130" cy="145" r="12" fill="rgba(0,229,255,0.15)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="130" y="149" text-anchor="middle" fill="var(--cyan)" font-size="9">M</text>
+          </g>
+
+          <!-- Beams from input to modulators -->
+          <line x1="80" y1="55" x2="118" y2="55" class="photon-beam"/>
+          <line x1="80" y1="85" x2="118" y2="85" class="photon-beam"/>
+          <line x1="80" y1="115" x2="118" y2="115" class="photon-beam"/>
+          <line x1="80" y1="145" x2="118" y2="145" class="photon-beam"/>
+
+          <!-- MZI Array -->
+          <text x="240" y="20" fill="#94a3b8" font-size="12" font-family="JetBrains Mono">MZI 干涉仪阵列</text>
+          <rect x="195" y="32" width="250" height="145" rx="8" fill="rgba(0,229,255,0.03)" stroke="var(--cyan-dim)" stroke-width="1" stroke-dasharray="4 2"/>
+
+          <!-- MZI units - 4x4 grid -->
+          <g id="mziGrid">
+            <!-- Row 1 -->
+            <rect x="210" y="45" width="44" height="24" class="mzi-box"/>
+            <text x="232" y="61" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="268" y="45" width="44" height="24" class="mzi-box"/>
+            <text x="290" y="61" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="326" y="45" width="44" height="24" class="mzi-box"/>
+            <text x="348" y="61" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="384" y="45" width="44" height="24" class="mzi-box"/>
+            <text x="406" y="61" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <!-- Row 2 -->
+            <rect x="210" y="80" width="44" height="24" class="mzi-box"/>
+            <text x="232" y="96" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="268" y="80" width="44" height="24" class="mzi-box"/>
+            <text x="290" y="96" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="326" y="80" width="44" height="24" class="mzi-box"/>
+            <text x="348" y="96" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="384" y="80" width="44" height="24" class="mzi-box"/>
+            <text x="406" y="96" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <!-- Row 3 -->
+            <rect x="210" y="115" width="44" height="24" class="mzi-box"/>
+            <text x="232" y="131" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="268" y="115" width="44" height="24" class="mzi-box"/>
+            <text x="290" y="131" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="326" y="115" width="44" height="24" class="mzi-box"/>
+            <text x="348" y="131" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="384" y="115" width="44" height="24" class="mzi-box"/>
+            <text x="406" y="131" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <!-- Row 4 -->
+            <rect x="210" y="150" width="44" height="24" class="mzi-box"/>
+            <text x="232" y="166" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="268" y="150" width="44" height="24" class="mzi-box"/>
+            <text x="290" y="166" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="326" y="150" width="44" height="24" class="mzi-box"/>
+            <text x="348" y="166" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+            <rect x="384" y="150" width="44" height="24" class="mzi-box"/>
+            <text x="406" y="166" text-anchor="middle" fill="var(--cyan)" font-size="8" font-family="JetBrains Mono">MZI</text>
+          </g>
+
+          <!-- Beams through MZI -->
+          <line x1="142" y1="55" x2="210" y2="57" class="photon-beam" style="animation-delay:0.1s"/>
+          <line x1="142" y1="85" x2="210" y2="92" class="photon-beam" style="animation-delay:0.2s"/>
+          <line x1="142" y1="115" x2="210" y2="127" class="photon-beam" style="animation-delay:0.3s"/>
+          <line x1="142" y1="145" x2="210" y2="162" class="photon-beam" style="animation-delay:0.4s"/>
+
+          <!-- Cross-connections inside MZI (interference) -->
+          <line x1="254" y1="57" x2="268" y2="92" class="photon-beam" style="opacity:0.4; animation-delay:0.5s"/>
+          <line x1="254" y1="92" x2="268" y2="57" class="photon-beam" style="opacity:0.4; animation-delay:0.6s"/>
+          <line x1="312" y1="127" x2="326" y2="162" class="photon-beam" style="opacity:0.4; animation-delay:0.7s"/>
+          <line x1="312" y1="162" x2="326" y2="127" class="photon-beam" style="opacity:0.4; animation-delay:0.8s"/>
+          <line x1="370" y1="57" x2="384" y2="92" class="photon-beam" style="opacity:0.3; animation-delay:0.9s"/>
+          <line x1="370" y1="92" x2="384" y2="57" class="photon-beam" style="opacity:0.3; animation-delay:1.0s"/>
+
+          <!-- Output beams -->
+          <line x1="428" y1="57" x2="490" y2="65" class="photon-beam" style="animation-delay:0.6s"/>
+          <line x1="428" y1="92" x2="490" y2="95" class="photon-beam" style="animation-delay:0.7s"/>
+          <line x1="428" y1="127" x2="490" y2="125" class="photon-beam" style="animation-delay:0.8s"/>
+          <line x1="428" y1="162" x2="490" y2="155" class="photon-beam" style="animation-delay:0.9s"/>
+
+          <!-- Photodetectors -->
+          <text x="500" y="30" fill="#94a3b8" font-size="12" font-family="JetBrains Mono">光电探测器</text>
+          <rect x="490" y="50" width="40" height="20" rx="4" fill="rgba(255,145,0,0.12)" stroke="var(--warm-dim)" stroke-width="1"/>
+          <text x="510" y="64" text-anchor="middle" fill="var(--warm)" font-size="9" font-family="JetBrains Mono">PD</text>
+          <rect x="490" y="80" width="40" height="20" rx="4" fill="rgba(255,145,0,0.12)" stroke="var(--warm-dim)" stroke-width="1"/>
+          <text x="510" y="94" text-anchor="middle" fill="var(--warm)" font-size="9" font-family="JetBrains Mono">PD</text>
+          <rect x="490" y="110" width="40" height="20" rx="4" fill="rgba(255,145,0,0.12)" stroke="var(--warm-dim)" stroke-width="1"/>
+          <text x="510" y="124" text-anchor="middle" fill="var(--warm)" font-size="9" font-family="JetBrains Mono">PD</text>
+          <rect x="490" y="140" width="40" height="20" rx="4" fill="rgba(255,145,0,0.12)" stroke="var(--warm-dim)" stroke-width="1"/>
+          <text x="510" y="154" text-anchor="middle" fill="var(--warm)" font-size="9" font-family="JetBrains Mono">PD</text>
+
+          <!-- Output values -->
+          <text x="560" y="30" fill="#94a3b8" font-size="12" font-family="JetBrains Mono">输出向量</text>
+          <rect x="555" y="45" width="70" height="20" rx="4" fill="rgba(255,145,0,0.1)" stroke="var(--warm-dim)" stroke-width="1"/>
+          <text x="590" y="59" text-anchor="middle" fill="var(--warm)" font-size="11" font-family="JetBrains Mono">y₁=1.42</text>
+          <rect x="555" y="75" width="70" height="20" rx="4" fill="rgba(255,145,0,0.1)" stroke="var(--warm-dim)" stroke-width="1"/>
+          <text x="590" y="89" text-anchor="middle" fill="var(--warm)" font-size="11" font-family="JetBrains Mono">y₂=0.86</text>
+          <rect x="555" y="105" width="70" height="20" rx="4" fill="rgba(255,145,0,0.1)" stroke="var(--warm-dim)" stroke-width="1"/>
+          <text x="590" y="119" text-anchor="middle" fill="var(--warm)" font-size="11" font-family="JetBrains Mono">y₃=2.17</text>
+          <rect x="555" y="135" width="70" height="20" rx="4" fill="rgba(255,145,0,0.1)" stroke="var(--warm-dim)" stroke-width="1"/>
+          <text x="590" y="149" text-anchor="middle" fill="var(--warm)" font-size="11" font-family="JetBrains Mono">y₄=1.03</text>
+
+          <!-- Arrows PD to output -->
+          <line x1="530" y1="60" x2="555" y2="55" stroke="var(--warm)" stroke-width="1" opacity="0.5"/>
+          <line x1="530" y1="90" x2="555" y2="85" stroke="var(--warm)" stroke-width="1" opacity="0.5"/>
+          <line x1="530" y1="120" x2="555" y2="115" stroke="var(--warm)" stroke-width="1" opacity="0.5"/>
+          <line x1="530" y1="150" x2="555" y2="145" stroke="var(--warm)" stroke-width="1" opacity="0.5"/>
+
+          <!-- Explanation text -->
+          <text x="30" y="210" fill="var(--cyan)" font-size="12" font-weight="600" font-family="Noto Sans SC">工作原理：</text>
+          <text x="30" y="230" fill="#94a3b8" font-size="11" font-family="Noto Sans SC">输入向量 → 调制为光信号强度 → 通过 MZI 阵列（干涉/叠加）→ 光电探测 → 输出向量</text>
+          <text x="30" y="250" fill="#94a3b8" font-size="11" font-family="Noto Sans SC">每个 MZI 的相位 = 权重矩阵的一个元素，光干涉自然完成乘法和累加</text>
+          <text x="30" y="270" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono" opacity="0.6">y = W · x  (在光域中完成)</text>
+        </svg>
+      </div>
+
+      <div class="conn-note">
+        <span class="conn-icon">🔬</span>
+        <span>MZI（马赫-曾德尔干涉仪）通过调节两条光路的相位差来控制输出光强，等效于矩阵元素的权重乘法</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Electronic Nonlinear -->
+  <div class="tab-content" id="tab-electron">
+    <div class="card card-electron">
+      <div class="card-title" style="color:var(--warm)">
+        <span class="title-icon">⚡</span> 电子非线性激活单元
+      </div>
+      <div class="card-en">Electronic Nonlinear Activation Unit — CMOS Activation Circuits</div>
+
+      <div class="why-section electron">
+        <div class="why-title" style="color:var(--warm)">💡 为什么不全用光？</div>
+        <ul class="why-list">
+          <li>光擅长<strong style="color:var(--cyan)">线性运算</strong>（叠加、干涉），但<strong style="color:var(--warm)">非线性运算</strong>极其困难</li>
+          <li>神经网络必须有非线性（ReLU、GELU、Sigmoid），否则多层等价于一层</li>
+          <li>光做非线性需要极高光强（非线性光学效应），能效极差</li>
+          <li>最优解：<strong style="color:var(--warm)">光做线性 + 电做非线性</strong> = 光电混合</li>
+        </ul>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-box stat-electron"><div class="stat-value">O→E</div><div class="stat-label">光电转换</div></div>
+        <div class="stat-box stat-electron"><div class="stat-value">ReLU</div><div class="stat-label">激活函数</div></div>
+        <div class="stat-box stat-electron"><div class="stat-value">E→O</div><div class="stat-label">电光调制</div></div>
+        <div class="stat-box stat-electron"><div class="stat-value">~1ns</div><div class="stat-label">转换延迟</div></div>
+      </div>
+
+      <!-- Electron animation -->
+      <div class="anim-canvas" id="electronAnim">
+        <svg viewBox="0 0 860 280" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="glowOrange" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2.5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Phase 1: Optical signal in -->
+          <text x="20" y="28" fill="var(--cyan)" font-size="13" font-weight="600" font-family="Noto Sans SC">光信号输入</text>
+          <g>
+            <line x1="20" y1="80" x2="130" y2="80" class="photon-beam"/>
+            <line x1="20" y1="120" x2="130" y2="120" class="photon-beam" style="animation-delay:0.15s"/>
+            <line x1="20" y1="160" x2="130" y2="160" class="photon-beam" style="animation-delay:0.3s"/>
+            <line x1="20" y1="200" x2="130" y2="200" class="photon-beam" style="animation-delay:0.45s"/>
+            <!-- Intensity labels -->
+            <text x="60" y="70" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono" opacity="0.7">I=1.42</text>
+            <text x="60" y="110" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono" opacity="0.7">I=0.86</text>
+            <text x="60" y="150" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono" opacity="0.7">I=-0.37</text>
+            <text x="60" y="190" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono" opacity="0.7">I=2.17</text>
+          </g>
+
+          <!-- Phase 2: Photodetector -->
+          <text x="145" y="28" fill="var(--warm)" font-size="13" font-weight="600" font-family="Noto Sans SC">光电探测器</text>
+          <text x="145" y="44" fill="#94a3b8" font-size="10" font-family="JetBrains Mono">Photodetector</text>
+          <g>
+            <rect x="140" y="65" width="50" height="30" rx="6" fill="rgba(255,145,0,0.12)" stroke="var(--warm)" stroke-width="1.5">
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite"/>
+            </rect>
+            <text x="165" y="84" text-anchor="middle" fill="var(--warm)" font-size="10" font-family="JetBrains Mono">PD</text>
+            <rect x="140" y="105" width="50" height="30" rx="6" fill="rgba(255,145,0,0.12)" stroke="var(--warm)" stroke-width="1.5">
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" begin="0.2s" repeatCount="indefinite"/>
+            </rect>
+            <text x="165" y="124" text-anchor="middle" fill="var(--warm)" font-size="10" font-family="JetBrains Mono">PD</text>
+            <rect x="140" y="145" width="50" height="30" rx="6" fill="rgba(255,145,0,0.12)" stroke="var(--warm)" stroke-width="1.5">
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+            </rect>
+            <text x="165" y="164" text-anchor="middle" fill="var(--warm)" font-size="10" font-family="JetBrains Mono">PD</text>
+            <rect x="140" y="185" width="50" height="30" rx="6" fill="rgba(255,145,0,0.12)" stroke="var(--warm)" stroke-width="1.5">
+              <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+            </rect>
+            <text x="165" y="204" text-anchor="middle" fill="var(--warm)" font-size="10" font-family="JetBrains Mono">PD</text>
+          </g>
+
+          <!-- Arrow O->E -->
+          <text x="210" y="140" fill="var(--warm)" font-size="22">→</text>
+          <text x="208" y="155" fill="#94a3b8" font-size="9" font-family="JetBrains Mono">O→E</text>
+
+          <!-- Phase 3: CMOS Activation circuits -->
+          <text x="250" y="28" fill="var(--warm)" font-size="13" font-weight="600" font-family="Noto Sans SC">CMOS 激活电路</text>
+          <text x="250" y="44" fill="#94a3b8" font-size="10" font-family="JetBrains Mono">Activation: ReLU / GELU</text>
+          <g>
+            <!-- Circuit box -->
+            <rect x="250" y="55" width="200" height="170" rx="10" fill="rgba(255,145,0,0.04)" stroke="var(--warm-dim)" stroke-width="1.5" stroke-dasharray="4 2"/>
+            <!-- Circuit traces -->
+            <line x1="265" y1="80" x2="315" y2="80" stroke="var(--warm)" stroke-width="1.5" opacity="0.5"/>
+            <line x1="315" y1="80" x2="315" y2="100" stroke="var(--warm)" stroke-width="1.5" opacity="0.5"/>
+            <line x1="315" y1="100" x2="365" y2="100" stroke="var(--warm)" stroke-width="1.5" opacity="0.5"/>
+            <!-- ReLU graph -->
+            <g transform="translate(290, 108)">
+              <line x1="0" y1="40" x2="140" y2="40" stroke="#94a3b8" stroke-width="0.5" opacity="0.5"/>
+              <line x1="70" y1="0" x2="70" y2="80" stroke="#94a3b8" stroke-width="0.5" opacity="0.5"/>
+              <!-- ReLU curve -->
+              <polyline points="10,40 70,40 130,5" fill="none" stroke="var(--warm)" stroke-width="2.5" filter="url(#glowOrange)"/>
+              <text x="70" y="95" text-anchor="middle" fill="var(--warm)" font-size="11" font-family="JetBrains Mono" font-weight="600">ReLU(x) = max(0, x)</text>
+              <!-- Animated dot on curve -->
+              <circle r="4" fill="var(--warm)" filter="url(#glowOrange)">
+                <animateMotion dur="3s" repeatCount="indefinite" path="M10,40 L70,40 L130,5 L70,40 L10,40"/>
+              </circle>
+            </g>
+
+            <!-- Values passing through -->
+            <text x="270" y="80" fill="var(--warm)" font-size="10" font-family="JetBrains Mono">1.42→1.42</text>
+            <text x="365" y="80" fill="var(--warm)" font-size="10" font-family="JetBrains Mono">0.86→0.86</text>
+            <text x="270" y="218" fill="#ff5252" font-size="10" font-family="JetBrains Mono">-0.37→0.00</text>
+            <text x="365" y="218" fill="var(--warm)" font-size="10" font-family="JetBrains Mono">2.17→2.17</text>
+          </g>
+
+          <!-- Arrow E->O -->
+          <text x="470" y="140" fill="var(--cyan)" font-size="22">→</text>
+          <text x="468" y="155" fill="#94a3b8" font-size="9" font-family="JetBrains Mono">E→O</text>
+
+          <!-- Phase 4: Re-modulation -->
+          <text x="510" y="28" fill="var(--cyan)" font-size="13" font-weight="600" font-family="Noto Sans SC">电光调制器</text>
+          <text x="510" y="44" fill="#94a3b8" font-size="10" font-family="JetBrains Mono">Re-modulation</text>
+          <g>
+            <rect x="510" y="65" width="50" height="30" rx="6" fill="rgba(0,229,255,0.12)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="535" y="84" text-anchor="middle" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono">EO</text>
+            <rect x="510" y="105" width="50" height="30" rx="6" fill="rgba(0,229,255,0.12)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="535" y="124" text-anchor="middle" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono">EO</text>
+            <rect x="510" y="145" width="50" height="30" rx="6" fill="rgba(0,229,255,0.12)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="535" y="164" text-anchor="middle" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono">EO</text>
+            <rect x="510" y="185" width="50" height="30" rx="6" fill="rgba(0,229,255,0.12)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="535" y="204" text-anchor="middle" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono">EO</text>
+          </g>
+
+          <!-- Output beams -->
+          <text x="590" y="28" fill="var(--cyan)" font-size="13" font-weight="600" font-family="Noto Sans SC">光信号输出</text>
+          <line x1="560" y1="80" x2="680" y2="80" class="photon-beam" style="animation-delay:0.5s"/>
+          <line x1="560" y1="120" x2="680" y2="120" class="photon-beam" style="animation-delay:0.65s"/>
+          <line x1="560" y1="160" x2="650" y2="160" stroke="var(--cyan-dim)" stroke-width="1" stroke-dasharray="2 4" opacity="0.3"/>
+          <line x1="560" y1="200" x2="680" y2="200" class="photon-beam" style="animation-delay:0.95s"/>
+          <!-- output labels -->
+          <text x="610" y="70" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono" opacity="0.7">I=1.42</text>
+          <text x="610" y="110" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono" opacity="0.7">I=0.86</text>
+          <text x="610" y="150" fill="#ff5252" font-size="10" font-family="JetBrains Mono" opacity="0.5">I=0 (截断)</text>
+          <text x="610" y="190" fill="var(--cyan)" font-size="10" font-family="JetBrains Mono" opacity="0.7">I=2.17</text>
+
+          <!-- Legend -->
+          <text x="20" y="250" fill="#94a3b8" font-size="11" font-family="Noto Sans SC">光 → 电 → 非线性激活 → 电 → 光 | 边界转换延迟仅 ~1ns，远低于计算收益</text>
+          <text x="20" y="270" fill="var(--warm)" font-size="10" font-family="JetBrains Mono" opacity="0.6">负值被 ReLU 截断为 0，只有正激活信号继续传播到下一层</text>
+        </svg>
+      </div>
+
+      <div class="conn-note">
+        <span class="conn-icon">⚡</span>
+        <span>光电混合的关键洞见：让每种物理介质做它最擅长的事 — 光做线性代数，电做非线性逻辑</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: CIM-SRAM -->
+  <div class="tab-content" id="tab-sram">
+    <div class="card card-sram">
+      <div class="card-title" style="color:var(--purple)">
+        <span class="title-icon">💾</span> 存算一体 SRAM 阵列
+      </div>
+      <div class="card-en">Computing-in-Memory SRAM — Analog MAC in Memory Cells</div>
+
+      <div class="why-section sram">
+        <div class="why-title" style="color:var(--purple)">💡 解决什么问题？</div>
+        <ul class="why-list">
+          <li>传统架构中，数据在计算单元和存储之间<strong style="color:#ff5252">反复搬运</strong>（"内存墙"问题）</li>
+          <li>数据搬运消耗的能量是计算本身的 <strong style="color:#ff5252">100-1000 倍</strong></li>
+          <li>CIM-SRAM：权重<strong style="color:var(--purple)">直接存在 SRAM 中</strong>，乘加运算就地完成</li>
+          <li>特别适合推理（权重固定不变），与光子阵列互补配合</li>
+        </ul>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-box stat-sram"><div class="stat-value">0</div><div class="stat-label">数据搬运距离</div></div>
+        <div class="stat-box stat-sram"><div class="stat-value">100×</div><div class="stat-label">节省搬运能耗</div></div>
+        <div class="stat-box stat-sram"><div class="stat-value">模拟域</div><div class="stat-label">计算方式</div></div>
+        <div class="stat-box stat-sram"><div class="stat-value">灵活</div><div class="stat-label">小矩阵最优</div></div>
+      </div>
+
+      <!-- SRAM animation -->
+      <div class="anim-canvas" id="sramAnim">
+        <svg viewBox="0 0 860 280" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="glowPurple" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2.5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Traditional architecture (left) -->
+          <text x="30" y="24" fill="#ff5252" font-size="13" font-weight="600" font-family="Noto Sans SC">传统架构（数据搬运）</text>
+
+          <!-- CPU/GPU box -->
+          <rect x="30" y="40" width="120" height="50" rx="8" fill="rgba(255,82,82,0.08)" stroke="#ff5252" stroke-width="1.5"/>
+          <text x="90" y="60" text-anchor="middle" fill="#ff5252" font-size="12" font-weight="600" font-family="Noto Sans SC">计算单元</text>
+          <text x="90" y="78" text-anchor="middle" fill="#ff5252" font-size="10" font-family="JetBrains Mono">GPU / CPU</text>
+
+          <!-- Memory box -->
+          <rect x="30" y="130" width="120" height="50" rx="8" fill="rgba(255,82,82,0.08)" stroke="#ff5252" stroke-width="1.5"/>
+          <text x="90" y="150" text-anchor="middle" fill="#ff5252" font-size="12" font-weight="600" font-family="Noto Sans SC">存储单元</text>
+          <text x="90" y="168" text-anchor="middle" fill="#ff5252" font-size="10" font-family="JetBrains Mono">DRAM / HBM</text>
+
+          <!-- Data shuttle arrows -->
+          <g>
+            <line x1="70" y1="90" x2="70" y2="130" stroke="#ff5252" stroke-width="2" marker-end="url(#arrowRed)">
+              <animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite"/>
+            </line>
+            <line x1="110" y1="130" x2="110" y2="90" stroke="#ff5252" stroke-width="2" marker-end="url(#arrowRed)">
+              <animate attributeName="opacity" values="0.3;1;0.3" dur="1s" begin="0.5s" repeatCount="indefinite"/>
+            </line>
+            <text x="135" y="115" fill="#ff5252" font-size="9" font-family="JetBrains Mono">反复搬运!</text>
+            <text x="135" y="128" fill="#ff5252" font-size="9" font-family="JetBrains Mono">能耗 100×</text>
+          </g>
+
+          <!-- Red X -->
+          <text x="60" y="210" fill="#ff5252" font-size="28" opacity="0.6">✗</text>
+          <text x="35" y="235" fill="#ff5252" font-size="11" font-family="Noto Sans SC">内存墙瓶颈</text>
+
+          <!-- Arrow between -->
+          <text x="200" y="110" fill="var(--text-dim)" font-size="28">→</text>
+          <text x="195" y="130" fill="var(--purple)" font-size="10" font-family="Noto Sans SC" font-weight="600">进化为</text>
+
+          <!-- CIM-SRAM architecture (right) -->
+          <text x="280" y="24" fill="var(--purple)" font-size="13" font-weight="600" font-family="Noto Sans SC">存算一体 CIM-SRAM（就地计算）</text>
+
+          <!-- SRAM Array visualization -->
+          <rect x="280" y="40" width="280" height="180" rx="10" fill="rgba(179,136,255,0.04)" stroke="var(--purple-dim)" stroke-width="1.5"/>
+
+          <!-- SRAM cells grid -->
+          <g id="sramCells">
+            <!-- Row labels -->
+            <text x="290" y="60" fill="var(--purple)" font-size="9" font-family="JetBrains Mono">输入x₁→</text>
+            <text x="290" y="95" fill="var(--purple)" font-size="9" font-family="JetBrains Mono">输入x₂→</text>
+            <text x="290" y="130" fill="var(--purple)" font-size="9" font-family="JetBrains Mono">输入x₃→</text>
+            <text x="290" y="165" fill="var(--purple)" font-size="9" font-family="JetBrains Mono">输入x₄→</text>
+
+            <!-- Col labels -->
+            <text x="378" y="200" fill="var(--purple)" font-size="8" font-family="JetBrains Mono" text-anchor="middle">↓y₁</text>
+            <text x="418" y="200" fill="var(--purple)" font-size="8" font-family="JetBrains Mono" text-anchor="middle">↓y₂</text>
+            <text x="458" y="200" fill="var(--purple)" font-size="8" font-family="JetBrains Mono" text-anchor="middle">↓y₃</text>
+            <text x="498" y="200" fill="var(--purple)" font-size="8" font-family="JetBrains Mono" text-anchor="middle">↓y₄</text>
+
+            <!-- Cells with weights -->
+            <!-- Row 1 -->
+            <rect x="360" y="48" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1">
+              <animate attributeName="fill" values="rgba(179,136,255,0.15);rgba(179,136,255,0.4);rgba(179,136,255,0.15)" dur="2s" begin="0s" repeatCount="indefinite"/>
+            </rect>
+            <text x="376" y="62" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₁₁</text>
+            <rect x="400" y="48" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1">
+              <animate attributeName="fill" values="rgba(179,136,255,0.15);rgba(179,136,255,0.4);rgba(179,136,255,0.15)" dur="2s" begin="0.1s" repeatCount="indefinite"/>
+            </rect>
+            <text x="416" y="62" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₁₂</text>
+            <rect x="440" y="48" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1">
+              <animate attributeName="fill" values="rgba(179,136,255,0.15);rgba(179,136,255,0.4);rgba(179,136,255,0.15)" dur="2s" begin="0.2s" repeatCount="indefinite"/>
+            </rect>
+            <text x="456" y="62" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₁₃</text>
+            <rect x="480" y="48" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1">
+              <animate attributeName="fill" values="rgba(179,136,255,0.15);rgba(179,136,255,0.4);rgba(179,136,255,0.15)" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+            </rect>
+            <text x="496" y="62" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₁₄</text>
+
+            <!-- Row 2 -->
+            <rect x="360" y="83" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1">
+              <animate attributeName="fill" values="rgba(179,136,255,0.15);rgba(179,136,255,0.4);rgba(179,136,255,0.15)" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+            </rect>
+            <text x="376" y="97" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₂₁</text>
+            <rect x="400" y="83" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="416" y="97" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₂₂</text>
+            <rect x="440" y="83" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="456" y="97" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₂₃</text>
+            <rect x="480" y="83" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="496" y="97" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₂₄</text>
+
+            <!-- Row 3 -->
+            <rect x="360" y="118" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="376" y="132" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₃₁</text>
+            <rect x="400" y="118" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="416" y="132" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₃₂</text>
+            <rect x="440" y="118" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="456" y="132" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₃₃</text>
+            <rect x="480" y="118" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="496" y="132" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₃₄</text>
+
+            <!-- Row 4 -->
+            <rect x="360" y="153" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="376" y="167" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₄₁</text>
+            <rect x="400" y="153" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="416" y="167" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₄₂</text>
+            <rect x="440" y="153" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="456" y="167" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₄₃</text>
+            <rect x="480" y="153" width="32" height="20" rx="3" fill="rgba(179,136,255,0.15)" stroke="var(--purple)" stroke-width="1"/>
+            <text x="496" y="167" text-anchor="middle" fill="var(--purple)" font-size="8" font-family="JetBrains Mono">w₄₄</text>
+          </g>
+
+          <!-- Result arrow -->
+          <text x="530" y="100" fill="var(--purple)" font-size="11" font-family="Noto Sans SC" font-weight="600">结果</text>
+          <text x="530" y="120" fill="var(--purple)" font-size="10" font-family="JetBrains Mono">y₁ = Σwᵢ·xᵢ</text>
+          <text x="530" y="140" fill="var(--purple)" font-size="10" font-family="JetBrains Mono">y₂ = Σwᵢ·xᵢ</text>
+          <text x="530" y="160" fill="var(--purple)" font-size="10" font-family="JetBrains Mono">y₃ = Σwᵢ·xᵢ</text>
+          <text x="530" y="180" fill="var(--purple)" font-size="10" font-family="JetBrains Mono">y₄ = Σwᵢ·xᵢ</text>
+
+          <!-- Collab note -->
+          <rect x="280" y="230" width="340" height="40" rx="8" fill="rgba(0,229,255,0.05)" stroke="var(--cyan-dim)" stroke-width="1"/>
+          <text x="300" y="248" fill="var(--cyan)" font-size="11" font-family="Noto Sans SC">与光子阵列协同：</text>
+          <text x="300" y="264" fill="#94a3b8" font-size="10" font-family="Noto Sans SC">大矩阵 → 光子阵列（快） | 小矩阵 → CIM-SRAM（灵活）</text>
+
+          <!-- Key point -->
+          <text x="30" y="260" fill="var(--purple)" font-size="10" font-family="JetBrains Mono" opacity="0.6">计算发生在存储单元内部 — 零数据搬运</text>
+        </svg>
+      </div>
+
+      <div class="conn-note">
+        <span class="conn-icon">💾</span>
+        <span>存算一体的本质：把计算下推到数据所在的位置，而非把数据搬运到计算单元 — 消灭冯·诺依曼瓶颈</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 4: Spike Routing -->
+  <div class="tab-content" id="tab-spike">
+    <div class="card card-spike">
+      <div class="card-title" style="color:var(--green)">
+        <span class="title-icon">🔀</span> 异步脉冲路由网络
+      </div>
+      <div class="card-en">Asynchronous Spike Routing Network — Event-Driven Communication</div>
+
+      <div class="why-section spike">
+        <div class="why-title" style="color:var(--green)">💡 仿生物神经网络通信</div>
+        <ul class="why-list">
+          <li>传统芯片用<strong style="color:#ff5252">全局时钟</strong>同步所有操作 — 大量无效等待</li>
+          <li>生物大脑是<strong style="color:var(--green)">事件驱动</strong>的：有数据才传输，无数据则静默</li>
+          <li>异步脉冲路由：减少 <strong style="color:var(--green)">80%+</strong> 的无效通信</li>
+          <li>配合稀疏注意力：只有被选中的路径才激活，像互联网数据包路由</li>
+        </ul>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-box stat-spike"><div class="stat-value">80%+</div><div class="stat-label">减少无效通信</div></div>
+        <div class="stat-box stat-spike"><div class="stat-value">异步</div><div class="stat-label">无全局时钟</div></div>
+        <div class="stat-box stat-spike"><div class="stat-value">稀疏</div><div class="stat-label">按需激活</div></div>
+        <div class="stat-box stat-spike"><div class="stat-value">仿生</div><div class="stat-label">事件驱动</div></div>
+      </div>
+
+      <!-- Spike animation -->
+      <div class="anim-canvas" id="spikeAnim">
+        <svg viewBox="0 0 860 280" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="glowGreen" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Left side: Traditional bus -->
+          <text x="30" y="24" fill="#ff5252" font-size="13" font-weight="600" font-family="Noto Sans SC">传统总线（全局时钟）</text>
+
+          <!-- Clock signal -->
+          <polyline points="30,50 50,50 50,35 70,35 70,50 90,50 90,35 110,35 110,50 130,50 130,35 150,35 150,50 170,50 170,35 190,35 190,50" fill="none" stroke="#ff5252" stroke-width="1.5">
+            <animate attributeName="stroke-dashoffset" from="0" to="-40" dur="1s" repeatCount="indefinite"/>
+          </polyline>
+          <text x="200" y="47" fill="#ff5252" font-size="9" font-family="JetBrains Mono">CLK</text>
+
+          <!-- Bus lines -->
+          <g>
+            <line x1="30" y1="75" x2="220" y2="75" stroke="#ff5252" stroke-width="8" opacity="0.15"/>
+            <line x1="30" y1="75" x2="220" y2="75" stroke="#ff5252" stroke-width="1.5" opacity="0.5"/>
+            <text x="100" y="72" fill="#ff5252" font-size="9" font-family="JetBrains Mono" text-anchor="middle">共享总线 (Bus)</text>
+            <!-- Nodes on bus -->
+            <circle cx="50" cy="75" r="6" fill="rgba(255,82,82,0.3)" stroke="#ff5252" stroke-width="1"/>
+            <circle cx="90" cy="75" r="6" fill="rgba(255,82,82,0.3)" stroke="#ff5252" stroke-width="1"/>
+            <circle cx="130" cy="75" r="6" fill="rgba(255,82,82,0.3)" stroke="#ff5252" stroke-width="1"/>
+            <circle cx="170" cy="75" r="6" fill="rgba(255,82,82,0.3)" stroke="#ff5252" stroke-width="1"/>
+            <circle cx="210" cy="75" r="6" fill="rgba(255,82,82,0.3)" stroke="#ff5252" stroke-width="1"/>
+          </g>
+
+          <!-- Wasted indicator -->
+          <text x="30" y="105" fill="#ff5252" font-size="10" font-family="Noto Sans SC">每个时钟周期，所有节点都必须响应</text>
+          <text x="30" y="120" fill="#ff5252" font-size="10" font-family="Noto Sans SC" opacity="0.7">即使没有数据需要传输 → 浪费能量</text>
+
+          <!-- Arrow -->
+          <text x="105" y="155" fill="var(--text-dim)" font-size="22">↓</text>
+
+          <!-- Right side: Spike routing -->
+          <text x="30" y="185" fill="var(--green)" font-size="13" font-weight="600" font-family="Noto Sans SC">异步脉冲路由网络（事件驱动）</text>
+
+          <!-- Network nodes -->
+          <g id="spikeNetwork">
+            <!-- Router nodes -->
+            <circle cx="80" cy="220" r="10" fill="rgba(105,240,174,0.15)" stroke="var(--green)" stroke-width="1.5" id="sn1"/>
+            <text x="80" y="224" text-anchor="middle" fill="var(--green)" font-size="8" font-family="JetBrains Mono">R1</text>
+
+            <circle cx="160" cy="205" r="10" fill="rgba(105,240,174,0.15)" stroke="var(--green)" stroke-width="1.5" id="sn2"/>
+            <text x="160" y="209" text-anchor="middle" fill="var(--green)" font-size="8" font-family="JetBrains Mono">R2</text>
+
+            <circle cx="160" cy="245" r="10" fill="rgba(105,240,174,0.15)" stroke="var(--green-dim)" stroke-width="1" opacity="0.4" id="sn3"/>
+            <text x="160" y="249" text-anchor="middle" fill="var(--green)" font-size="8" font-family="JetBrains Mono" opacity="0.4">R3</text>
+
+            <circle cx="240" cy="215" r="10" fill="rgba(105,240,174,0.15)" stroke="var(--green)" stroke-width="1.5" id="sn4"/>
+            <text x="240" y="219" text-anchor="middle" fill="var(--green)" font-size="8" font-family="JetBrains Mono">R4</text>
+
+            <circle cx="240" cy="250" r="10" fill="rgba(105,240,174,0.15)" stroke="var(--green-dim)" stroke-width="1" opacity="0.4" id="sn5"/>
+            <text x="240" y="254" text-anchor="middle" fill="var(--green)" font-size="8" font-family="JetBrains Mono" opacity="0.4">R5</text>
+
+            <!-- Active connections -->
+            <line x1="90" y1="218" x2="150" y2="207" stroke="var(--green)" stroke-width="2" filter="url(#glowGreen)">
+              <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite"/>
+            </line>
+            <line x1="170" y1="207" x2="230" y2="215" stroke="var(--green)" stroke-width="2" filter="url(#glowGreen)">
+              <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" begin="0.4s" repeatCount="indefinite"/>
+            </line>
+
+            <!-- Spike pulse traveling -->
+            <circle r="3" fill="var(--green)" filter="url(#glowGreen)">
+              <animateMotion dur="2s" repeatCount="indefinite" path="M80,220 L160,205 L240,215"/>
+            </circle>
+            <circle r="3" fill="var(--green)" filter="url(#glowGreen)" opacity="0.5">
+              <animateMotion dur="2.5s" begin="0.8s" repeatCount="indefinite" path="M80,220 L160,205 L240,215"/>
+            </circle>
+
+            <!-- Inactive connections (dimmed) -->
+            <line x1="90" y1="222" x2="150" y2="243" stroke="var(--green-dim)" stroke-width="1" opacity="0.15" stroke-dasharray="3 3"/>
+            <line x1="170" y1="245" x2="230" y2="250" stroke="var(--green-dim)" stroke-width="1" opacity="0.15" stroke-dasharray="3 3"/>
+            <line x1="170" y1="210" x2="230" y2="248" stroke="var(--green-dim)" stroke-width="1" opacity="0.15" stroke-dasharray="3 3"/>
+          </g>
+
+          <text x="30" y="275" fill="var(--green)" font-size="10" font-family="JetBrains Mono" opacity="0.6">只有活跃路径（亮线）传输数据，静默路径（暗线）零能耗</text>
+
+          <!-- Right panel: Internet analogy -->
+          <rect x="340" y="35" width="490" height="235" rx="12" fill="rgba(105,240,174,0.03)" stroke="var(--green-dim)" stroke-width="1"/>
+          <text x="360" y="60" fill="var(--green)" font-size="13" font-weight="600" font-family="Noto Sans SC">类比：互联网数据包路由</text>
+
+          <!-- Network topology -->
+          <g transform="translate(360, 80)">
+            <!-- Source -->
+            <rect x="0" y="40" width="60" height="30" rx="6" fill="rgba(0,229,255,0.1)" stroke="var(--cyan)" stroke-width="1.5"/>
+            <text x="30" y="59" text-anchor="middle" fill="var(--cyan)" font-size="10" font-family="Noto Sans SC">数据源</text>
+
+            <!-- Routers -->
+            <circle cx="120" cy="30" r="16" fill="rgba(105,240,174,0.12)" stroke="var(--green)" stroke-width="1.5"/>
+            <text x="120" y="34" text-anchor="middle" fill="var(--green)" font-size="9" font-family="JetBrains Mono">路由A</text>
+
+            <circle cx="120" cy="90" r="16" fill="rgba(105,240,174,0.12)" stroke="var(--green-dim)" stroke-width="1" opacity="0.4"/>
+            <text x="120" y="94" text-anchor="middle" fill="var(--green)" font-size="9" font-family="JetBrains Mono" opacity="0.4">路由B</text>
+
+            <circle cx="230" cy="30" r="16" fill="rgba(105,240,174,0.12)" stroke="var(--green)" stroke-width="1.5"/>
+            <text x="230" y="34" text-anchor="middle" fill="var(--green)" font-size="9" font-family="JetBrains Mono">路由C</text>
+
+            <circle cx="230" cy="90" r="16" fill="rgba(105,240,174,0.12)" stroke="var(--green-dim)" stroke-width="1" opacity="0.4"/>
+            <text x="230" y="94" text-anchor="middle" fill="var(--green)" font-size="9" font-family="JetBrains Mono" opacity="0.4">路由D</text>
+
+            <circle cx="340" cy="55" r="16" fill="rgba(105,240,174,0.12)" stroke="var(--green)" stroke-width="1.5"/>
+            <text x="340" y="59" text-anchor="middle" fill="var(--green)" font-size="9" font-family="JetBrains Mono">路由E</text>
+
+            <!-- Destination -->
+            <rect x="390" y="40" width="60" height="30" rx="6" fill="rgba(255,145,0,0.1)" stroke="var(--warm)" stroke-width="1.5"/>
+            <text x="420" y="59" text-anchor="middle" fill="var(--warm)" font-size="10" font-family="Noto Sans SC">目标层</text>
+
+            <!-- Active path -->
+            <line x1="60" y1="52" x2="104" y2="35" stroke="var(--green)" stroke-width="2" filter="url(#glowGreen)"/>
+            <line x1="136" y1="30" x2="214" y2="30" stroke="var(--green)" stroke-width="2" filter="url(#glowGreen)"/>
+            <line x1="246" y1="35" x2="324" y2="52" stroke="var(--green)" stroke-width="2" filter="url(#glowGreen)"/>
+            <line x1="356" y1="55" x2="390" y2="55" stroke="var(--green)" stroke-width="2" filter="url(#glowGreen)"/>
+
+            <!-- Inactive paths -->
+            <line x1="60" y1="58" x2="104" y2="85" stroke="var(--green-dim)" stroke-width="1" opacity="0.15" stroke-dasharray="3 3"/>
+            <line x1="136" y1="90" x2="214" y2="90" stroke="var(--green-dim)" stroke-width="1" opacity="0.15" stroke-dasharray="3 3"/>
+            <line x1="246" y1="85" x2="324" y2="58" stroke="var(--green-dim)" stroke-width="1" opacity="0.15" stroke-dasharray="3 3"/>
+
+            <!-- Packet traveling -->
+            <rect width="12" height="8" rx="2" fill="var(--green)" filter="url(#glowGreen)">
+              <animateMotion dur="3s" repeatCount="indefinite" path="M30,52 L120,30 L230,30 L340,55 L420,55"/>
+            </rect>
+          </g>
+
+          <text x="360" y="210" fill="#94a3b8" font-size="11" font-family="Noto Sans SC">路由器根据数据内容<strong>动态</strong>决定最优传输路径</text>
+          <text x="360" y="230" fill="#94a3b8" font-size="11" font-family="Noto Sans SC">不走固定总线，像互联网一样智能路由</text>
+          <text x="360" y="255" fill="var(--green)" font-size="10" font-family="JetBrains Mono" opacity="0.7">配合稀疏注意力：仅 ~20% token 需要全量计算</text>
+        </svg>
+      </div>
+
+      <div class="conn-note">
+        <span class="conn-icon">🔀</span>
+        <span>异步脉冲路由 = 生物神经元的数字版：只在有信息要传递时才"放电"，其余时间零功耗待机</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 5: Compare & Challenges -->
+  <div class="tab-content" id="tab-compare">
+    <div class="card" style="border-top: 2px solid #f44;">
+      <div class="card-title" style="color:#ff8a80">
+        <span class="title-icon">📊</span> PENP vs NVIDIA H100 对比
+      </div>
+      <div class="card-en">Theoretical Performance Comparison</div>
+
+      <table class="compare-table" id="compareTable">
+        <thead>
+          <tr>
+            <th style="width:25%">指标</th>
+            <th style="width:30%">NVIDIA H100</th>
+            <th style="width:30%">PENP (理论值)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>峰值算力</td>
+            <td>
+              <span style="color:#76ff03">4 PFLOPS</span>
+              <div class="compare-bar bar-gpu" style="width:4%"></div>
+            </td>
+            <td>
+              <span style="color:var(--cyan)">~100 PFLOPS</span>
+              <div class="compare-bar bar-penp" id="bar1" style="width:0%"></div>
+            </td>
+          </tr>
+          <tr>
+            <td>功耗</td>
+            <td>
+              <span style="color:#76ff03">700W</span>
+              <div class="compare-bar bar-gpu" style="width:93%"></div>
+            </td>
+            <td>
+              <span style="color:var(--cyan)">~50W</span>
+              <div class="compare-bar bar-penp" id="bar2" style="width:0%"></div>
+            </td>
+          </tr>
+          <tr>
+            <td>能效比</td>
+            <td>
+              <span style="color:#76ff03">5.7 TFLOPS/W</span>
+              <div class="compare-bar bar-gpu" style="width:3%"></div>
+            </td>
+            <td>
+              <span style="color:var(--cyan)">~2000 TFLOPS/W</span>
+              <div class="compare-bar bar-penp" id="bar3" style="width:0%"></div>
+            </td>
+          </tr>
+          <tr>
+            <td>每层延迟</td>
+            <td>
+              <span style="color:#76ff03">~1ms</span>
+              <div class="compare-bar bar-gpu" style="width:100%"></div>
+            </td>
+            <td>
+              <span style="color:var(--cyan)">~0.01ms</span>
+              <div class="compare-bar bar-penp" id="bar4" style="width:0%"></div>
+            </td>
+          </tr>
+          <tr>
+            <td>单卡成本</td>
+            <td><span style="color:#76ff03">$30,000</span></td>
+            <td><span style="color:var(--text-dim)">未知（工艺不成熟）</span></td>
+          </tr>
+          <tr>
+            <td>成熟度</td>
+            <td><span style="color:#76ff03">量产中 (2024)</span></td>
+            <td><span style="color:var(--text-dim)">思想实验 / 实验室阶段</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="conn-note" style="margin-bottom:20px">
+        <span class="conn-icon">⚠️</span>
+        <span>以上 PENP 数据均为理论极限估算，实际原型性能可能差 1-2 个数量级 — 但方向是对的</span>
+      </div>
+
+      <!-- Challenges -->
+      <div class="card-title" style="color:#ff8a80; margin-top:10px;">
+        <span class="title-icon">🚧</span> 挑战与现实
+      </div>
+      <div class="card-en">Challenges & Reality Check — Why We Don't Have This Yet</div>
+
+      <div class="challenge-grid">
+        <div class="challenge-item">
+          <div class="ch-icon">🔴</div>
+          <div class="ch-title">光电转换损耗</div>
+          <div class="ch-desc">每次光→电→光转换都引入噪声和延迟，多层级联后误差累积可能不可接受</div>
+        </div>
+        <div class="challenge-item">
+          <div class="ch-icon">🔴</div>
+          <div class="ch-title">光子芯片制造</div>
+          <div class="ch-desc">硅光子工艺远不如 CMOS 成熟，MZI 阵列的规模受限于制造精度和良率</div>
+        </div>
+        <div class="challenge-item">
+          <div class="ch-icon">🟡</div>
+          <div class="ch-title">编程模型</div>
+          <div class="ch-desc">需要全新的编译器和框架，现有 CUDA/PyTorch 生态无法直接迁移</div>
+        </div>
+        <div class="challenge-item">
+          <div class="ch-icon">🟡</div>
+          <div class="ch-title">精度限制</div>
+          <div class="ch-desc">模拟域计算（光子+CIM）精度通常限于 4-8 bit，训练可能需要混合精度方案</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:24px; padding:16px; background:rgba(0,229,255,0.04); border-radius:12px; border:1px solid var(--border);">
+        <div style="font-size:16px; font-weight:700; color:var(--cyan); margin-bottom:6px;">预计时间线</div>
+        <div style="font-size:13px; color:var(--text-dim);">实验室原型：<strong style="color:var(--cyan)">3-5 年</strong> | 商用芯片：<strong style="color:var(--warm)">8-15 年</strong> | 替代 GPU：<strong style="color:var(--purple)">未知</strong></div>
+        <div style="font-size:11px; color:var(--text-dim); margin-top:8px; font-family:'JetBrains Mono',monospace;">
+          Lightmatter, Luminous Computing, Lightelligence 等公司已在探索光子计算商业化
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Flow legend -->
+<div class="flow-legend" id="flowLegend" style="display:none; position:relative; z-index:1;">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>光子信号</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--warm)"></div>电子信号</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>存储读取</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>脉冲路由</div>
+</div>
+
+<div class="colophon">PENP Thought Experiment / Photonic-Electronic Neural Processor</div>
+
+<script>
+// ─── Particle system ───
+(function initParticles() {
+  const container = document.getElementById('particles');
+  const colors = ['var(--cyan)', 'var(--purple)', 'var(--green)', 'var(--warm)'];
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 3 + 1;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    Object.assign(p.style, {
+      width: size + 'px',
+      height: size + 'px',
+      left: Math.random() * 100 + '%',
+      background: color,
+      boxShadow: '0 0 ' + (size * 2) + 'px ' + color,
+      animationDuration: (Math.random() * 15 + 10) + 's',
+      animationDelay: (Math.random() * 15) + 's'
+    });
+    container.appendChild(p);
+  }
+})();
+
+// ─── Tab switching ───
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-content').forEach(function(content) {
+    content.classList.toggle('active', content.id === 'tab-' + tabName);
+  });
+
+  // Highlight corresponding node in arch flow
+  document.querySelectorAll('.flow-node').forEach(function(node) {
+    node.classList.remove('active');
+  });
+  var nodeMap = {
+    photon: 'nodePhoton',
+    electron: 'nodeElectron',
+    spike: 'nodeSpike'
+  };
+  if (nodeMap[tabName]) {
+    document.getElementById(nodeMap[tabName]).classList.add('active');
+  }
+
+  // Animate compare bars when compare tab is shown
+  if (tabName === 'compare') {
+    animateCompareBars();
+  }
+}
+
+// ─── Compare bar animation ───
+function animateCompareBars() {
+  var bars = [
+    { id: 'bar1', target: '100%' },
+    { id: 'bar2', target: '7%' },
+    { id: 'bar3', target: '100%' },
+    { id: 'bar4', target: '1%' }
+  ];
+  bars.forEach(function(bar, i) {
+    var el = document.getElementById(bar.id);
+    if (el) {
+      el.style.width = '0%';
+      setTimeout(function() {
+        el.style.width = bar.target;
+      }, 200 + i * 150);
+    }
+  });
+}
+
+// ─── Full data flow animation ───
+var flowRunning = false;
+
+function runFullFlow() {
+  if (flowRunning) return;
+  flowRunning = true;
+
+  var btn = document.getElementById('flowBtn');
+  btn.classList.add('running');
+  btn.innerHTML = '<span>⏳</span> 数据流动中...';
+
+  var legend = document.getElementById('flowLegend');
+  legend.style.display = 'flex';
+
+  var arrows = ['arrow1', 'arrow2', 'arrow3', 'arrow4'];
+  var nodes = document.querySelectorAll('.flow-node');
+  var nodeList = Array.from(nodes);
+
+  // Reset
+  arrows.forEach(function(id) {
+    document.getElementById(id).classList.remove('animated');
+  });
+  nodeList.forEach(function(n) { n.classList.remove('active'); });
+
+  // Sequential activation
+  var stages = [
+    { nodeIdx: 0, arrowId: null, delay: 0 },
+    { nodeIdx: 0, arrowId: 'arrow1', delay: 500 },
+    { nodeIdx: 1, arrowId: 'arrow1', delay: 1000 },
+    { nodeIdx: 1, arrowId: 'arrow2', delay: 1800 },
+    { nodeIdx: 2, arrowId: 'arrow2', delay: 2400 },
+    { nodeIdx: 2, arrowId: 'arrow3', delay: 3200 },
+    { nodeIdx: 3, arrowId: 'arrow3', delay: 3800 },
+    { nodeIdx: 3, arrowId: 'arrow4', delay: 4600 },
+    { nodeIdx: 4, arrowId: 'arrow4', delay: 5200 }
+  ];
+
+  stages.forEach(function(stage) {
+    setTimeout(function() {
+      if (stage.nodeIdx !== undefined) {
+        nodeList[stage.nodeIdx].classList.add('active');
+      }
+      if (stage.arrowId) {
+        document.getElementById(stage.arrowId).classList.add('animated');
+      }
+    }, stage.delay);
+  });
+
+  // Cycle through tabs during animation
+  var tabSequence = [
+    { tab: 'photon', delay: 1000 },
+    { tab: 'electron', delay: 2400 },
+    { tab: 'sram', delay: 3200 },
+    { tab: 'spike', delay: 3800 }
+  ];
+
+  tabSequence.forEach(function(item) {
+    setTimeout(function() {
+      switchTab(item.tab);
+    }, item.delay);
+  });
+
+  // End
+  setTimeout(function() {
+    flowRunning = false;
+    btn.classList.remove('running');
+    btn.innerHTML = '<span>▶</span> 完整数据流动画';
+
+    // Keep all nodes lit for a moment
+    setTimeout(function() {
+      arrows.forEach(function(id) {
+        document.getElementById(id).classList.remove('animated');
+      });
+    }, 3000);
+  }, 6000);
+}
+
+// ─── Click nodes in arch-flow to switch tabs ───
+document.querySelectorAll('.flow-node[data-stage]').forEach(function(node) {
+  node.addEventListener('click', function() {
+    var stage = this.dataset.stage;
+    var tabMap = {
+      photon: 'photon',
+      electron: 'electron',
+      spike: 'spike'
+    };
+    if (tabMap[stage]) {
+      switchTab(tabMap[stage]);
+    }
+  });
+});
+
+// ─── Initial state ───
+switchTab('photon');
+</script>
+
+<!-- Glossary Panel -->
+<style>
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(20, 20, 40, 0.85);
+  color: #e2e8f0;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: all 0.3s ease;
+}
+.glossary-btn:hover {
+  background: rgba(40, 40, 80, 0.95);
+  border-color: rgba(255,255,255,0.3);
+  transform: scale(1.08);
+}
+.glossary-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.glossary-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.glossary-panel {
+  position: fixed;
+  top: 50%;
+  right: -420px;
+  transform: translateY(-50%);
+  width: 400px;
+  max-width: 90vw;
+  max-height: 70vh;
+  z-index: 9999;
+  background: rgba(15, 15, 35, 0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  box-shadow: -4px 0 40px rgba(0,0,0,0.5);
+  overflow-y: auto;
+  padding: 24px;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glossary-panel.visible {
+  right: 24px;
+}
+.glossary-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.glossary-panel::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+.glossary-panel h3 {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.glossary-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.glossary-item:last-child {
+  border-bottom: none;
+}
+.glossary-term {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #93c5fd;
+}
+.glossary-cn {
+  font-size: 13px;
+  color: #c4b5fd;
+  margin-left: 4px;
+}
+.glossary-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-top: 3px;
+}
+</style>
+
+<button class="glossary-btn" id="glossaryBtn" onclick="toggleGlossary()" title="术语表">&#10067;</button>
+<div class="glossary-overlay" id="glossaryOverlay" onclick="toggleGlossary()"></div>
+<div class="glossary-panel" id="glossaryPanel">
+  <h3>&#128218; 术语表</h3>
+  <div class="glossary-item"><div><span class="glossary-term">PENP</span><span class="glossary-cn">（Photonic-Electronic Neural Processor）</span></div><div class="glossary-desc">本动画设计的理想芯片名称：光电混合神经处理器</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">MZI</span><span class="glossary-cn">（Mach-Zehnder Interferometer, 马赫-曾德尔干涉仪）</span></div><div class="glossary-desc">光学元件，利用光的干涉实现矩阵运算</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">MVM</span><span class="glossary-cn">（Matrix-Vector Multiplication, 矩阵向量乘法）</span></div><div class="glossary-desc">AI最核心的运算</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">光电转换</span></div><div class="glossary-desc">光信号和电信号之间的相互转换</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">CMOS</span></div><div class="glossary-desc">互补金属氧化物半导体，现代芯片的主流制造工艺</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">ReLU / GELU</span><span class="glossary-cn">（激活函数）</span></div><div class="glossary-desc">引入非线性的数学函数，是神经网络能学习复杂模式的关键</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">CIM</span><span class="glossary-cn">（Computing in Memory, 存算一体）</span></div><div class="glossary-desc">在存储器内部直接完成计算</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">SRAM</span><span class="glossary-cn">（Static RAM）</span></div><div class="glossary-desc">静态随机存取存储器，速度极快，用于芯片内部缓存</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">异步</span><span class="glossary-cn">（Asynchronous）</span></div><div class="glossary-desc">无全局时钟，各模块按需独立工作</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">脉冲路由</span><span class="glossary-cn">（Spike Routing）</span></div><div class="glossary-desc">仿神经元的按需通信方式，仅在有数据时传输</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">PFLOPS</span><span class="glossary-cn">（PetaFLOPS）</span></div><div class="glossary-desc">每秒千万亿次浮点运算，衡量超级计算能力</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">TFLOPS/W</span></div><div class="glossary-desc">每瓦功耗的万亿次浮点运算，衡量能效比</div></div>
+</div>
+
+<script>
+var glossaryVisible = false;
+function toggleGlossary() {
+  glossaryVisible = !glossaryVisible;
+  document.getElementById('glossaryPanel').classList.toggle('visible', glossaryVisible);
+  document.getElementById('glossaryOverlay').classList.toggle('visible', glossaryVisible);
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && glossaryVisible) toggleGlossary();
+});
+</script>
+</body>
+</html>

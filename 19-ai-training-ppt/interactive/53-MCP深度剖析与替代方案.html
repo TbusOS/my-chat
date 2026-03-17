@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCP 深度剖析与替代方案 — AI 的 USB 接口标准之争</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-card: #1a1f35;
+  --bg-card-hover: #1f2640;
+  --border-color: #2a3150;
+  --border-active: #6366f1;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-mcp: #8b5cf6;
+  --accent-mcp-dim: rgba(139, 92, 246, 0.15);
+  --accent-openai: #10b981;
+  --accent-openai-dim: rgba(16, 185, 129, 0.15);
+  --accent-google: #ef4444;
+  --accent-google-dim: rgba(239, 68, 68, 0.15);
+  --accent-native: #6b7280;
+  --accent-native-dim: rgba(107, 114, 128, 0.15);
+  --accent-langchain: #f59e0b;
+  --accent-langchain-dim: rgba(245, 158, 11, 0.15);
+  --accent-openapi: #3b82f6;
+  --accent-openapi-dim: rgba(59, 130, 246, 0.15);
+  --green: #22c55e;
+  --green-dim: rgba(34, 197, 94, 0.12);
+  --red: #ef4444;
+  --red-dim: rgba(239, 68, 68, 0.12);
+  --yellow: #eab308;
+}
+
+body {
+  font-family: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 40px 20px 0;
+  position: relative;
+}
+
+.header h1 {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header .subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* Glossary Button */
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glossary-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(99, 102, 241, 0.5);
+}
+
+/* Glossary Modal */
+.glossary-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1001;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.glossary-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.glossary-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  width: 680px;
+  max-width: 90vw;
+  max-height: 80vh;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  z-index: 1002;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.glossary-modal.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.glossary-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.glossary-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.glossary-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.glossary-close:hover {
+  color: var(--text-primary);
+}
+
+.glossary-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.glossary-item {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(42, 49, 80, 0.5);
+}
+
+.glossary-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.glossary-term {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: #8b5cf6;
+  margin-bottom: 4px;
+}
+
+.glossary-def {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px 20px 0;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  font-family: 'Noto Sans SC', sans-serif;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
+  color: #a78bfa;
+  border-color: #6366f1;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+/* Tab Content */
+.tab-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+.tab-panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ====== TAB 1: Quick Recap ====== */
+.recap-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  background: var(--accent-mcp-dim);
+  color: #a78bfa;
+  margin-bottom: 24px;
+}
+
+.flow-diagram {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 28px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.flow-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+  flex-wrap: wrap;
+}
+
+.flow-node {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.flow-node:hover {
+  transform: translateY(-2px);
+}
+
+.flow-node.model {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.flow-node.protocol {
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: #fff;
+  padding: 12px 40px;
+  font-size: 15px;
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.3);
+}
+
+.flow-node.server {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+}
+
+.flow-node.tool {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 8px 14px;
+}
+
+.flow-node.tool:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.flow-arrow {
+  color: #6366f1;
+  font-size: 20px;
+  font-weight: 700;
+  animation: arrowPulse 2s infinite;
+}
+
+@keyframes arrowPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.flow-arrow.vertical {
+  display: block;
+  text-align: center;
+  margin: 4px 0;
+}
+
+/* Concept Cards */
+.concept-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.concept-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s;
+  cursor: default;
+}
+
+.concept-card:hover {
+  border-color: #6366f1;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.1);
+}
+
+.concept-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a78bfa;
+  margin-bottom: 6px;
+}
+
+.concept-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Status Section */
+.status-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.status-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-title .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.status-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-item {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding-left: 20px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.status-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+/* ====== TAB 2: Pros & Cons ====== */
+.proscons-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .proscons-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.proscons-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.proscons-header {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 14px 20px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.proscons-header.pros {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.proscons-header.cons {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.pc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.pc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.pc-card.pro:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.pc-card.con:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.pc-card.expanded {
+  border-color: var(--border-active);
+}
+
+.pc-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pc-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.pc-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.pc-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pc-card.expanded .pc-detail {
+  max-height: 200px;
+}
+
+.pc-detail-inner {
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.pc-detail-inner code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #a78bfa;
+}
+
+/* ====== TAB 3: Comparison ====== */
+.alt-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.alt-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px 22px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.alt-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.alt-card.expanded {
+  border-color: var(--border-active);
+}
+
+.alt-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.alt-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.alt-badge.mcp { background: var(--accent-mcp-dim); color: var(--accent-mcp); }
+.alt-badge.openai { background: var(--accent-openai-dim); color: var(--accent-openai); }
+.alt-badge.google { background: var(--accent-google-dim); color: var(--accent-google); }
+.alt-badge.native { background: var(--accent-native-dim); color: var(--accent-native); }
+.alt-badge.langchain { background: var(--accent-langchain-dim); color: var(--accent-langchain); }
+.alt-badge.openapi { background: var(--accent-openapi-dim); color: var(--accent-openapi); }
+
+.alt-card-info {
+  flex: 1;
+}
+
+.alt-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.alt-card-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.alt-expand-icon {
+  font-size: 18px;
+  color: var(--text-muted);
+  transition: transform 0.3s;
+}
+
+.alt-card.expanded .alt-expand-icon {
+  transform: rotate(180deg);
+}
+
+.alt-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.alt-card.expanded .alt-detail {
+  max-height: 500px;
+}
+
+.alt-detail-inner {
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-color);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .alt-detail-inner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.alt-detail-box {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.alt-detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.alt-detail-label.good { color: var(--green); }
+.alt-detail-label.bad { color: var(--red); }
+.alt-detail-label.neutral { color: var(--accent-openapi); }
+
+.alt-detail-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Comparison Table */
+.comp-table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.comp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 700px;
+}
+
+.comp-table th,
+.comp-table td {
+  padding: 12px 14px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.2s;
+}
+
+.comp-table th {
+  background: var(--bg-secondary);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+  position: sticky;
+  top: 0;
+  white-space: nowrap;
+}
+
+.comp-table th.col-mcp { color: var(--accent-mcp); }
+.comp-table th.col-fc { color: var(--accent-openai); }
+.comp-table th.col-a2a { color: var(--accent-google); }
+.comp-table th.col-native { color: var(--accent-native); }
+.comp-table th.col-lc { color: var(--accent-langchain); }
+.comp-table th.col-oa { color: var(--accent-openapi); }
+
+.comp-table td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.comp-table tbody tr {
+  cursor: pointer;
+}
+
+.comp-table tbody tr:hover td {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.comp-table tbody tr.highlighted td {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.comp-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.stars {
+  color: var(--yellow);
+  letter-spacing: 1px;
+  font-size: 12px;
+}
+
+.stars .empty {
+  opacity: 0.2;
+}
+
+/* ====== TAB 4: Security ====== */
+.attack-flow {
+  background: var(--bg-card);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 16px;
+  padding: 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.attack-flow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #ef4444, #f97316, #ef4444);
+  animation: dangerPulse 2s infinite;
+}
+
+@keyframes dangerPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.attack-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--red);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attack-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.attack-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+}
+
+.attack-step:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.attack-step.active {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.attack-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--red-dim);
+  color: var(--red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.attack-step-arrow {
+  position: absolute;
+  left: 29px;
+  bottom: -8px;
+  color: var(--red);
+  font-size: 16px;
+  z-index: 1;
+  opacity: 0.5;
+}
+
+.attack-step-content {
+  flex: 1;
+}
+
+.attack-step-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.attack-step-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Attack Vectors */
+.vectors-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .vectors-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vector-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 18px;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.vector-card:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.08);
+}
+
+.vector-card.active {
+  border-color: var(--red);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.vector-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.vector-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--red);
+  margin-bottom: 6px;
+}
+
+.vector-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Defense Section */
+.defense-section {
+  background: var(--bg-card);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.defense-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #22c55e, #10b981, #22c55e);
+}
+
+.defense-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.defense-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .defense-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.defense-item {
+  padding: 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  transition: all 0.3s;
+}
+
+.defense-item:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.defense-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+  margin-bottom: 4px;
+}
+
+.defense-item-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ====== TAB 5: Future ====== */
+.timeline {
+  position: relative;
+  padding-left: 40px;
+  margin-bottom: 32px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--accent-mcp), var(--accent-openapi), var(--green));
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.timeline-item:hover {
+  transform: translateX(4px);
+  border-color: var(--text-muted);
+}
+
+.timeline-item.active {
+  border-color: var(--border-active);
+  box-shadow: 0 0 24px rgba(99, 102, 241, 0.15);
+}
+
+.timeline-item.future {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -33px;
+  top: 22px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-mcp);
+  border: 2px solid var(--bg-primary);
+  z-index: 1;
+}
+
+.timeline-item.future .timeline-dot {
+  background: var(--accent-openapi);
+  animation: pulse 2s infinite;
+}
+
+.timeline-year {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: #a78bfa;
+  margin-bottom: 4px;
+}
+
+.timeline-item.future .timeline-year {
+  color: var(--accent-openapi);
+}
+
+.timeline-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.timeline-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.timeline-now {
+  position: absolute;
+  left: -54px;
+  top: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--green);
+  background: var(--green-dim);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Conclusion Box */
+.conclusion-box {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+}
+
+.conclusion-quote {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.8;
+  max-width: 700px;
+  margin: 0 auto;
+  font-style: italic;
+}
+
+.conclusion-quote::before,
+.conclusion-quote::after {
+  content: '"';
+  color: #6366f1;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.conclusion-quote::after {
+  content: '"';
+}
+
+/* Section titles */
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .header h1 { font-size: 26px; }
+  .tab-btn { padding: 8px 14px; font-size: 12px; }
+  .concept-grid { grid-template-columns: 1fr; }
+  .flow-node { padding: 8px 12px; font-size: 12px; }
+  .comp-table { font-size: 11px; }
+}
+
+/* Animate in items */
+.animate-in {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.animate-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>MCP 深度剖析与替代方案</h1>
+  <p class="subtitle">AI 的 USB 接口标准之争 — 2026 年 MCP 现状、优缺点与竞争方案全景分析</p>
+</div>
+
+<!-- Tab Navigation -->
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab(0)">MCP 快速回顾</button>
+  <button class="tab-btn" onclick="switchTab(1)">优缺点深度分析</button>
+  <button class="tab-btn" onclick="switchTab(2)">替代方案对比</button>
+  <button class="tab-btn" onclick="switchTab(3)">安全深度分析</button>
+  <button class="tab-btn" onclick="switchTab(4)">未来展望</button>
+</nav>
+
+<!-- Tab Content -->
+<div class="tab-content">
+
+  <!-- ==================== TAB 1: MCP Quick Recap ==================== -->
+  <div class="tab-panel active" id="tab-0">
+    <div class="recap-badge">MCP = AI 的 USB 接口标准</div>
+
+    <!-- Flow Diagram -->
+    <div class="flow-diagram animate-in">
+      <div class="flow-row">
+        <div class="flow-node model">Claude</div>
+        <div class="flow-node model">GPT</div>
+        <div class="flow-node model">Gemini</div>
+        <div class="flow-node model">Llama</div>
+      </div>
+      <div class="flow-arrow vertical">&#x2195;</div>
+      <div class="flow-row">
+        <div class="flow-node protocol">MCP Protocol (JSON-RPC 2.0)</div>
+      </div>
+      <div class="flow-arrow vertical">&#x2195;</div>
+      <div class="flow-row">
+        <div class="flow-node server">MCP Server (任何工具/数据源)</div>
+      </div>
+      <div class="flow-arrow vertical">&#x2195;</div>
+      <div class="flow-row">
+        <div class="flow-node tool">文件系统</div>
+        <div class="flow-node tool">数据库</div>
+        <div class="flow-node tool">API</div>
+        <div class="flow-node tool">浏览器</div>
+        <div class="flow-node tool">Slack</div>
+        <div class="flow-node tool">GitHub</div>
+      </div>
+    </div>
+
+    <!-- Key Concepts -->
+    <h3 class="section-title">核心概念速览</h3>
+    <div class="concept-grid">
+      <div class="concept-card animate-in">
+        <div class="concept-label">MCP Host</div>
+        <div class="concept-desc">AI 应用本身，如 Claude Desktop、Cursor IDE，负责管理 Client 实例与用户交互</div>
+      </div>
+      <div class="concept-card animate-in">
+        <div class="concept-label">MCP Client</div>
+        <div class="concept-desc">Host 中负责与 Server 通信的组件，维护 1:1 连接，处理协议握手</div>
+      </div>
+      <div class="concept-card animate-in">
+        <div class="concept-label">MCP Server</div>
+        <div class="concept-desc">暴露工具、资源、提示词的服务端程序，每个 Server 专注一个领域</div>
+      </div>
+      <div class="concept-card animate-in">
+        <div class="concept-label">Transport</div>
+        <div class="concept-desc">传输层 — stdio (本地进程通信) 或 SSE/HTTP (远程服务通信)</div>
+      </div>
+      <div class="concept-card animate-in">
+        <div class="concept-label">Tools</div>
+        <div class="concept-desc">Server 提供给 AI 调用的函数，如读文件、查数据库、发消息</div>
+      </div>
+      <div class="concept-card animate-in">
+        <div class="concept-label">Resources</div>
+        <div class="concept-desc">Server 提供的只读数据源，如文件内容、数据库记录、API 响应</div>
+      </div>
+      <div class="concept-card animate-in">
+        <div class="concept-label">Prompts</div>
+        <div class="concept-desc">Server 提供的提示词模板，可复用的指令集，由用户选择触发</div>
+      </div>
+    </div>
+
+    <!-- 2026 Status -->
+    <div class="status-section animate-in">
+      <div class="status-title">
+        <div class="dot"></div>
+        2026 年 MCP 现状
+      </div>
+      <ul class="status-list">
+        <li class="status-item">Anthropic 主导，但 OpenAI / Google / Microsoft 都已支持 MCP 协议</li>
+        <li class="status-item">数千个 MCP Server 已发布（npm / pip / GitHub），覆盖主流工具和服务</li>
+        <li class="status-item">Claude Code, Cursor, Windsurf, VS Code 等 IDE 全面支持 MCP</li>
+        <li class="status-item">SDK 支持 Python / TypeScript / Java / Go，几十行代码即可编写 Server</li>
+        <li class="status-item">从 "Anthropic 标准" 正在走向 "行业事实标准"</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 2: Pros & Cons ==================== -->
+  <div class="tab-panel" id="tab-1">
+    <div class="proscons-grid">
+      <!-- Pros Column -->
+      <div class="proscons-col">
+        <div class="proscons-header pros">&#x2705; 优点</div>
+
+        <div class="pc-card pro animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F50C;</span>
+            <span class="pc-title">标准化接口 — 一个 Server 写一次，所有 AI 都能用</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            类比: USB-C 出现前，每个手机品牌一种充电线。MCP 让 AI 工具集成告别 "每个模型写一个适配器" 的时代，一个 MCP Server 可以同时被 Claude、GPT、Gemini 调用。
+          </div></div>
+        </div>
+
+        <div class="pc-card pro animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F9E9;</span>
+            <span class="pc-title">即插即用 — 安装像安装 App 一样简单</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            一行命令即可启用: <code>npx @anthropic/mcp-server-filesystem</code>。无需手动编写胶水代码、无需理解底层协议，配置好即可被 AI 使用。
+          </div></div>
+        </div>
+
+        <div class="pc-card pro animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F512;</span>
+            <span class="pc-title">权限控制 — 每个 Server 有明确的能力边界</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            每个 MCP Server 声明自己提供什么工具，Host 可以精细控制哪些能力被授权。比如文件系统 Server 可以限定为"只读"，不允许写入操作。
+          </div></div>
+        </div>
+
+        <div class="pc-card pro animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F4E6;</span>
+            <span class="pc-title">生态丰富 — 数千个现成 Server 可用</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            2026 年已有覆盖 GitHub、Slack、PostgreSQL、浏览器、文件系统、搜索引擎等数千个 MCP Server。社区活跃，新工具不断涌现。
+          </div></div>
+        </div>
+
+        <div class="pc-card pro animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F504;</span>
+            <span class="pc-title">双向通信 — Server 也可以主动通知 AI</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            不只是 AI 调用工具的单向模式。通过 Notifications 机制，Server 可以主动向 Client 发送通知（如文件变更、任务完成），实现真正的双向协作。
+          </div></div>
+        </div>
+
+        <div class="pc-card pro animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F310;</span>
+            <span class="pc-title">跨模型兼容 — Claude / GPT / Gemini / 本地模型通用</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            同一个 MCP Server 可以被不同 AI 模型调用，不锁定特定厂商。这是标准协议最大的价值: 生态共享、避免重复建设。
+          </div></div>
+        </div>
+
+        <div class="pc-card pro animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F4A1;</span>
+            <span class="pc-title">资源发现 — AI 可以动态发现 Server 提供的工具</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            通过 <code>tools/list</code> 等协议方法，AI 可以在运行时动态发现 Server 提供哪些工具和资源，无需硬编码工具列表，真正实现"即插即用"。
+          </div></div>
+        </div>
+
+        <div class="pc-card pro animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F6E0;&#xFE0F;</span>
+            <span class="pc-title">开发简单 — SDK 完善，几十行代码写一个 Server</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            官方 SDK 支持 Python、TypeScript、Java、Go。定义一个工具只需要几十行代码，大幅降低了工具集成的门槛。
+          </div></div>
+        </div>
+      </div>
+
+      <!-- Cons Column -->
+      <div class="proscons-col">
+        <div class="proscons-header cons">&#x274C; 缺点</div>
+
+        <div class="pc-card con animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F40C;</span>
+            <span class="pc-title">性能开销 — JSON-RPC 序列化增加延迟</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            每次工具调用都经过 JSON-RPC 序列化/反序列化和进程间通信。简单的文件读取通过 MCP 比直接读取慢 5-10 倍。对延迟敏感的场景是显著的瓶颈。
+          </div></div>
+        </div>
+
+        <div class="pc-card con animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F527;</span>
+            <span class="pc-title">过度工程 — 简单场景下是 "用大炮打蚊子"</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            只需要调一个 API？直接写函数调用就好，不需要起一个独立的 MCP Server 进程。对于内部的简单工具，MCP 增加了不必要的复杂度。
+          </div></div>
+        </div>
+
+        <div class="pc-card con animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F3D7;&#xFE0F;</span>
+            <span class="pc-title">运维复杂 — 每个 Server 是独立进程</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            10 个 MCP Server = 10 个后台进程在跑，占用内存和 CPU。需要管理生命周期（启动、重启、日志、崩溃恢复），运维负担随 Server 数量线性增长。
+          </div></div>
+        </div>
+
+        <div class="pc-card con animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F510;</span>
+            <span class="pc-title">安全风险 — Server 拥有系统级权限</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            恶意 Server 可以读取任意文件、执行任意命令。提示词注入攻击可能通过 MCP Server 放大。目前没有内置的沙箱隔离机制，安全依赖用户自觉审查。
+          </div></div>
+        </div>
+
+        <div class="pc-card con animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F4DC;</span>
+            <span class="pc-title">协议僵化 — 标准化意味着不够灵活</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            某些高级场景支持不完善: 流式大文件传输、二进制数据处理、复杂的认证流程。标准化协议的演进速度远慢于实际需求的变化。
+          </div></div>
+        </div>
+
+        <div class="pc-card con animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F30D;</span>
+            <span class="pc-title">Anthropic 主导 — 协议控制权的隐忧</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            虽然 MCP 在开放化，但 Anthropic 对协议的规范制定、版本发布仍有主导权。这是否会成为问题？如果 Anthropic 的商业利益与社区利益冲突怎么办？
+          </div></div>
+        </div>
+
+        <div class="pc-card con animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x2753;</span>
+            <span class="pc-title">发现与信任 — 缺少统一的 "App Store" 审核</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            从哪里找到可信赖的 MCP Server？没有统一的注册中心和审核机制。任何人都可以发布 Server，用户很难判断其安全性和质量。
+          </div></div>
+        </div>
+
+        <div class="pc-card con animate-in" onclick="togglePC(this)">
+          <div class="pc-card-header">
+            <span class="pc-icon">&#x1F504;</span>
+            <span class="pc-title">版本兼容 — Server 与 Client 版本不匹配的问题</span>
+          </div>
+          <div class="pc-detail"><div class="pc-detail-inner">
+            MCP 协议在快速演进，不同版本的 Server 和 Client 之间可能存在兼容性问题。协议握手虽有版本协商，但工具定义格式的变更可能导致运行时错误。
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 3: Alternatives Comparison ==================== -->
+  <div class="tab-panel" id="tab-2">
+    <h3 class="section-title">五大替代/竞争方案</h3>
+
+    <div class="alt-cards">
+      <!-- Alternative 1: Function Calling -->
+      <div class="alt-card animate-in" onclick="toggleAlt(this)">
+        <div class="alt-card-header">
+          <div class="alt-badge openai">FC</div>
+          <div class="alt-card-info">
+            <div class="alt-card-name">OpenAI Function Calling (函数调用)</div>
+            <div class="alt-card-sub">在 API 请求中定义 functions/tools，模型决定何时调用 | GPT-5.4 原生支持</div>
+          </div>
+          <span class="alt-expand-icon">&#x25BC;</span>
+        </div>
+        <div class="alt-detail">
+          <div class="alt-detail-inner">
+            <div class="alt-detail-box">
+              <div class="alt-detail-label good">优点</div>
+              <div class="alt-detail-text">简单直接，无需额外 Server 进程。与 OpenAI 生态深度集成，工具定义在 API 请求中，模型自动决定调用时机。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label bad">缺点</div>
+              <div class="alt-detail-text">最初为 OpenAI 专属格式，虽然其他模型也支持类似格式，但缺乏真正的标准化。不跨模型，无统一规范。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label neutral">状态</div>
+              <div class="alt-detail-text">仍然是最流行的工具调用方式之一。GPT-5.4 原生支持，大量现有应用基于此构建。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alternative 2: A2A -->
+      <div class="alt-card animate-in" onclick="toggleAlt(this)">
+        <div class="alt-card-header">
+          <div class="alt-badge google">A2A</div>
+          <div class="alt-card-info">
+            <div class="alt-card-name">Google A2A (Agent-to-Agent Protocol)</div>
+            <div class="alt-card-sub">专为 Agent 之间的通信设计 | Agent Card 发现机制 | 任务生命周期管理</div>
+          </div>
+          <span class="alt-expand-icon">&#x25BC;</span>
+        </div>
+        <div class="alt-detail">
+          <div class="alt-detail-inner">
+            <div class="alt-detail-box">
+              <div class="alt-detail-label good">优点</div>
+              <div class="alt-detail-text">更适合多 Agent 协作场景。支持长时间运行的任务、Agent 能力发现（Agent Card）和复杂的任务生命周期管理。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label bad">缺点</div>
+              <div class="alt-detail-text">比 MCP 更复杂，学习曲线陡峭。生态还在建设中，落地案例有限。解决的问题（Agent 间通信）与 MCP（AI 调工具）不同。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label neutral">与 MCP 的关系</div>
+              <div class="alt-detail-text">互补而非替代。MCP 解决 AI&#x2192;工具 的问题，A2A 解决 Agent&#x2192;Agent 的问题。两者可能共存。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alternative 3: Native Tools -->
+      <div class="alt-card animate-in" onclick="toggleAlt(this)">
+        <div class="alt-card-header">
+          <div class="alt-badge native">NT</div>
+          <div class="alt-card-info">
+            <div class="alt-card-name">直接 Tool Use / Native Functions</div>
+            <div class="alt-card-sub">不用任何协议，直接在代码中定义工具函数 | 如 Claude Code 的内置工具</div>
+          </div>
+          <span class="alt-expand-icon">&#x25BC;</span>
+        </div>
+        <div class="alt-detail">
+          <div class="alt-detail-inner">
+            <div class="alt-detail-box">
+              <div class="alt-detail-label good">优点</div>
+              <div class="alt-detail-text">最快速（零序列化开销）、最简单（直接函数调用）、最可控（代码即逻辑）。无需管理额外进程。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label bad">缺点</div>
+              <div class="alt-detail-text">不可复用（每个应用重写一遍）、不跨模型、不可被外部发现。工具定义与应用代码耦合。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label neutral">适用场景</div>
+              <div class="alt-detail-text">自己应用中的内部工具。例如 Claude Code 的 Read、Write、Bash、Grep 都不走 MCP，因为它们是核心内置能力。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alternative 4: LangChain -->
+      <div class="alt-card animate-in" onclick="toggleAlt(this)">
+        <div class="alt-card-header">
+          <div class="alt-badge langchain">LC</div>
+          <div class="alt-card-info">
+            <div class="alt-card-name">LangChain / LlamaIndex Tool Abstraction</div>
+            <div class="alt-card-sub">框架层面的工具抽象，用 Python 装饰器定义工具 | 与 RAG 深度集成</div>
+          </div>
+          <span class="alt-expand-icon">&#x25BC;</span>
+        </div>
+        <div class="alt-detail">
+          <div class="alt-detail-inner">
+            <div class="alt-detail-box">
+              <div class="alt-detail-label good">优点</div>
+              <div class="alt-detail-text">Python 生态丰富，大量现成 Tool。与 RAG（检索增强生成）深度集成，适合数据密集型 AI 应用。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label bad">缺点</div>
+              <div class="alt-detail-text">Python only，框架锁定严重。不是标准协议，跨语言/跨框架复用困难。框架更新频繁导致 breaking changes。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label neutral">趋势</div>
+              <div class="alt-detail-text">仍然活跃，但越来越多开发者转向 MCP。LangChain 自身也在添加 MCP 支持，说明标准协议的吸引力。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alternative 5: OpenAPI -->
+      <div class="alt-card animate-in" onclick="toggleAlt(this)">
+        <div class="alt-card-header">
+          <div class="alt-badge openapi">OA</div>
+          <div class="alt-card-info">
+            <div class="alt-card-name">OpenAPI / REST 直接集成</div>
+            <div class="alt-card-sub">把现有 REST API 直接暴露给 AI | AI 根据 OpenAPI spec 自动调用</div>
+          </div>
+          <span class="alt-expand-icon">&#x25BC;</span>
+        </div>
+        <div class="alt-detail">
+          <div class="alt-detail-inner">
+            <div class="alt-detail-box">
+              <div class="alt-detail-label good">优点</div>
+              <div class="alt-detail-text">复用现有 API 基础设施，无需学新协议。成熟的 API 管理生态（网关、鉴权、限流、监控全套方案）。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label bad">缺点</div>
+              <div class="alt-detail-text">需要 AI 理解 API 文档，不如 MCP 的语义化工具描述直观。REST 面向资源设计，与 AI 面向任务的调用模式有 gap。</div>
+            </div>
+            <div class="alt-detail-box">
+              <div class="alt-detail-label neutral">有趣事实</div>
+              <div class="alt-detail-text">很多 MCP Server 本质上就是 OpenAPI 的包装器 — 把现有 REST API 转换为 MCP 工具。MCP 和 OpenAPI 并不矛盾。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <h3 class="section-title">全方位对比表 <span style="font-size:13px;color:var(--text-muted);font-weight:400;">&#8212; 点击行高亮对比</span></h3>
+    <div class="comp-table-wrap">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>维度</th>
+            <th class="col-mcp">MCP</th>
+            <th class="col-fc">Function Calling</th>
+            <th class="col-a2a">A2A</th>
+            <th class="col-native">Native Tools</th>
+            <th class="col-lc">LangChain</th>
+            <th class="col-oa">OpenAPI</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr onclick="toggleRow(this)">
+            <td>标准化</td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+            <td><span class="stars">&#9733;&#9733;<span class="empty">&#9733;&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+            <td><span class="stars">&#9733;<span class="empty">&#9733;&#9733;&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+          </tr>
+          <tr onclick="toggleRow(this)">
+            <td>跨模型</td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;<span class="empty">&#9733;&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;<span class="empty">&#9733;&#9733;&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+          </tr>
+          <tr onclick="toggleRow(this)">
+            <td>性能</td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+          </tr>
+          <tr onclick="toggleRow(this)">
+            <td>生态丰富度</td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+            <td><span class="stars">&#9733;&#9733;<span class="empty">&#9733;&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;<span class="empty">&#9733;&#9733;&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+          </tr>
+          <tr onclick="toggleRow(this)">
+            <td>安全性</td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+          </tr>
+          <tr onclick="toggleRow(this)">
+            <td>易用性</td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+            <td><span class="stars">&#9733;&#9733;<span class="empty">&#9733;&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;<span class="empty">&#9733;&#9733;</span></span></td>
+            <td><span class="stars">&#9733;&#9733;&#9733;&#9733;<span class="empty">&#9733;</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 4: Security Deep Dive ==================== -->
+  <div class="tab-panel" id="tab-3">
+    <!-- Attack Flow -->
+    <div class="attack-flow animate-in">
+      <div class="attack-title">&#x26A0;&#xFE0F; MCP 攻击链: 从恶意内容到系统入侵</div>
+      <div class="attack-steps">
+        <div class="attack-step" onclick="activateStep(this, 0)">
+          <div class="attack-step-num">1</div>
+          <div class="attack-step-content">
+            <div class="attack-step-label">恶意网页/文档注入隐藏提示词</div>
+            <div class="attack-step-desc">攻击者在网页、PDF、邮件中嵌入不可见的指令文本</div>
+          </div>
+          <span class="attack-step-arrow">&#x2193;</span>
+        </div>
+        <div class="attack-step" onclick="activateStep(this, 1)">
+          <div class="attack-step-num">2</div>
+          <div class="attack-step-content">
+            <div class="attack-step-label">AI 读取内容后被提示词注入</div>
+            <div class="attack-step-desc">AI 通过 MCP Resource 读取了包含恶意指令的内容，行为被劫持</div>
+          </div>
+          <span class="attack-step-arrow">&#x2193;</span>
+        </div>
+        <div class="attack-step" onclick="activateStep(this, 2)">
+          <div class="attack-step-num">3</div>
+          <div class="attack-step-content">
+            <div class="attack-step-label">AI 调用 MCP Server 执行恶意操作</div>
+            <div class="attack-step-desc">被劫持的 AI 通过 MCP tools/call 执行删除文件、窃取数据等操作</div>
+          </div>
+          <span class="attack-step-arrow">&#x2193;</span>
+        </div>
+        <div class="attack-step" onclick="activateStep(this, 3)">
+          <div class="attack-step-num">4</div>
+          <div class="attack-step-content">
+            <div class="attack-step-label">文件被删除 / 敏感数据被窃取</div>
+            <div class="attack-step-desc">MCP Server 拥有系统级权限，恶意操作被直接执行，用户可能毫不知情</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attack Vectors -->
+    <h3 class="section-title">四大攻击向量</h3>
+    <div class="vectors-grid">
+      <div class="vector-card animate-in" onclick="toggleVector(this)">
+        <div class="vector-icon">&#x1F4A5;</div>
+        <div class="vector-name">Prompt Injection via MCP</div>
+        <div class="vector-desc">恶意内容通过 MCP Resources 进入 AI 上下文，控制 AI 的行为。攻击者无需直接与 AI 对话，只需污染 AI 会读取的数据源。</div>
+      </div>
+      <div class="vector-card animate-in" onclick="toggleVector(this)">
+        <div class="vector-icon">&#x1F451;</div>
+        <div class="vector-name">Overprivileged Servers</div>
+        <div class="vector-desc">Server 请求的权限远超实际需要。一个"天气查询"Server 却要求文件系统读写权限，用户往往直接授权而不仔细审查。</div>
+      </div>
+      <div class="vector-card animate-in" onclick="toggleVector(this)">
+        <div class="vector-icon">&#x1F4E6;</div>
+        <div class="vector-name">Supply Chain Attack</div>
+        <div class="vector-desc">第三方 MCP Server 包含后门代码。通过 npm/pip 安装的 Server 可能在正常功能之外暗中窃取数据或植入恶意逻辑。</div>
+      </div>
+      <div class="vector-card animate-in" onclick="toggleVector(this)">
+        <div class="vector-icon">&#x1F4E4;</div>
+        <div class="vector-name">Data Exfiltration</div>
+        <div class="vector-desc">恶意 Server 读取本地敏感数据（SSH 密钥、环境变量、数据库凭证）后通过网络发送到外部服务器，完成数据窃取。</div>
+      </div>
+    </div>
+
+    <!-- Defense -->
+    <div class="defense-section animate-in">
+      <div class="defense-title">&#x1F6E1;&#xFE0F; 防御措施</div>
+      <div class="defense-grid">
+        <div class="defense-item">
+          <div class="defense-item-title">最小权限原则</div>
+          <div class="defense-item-desc">只授权 Server 必需的能力。文件系统 Server 只给读权限，不给写权限。严格控制每个 Server 的能力边界。</div>
+        </div>
+        <div class="defense-item">
+          <div class="defense-item-title">审查 Server 源码</div>
+          <div class="defense-item-desc">优先使用开源 Server，在安装前审查代码。警惕闭源或来源不明的 MCP Server，尤其是需要系统权限的。</div>
+        </div>
+        <div class="defense-item">
+          <div class="defense-item-title">沙箱化隔离</div>
+          <div class="defense-item-desc">使用容器或沙箱环境运行 MCP Server，限制其系统访问范围。防止恶意 Server 读取敏感文件或执行危险命令。</div>
+        </div>
+        <div class="defense-item">
+          <div class="defense-item-title">人在回路 (Human-in-the-Loop)</div>
+          <div class="defense-item-desc">关键操作需要人工确认。例如 Claude Code 的权限弹窗机制 — 执行危险命令前必须用户明确批准。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 5: Future Outlook ==================== -->
+  <div class="tab-panel" id="tab-4">
+    <h3 class="section-title">MCP 会成为唯一标准吗？</h3>
+
+    <div class="timeline">
+      <div class="timeline-item animate-in" onclick="activateTimeline(this)">
+        <div class="timeline-dot"></div>
+        <div class="timeline-year">2024</div>
+        <div class="timeline-label">MCP 诞生</div>
+        <div class="timeline-desc">Anthropic 发布 MCP 协议规范和开源 SDK。Claude Desktop 率先支持，开发者社区开始关注。第一批 MCP Server 出现在 GitHub。</div>
+      </div>
+
+      <div class="timeline-item animate-in" onclick="activateTimeline(this)">
+        <div class="timeline-dot"></div>
+        <div class="timeline-year">2025</div>
+        <div class="timeline-label">生态爆发</div>
+        <div class="timeline-desc">OpenAI、Google、Microsoft 开始支持 MCP。Cursor、Windsurf 等 AI IDE 全面集成。数千个 MCP Server 发布。Google 同时推出 A2A 协议，定位 Agent 间通信。</div>
+      </div>
+
+      <div class="timeline-item animate-in" onclick="activateTimeline(this)">
+        <div class="timeline-dot"></div>
+        <div class="timeline-now">NOW</div>
+        <div class="timeline-year">2026 (现在)</div>
+        <div class="timeline-label">事实标准</div>
+        <div class="timeline-desc">MCP 成为 AI 工具集成的事实标准，但不是唯一选择。Function Calling 仍然在简单场景中流行，A2A 在多 Agent 场景中崭露头角。安全问题日益受到重视。</div>
+      </div>
+
+      <div class="timeline-item future animate-in" onclick="activateTimeline(this)">
+        <div class="timeline-dot"></div>
+        <div class="timeline-year">2027+ (预测)</div>
+        <div class="timeline-label">成熟与分化</div>
+        <div class="timeline-desc">
+          <strong>MCP + A2A 共存</strong> — MCP 管 AI&#x2192;工具，A2A 管 Agent&#x2192;Agent，各司其职<br>
+          <strong>安全标准成熟</strong> — MCP Server 认证机制和沙箱标准正式发布<br>
+          <strong>去中心化治理</strong> — 从 "Anthropic 主导" 变成 "社区驱动" 的开放标准<br>
+          <strong>MCP 2.0</strong> — 支持流式数据、二进制传输、内置沙箱、Server 注册中心
+        </div>
+      </div>
+    </div>
+
+    <!-- Conclusion -->
+    <div class="conclusion-box animate-in">
+      <div class="conclusion-quote">
+        MCP 不是完美的，但它解决了一个真实的问题。就像 HTTP 不完美但成了 Web 标准一样，MCP 正在成为 AI 工具集成的 HTTP。关键不是 MCP 是否最好，而是统一标准本身的价值。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Glossary Button -->
+<button class="glossary-btn" onclick="toggleGlossary()" title="术语表">?</button>
+
+<!-- Glossary Overlay -->
+<div class="glossary-overlay" id="glossaryOverlay" onclick="toggleGlossary()"></div>
+
+<!-- Glossary Modal -->
+<div class="glossary-modal" id="glossaryModal">
+  <div class="glossary-header">
+    <h3>&#x1F4D6; 术语表</h3>
+    <button class="glossary-close" onclick="toggleGlossary()">&times;</button>
+  </div>
+  <div class="glossary-body">
+    <div class="glossary-item">
+      <div class="glossary-term">MCP (Model Context Protocol)</div>
+      <div class="glossary-def">Anthropic 提出的 AI 工具集成标准协议，定义了 AI 应用如何与外部工具和数据源交互。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">JSON-RPC</div>
+      <div class="glossary-def">MCP 使用的通信格式，基于 JSON 的远程过程调用协议，轻量、简单、语言无关。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Transport (传输层)</div>
+      <div class="glossary-def">MCP 的通信方式: stdio (本地进程间通信) 或 SSE/HTTP (远程网络通信)。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">MCP Server</div>
+      <div class="glossary-def">暴露工具和资源的服务端程序，每个 Server 专注一个领域（文件系统、GitHub、数据库等）。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">MCP Client</div>
+      <div class="glossary-def">AI 应用中负责与 Server 通信的组件，维护 1:1 连接，处理协议握手和消息序列化。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Tools (工具)</div>
+      <div class="glossary-def">Server 提供给 AI 调用的函数（如读文件、查数据库），可能产生副作用。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Resources (资源)</div>
+      <div class="glossary-def">Server 提供给 AI 读取的只读数据（如文件内容、数据库记录、API 响应）。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Function Calling (函数调用)</div>
+      <div class="glossary-def">OpenAI 的工具调用方式，在 API 请求中定义可用函数，模型自动决定调用时机。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">A2A (Agent-to-Agent Protocol)</div>
+      <div class="glossary-def">Google 推出的 Agent 间通信协议，解决多 Agent 协作场景，与 MCP 互补。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Prompt Injection (提示词注入)</div>
+      <div class="glossary-def">通过恶意内容控制 AI 行为的攻击方式，攻击者将指令嵌入 AI 会读取的数据中。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Sandbox (沙箱)</div>
+      <div class="glossary-def">限制程序访问权限的隔离环境，防止恶意代码访问敏感资源或执行危险操作。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">SDK (Software Development Kit)</div>
+      <div class="glossary-def">开发工具包，MCP 官方提供 Python/TypeScript/Java/Go SDK 用于编写 Server 和 Client。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========== Tab Navigation ========== */
+var currentTab = 0;
+
+function switchTab(index) {
+  currentTab = index;
+  var buttons = document.querySelectorAll('.tab-btn');
+  var panels = document.querySelectorAll('.tab-panel');
+
+  buttons.forEach(function(btn, i) {
+    btn.classList.toggle('active', i === index);
+  });
+
+  panels.forEach(function(panel, i) {
+    panel.classList.toggle('active', i === index);
+  });
+
+  triggerAnimations();
+}
+
+/* ========== Pros & Cons Toggle ========== */
+function togglePC(el) {
+  var wasExpanded = el.classList.contains('expanded');
+  el.classList.toggle('expanded', !wasExpanded);
+}
+
+/* ========== Alternative Cards Toggle ========== */
+function toggleAlt(el) {
+  var wasExpanded = el.classList.contains('expanded');
+  var allCards = document.querySelectorAll('.alt-card');
+  allCards.forEach(function(card) { card.classList.remove('expanded'); });
+  if (!wasExpanded) {
+    el.classList.add('expanded');
+  }
+}
+
+/* ========== Comparison Table Row Highlight ========== */
+function toggleRow(el) {
+  var wasHighlighted = el.classList.contains('highlighted');
+  var allRows = document.querySelectorAll('.comp-table tbody tr');
+  allRows.forEach(function(row) { row.classList.remove('highlighted'); });
+  if (!wasHighlighted) {
+    el.classList.add('highlighted');
+  }
+}
+
+/* ========== Attack Steps ========== */
+function activateStep(el, index) {
+  var steps = document.querySelectorAll('.attack-step');
+  steps.forEach(function(s) { s.classList.remove('active'); });
+
+  for (var i = 0; i <= index; i++) {
+    steps[i].classList.add('active');
+  }
+}
+
+/* ========== Vector Cards ========== */
+function toggleVector(el) {
+  el.classList.toggle('active');
+}
+
+/* ========== Timeline ========== */
+function activateTimeline(el) {
+  var wasActive = el.classList.contains('active');
+  var items = document.querySelectorAll('.timeline-item');
+  items.forEach(function(item) { item.classList.remove('active'); });
+  if (!wasActive) {
+    el.classList.add('active');
+  }
+}
+
+/* ========== Glossary ========== */
+function toggleGlossary() {
+  var overlay = document.getElementById('glossaryOverlay');
+  var modal = document.getElementById('glossaryModal');
+  var isActive = modal.classList.contains('active');
+
+  overlay.classList.toggle('active', !isActive);
+  modal.classList.toggle('active', !isActive);
+}
+
+/* ========== Scroll Animations ========== */
+function triggerAnimations() {
+  setTimeout(function() {
+    var elements = document.querySelectorAll('.tab-panel.active .animate-in');
+    elements.forEach(function(el, i) {
+      setTimeout(function() {
+        el.classList.add('visible');
+      }, i * 60);
+    });
+  }, 50);
+}
+
+/* Intersection Observer for scroll-based animation */
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(entry) {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+function observeAnimations() {
+  var elements = document.querySelectorAll('.animate-in');
+  elements.forEach(function(el) {
+    observer.observe(el);
+  });
+}
+
+/* ========== Keyboard Navigation ========== */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    switchTab(Math.min(currentTab + 1, 4));
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    switchTab(Math.max(currentTab - 1, 0));
+  } else if (e.key === 'Escape') {
+    var modal = document.getElementById('glossaryModal');
+    if (modal.classList.contains('active')) {
+      toggleGlossary();
+    }
+  } else if (e.key >= '1' && e.key <= '5') {
+    switchTab(parseInt(e.key) - 1);
+  }
+});
+
+/* ========== Auto-play Attack Chain ========== */
+var attackAutoplay = null;
+
+function startAttackAutoplay() {
+  if (attackAutoplay) return;
+  var step = 0;
+  var steps = document.querySelectorAll('.attack-step');
+
+  attackAutoplay = setInterval(function() {
+    if (currentTab !== 3) {
+      clearInterval(attackAutoplay);
+      attackAutoplay = null;
+      return;
+    }
+
+    if (step < steps.length) {
+      activateStep(steps[step], step);
+      step++;
+    } else {
+      step = 0;
+      steps.forEach(function(s) { s.classList.remove('active'); });
+    }
+  }, 1500);
+}
+
+/* Watch for tab 4 (security) to start autoplay */
+var tabObserver = new MutationObserver(function() {
+  var secTab = document.getElementById('tab-3');
+  if (secTab && secTab.classList.contains('active')) {
+    startAttackAutoplay();
+  } else if (attackAutoplay) {
+    clearInterval(attackAutoplay);
+    attackAutoplay = null;
+  }
+});
+
+/* ========== Init ========== */
+document.addEventListener('DOMContentLoaded', function() {
+  triggerAnimations();
+  observeAnimations();
+
+  var panels = document.querySelectorAll('.tab-panel');
+  panels.forEach(function(panel) {
+    tabObserver.observe(panel, { attributes: true, attributeFilter: ['class'] });
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 训练集群架构 — 万卡炼丹炉</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a0e1a;
+  color: #e2e8f0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 28px 20px 12px;
+  width: 100%;
+}
+
+.header h1 {
+  font-size: 30px;
+  font-weight: 900;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 .accent { color: #22d3ee; }
+.header h1 .fire { color: #f97316; }
+
+.header .subtitle {
+  font-size: 15px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Problem Statement */
+.problem-banner {
+  background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(249,115,22,0.12));
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 12px;
+  padding: 14px 24px;
+  margin: 8px 20px 16px;
+  max-width: 780px;
+  width: calc(100% - 40px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.problem-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.problem-text {
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.problem-text strong {
+  color: #f97316;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.problem-text .solution {
+  color: #22d3ee;
+  font-weight: 700;
+}
+
+/* Tabs */
+.tab-container {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 12px;
+  background: rgba(30,41,59,0.6);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.tab {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #94a3b8;
+  border: 1px solid transparent;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: #e2e8f0;
+  background: rgba(51,65,85,0.4);
+}
+
+.tab.active {
+  color: #fff;
+  border-color: rgba(34,211,238,0.3);
+}
+
+.tab[data-tab="data"].active {
+  background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(59,130,246,0.2));
+  box-shadow: 0 0 20px rgba(34,211,238,0.15);
+}
+
+.tab[data-tab="model"].active {
+  background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(236,72,153,0.2));
+  box-shadow: 0 0 20px rgba(168,85,247,0.15);
+}
+
+.tab[data-tab="pipeline"].active {
+  background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(234,179,8,0.2));
+  box-shadow: 0 0 20px rgba(34,197,94,0.15);
+}
+
+.tab[data-tab="infra"].active {
+  background: linear-gradient(135deg, rgba(249,115,22,0.2), rgba(239,68,68,0.2));
+  box-shadow: 0 0 20px rgba(249,115,22,0.15);
+}
+
+/* Stage */
+.stage-container {
+  position: relative;
+  width: 820px;
+  max-width: calc(100% - 40px);
+  height: 440px;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(51,65,85,0.6);
+  overflow: hidden;
+  box-shadow: 0 4px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* Grid background */
+.stage-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(51,65,85,0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(51,65,85,0.15) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+.panel {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+.panel.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Panel title */
+.panel-title {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 18px;
+  border-radius: 20px;
+  z-index: 20;
+  white-space: nowrap;
+}
+
+.panel-title.cyan {
+  color: #22d3ee;
+  background: rgba(34,211,238,0.1);
+  border: 1px solid rgba(34,211,238,0.2);
+}
+
+.panel-title.purple {
+  color: #a855f7;
+  background: rgba(168,85,247,0.1);
+  border: 1px solid rgba(168,85,247,0.2);
+}
+
+.panel-title.green {
+  color: #22c55e;
+  background: rgba(34,197,94,0.1);
+  border: 1px solid rgba(34,197,94,0.2);
+}
+
+.panel-title.orange {
+  color: #f97316;
+  background: rgba(249,115,22,0.1);
+  border: 1px solid rgba(249,115,22,0.2);
+}
+
+/* GPU Block */
+.gpu {
+  position: absolute;
+  width: 64px;
+  height: 40px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  transition: all 0.4s ease;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+.gpu .gpu-label {
+  font-size: 8px;
+  font-weight: 500;
+  opacity: 0.7;
+  margin-top: 1px;
+}
+
+.gpu-cyan {
+  background: linear-gradient(135deg, #0891b2, #06b6d4);
+  color: #fff;
+  border: 1px solid rgba(34,211,238,0.4);
+}
+
+.gpu-purple {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  border: 1px solid rgba(168,85,247,0.4);
+}
+
+.gpu-green {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff;
+  border: 1px solid rgba(34,197,94,0.4);
+}
+
+.gpu-orange {
+  background: linear-gradient(135deg, #ea580c, #f97316);
+  color: #fff;
+  border: 1px solid rgba(249,115,22,0.4);
+}
+
+/* Data batch blocks */
+.data-batch {
+  position: absolute;
+  width: 52px;
+  height: 28px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Model layer block */
+.model-layer {
+  position: absolute;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Connection lines (SVG) */
+.connections-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Particle */
+.particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.particle-cyan {
+  background: #22d3ee;
+  box-shadow: 0 0 8px #22d3ee, 0 0 16px rgba(34,211,238,0.4);
+}
+
+.particle-purple {
+  background: #a855f7;
+  box-shadow: 0 0 8px #a855f7, 0 0 16px rgba(168,85,247,0.4);
+}
+
+.particle-green {
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e, 0 0 16px rgba(34,197,94,0.4);
+}
+
+.particle-orange {
+  background: #f97316;
+  box-shadow: 0 0 8px #f97316, 0 0 16px rgba(249,115,22,0.4);
+}
+
+.particle-yellow {
+  background: #eab308;
+  box-shadow: 0 0 8px #eab308, 0 0 16px rgba(234,179,8,0.4);
+}
+
+/* Annotation labels */
+.annotation {
+  position: absolute;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 15;
+}
+
+.annotation strong {
+  color: #e2e8f0;
+}
+
+.annotation .mono {
+  font-family: 'JetBrains Mono', monospace;
+  color: #22d3ee;
+  font-size: 10px;
+}
+
+/* Status badge */
+.status-badge {
+  position: absolute;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  z-index: 15;
+  animation: pulse-badge 2s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Play/Pause button */
+.play-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(51,65,85,0.6);
+  border: 1px solid rgba(100,116,139,0.3);
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  z-index: 30;
+  transition: all 0.2s;
+}
+
+.play-btn:hover {
+  background: rgba(51,65,85,0.9);
+  color: #e2e8f0;
+}
+
+/* Description area */
+.desc-container {
+  max-width: 780px;
+  width: calc(100% - 40px);
+  margin: 16px 0 8px;
+}
+
+.desc-card {
+  display: none;
+  background: rgba(30,41,59,0.5);
+  border: 1px solid rgba(51,65,85,0.5);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.desc-card.active {
+  display: block;
+}
+
+.desc-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.desc-card h3.cyan { color: #22d3ee; }
+.desc-card h3.purple { color: #a855f7; }
+.desc-card h3.green { color: #22c55e; }
+.desc-card h3.orange { color: #f97316; }
+
+.desc-card ul {
+  list-style: none;
+  padding: 0;
+}
+
+.desc-card ul li {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.8;
+  padding-left: 16px;
+  position: relative;
+}
+
+.desc-card ul li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: #475569;
+}
+
+.desc-card ul li strong {
+  color: #e2e8f0;
+}
+
+.desc-card ul li code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  background: rgba(34,211,238,0.1);
+  color: #22d3ee;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Scale section */
+.scale-section {
+  max-width: 780px;
+  width: calc(100% - 40px);
+  margin: 8px 0 28px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.scale-card {
+  background: rgba(30,41,59,0.4);
+  border: 1px solid rgba(51,65,85,0.4);
+  border-radius: 10px;
+  padding: 14px 16px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.scale-card:hover {
+  border-color: rgba(100,116,139,0.4);
+  background: rgba(30,41,59,0.6);
+}
+
+.scale-card .model-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+}
+
+.scale-card .stat {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.scale-card:nth-child(1) .stat { color: #22d3ee; }
+.scale-card:nth-child(2) .stat { color: #a855f7; }
+.scale-card:nth-child(3) .stat { color: #f97316; }
+
+.scale-card .stat-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.scale-card .detail {
+  font-size: 11px;
+  color: #475569;
+  margin-top: 4px;
+}
+
+/* ===== DATA PARALLELISM PANEL ===== */
+#panel-data .gpu-row {
+  position: absolute;
+  display: flex;
+  gap: 24px;
+}
+
+/* ===== MODEL PARALLELISM PANEL ===== */
+.model-block {
+  position: absolute;
+  border-radius: 8px;
+  border: 2px dashed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ===== PIPELINE PARALLELISM PANEL ===== */
+.pipeline-stage {
+  position: absolute;
+  border-radius: 8px;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ===== INFRA PANEL ===== */
+.dgx-node {
+  position: absolute;
+  border-radius: 10px;
+  border: 1px solid;
+  padding: 8px;
+}
+
+.dgx-label {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.dgx-gpus {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.mini-gpu {
+  width: 18px;
+  height: 14px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 6px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.8);
+}
+
+/* All-Reduce animation */
+.all-reduce-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(34,211,238,0.3);
+}
+
+@keyframes spin-ring {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Gradient arrow */
+.gradient-arrow {
+  position: absolute;
+  z-index: 10;
+}
+
+/* Bubble (pipeline idle time) */
+.bubble {
+  position: absolute;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+/* Micro-batch timeline */
+.timeline-row {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  height: 28px;
+}
+
+.timeline-cell {
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: #fff;
+  margin: 0 1px;
+  transition: opacity 0.3s;
+}
+
+.timeline-cell.empty {
+  background: rgba(51,65,85,0.3);
+  border: 1px dashed rgba(100,116,139,0.3);
+  color: rgba(100,116,139,0.4);
+}
+
+/* Link speed badge */
+.link-badge {
+  position: absolute;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  z-index: 15;
+}
+
+/* Glow effects */
+.glow-cyan { filter: drop-shadow(0 0 6px rgba(34,211,238,0.4)); }
+.glow-purple { filter: drop-shadow(0 0 6px rgba(168,85,247,0.4)); }
+.glow-green { filter: drop-shadow(0 0 6px rgba(34,197,94,0.4)); }
+.glow-orange { filter: drop-shadow(0 0 6px rgba(249,115,22,0.4)); }
+
+/* Responsive */
+@media (max-width: 860px) {
+  .stage-container { height: 400px; }
+  .scale-section { grid-template-columns: 1fr; }
+  .tab { padding: 8px 14px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1><span class="accent">AI 训练集群架构</span> — <span class="fire">万卡炼丹炉</span></h1>
+  <p class="subtitle">训练千亿参数模型的分布式并行策略与通信基础设施</p>
+</div>
+
+<!-- Problem Banner -->
+<div class="problem-banner">
+  <div class="problem-icon">&#x1F525;</div>
+  <div class="problem-text">
+    <strong>175B</strong> 参数模型（GPT-3），FP16 存储需要 <strong>350GB</strong>，
+    单张 A100（<strong>80GB</strong> 显存）放不下 →
+    <span class="solution">分布式训练是唯一出路</span>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tab-container">
+  <div class="tab active" data-tab="data">&#x1F4CA; 数据并行</div>
+  <div class="tab" data-tab="model">&#x1F9E9; 模型并行</div>
+  <div class="tab" data-tab="pipeline">&#x1F3ED; 流水线并行</div>
+  <div class="tab" data-tab="infra">&#x1F310; 通信基础设施</div>
+</div>
+
+<!-- Stage -->
+<div class="stage-container" id="stage">
+
+  <!-- ============ DATA PARALLELISM ============ -->
+  <div class="panel active" id="panel-data">
+    <div class="panel-title cyan">数据并行 Data Parallelism — 每张 GPU 持有完整模型副本</div>
+
+    <svg class="connections-svg" id="svg-data"></svg>
+
+    <!-- 4 GPUs with model copies -->
+    <div class="gpu gpu-cyan" style="left:80px; top:100px;" id="dp-gpu0">
+      GPU 0
+      <span class="gpu-label">模型副本</span>
+    </div>
+    <div class="gpu gpu-cyan" style="left:260px; top:100px;" id="dp-gpu1">
+      GPU 1
+      <span class="gpu-label">模型副本</span>
+    </div>
+    <div class="gpu gpu-cyan" style="left:440px; top:100px;" id="dp-gpu2">
+      GPU 2
+      <span class="gpu-label">模型副本</span>
+    </div>
+    <div class="gpu gpu-cyan" style="left:620px; top:100px;" id="dp-gpu3">
+      GPU 3
+      <span class="gpu-label">模型副本</span>
+    </div>
+
+    <!-- Data batches -->
+    <div class="data-batch" style="left:84px; top:180px; background:rgba(34,211,238,0.2); border:1px solid rgba(34,211,238,0.4); color:#22d3ee;" id="dp-batch0">Batch 0</div>
+    <div class="data-batch" style="left:264px; top:180px; background:rgba(56,189,248,0.2); border:1px solid rgba(56,189,248,0.4); color:#38bdf8;" id="dp-batch1">Batch 1</div>
+    <div class="data-batch" style="left:444px; top:180px; background:rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.4); color:#6366f1;" id="dp-batch2">Batch 2</div>
+    <div class="data-batch" style="left:624px; top:180px; background:rgba(139,92,246,0.2); border:1px solid rgba(139,92,246,0.4); color:#8b5cf6;" id="dp-batch3">Batch 3</div>
+
+    <!-- Forward/Backward arrows placeholder -->
+    <div class="annotation" style="left:80px; top:225px;">&#x2B07; 前向 + 反向传播</div>
+
+    <!-- Gradient labels -->
+    <div class="annotation" style="left:90px; top:268px; color:#f97316;">&#x2207; 梯度 0</div>
+    <div class="annotation" style="left:270px; top:268px; color:#f97316;">&#x2207; 梯度 1</div>
+    <div class="annotation" style="left:450px; top:268px; color:#f97316;">&#x2207; 梯度 2</div>
+    <div class="annotation" style="left:630px; top:268px; color:#f97316;">&#x2207; 梯度 3</div>
+
+    <!-- All-Reduce zone -->
+    <div style="position:absolute; left:50%; top:320px; transform:translateX(-50%); width:620px; height:60px; border:2px solid rgba(234,179,8,0.3); border-radius:10px; background:rgba(234,179,8,0.05); display:flex; align-items:center; justify-content:center;">
+      <span style="font-size:13px; font-weight:700; color:#eab308; font-family:'JetBrains Mono',monospace;">All-Reduce &#x1F504; &#x68AF;&#x5EA6;&#x540C;&#x6B65;</span>
+    </div>
+
+    <!-- Status badge -->
+    <div class="status-badge" style="bottom:20px; left:50%; transform:translateX(-50%); background:rgba(34,211,238,0.15); color:#22d3ee; border:1px solid rgba(34,211,238,0.3);" id="dp-status">TRAINING...</div>
+  </div>
+
+  <!-- ============ MODEL PARALLELISM ============ -->
+  <div class="panel" id="panel-model">
+    <div class="panel-title purple">模型并行 Tensor Parallelism — 模型切分到多张 GPU</div>
+
+    <svg class="connections-svg" id="svg-model"></svg>
+
+    <!-- Full model representation (top) -->
+    <div style="position:absolute; left:50%; top:60px; transform:translateX(-50%); width:680px; height:44px; border-radius:8px; border:2px dashed rgba(168,85,247,0.4); background:rgba(168,85,247,0.05); display:flex; overflow:hidden;">
+      <div style="flex:1; background:rgba(168,85,247,0.15); border-right:1px dashed rgba(168,85,247,0.3); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; color:#a855f7;">Layer 0-23</div>
+      <div style="flex:1; background:rgba(236,72,153,0.15); border-right:1px dashed rgba(236,72,153,0.3); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; color:#ec4899;">Layer 24-47</div>
+      <div style="flex:1; background:rgba(99,102,241,0.15); border-right:1px dashed rgba(99,102,241,0.3); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; color:#6366f1;">Layer 48-71</div>
+      <div style="flex:1; background:rgba(59,130,246,0.15); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; color:#3b82f6;">Layer 72-95</div>
+    </div>
+
+    <div class="annotation" style="left:50%; top:112px; transform:translateX(-50%); color:#a855f7; font-size:12px;">&#x2702; 横向切割分配到不同 GPU &#x2193;</div>
+
+    <!-- 4 GPUs with model slices -->
+    <div class="gpu gpu-purple" style="left:80px; top:150px; width:130px; height:50px;">
+      GPU 0
+      <span class="gpu-label">Layer 0-23</span>
+    </div>
+    <div class="gpu" style="left:260px; top:150px; width:130px; height:50px; background:linear-gradient(135deg,#be185d,#ec4899); color:#fff; border:1px solid rgba(236,72,153,0.4);">
+      GPU 1
+      <span class="gpu-label">Layer 24-47</span>
+    </div>
+    <div class="gpu" style="left:440px; top:150px; width:130px; height:50px; background:linear-gradient(135deg,#4338ca,#6366f1); color:#fff; border:1px solid rgba(99,102,241,0.4);">
+      GPU 2
+      <span class="gpu-label">Layer 48-71</span>
+    </div>
+    <div class="gpu" style="left:620px; top:150px; width:130px; height:50px; background:linear-gradient(135deg,#1d4ed8,#3b82f6); color:#fff; border:1px solid rgba(59,130,246,0.4);">
+      GPU 3
+      <span class="gpu-label">Layer 72-95</span>
+    </div>
+
+    <!-- Arrows showing data flow between GPUs -->
+    <div class="annotation" style="left:220px; top:168px; color:#eab308; font-size:14px;">&#x27A1;</div>
+    <div class="annotation" style="left:400px; top:168px; color:#eab308; font-size:14px;">&#x27A1;</div>
+    <div class="annotation" style="left:580px; top:168px; color:#eab308; font-size:14px;">&#x27A1;</div>
+
+    <!-- Input data -->
+    <div style="position:absolute; left:18px; top:160px; font-size:11px; font-weight:600; color:#22d3ee;">Input &#x27A1;</div>
+    <div style="position:absolute; right:18px; top:160px; font-size:11px; font-weight:600; color:#22c55e;">&#x27A1; Output</div>
+
+    <!-- Memory diagram -->
+    <div style="position:absolute; left:50%; top:230px; transform:translateX(-50%); width:680px;">
+      <div class="annotation" style="position:static; text-align:center; margin-bottom:8px; font-size:12px; color:#94a3b8;">&#x1F4BE; 显存使用对比</div>
+      <div style="display:flex; gap:12px; justify-content:center;">
+        <div style="flex:1; max-width:320px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:10px 14px; text-align:center;">
+          <div style="font-size:11px; color:#ef4444; font-weight:600; margin-bottom:4px;">&#x274C; 单 GPU（不可行）</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:18px; color:#ef4444; font-weight:700;">350GB</div>
+          <div style="font-size:10px; color:#64748b;">A100 只有 80GB</div>
+        </div>
+        <div style="flex:1; max-width:320px; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:8px; padding:10px 14px; text-align:center;">
+          <div style="font-size:11px; color:#22c55e; font-weight:600; margin-bottom:4px;">&#x2705; 4-GPU 模型并行</div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:18px; color:#22c55e; font-weight:700;">~87.5GB / GPU</div>
+          <div style="font-size:10px; color:#64748b;">每张 GPU 只放 1/4 模型</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Communication note -->
+    <div style="position:absolute; left:50%; bottom:30px; transform:translateX(-50%); width:620px; background:rgba(234,179,8,0.08); border:1px solid rgba(234,179,8,0.2); border-radius:8px; padding:8px 16px; text-align:center;">
+      <span style="font-size:11px; color:#eab308;">&#x26A0; 通信开销大：GPU 之间每层都需要传递中间激活值（Activation）— 需要高速 NVLink 连接</span>
+    </div>
+
+    <div class="status-badge" style="bottom:70px; right:20px; background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.3);" id="mp-status">SPLITTING...</div>
+  </div>
+
+  <!-- ============ PIPELINE PARALLELISM ============ -->
+  <div class="panel" id="panel-pipeline">
+    <div class="panel-title green">流水线并行 Pipeline Parallelism — 分段流水处理</div>
+
+    <svg class="connections-svg" id="svg-pipeline"></svg>
+
+    <!-- Pipeline stages (GPUs) -->
+    <div style="position:absolute; left:28px; top:52px; display:flex; flex-direction:column; gap:6px; width:80px;">
+      <div class="gpu gpu-green" style="position:static; width:80px; height:34px; font-size:9px;">GPU 0<span class="gpu-label">Stage 1</span></div>
+      <div class="gpu" style="position:static; width:80px; height:34px; font-size:9px; background:linear-gradient(135deg,#0d9488,#14b8a6); color:#fff; border:1px solid rgba(20,184,166,0.4);">GPU 1<span class="gpu-label">Stage 2</span></div>
+      <div class="gpu" style="position:static; width:80px; height:34px; font-size:9px; background:linear-gradient(135deg,#0891b2,#06b6d4); color:#fff; border:1px solid rgba(6,182,212,0.4);">GPU 2<span class="gpu-label">Stage 3</span></div>
+      <div class="gpu" style="position:static; width:80px; height:34px; font-size:9px; background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; border:1px solid rgba(59,130,246,0.4);">GPU 3<span class="gpu-label">Stage 4</span></div>
+    </div>
+
+    <!-- Micro-batch timeline -->
+    <div style="position:absolute; left:130px; top:46px; font-size:10px; color:#64748b; font-weight:600;">时间 &#x27A1;</div>
+
+    <!-- Timeline labels -->
+    <div style="position:absolute; left:130px; top:44px; right:20px;">
+      <!-- Time markers -->
+      <div style="display:flex; justify-content:space-between; padding:0 10px; margin-bottom:2px;">
+        <span style="font-size:8px; color:#475569; font-family:'JetBrains Mono',monospace;">t1</span>
+        <span style="font-size:8px; color:#475569; font-family:'JetBrains Mono',monospace;">t2</span>
+        <span style="font-size:8px; color:#475569; font-family:'JetBrains Mono',monospace;">t3</span>
+        <span style="font-size:8px; color:#475569; font-family:'JetBrains Mono',monospace;">t4</span>
+        <span style="font-size:8px; color:#475569; font-family:'JetBrains Mono',monospace;">t5</span>
+        <span style="font-size:8px; color:#475569; font-family:'JetBrains Mono',monospace;">t6</span>
+        <span style="font-size:8px; color:#475569; font-family:'JetBrains Mono',monospace;">t7</span>
+      </div>
+
+      <!-- GPU 0 row -->
+      <div class="timeline-row" style="position:static;" id="tl-row0"></div>
+      <!-- GPU 1 row -->
+      <div class="timeline-row" style="position:static; margin-top:12px;" id="tl-row1"></div>
+      <!-- GPU 2 row -->
+      <div class="timeline-row" style="position:static; margin-top:12px;" id="tl-row2"></div>
+      <!-- GPU 3 row -->
+      <div class="timeline-row" style="position:static; margin-top:12px;" id="tl-row3"></div>
+    </div>
+
+    <!-- Legend -->
+    <div style="position:absolute; left:130px; bottom:82px; display:flex; gap:16px; align-items:center;">
+      <div style="display:flex; align-items:center; gap:4px;">
+        <div style="width:14px; height:10px; border-radius:3px; background:#22c55e;"></div>
+        <span style="font-size:10px; color:#94a3b8;">前向传播 (F)</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <div style="width:14px; height:10px; border-radius:3px; background:#3b82f6;"></div>
+        <span style="font-size:10px; color:#94a3b8;">反向传播 (B)</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <div style="width:14px; height:10px; border-radius:3px; background:rgba(51,65,85,0.5); border:1px dashed rgba(100,116,139,0.4);"></div>
+        <span style="font-size:10px; color:#94a3b8;">气泡 (Idle)</span>
+      </div>
+    </div>
+
+    <!-- Bubble note -->
+    <div style="position:absolute; left:130px; bottom:50px; width:calc(100% - 160px); background:rgba(234,179,8,0.08); border:1px solid rgba(234,179,8,0.2); border-radius:8px; padding:8px 14px;">
+      <span style="font-size:11px; color:#eab308;">&#x1F4A1; Micro-batch 流水化：将大 batch 切成小块，减少 GPU 空闲"气泡"，提高利用率</span>
+    </div>
+
+    <div class="status-badge" style="bottom:14px; right:14px; background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3);" id="pp-status">PIPELINING...</div>
+  </div>
+
+  <!-- ============ INFRA PANEL ============ -->
+  <div class="panel" id="panel-infra">
+    <div class="panel-title orange">通信基础设施 — 集群拓扑与互联</div>
+
+    <svg class="connections-svg" id="svg-infra"></svg>
+
+    <!-- DGX Node 1 -->
+    <div class="dgx-node" style="left:40px; top:60px; width:200px; border-color:rgba(249,115,22,0.3); background:rgba(249,115,22,0.05);" id="dgx1">
+      <div class="dgx-label" style="color:#f97316;">DGX Node 1</div>
+      <div class="dgx-gpus" id="dgx1-gpus"></div>
+      <div style="text-align:center; margin-top:6px; font-size:8px; color:#f97316; font-family:'JetBrains Mono',monospace;">8 x A100 80GB</div>
+    </div>
+
+    <!-- DGX Node 2 -->
+    <div class="dgx-node" style="left:310px; top:60px; width:200px; border-color:rgba(34,211,238,0.3); background:rgba(34,211,238,0.05);" id="dgx2">
+      <div class="dgx-label" style="color:#22d3ee;">DGX Node 2</div>
+      <div class="dgx-gpus" id="dgx2-gpus"></div>
+      <div style="text-align:center; margin-top:6px; font-size:8px; color:#22d3ee; font-family:'JetBrains Mono',monospace;">8 x A100 80GB</div>
+    </div>
+
+    <!-- DGX Node 3 -->
+    <div class="dgx-node" style="left:580px; top:60px; width:200px; border-color:rgba(168,85,247,0.3); background:rgba(168,85,247,0.05);" id="dgx3">
+      <div class="dgx-label" style="color:#a855f7;">DGX Node 3</div>
+      <div class="dgx-gpus" id="dgx3-gpus"></div>
+      <div style="text-align:center; margin-top:6px; font-size:8px; color:#a855f7; font-family:'JetBrains Mono',monospace;">8 x A100 80GB</div>
+    </div>
+
+    <!-- NVLink labels -->
+    <div class="link-badge" style="left:80px; top:196px; background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3);">NVLink 900GB/s</div>
+    <div class="link-badge" style="left:350px; top:196px; background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3);">NVLink 900GB/s</div>
+    <div class="link-badge" style="left:620px; top:196px; background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3);">NVLink 900GB/s</div>
+
+    <!-- InfiniBand Switch -->
+    <div style="position:absolute; left:50%; top:240px; transform:translateX(-50%); width:500px; height:44px; background:linear-gradient(135deg, rgba(249,115,22,0.15), rgba(239,68,68,0.15)); border:1px solid rgba(249,115,22,0.3); border-radius:10px; display:flex; align-items:center; justify-content:center; gap:12px;">
+      <span style="font-size:13px; font-weight:700; color:#f97316; font-family:'JetBrains Mono',monospace;">InfiniBand Switch</span>
+      <span style="font-size:10px; color:#94a3b8;">|</span>
+      <span style="font-size:11px; color:#eab308; font-weight:600;">400 Gbps</span>
+    </div>
+
+    <!-- Connection lines from nodes to switch -->
+    <div style="position:absolute; left:140px; top:210px; width:2px; height:30px; background:linear-gradient(180deg, rgba(249,115,22,0.4), rgba(249,115,22,0.1));"></div>
+    <div style="position:absolute; left:410px; top:210px; width:2px; height:30px; background:linear-gradient(180deg, rgba(34,211,238,0.4), rgba(34,211,238,0.1));"></div>
+    <div style="position:absolute; left:680px; top:210px; width:2px; height:30px; background:linear-gradient(180deg, rgba(168,85,247,0.4), rgba(168,85,247,0.1));"></div>
+
+    <!-- Cluster Topology Summary -->
+    <div style="position:absolute; left:50%; top:305px; transform:translateX(-50%); text-align:center;">
+      <div style="font-size:12px; color:#94a3b8; font-weight:600; margin-bottom:8px;">集群拓扑层级</div>
+      <div style="display:flex; gap:8px; align-items:center; justify-content:center;">
+        <div style="padding:6px 14px; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:6px; font-size:11px; color:#22c55e; font-weight:600;">GPU</div>
+        <span style="color:#475569; font-size:12px;">&#x27A1;</span>
+        <div style="padding:6px 14px; background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.3); border-radius:6px; font-size:11px; color:#22d3ee; font-weight:600;">NVLink</div>
+        <span style="color:#475569; font-size:12px;">&#x27A1;</span>
+        <div style="padding:6px 14px; background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.3); border-radius:6px; font-size:11px; color:#f97316; font-weight:600;">DGX 节点<br><span style="font-size:9px; font-weight:400;">8x GPU</span></div>
+        <span style="color:#475569; font-size:12px;">&#x27A1;</span>
+        <div style="padding:6px 14px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:6px; font-size:11px; color:#ef4444; font-weight:600;">IB 交换机<br><span style="font-size:9px; font-weight:400;">400Gbps</span></div>
+        <span style="color:#475569; font-size:12px;">&#x27A1;</span>
+        <div style="padding:6px 14px; background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); border-radius:6px; font-size:11px; color:#a855f7; font-weight:600;">机架/集群<br><span style="font-size:9px; font-weight:400;">万卡规模</span></div>
+      </div>
+    </div>
+
+    <!-- Power/Cooling note -->
+    <div style="position:absolute; left:50%; bottom:24px; transform:translateX(-50%); width:620px; display:flex; gap:10px; justify-content:center;">
+      <div style="padding:6px 14px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:8px; font-size:10px; color:#94a3b8;">
+        &#x26A1; 电力消耗：万卡集群 ~<span style="color:#ef4444; font-weight:700;">30-50 MW</span>
+      </div>
+      <div style="padding:6px 14px; background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.2); border-radius:8px; font-size:10px; color:#94a3b8;">
+        &#x2744; 冷却系统：液冷 / 浸没式冷却
+      </div>
+      <div style="padding:6px 14px; background:rgba(234,179,8,0.08); border:1px solid rgba(234,179,8,0.2); border-radius:8px; font-size:10px; color:#94a3b8;">
+        &#x1F4B0; 成本：数十亿美元量级
+      </div>
+    </div>
+  </div>
+
+  <!-- Play/Pause -->
+  <div class="play-btn" id="playBtn" title="播放/暂停">&#x25B6;</div>
+</div>
+
+<!-- Description Cards -->
+<div class="desc-container">
+  <div class="desc-card active" id="desc-data">
+    <h3 class="cyan">数据并行 (Data Parallelism)</h3>
+    <ul>
+      <li>每张 GPU 持有 <strong>完整的模型副本</strong>，处理不同的数据批次</li>
+      <li>前向 + 反向传播后，通过 <code>All-Reduce</code> 操作同步梯度</li>
+      <li>优点：实现简单，线性扩展；缺点：每张 GPU 都需要能放下完整模型</li>
+      <li>适用场景：模型能放进单张 GPU，但需要 <strong>加速训练</strong></li>
+    </ul>
+  </div>
+  <div class="desc-card" id="desc-model">
+    <h3 class="purple">模型并行 / 张量并行 (Tensor Parallelism)</h3>
+    <ul>
+      <li>模型太大放不下单张 GPU，将模型 <strong>横向切割</strong> 到多张 GPU</li>
+      <li>每张 GPU 持有模型的一部分层，需要传递 <strong>中间激活值</strong></li>
+      <li>通信开销大，通常在 <strong>同一节点内</strong> 使用（NVLink 高速互联）</li>
+      <li>Megatron-LM 是最著名的张量并行实现框架</li>
+    </ul>
+  </div>
+  <div class="desc-card" id="desc-pipeline">
+    <h3 class="green">流水线并行 (Pipeline Parallelism)</h3>
+    <ul>
+      <li>模型按层分段，每个 GPU 负责 <strong>几层连续的层</strong></li>
+      <li>数据像流水线一样在 GPU 之间流动，GPU1 完成后传给 GPU2</li>
+      <li>问题："<strong>气泡</strong>"（Bubble）— GPU 空闲等待时间</li>
+      <li>解决：<strong>Micro-batch</strong> 流水化，将大 batch 切小，让流水线始终有活干</li>
+    </ul>
+  </div>
+  <div class="desc-card" id="desc-infra">
+    <h3 class="orange">通信基础设施</h3>
+    <ul>
+      <li><strong>NVLink</strong>：GPU 间直连，带宽 <code>900 GB/s</code>（同节点内）</li>
+      <li><strong>InfiniBand</strong>：节点间高速网络，<code>400 Gbps</code>（NDR）</li>
+      <li><strong>DGX 节点</strong>：8 张 GPU + NVSwitch，是训练集群的基本单元</li>
+      <li>实际训练通常 <strong>混合使用</strong> 三种并行策略（3D 并行）</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Scale Section -->
+<div class="scale-section">
+  <div class="scale-card">
+    <div class="model-name">GPT-3</div>
+    <div class="stat">~1000</div>
+    <div class="stat-label">V100 GPU</div>
+    <div class="detail">175B 参数 / 数周训练</div>
+  </div>
+  <div class="scale-card">
+    <div class="model-name">GPT-4</div>
+    <div class="stat">~25,000</div>
+    <div class="stat-label">A100 GPU</div>
+    <div class="detail">估算值 / 数月训练</div>
+  </div>
+  <div class="scale-card">
+    <div class="model-name">Llama 3.1 405B</div>
+    <div class="stat">16,384</div>
+    <div class="stat-label">H100 GPU</div>
+    <div class="detail">405B 参数 / 54 天训练</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ---- State ---- */
+  const state = {
+    activeTab: 'data',
+    animating: true,
+    animFrameId: null,
+    particles: [],
+    timelines: { built: false }
+  };
+
+  /* ---- DOM refs ---- */
+  const tabs = document.querySelectorAll('.tab');
+  const panels = {
+    data: document.getElementById('panel-data'),
+    model: document.getElementById('panel-model'),
+    pipeline: document.getElementById('panel-pipeline'),
+    infra: document.getElementById('panel-infra')
+  };
+  const descs = {
+    data: document.getElementById('desc-data'),
+    model: document.getElementById('desc-model'),
+    pipeline: document.getElementById('desc-pipeline'),
+    infra: document.getElementById('desc-infra')
+  };
+  const playBtn = document.getElementById('playBtn');
+
+  /* ---- Tab switching ---- */
+  function switchTab(tabName) {
+    state.activeTab = tabName;
+    tabs.forEach(function(t) {
+      if (t.dataset.tab === tabName) {
+        t.classList.add('active');
+      } else {
+        t.classList.remove('active');
+      }
+    });
+    Object.keys(panels).forEach(function(k) {
+      if (k === tabName) {
+        panels[k].classList.add('active');
+      } else {
+        panels[k].classList.remove('active');
+      }
+    });
+    Object.keys(descs).forEach(function(k) {
+      if (k === tabName) {
+        descs[k].classList.add('active');
+      } else {
+        descs[k].classList.remove('active');
+      }
+    });
+    state.particles = [];
+    if (tabName === 'pipeline' && !state.timelines.built) {
+      buildPipelineTimeline();
+      state.timelines.built = true;
+    }
+  }
+
+  tabs.forEach(function(t) {
+    t.addEventListener('click', function() {
+      switchTab(t.dataset.tab);
+    });
+  });
+
+  /* ---- Play/Pause ---- */
+  playBtn.addEventListener('click', function() {
+    state.animating = !state.animating;
+    playBtn.innerHTML = state.animating ? '&#x23F8;' : '&#x25B6;';
+  });
+
+  /* ---- Build DGX GPU grids ---- */
+  function buildDGXNodes() {
+    var colors = [
+      ['#f97316', '#ea580c'],
+      ['#22d3ee', '#0891b2'],
+      ['#a855f7', '#7c3aed']
+    ];
+    var containers = ['dgx1-gpus', 'dgx2-gpus', 'dgx3-gpus'];
+    containers.forEach(function(containerId, ci) {
+      var container = document.getElementById(containerId);
+      for (var i = 0; i < 8; i++) {
+        var g = document.createElement('div');
+        g.className = 'mini-gpu';
+        g.style.background = 'linear-gradient(135deg,' + colors[ci][1] + ',' + colors[ci][0] + ')';
+        g.textContent = 'G' + i;
+        container.appendChild(g);
+      }
+    });
+  }
+  buildDGXNodes();
+
+  /* ---- Pipeline Timeline ---- */
+  function buildPipelineTimeline() {
+    var rows = [
+      document.getElementById('tl-row0'),
+      document.getElementById('tl-row1'),
+      document.getElementById('tl-row2'),
+      document.getElementById('tl-row3')
+    ];
+
+    /*
+     * 4 GPU stages, 4 micro-batches
+     * Schedule (simplified GPipe-style):
+     * GPU0: F0 F1 F2 F3 B0 B1 B2 B3
+     * GPU1: __ F0 F1 F2 F3 B0 B1 B2 B3
+     * GPU2: __ __ F0 F1 F2 F3 B0 B1 B2 B3
+     * GPU3: __ __ __ F0 F1 F2 F3 B0 B1 B2 B3
+     */
+    var fwdColors = ['#22c55e', '#16a34a', '#15803d', '#14532d'];
+    var bwdColors = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af'];
+    var totalSlots = 11;
+    var cellW = Math.floor((rows[0].parentElement.offsetWidth - 20) / totalSlots);
+    if (cellW < 40) cellW = 40;
+    if (cellW > 58) cellW = 58;
+
+    var schedules = [
+      // [type, micro-batch index, slot-start]
+      // GPU 0
+      [
+        ['F', 0, 0], ['F', 1, 1], ['F', 2, 2], ['F', 3, 3],
+        ['B', 0, 4], ['B', 1, 5], ['B', 2, 6], ['B', 3, 7]
+      ],
+      // GPU 1
+      [
+        ['_', -1, 0],
+        ['F', 0, 1], ['F', 1, 2], ['F', 2, 3], ['F', 3, 4],
+        ['B', 0, 5], ['B', 1, 6], ['B', 2, 7], ['B', 3, 8]
+      ],
+      // GPU 2
+      [
+        ['_', -1, 0], ['_', -1, 1],
+        ['F', 0, 2], ['F', 1, 3], ['F', 2, 4], ['F', 3, 5],
+        ['B', 0, 6], ['B', 1, 7], ['B', 2, 8], ['B', 3, 9]
+      ],
+      // GPU 3
+      [
+        ['_', -1, 0], ['_', -1, 1], ['_', -1, 2],
+        ['F', 0, 3], ['F', 1, 4], ['F', 2, 5], ['F', 3, 6],
+        ['B', 0, 7], ['B', 1, 8], ['B', 2, 9], ['B', 3, 10]
+      ]
+    ];
+
+    schedules.forEach(function(sched, gi) {
+      var row = rows[gi];
+      if (!row) return;
+      row.innerHTML = '';
+      sched.forEach(function(item) {
+        var cell = document.createElement('div');
+        cell.className = 'timeline-cell';
+        cell.style.width = cellW + 'px';
+        cell.style.minWidth = cellW + 'px';
+        if (item[0] === '_') {
+          cell.classList.add('empty');
+          cell.textContent = '';
+        } else if (item[0] === 'F') {
+          cell.style.background = fwdColors[item[1]];
+          cell.textContent = 'F' + item[1];
+        } else {
+          cell.style.background = bwdColors[item[1]];
+          cell.textContent = 'B' + item[1];
+        }
+        row.appendChild(cell);
+      });
+    });
+
+    /* Animate cells appearing with delay */
+    var allCells = document.querySelectorAll('#panel-pipeline .timeline-cell');
+    allCells.forEach(function(cell, i) {
+      cell.style.opacity = '0';
+      cell.style.transform = 'scale(0.8)';
+      cell.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      setTimeout(function() {
+        cell.style.opacity = '1';
+        cell.style.transform = 'scale(1)';
+      }, i * 60);
+    });
+  }
+
+  /* ---- Particle System ---- */
+  function createParticle(x, y, targetX, targetY, colorClass, duration) {
+    return {
+      x: x,
+      y: y,
+      startX: x,
+      startY: y,
+      targetX: targetX,
+      targetY: targetY,
+      progress: 0,
+      speed: 1 / (duration || 60),
+      colorClass: colorClass,
+      el: null
+    };
+  }
+
+  function spawnParticleEl(particle) {
+    var el = document.createElement('div');
+    el.className = 'particle ' + particle.colorClass;
+    el.style.left = particle.x + 'px';
+    el.style.top = particle.y + 'px';
+    var panel = panels[state.activeTab];
+    if (panel) panel.appendChild(el);
+    particle.el = el;
+    return particle;
+  }
+
+  function updateParticle(p) {
+    p.progress += p.speed;
+    if (p.progress > 1) p.progress = 1;
+    var t = easeInOut(p.progress);
+    p.x = p.startX + (p.targetX - p.startX) * t;
+    p.y = p.startY + (p.targetY - p.startY) * t;
+    if (p.el) {
+      p.el.style.left = p.x + 'px';
+      p.el.style.top = p.y + 'px';
+    }
+    return p.progress >= 1;
+  }
+
+  function easeInOut(t) {
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+  }
+
+  function removeParticle(p) {
+    if (p.el && p.el.parentNode) {
+      p.el.parentNode.removeChild(p.el);
+    }
+  }
+
+  /* ---- Data Parallel Animation ---- */
+  var dpTimer = 0;
+  var dpPhase = 0; // 0: compute, 1: allreduce, 2: sync done
+
+  function animateDataParallel() {
+    dpTimer++;
+    var statusEl = document.getElementById('dp-status');
+
+    // Phase: training
+    if (dpTimer < 80) {
+      if (statusEl) statusEl.textContent = 'COMPUTING...';
+      // Pulsing GPU effect
+      var gpus = ['dp-gpu0', 'dp-gpu1', 'dp-gpu2', 'dp-gpu3'];
+      var intensity = 0.3 + 0.2 * Math.sin(dpTimer * 0.15);
+      gpus.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.boxShadow = '0 0 ' + Math.round(12 + intensity * 20) + 'px rgba(34,211,238,' + intensity.toFixed(2) + ')';
+      });
+    }
+    // Phase: all-reduce (spawn gradient particles)
+    else if (dpTimer < 160) {
+      if (statusEl) statusEl.textContent = 'ALL-REDUCE...';
+      if (dpTimer % 12 === 0) {
+        var gpuPositions = [
+          { x: 112, y: 282 },
+          { x: 292, y: 282 },
+          { x: 472, y: 282 },
+          { x: 652, y: 282 }
+        ];
+        var centerY = 346;
+        for (var i = 0; i < 4; i++) {
+          var p1 = createParticle(gpuPositions[i].x, gpuPositions[i].y, gpuPositions[(i+1)%4].x, centerY, 'particle-yellow', 40);
+          spawnParticleEl(p1);
+          state.particles.push(p1);
+        }
+      }
+    }
+    // Phase: sync done
+    else if (dpTimer < 200) {
+      if (statusEl) statusEl.textContent = 'SYNCED!';
+    }
+    else {
+      dpTimer = 0;
+    }
+  }
+
+  /* ---- Model Parallel Animation ---- */
+  var mpTimer = 0;
+
+  function animateModelParallel() {
+    mpTimer++;
+    var statusEl = document.getElementById('mp-status');
+
+    // Flowing activation data between GPUs
+    if (mpTimer % 30 === 0) {
+      var starts = [
+        { x: 210, y: 175 },
+        { x: 390, y: 175 },
+        { x: 570, y: 175 }
+      ];
+      var ends = [
+        { x: 260, y: 175 },
+        { x: 440, y: 175 },
+        { x: 620, y: 175 }
+      ];
+      for (var i = 0; i < 3; i++) {
+        var p = createParticle(starts[i].x, starts[i].y, ends[i].x, ends[i].y, 'particle-purple', 25);
+        spawnParticleEl(p);
+        state.particles.push(p);
+      }
+    }
+
+    if (statusEl) {
+      var phase = Math.floor((mpTimer % 120) / 30);
+      var labels = ['GPU 0 → GPU 1', 'GPU 1 → GPU 2', 'GPU 2 → GPU 3', 'OUTPUT'];
+      statusEl.textContent = labels[phase] || 'SPLITTING...';
+    }
+  }
+
+  /* ---- Pipeline Parallel Animation ---- */
+  var ppTimer = 0;
+
+  function animatePipelineParallel() {
+    ppTimer++;
+    var statusEl = document.getElementById('pp-status');
+
+    // Highlight active cells
+    if (ppTimer % 60 === 0) {
+      var allCells = document.querySelectorAll('#panel-pipeline .timeline-cell:not(.empty)');
+      var highlightIdx = Math.floor((ppTimer / 60) % (allCells.length || 1));
+      allCells.forEach(function(cell, i) {
+        if (i === highlightIdx) {
+          cell.style.boxShadow = '0 0 12px rgba(255,255,255,0.3)';
+          cell.style.transform = 'scale(1.1)';
+        } else {
+          cell.style.boxShadow = 'none';
+          cell.style.transform = 'scale(1)';
+        }
+      });
+    }
+
+    if (statusEl) {
+      var mIdx = Math.floor((ppTimer % 240) / 60);
+      statusEl.textContent = 'MICRO-BATCH ' + mIdx;
+    }
+  }
+
+  /* ---- Infra Animation ---- */
+  var infraTimer = 0;
+
+  function animateInfra() {
+    infraTimer++;
+
+    // Spawn particles between nodes via IB switch
+    if (infraTimer % 25 === 0) {
+      var nodeXs = [140, 410, 680];
+      var switchY = 240;
+      var nodeY = 200;
+      var from = Math.floor(Math.random() * 3);
+      var to = (from + 1 + Math.floor(Math.random() * 2)) % 3;
+
+      var p1 = createParticle(nodeXs[from], nodeY, nodeXs[from], switchY, 'particle-orange', 20);
+      spawnParticleEl(p1);
+      state.particles.push(p1);
+
+      setTimeout(function() {
+        if (!state.animating || state.activeTab !== 'infra') return;
+        var p2 = createParticle(nodeXs[from], switchY, nodeXs[to], switchY, 'particle-orange', 25);
+        spawnParticleEl(p2);
+        state.particles.push(p2);
+
+        setTimeout(function() {
+          if (!state.animating || state.activeTab !== 'infra') return;
+          var p3 = createParticle(nodeXs[to], switchY, nodeXs[to], nodeY, 'particle-orange', 20);
+          spawnParticleEl(p3);
+          state.particles.push(p3);
+        }, 420);
+      }, 340);
+    }
+
+    // Pulse mini GPUs
+    var allMiniGpus = document.querySelectorAll('.mini-gpu');
+    var pulse = 0.6 + 0.4 * Math.sin(infraTimer * 0.08);
+    allMiniGpus.forEach(function(g, i) {
+      var offset = i * 0.3;
+      var p = 0.6 + 0.4 * Math.sin(infraTimer * 0.08 + offset);
+      g.style.opacity = p.toFixed(2);
+    });
+  }
+
+  /* ---- Main Animation Loop ---- */
+  function animate() {
+    state.animFrameId = requestAnimationFrame(animate);
+    if (!state.animating) return;
+
+    // Run tab-specific animation
+    switch (state.activeTab) {
+      case 'data':
+        animateDataParallel();
+        break;
+      case 'model':
+        animateModelParallel();
+        break;
+      case 'pipeline':
+        animatePipelineParallel();
+        break;
+      case 'infra':
+        animateInfra();
+        break;
+    }
+
+    // Update & clean particles
+    var newParticles = [];
+    state.particles.forEach(function(p) {
+      var done = updateParticle(p);
+      if (done) {
+        removeParticle(p);
+      } else {
+        newParticles.push(p);
+      }
+    });
+    state.particles = newParticles;
+  }
+
+  /* ---- Init ---- */
+  animate();
+  playBtn.innerHTML = '&#x23F8;';
+
+  /* Build pipeline timeline on first visit */
+  if (state.activeTab === 'pipeline') {
+    buildPipelineTimeline();
+    state.timelines.built = true;
+  }
+
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var glossaryBtn = document.getElementById('glossaryBtn');
+  var glossaryPanel = document.getElementById('glossaryPanel');
+  var glossaryClose = document.getElementById('glossaryClose');
+  if (!glossaryBtn || !glossaryPanel) return;
+
+  glossaryBtn.addEventListener('click', function() {
+    glossaryPanel.classList.toggle('visible');
+  });
+
+  if (glossaryClose) {
+    glossaryClose.addEventListener('click', function() {
+      glossaryPanel.classList.remove('visible');
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') glossaryPanel.classList.remove('visible');
+  });
+});
+</script>
+
+<!-- Glossary Button -->
+<button id="glossaryBtn" style="
+  position:fixed; bottom:28px; right:28px; z-index:9999;
+  width:52px; height:52px; border-radius:50%; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+  box-shadow:0 4px 20px rgba(59,130,246,0.4);
+  font-size:24px; color:#fff; display:flex; align-items:center; justify-content:center;
+  transition:transform 0.2s,box-shadow 0.2s;
+" onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 28px rgba(59,130,246,0.6)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 20px rgba(59,130,246,0.4)'"
+  title="术语表">&#x2753;</button>
+
+<!-- Glossary Panel -->
+<div id="glossaryPanel" style="
+  position:fixed; top:0; right:-520px; z-index:10000;
+  width:500px; max-width:92vw; height:100vh;
+  background:rgba(10,14,26,0.97); border-left:1px solid #2a3555;
+  backdrop-filter:blur(20px); overflow-y:auto;
+  transition:right 0.35s cubic-bezier(0.4,0,0.2,1);
+  padding:0;
+">
+  <style>
+    #glossaryPanel.visible { right:0 !important; }
+    .gloss-header { position:sticky; top:0; background:rgba(10,14,26,0.95); padding:20px 24px 14px; border-bottom:1px solid #2a3555; display:flex; align-items:center; justify-content:space-between; z-index:1; }
+    .gloss-title { font-size:18px; font-weight:700; color:#e2e8f0; }
+    .gloss-close { background:none; border:none; color:#64748b; font-size:22px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:color 0.2s,background 0.2s; }
+    .gloss-close:hover { color:#e2e8f0; background:rgba(255,255,255,0.08); }
+    .gloss-list { padding:12px 24px 32px; }
+    .gloss-item { padding:12px 0; border-bottom:1px solid rgba(42,53,85,0.5); }
+    .gloss-item:last-child { border-bottom:none; }
+    .gloss-term { font-size:14px; font-weight:700; color:#22d3ee; font-family:'JetBrains Mono',monospace; margin-bottom:2px; }
+    .gloss-term .gloss-en { color:#64748b; font-weight:400; font-size:12px; margin-left:6px; }
+    .gloss-def { font-size:13px; color:#94a3b8; line-height:1.6; }
+  </style>
+  <div class="gloss-header">
+    <div class="gloss-title">&#x1F4D6; 术语表 Glossary</div>
+    <button class="gloss-close" id="glossaryClose" title="关闭">&#x2715;</button>
+  </div>
+  <div class="gloss-list">
+    <div class="gloss-item">
+      <div class="gloss-term">数据并行<span class="gloss-en">Data Parallelism</span></div>
+      <div class="gloss-def">每张GPU持有完整模型，处理不同批次数据</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">模型并行<span class="gloss-en">Model/Tensor Parallelism</span></div>
+      <div class="gloss-def">模型切分到多张GPU，每张持有模型的一部分</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">流水线并行<span class="gloss-en">Pipeline Parallelism</span></div>
+      <div class="gloss-def">模型按层分段，像工厂流水线一样处理数据</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">All-Reduce</div>
+      <div class="gloss-def">梯度同步操作，所有GPU交换并汇总梯度</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">NVLink</div>
+      <div class="gloss-def">NVIDIA GPU间直连高速通道，带宽可达900 GB/s</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">InfiniBand</div>
+      <div class="gloss-def">节点间高速网络，带宽400 Gbps，AI集群标配</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">DGX</div>
+      <div class="gloss-def">NVIDIA的AI服务器单元，一台包含8张GPU</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Micro-batch<span class="gloss-en">微批次</span></div>
+      <div class="gloss-def">将大批次切分为小块，提高流水线利用率</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Bubble<span class="gloss-en">气泡</span></div>
+      <div class="gloss-def">流水线并行中GPU的空闲等待时间</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">梯度<span class="gloss-en">Gradient</span></div>
+      <div class="gloss-def">反向传播计算出的参数调整方向</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">梯度累积<span class="gloss-en">Gradient Accumulation</span></div>
+      <div class="gloss-def">多次前向传播后再更新参数，模拟更大批次</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Mixed Precision<span class="gloss-en">混合精度</span></div>
+      <div class="gloss-def">同时使用FP16和FP32，加速训练且节省显存</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

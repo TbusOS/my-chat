@@ -1,0 +1,2036 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU 并行计算原理 — AI 的发动机</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-card: #1a2035;
+  --bg-elevated: #1e2a45;
+  --border: #2a3555;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-green: #22c55e;
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --accent-orange: #f59e0b;
+  --accent-red: #ef4444;
+  --accent-cyan: #06b6d4;
+  --accent-pink: #ec4899;
+  --glow-green: rgba(34,197,94,0.3);
+  --glow-blue: rgba(59,130,246,0.3);
+  --glow-purple: rgba(139,92,246,0.3);
+  --mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.header h1 {
+  font-size: 30px;
+  font-weight: 900;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+.header h1 .gpu { color: var(--accent-green); }
+.header h1 .ai { color: var(--accent-blue); }
+.header .subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-secondary);
+  border-radius: 14px;
+  padding: 4px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+.tab-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text-primary); background: var(--bg-card); }
+.tab-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+  box-shadow: 0 2px 12px var(--glow-blue);
+}
+.tab-btn .tab-num {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  font-size: 11px;
+  margin-right: 4px;
+  text-align: center;
+}
+.tab-btn.active .tab-num { background: rgba(255,255,255,0.3); }
+
+/* Panel */
+.panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+.panel.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Stage */
+.stage {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  min-height: 520px;
+  position: relative;
+  overflow: hidden;
+}
+.stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Panel label */
+.panel-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  font-family: var(--mono);
+  letter-spacing: 0.5px;
+}
+.panel-label span { color: var(--accent-blue); }
+
+/* ========== VIEW 1: CPU vs GPU ========== */
+.arch-compare {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr;
+  gap: 0;
+  align-items: start;
+}
+.arch-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  position: relative;
+}
+.arch-card.cpu { border-color: var(--accent-orange); box-shadow: 0 0 20px rgba(245,158,11,0.1); }
+.arch-card.gpu { border-color: var(--accent-green); box-shadow: 0 0 20px rgba(34,197,94,0.1); }
+.arch-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.arch-card.cpu .arch-title { color: var(--accent-orange); }
+.arch-card.gpu .arch-title { color: var(--accent-green); }
+.arch-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+
+.core-grid {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.core-grid.cpu-cores { grid-template-columns: repeat(4, 1fr); }
+.core-grid.gpu-cores { grid-template-columns: repeat(16, 1fr); }
+
+.core {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-family: var(--mono);
+  font-weight: 700;
+  transition: all 0.3s ease;
+  position: relative;
+}
+.core.cpu-core {
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.4);
+  color: var(--accent-orange);
+  font-size: 11px;
+}
+.core.cpu-core.active {
+  background: var(--accent-orange);
+  color: #000;
+  box-shadow: 0 0 8px rgba(245,158,11,0.6);
+}
+.core.gpu-core {
+  background: rgba(34,197,94,0.1);
+  border: 1px solid rgba(34,197,94,0.2);
+  color: transparent;
+  border-radius: 2px;
+}
+.core.gpu-core.active {
+  background: var(--accent-green);
+  box-shadow: 0 0 4px rgba(34,197,94,0.5);
+}
+
+.vs-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 60px;
+}
+.vs-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.arch-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stat-item {
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.stat-val {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+.arch-card.cpu .stat-val { color: var(--accent-orange); }
+.arch-card.gpu .stat-val { color: var(--accent-green); }
+.stat-label { font-size: 11px; color: var(--text-muted); }
+
+.analogy-box {
+  background: var(--bg-elevated);
+  border-radius: 10px;
+  padding: 12px;
+  border-left: 3px solid;
+  margin-top: 12px;
+}
+.arch-card.cpu .analogy-box { border-color: var(--accent-orange); }
+.arch-card.gpu .analogy-box { border-color: var(--accent-green); }
+.analogy-icon { font-size: 24px; margin-bottom: 4px; }
+.analogy-text { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.analogy-text strong { color: var(--text-primary); }
+
+/* Race animation */
+.race-section {
+  margin-top: 20px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+}
+.race-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  text-align: center;
+}
+.race-track {
+  position: relative;
+  height: 40px;
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.race-runner {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--mono);
+  transition: width 0.1s linear;
+  white-space: nowrap;
+}
+.race-runner.cpu-runner { background: linear-gradient(90deg, var(--accent-orange), #d97706); color: #000; }
+.race-runner.gpu-runner { background: linear-gradient(90deg, var(--accent-green), #16a34a); color: #000; }
+.race-label {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  z-index: 1;
+}
+.race-finish {
+  position: absolute;
+  right: 2px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-red);
+  opacity: 0.5;
+}
+.race-btn {
+  display: block;
+  margin: 8px auto 0;
+  padding: 8px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent-blue);
+  color: #fff;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.race-btn:hover { background: #2563eb; box-shadow: 0 2px 12px var(--glow-blue); }
+.race-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.race-result {
+  text-align: center;
+  font-size: 13px;
+  color: var(--accent-green);
+  font-weight: 600;
+  margin-top: 8px;
+  min-height: 20px;
+}
+
+/* ========== VIEW 2: GPU Hierarchy ========== */
+.hierarchy-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.hierarchy-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.hierarchy-diagram {
+  flex: 1;
+  position: relative;
+}
+.grid-box {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 16px;
+  border: 2px solid;
+  position: relative;
+}
+.grid-box.grid-level { border-color: var(--accent-purple); }
+.grid-box.block-level { border-color: var(--accent-blue); }
+.grid-box.warp-level { border-color: var(--accent-cyan); }
+.grid-box.thread-level { border-color: var(--accent-green); }
+
+.grid-label {
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  background: var(--bg-secondary);
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+.grid-box.grid-level .grid-label { color: var(--accent-purple); }
+.grid-box.block-level .grid-label { color: var(--accent-blue); }
+.grid-box.warp-level .grid-label { color: var(--accent-cyan); }
+.grid-box.thread-level .grid-label { color: var(--accent-green); }
+
+.blocks-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.block-item {
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.3);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--accent-blue);
+}
+.block-item:hover, .block-item.active {
+  background: rgba(59,130,246,0.25);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 10px var(--glow-blue);
+}
+
+.warp-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.warp-item {
+  background: rgba(6,182,212,0.1);
+  border: 1px solid rgba(6,182,212,0.3);
+  border-radius: 6px;
+  padding: 6px;
+  text-align: center;
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--accent-cyan);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.warp-item:hover, .warp-item.active {
+  background: rgba(6,182,212,0.25);
+  border-color: var(--accent-cyan);
+}
+
+.thread-row {
+  display: grid;
+  grid-template-columns: repeat(32, 1fr);
+  gap: 2px;
+  margin-top: 8px;
+}
+.thread-dot {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: rgba(34,197,94,0.2);
+  border: 1px solid rgba(34,197,94,0.3);
+  transition: all 0.2s;
+}
+.thread-dot.active {
+  background: var(--accent-green);
+  box-shadow: 0 0 4px var(--glow-green);
+}
+
+.sm-diagram {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  margin-top: 16px;
+}
+.sm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-purple);
+  margin-bottom: 12px;
+  text-align: center;
+}
+.sm-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.sm-unit {
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+.sm-unit-icon { font-size: 20px; margin-bottom: 4px; }
+.sm-unit-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.sm-unit-desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+/* Info cards */
+.info-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+.info-card {
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  border: 1px solid var(--border);
+  transition: all 0.3s;
+}
+.info-card:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+.info-card-val {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--accent-cyan);
+}
+.info-card-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ========== VIEW 3: Matrix multiply ========== */
+.matrix-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.matrix-header {
+  text-align: center;
+}
+.matrix-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.matrix-header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.matrix-arena {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  width: 100%;
+}
+.matrix-side {
+  flex: 1;
+  text-align: center;
+}
+.matrix-side-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  display: inline-block;
+}
+.matrix-side.cpu-side .matrix-side-title { background: rgba(245,158,11,0.15); color: var(--accent-orange); }
+.matrix-side.gpu-side .matrix-side-title { background: rgba(34,197,94,0.15); color: var(--accent-green); }
+
+.matrix-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+.matrix-cell {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-family: var(--mono);
+  font-weight: 600;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  position: relative;
+}
+.matrix-cell.computing {
+  border-color: var(--accent-cyan);
+  background: rgba(6,182,212,0.15);
+  color: var(--accent-cyan);
+}
+.matrix-cell.done {
+  border-color: var(--accent-green);
+  background: rgba(34,197,94,0.15);
+  color: var(--accent-green);
+}
+.matrix-cell.highlight {
+  border-color: var(--accent-orange);
+  background: rgba(245,158,11,0.15);
+  color: var(--accent-orange);
+}
+.matrix-op {
+  font-size: 24px;
+  color: var(--text-muted);
+  font-weight: 300;
+}
+.matrix-eq {
+  font-size: 24px;
+  color: var(--text-muted);
+}
+
+.compute-status {
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 12px 16px;
+  text-align: center;
+  border: 1px solid var(--border);
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.compute-step {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.compute-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.compute-progress-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.15s linear;
+}
+.cpu-side .compute-progress-bar { background: var(--accent-orange); }
+.gpu-side .compute-progress-bar { background: var(--accent-green); }
+.compute-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-family: var(--mono);
+}
+
+.matrix-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.matrix-btn {
+  padding: 10px 28px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.matrix-btn.primary { background: var(--accent-blue); color: #fff; }
+.matrix-btn.primary:hover { box-shadow: 0 2px 12px var(--glow-blue); }
+.matrix-btn.secondary { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); }
+.matrix-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ========== VIEW 4: CUDA vs Tensor ========== */
+.core-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.core-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+.core-card.cuda-card { border-color: var(--accent-blue); }
+.core-card.tensor-card { border-color: var(--accent-purple); }
+.core-card-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.cuda-card .core-card-title { color: var(--accent-blue); }
+.tensor-card .core-card-title { color: var(--accent-purple); }
+.core-card-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.op-visual {
+  background: var(--bg-elevated);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 12px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.op-formula {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.op-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cuda-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  margin: 8px 0;
+}
+.cuda-step {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-family: var(--mono);
+  font-weight: 700;
+  transition: all 0.3s;
+}
+.cuda-step.mul { background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); color: var(--accent-blue); }
+.cuda-step.add { background: rgba(6,182,212,0.2); border: 1px solid rgba(6,182,212,0.4); color: var(--accent-cyan); }
+.cuda-step.active { transform: scale(1.2); box-shadow: 0 0 8px var(--glow-blue); }
+.cuda-arrow { color: var(--text-muted); font-size: 14px; }
+
+.tensor-matrix-mini {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  width: 68px;
+  margin: 0 auto;
+}
+.tensor-cell {
+  width: 15px;
+  height: 15px;
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.tensor-cell.a-cell { background: rgba(139,92,246,0.3); border: 1px solid rgba(139,92,246,0.5); }
+.tensor-cell.b-cell { background: rgba(236,72,153,0.3); border: 1px solid rgba(236,72,153,0.5); }
+.tensor-cell.c-cell { background: rgba(34,197,94,0.3); border: 1px solid rgba(34,197,94,0.5); }
+.tensor-cell.active { transform: scale(1.1); }
+
+.core-specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 12px;
+}
+.spec-item {
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+.spec-val { font-size: 14px; font-weight: 700; font-family: var(--mono); }
+.cuda-card .spec-val { color: var(--accent-blue); }
+.tensor-card .spec-val { color: var(--accent-purple); }
+.spec-label { font-size: 10px; color: var(--text-muted); }
+
+.speed-compare {
+  margin-top: 16px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+}
+.speed-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; text-align: center; }
+.speed-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.speed-label {
+  width: 100px;
+  font-size: 12px;
+  font-family: var(--mono);
+  font-weight: 600;
+  text-align: right;
+}
+.speed-bar-track {
+  flex: 1;
+  height: 28px;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+.speed-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--mono);
+  transition: width 1.5s ease;
+}
+.speed-bar-fill.cuda-fill { background: linear-gradient(90deg, rgba(59,130,246,0.6), var(--accent-blue)); color: #fff; }
+.speed-bar-fill.tensor-fill { background: linear-gradient(90deg, rgba(139,92,246,0.6), var(--accent-purple)); color: #fff; }
+
+.bandwidth-note {
+  margin-top: 16px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.bandwidth-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+.bandwidth-text { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+.bandwidth-text strong { color: var(--accent-red); }
+
+/* ========== VIEW 5: Memory Hierarchy ========== */
+.memory-view {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.memory-pyramid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  position: relative;
+}
+.mem-level {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 10px;
+  padding: 14px;
+  border: 2px solid;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 8px;
+}
+.mem-level:hover { transform: scale(1.02); }
+.mem-level.active { transform: scale(1.04); }
+
+.mem-level.reg {
+  width: 200px;
+  background: rgba(34,197,94,0.1);
+  border-color: rgba(34,197,94,0.4);
+}
+.mem-level.smem {
+  width: 300px;
+  background: rgba(6,182,212,0.1);
+  border-color: rgba(6,182,212,0.4);
+}
+.mem-level.l2 {
+  width: 400px;
+  background: rgba(59,130,246,0.1);
+  border-color: rgba(59,130,246,0.4);
+}
+.mem-level.hbm {
+  width: 500px;
+  background: rgba(139,92,246,0.1);
+  border-color: rgba(139,92,246,0.4);
+}
+
+.mem-level.reg.active { border-color: var(--accent-green); box-shadow: 0 0 15px var(--glow-green); }
+.mem-level.smem.active { border-color: var(--accent-cyan); box-shadow: 0 0 15px rgba(6,182,212,0.3); }
+.mem-level.l2.active { border-color: var(--accent-blue); box-shadow: 0 0 15px var(--glow-blue); }
+.mem-level.hbm.active { border-color: var(--accent-purple); box-shadow: 0 0 15px var(--glow-purple); }
+
+.mem-name {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+.mem-level.reg .mem-name { color: var(--accent-green); }
+.mem-level.smem .mem-name { color: var(--accent-cyan); }
+.mem-level.l2 .mem-name { color: var(--accent-blue); }
+.mem-level.hbm .mem-name { color: var(--accent-purple); }
+
+.mem-sub { font-size: 11px; color: var(--text-muted); margin-left: 12px; }
+
+.mem-arrow {
+  width: 2px;
+  height: 20px;
+  position: relative;
+  margin: 0 auto;
+}
+.mem-arrow::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--text-muted);
+  bottom: 0;
+}
+.mem-arrow-line {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 14px;
+  background: var(--text-muted);
+}
+
+.mem-detail-panel {
+  width: 320px;
+  flex-shrink: 0;
+}
+.mem-detail-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+.mem-detail-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.mem-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.mem-detail-row:last-child { border-bottom: none; }
+.mem-detail-key { color: var(--text-muted); }
+.mem-detail-val { font-weight: 600; font-family: var(--mono); color: var(--text-primary); }
+
+.mem-wall-box {
+  margin-top: 16px;
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 10px;
+  padding: 14px;
+}
+.mem-wall-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-orange);
+  margin-bottom: 8px;
+}
+.mem-wall-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.bandwidth-viz {
+  margin-top: 12px;
+}
+.bw-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.bw-label {
+  width: 60px;
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  text-align: right;
+}
+.bw-bar {
+  flex: 1;
+  height: 16px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bw-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s ease;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  font-size: 9px;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: #fff;
+}
+.bw-fill.reg-bw { background: var(--accent-green); }
+.bw-fill.smem-bw { background: var(--accent-cyan); }
+.bw-fill.l2-bw { background: var(--accent-blue); }
+.bw-fill.hbm-bw { background: var(--accent-purple); }
+
+/* Labels */
+.pyramid-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 500px;
+  margin-top: 8px;
+  padding: 0 10px;
+}
+.pyramid-label-left, .pyramid-label-right {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.label-arrow { font-size: 16px; }
+
+/* Footer note */
+.footer-note {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .arch-compare { grid-template-columns: 1fr; gap: 12px; }
+  .vs-divider { flex-direction: row; padding-top: 0; }
+  .core-compare { grid-template-columns: 1fr; }
+  .memory-view { flex-direction: column; }
+  .mem-detail-panel { width: 100%; }
+  .mem-level.hbm { width: 100%; }
+  .mem-level.l2 { width: 90%; }
+  .mem-level.smem { width: 75%; }
+  .mem-level.reg { width: 55%; }
+  .matrix-arena { flex-direction: column; }
+  .info-cards { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1><span class="gpu">GPU</span> 并行计算原理 — <span class="ai">AI</span> 的发动机</h1>
+    <div class="subtitle">为什么 GPU 是深度学习的核心硬件</div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="0"><span class="tab-num">1</span>CPU vs GPU</button>
+    <button class="tab-btn" data-tab="1"><span class="tab-num">2</span>GPU 层级</button>
+    <button class="tab-btn" data-tab="2"><span class="tab-num">3</span>矩阵乘法</button>
+    <button class="tab-btn" data-tab="3"><span class="tab-num">4</span>CUDA vs Tensor</button>
+    <button class="tab-btn" data-tab="4"><span class="tab-num">5</span>显存层级</button>
+  </div>
+
+  <!-- ===== PANEL 1: CPU vs GPU ===== -->
+  <div class="panel active" id="panel0">
+    <div class="stage">
+      <div class="panel-label"><span>VIEW 1</span> / CPU vs GPU 架构对比</div>
+      <div class="arch-compare">
+        <!-- CPU -->
+        <div class="arch-card cpu">
+          <div class="arch-title">CPU</div>
+          <div class="arch-subtitle">Central Processing Unit</div>
+          <div class="core-grid cpu-cores" id="cpuCores"></div>
+          <div class="arch-stats">
+            <div class="stat-item"><div class="stat-val">8~64</div><div class="stat-label">核心数</div></div>
+            <div class="stat-item"><div class="stat-val">5+ GHz</div><div class="stat-label">主频</div></div>
+            <div class="stat-item"><div class="stat-val">强</div><div class="stat-label">分支预测</div></div>
+            <div class="stat-item"><div class="stat-val">大</div><div class="stat-label">缓存容量</div></div>
+          </div>
+          <div class="analogy-box">
+            <div class="analogy-icon">&#x1F9D1;&#x200D;&#x1F3EB;</div>
+            <div class="analogy-text"><strong>大学教授</strong>：一个人能解微积分、写论文、做研究。擅长<strong>复杂逻辑</strong>和<strong>串行任务</strong>。</div>
+          </div>
+        </div>
+        <!-- VS -->
+        <div class="vs-divider"><div class="vs-badge">VS</div></div>
+        <!-- GPU -->
+        <div class="arch-card gpu">
+          <div class="arch-title">GPU</div>
+          <div class="arch-subtitle">Graphics Processing Unit</div>
+          <div class="core-grid gpu-cores" id="gpuCores"></div>
+          <div class="arch-stats">
+            <div class="stat-item"><div class="stat-val">数千+</div><div class="stat-label">核心数</div></div>
+            <div class="stat-item"><div class="stat-val">~2 GHz</div><div class="stat-label">主频</div></div>
+            <div class="stat-item"><div class="stat-val">弱</div><div class="stat-label">分支预测</div></div>
+            <div class="stat-item"><div class="stat-val">小</div><div class="stat-label">缓存容量</div></div>
+          </div>
+          <div class="analogy-box">
+            <div class="analogy-icon">&#x1F3ED;</div>
+            <div class="analogy-text"><strong>千人工厂</strong>：每个工人只会拧螺丝，但上千人同时拧。擅长<strong>简单重复</strong>的<strong>并行任务</strong>。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Race -->
+      <div class="race-section">
+        <div class="race-title">&#x1F3C1; 计算 1024 次加法对比赛跑</div>
+        <div class="race-track">
+          <div class="race-label">CPU (8核)</div>
+          <div class="race-runner cpu-runner" id="cpuRunner" style="width: 0%"></div>
+          <div class="race-finish"></div>
+        </div>
+        <div class="race-track">
+          <div class="race-label">GPU (256核)</div>
+          <div class="race-runner gpu-runner" id="gpuRunner" style="width: 0%"></div>
+          <div class="race-finish"></div>
+        </div>
+        <button class="race-btn" id="raceBtn" onclick="startRace()">&#x25B6; 开始赛跑</button>
+        <div class="race-result" id="raceResult"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PANEL 2: GPU Hierarchy ===== -->
+  <div class="panel" id="panel1">
+    <div class="stage">
+      <div class="panel-label"><span>VIEW 2</span> / GPU 内部并行层级</div>
+
+      <div class="hierarchy-view">
+        <!-- Grid -->
+        <div class="grid-box grid-level">
+          <div class="grid-label">Grid (网格)</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">一个 Kernel 启动一个 Grid，包含多个 Block</div>
+          <div class="blocks-grid" id="blocksGrid"></div>
+
+          <!-- Block detail -->
+          <div id="blockDetail" style="margin-top:12px; display:none;">
+            <div class="grid-box block-level" style="margin:0;">
+              <div class="grid-label">Block (线程块)</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Block 内线程共享内存，可同步协作</div>
+              <div class="warp-container" id="warpContainer"></div>
+
+              <!-- Warp detail -->
+              <div id="warpDetail" style="margin-top:10px; display:none;">
+                <div class="grid-box warp-level" style="margin:0;">
+                  <div class="grid-label">Warp (32线程束)</div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">32 个线程锁步执行同一指令 (SIMT)</div>
+                  <div class="thread-row" id="threadRow"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SM Diagram -->
+        <div class="sm-diagram">
+          <div class="sm-title">SM (Streaming Multiprocessor) 内部结构</div>
+          <div class="sm-grid">
+            <div class="sm-unit">
+              <div class="sm-unit-icon">&#x26A1;</div>
+              <div class="sm-unit-name">CUDA Cores</div>
+              <div class="sm-unit-desc">128 个浮点运算单元</div>
+            </div>
+            <div class="sm-unit">
+              <div class="sm-unit-icon">&#x1F9E9;</div>
+              <div class="sm-unit-name">Tensor Cores</div>
+              <div class="sm-unit-desc">4 个矩阵运算单元</div>
+            </div>
+            <div class="sm-unit">
+              <div class="sm-unit-icon">&#x1F4E6;</div>
+              <div class="sm-unit-name">Shared Memory</div>
+              <div class="sm-unit-desc">128 KB 共享内存</div>
+            </div>
+            <div class="sm-unit">
+              <div class="sm-unit-icon">&#x1F4CB;</div>
+              <div class="sm-unit-name">Register File</div>
+              <div class="sm-unit-desc">256 KB 寄存器文件</div>
+            </div>
+            <div class="sm-unit">
+              <div class="sm-unit-icon">&#x1F500;</div>
+              <div class="sm-unit-name">Warp Scheduler</div>
+              <div class="sm-unit-desc">4 个线程束调度器</div>
+            </div>
+            <div class="sm-unit">
+              <div class="sm-unit-icon">&#x1F4C4;</div>
+              <div class="sm-unit-name">L1 Cache</div>
+              <div class="sm-unit-desc">与共享内存共用 128 KB</div>
+            </div>
+            <div class="sm-unit">
+              <div class="sm-unit-icon">&#x1F504;</div>
+              <div class="sm-unit-name">Load/Store</div>
+              <div class="sm-unit-desc">32 个读写单元</div>
+            </div>
+            <div class="sm-unit">
+              <div class="sm-unit-icon">&#x1F522;</div>
+              <div class="sm-unit-name">SFU</div>
+              <div class="sm-unit-desc">16 个特殊函数单元</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="info-cards">
+          <div class="info-card">
+            <div class="info-card-val">16,384</div>
+            <div class="info-card-label">CUDA Cores (H100)</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-val">132</div>
+            <div class="info-card-label">SM 数量</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-val">528</div>
+            <div class="info-card-label">Tensor Cores</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-val">2048</div>
+            <div class="info-card-label">每 SM 最大线程数</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PANEL 3: Matrix Multiply ===== -->
+  <div class="panel" id="panel2">
+    <div class="stage">
+      <div class="panel-label"><span>VIEW 3</span> / 为什么 AI 需要 GPU</div>
+      <div class="matrix-section">
+        <div class="matrix-header">
+          <h3>神经网络核心运算 = 矩阵乘法</h3>
+          <p>矩阵乘法包含大量独立的乘加运算，天然适合 GPU 并行</p>
+        </div>
+
+        <div class="matrix-arena">
+          <!-- CPU side -->
+          <div class="matrix-side cpu-side">
+            <div class="matrix-side-title">CPU 逐个计算</div>
+            <div class="matrix-display">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">A</div>
+                <div class="matrix-grid" id="cpuMatA"></div>
+              </div>
+              <div class="matrix-op">&times;</div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">B</div>
+                <div class="matrix-grid" id="cpuMatB"></div>
+              </div>
+              <div class="matrix-eq">=</div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">C</div>
+                <div class="matrix-grid" id="cpuMatC"></div>
+              </div>
+            </div>
+            <div class="compute-status">
+              <div class="compute-step" id="cpuStep">-- 等待开始 --</div>
+              <div class="compute-progress"><div class="compute-progress-bar" id="cpuProgress" style="width:0%"></div></div>
+              <div class="compute-time" id="cpuTime"></div>
+            </div>
+          </div>
+
+          <!-- GPU side -->
+          <div class="matrix-side gpu-side">
+            <div class="matrix-side-title">GPU 并行计算</div>
+            <div class="matrix-display">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">A</div>
+                <div class="matrix-grid" id="gpuMatA"></div>
+              </div>
+              <div class="matrix-op">&times;</div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">B</div>
+                <div class="matrix-grid" id="gpuMatB"></div>
+              </div>
+              <div class="matrix-eq">=</div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">C</div>
+                <div class="matrix-grid" id="gpuMatC"></div>
+              </div>
+            </div>
+            <div class="compute-status">
+              <div class="compute-step" id="gpuStep">-- 等待开始 --</div>
+              <div class="compute-progress"><div class="compute-progress-bar" id="gpuProgress" style="width:0%"></div></div>
+              <div class="compute-time" id="gpuTime"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="matrix-controls">
+          <button class="matrix-btn primary" id="matrixBtn" onclick="startMatrixDemo()">&#x25B6; 开始对比</button>
+          <button class="matrix-btn secondary" onclick="resetMatrixDemo()">&#x21BB; 重置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PANEL 4: CUDA vs Tensor Core ===== -->
+  <div class="panel" id="panel3">
+    <div class="stage">
+      <div class="panel-label"><span>VIEW 4</span> / CUDA Core vs Tensor Core</div>
+
+      <div class="core-compare">
+        <!-- CUDA Core -->
+        <div class="core-card cuda-card">
+          <div class="core-card-title">CUDA Core</div>
+          <div class="core-card-sub">通用浮点运算单元</div>
+          <div class="op-visual">
+            <div class="op-formula">D = A &times; B + C</div>
+            <div class="op-desc">每个时钟周期处理 1 次乘加 (FMA)</div>
+            <div class="cuda-pipeline" id="cudaPipeline">
+              <div class="cuda-step mul">A</div>
+              <div class="cuda-arrow">&times;</div>
+              <div class="cuda-step mul">B</div>
+              <div class="cuda-arrow">&rarr;</div>
+              <div class="cuda-step add">+C</div>
+              <div class="cuda-arrow">&rarr;</div>
+              <div class="cuda-step add">D</div>
+            </div>
+          </div>
+          <div class="core-specs">
+            <div class="spec-item"><div class="spec-val">FP32</div><div class="spec-label">精度</div></div>
+            <div class="spec-item"><div class="spec-val">1 FMA/clk</div><div class="spec-label">吞吐量</div></div>
+            <div class="spec-item"><div class="spec-val">16,384</div><div class="spec-label">H100 数量</div></div>
+            <div class="spec-item"><div class="spec-val">通用</div><div class="spec-label">适用场景</div></div>
+          </div>
+        </div>
+
+        <!-- Tensor Core -->
+        <div class="core-card tensor-card">
+          <div class="core-card-title">Tensor Core</div>
+          <div class="core-card-sub">专用矩阵运算单元</div>
+          <div class="op-visual">
+            <div class="op-formula">D<sub>4&times;4</sub> = A<sub>4&times;4</sub> &times; B<sub>4&times;4</sub> + C<sub>4&times;4</sub></div>
+            <div class="op-desc">每个时钟周期处理一个 4&times;4 矩阵乘加</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;">
+              <div>
+                <div style="font-size:9px;color:var(--accent-purple);text-align:center;margin-bottom:2px;">A</div>
+                <div class="tensor-matrix-mini" id="tensorA"></div>
+              </div>
+              <div style="color:var(--text-muted);font-size:18px;">&times;</div>
+              <div>
+                <div style="font-size:9px;color:var(--accent-pink);text-align:center;margin-bottom:2px;">B</div>
+                <div class="tensor-matrix-mini" id="tensorB"></div>
+              </div>
+              <div style="color:var(--text-muted);font-size:18px;">+</div>
+              <div>
+                <div style="font-size:9px;color:var(--accent-cyan);text-align:center;margin-bottom:2px;">C</div>
+                <div class="tensor-matrix-mini" id="tensorC"></div>
+              </div>
+              <div style="color:var(--text-muted);font-size:18px;">=</div>
+              <div>
+                <div style="font-size:9px;color:var(--accent-green);text-align:center;margin-bottom:2px;">D</div>
+                <div class="tensor-matrix-mini" id="tensorD"></div>
+              </div>
+            </div>
+          </div>
+          <div class="core-specs">
+            <div class="spec-item"><div class="spec-val">FP16/BF16</div><div class="spec-label">精度</div></div>
+            <div class="spec-item"><div class="spec-val">64 FMA/clk</div><div class="spec-label">吞吐量</div></div>
+            <div class="spec-item"><div class="spec-val">528</div><div class="spec-label">H100 数量</div></div>
+            <div class="spec-item"><div class="spec-val">AI 训练</div><div class="spec-label">适用场景</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Speed compare -->
+      <div class="speed-compare">
+        <div class="speed-title">吞吐量对比 (TFLOPS, H100 SXM)</div>
+        <div class="speed-bar-row">
+          <div class="speed-label" style="color:var(--accent-blue);">CUDA Core</div>
+          <div class="speed-bar-track">
+            <div class="speed-bar-fill cuda-fill" id="cudaBar" style="width:0%">67 TFLOPS (FP32)</div>
+          </div>
+        </div>
+        <div class="speed-bar-row">
+          <div class="speed-label" style="color:var(--accent-purple);">Tensor Core</div>
+          <div class="speed-bar-track">
+            <div class="speed-bar-fill tensor-fill" id="tensorBar" style="width:0%">989 TFLOPS (FP16)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bandwidth-note">
+        <div class="bandwidth-icon">&#x26A0;&#xFE0F;</div>
+        <div class="bandwidth-text">
+          <strong>显存带宽瓶颈：</strong>Tensor Core 算得再快，数据也要从显存搬到计算单元。
+          H100 显存带宽 3.35 TB/s，但 Tensor Core 峰值需要 ~7 TB/s 的数据供给。
+          计算快但数据搬运慢 = <strong>"喂不饱"</strong>。这就是为什么 FlashAttention 等算法如此重要。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PANEL 5: Memory Hierarchy ===== -->
+  <div class="panel" id="panel4">
+    <div class="stage">
+      <div class="panel-label"><span>VIEW 5</span> / GPU 显存层级</div>
+
+      <div class="memory-view">
+        <div class="memory-pyramid">
+          <div class="mem-level reg active" data-level="reg" onclick="selectMemLevel('reg')">
+            <div><div class="mem-name">Register (寄存器)</div></div>
+            <div class="mem-sub">每线程私有 / ~1 cycle</div>
+          </div>
+          <div class="mem-arrow"><div class="mem-arrow-line"></div></div>
+          <div class="mem-level smem" data-level="smem" onclick="selectMemLevel('smem')">
+            <div><div class="mem-name">Shared Memory (共享内存)</div></div>
+            <div class="mem-sub">Block 内共享 / ~5 cycles</div>
+          </div>
+          <div class="mem-arrow"><div class="mem-arrow-line"></div></div>
+          <div class="mem-level l2" data-level="l2" onclick="selectMemLevel('l2')">
+            <div><div class="mem-name">L2 Cache (二级缓存)</div></div>
+            <div class="mem-sub">全 GPU 共享 / ~30 cycles</div>
+          </div>
+          <div class="mem-arrow"><div class="mem-arrow-line"></div></div>
+          <div class="mem-level hbm" data-level="hbm" onclick="selectMemLevel('hbm')">
+            <div><div class="mem-name">HBM (全局显存)</div></div>
+            <div class="mem-sub">所有 SM 共享 / ~300 cycles</div>
+          </div>
+
+          <div class="pyramid-labels">
+            <div class="pyramid-label-left"><span class="label-arrow">&uarr;</span> 速度快 / 容量小</div>
+            <div class="pyramid-label-right">速度慢 / 容量大 <span class="label-arrow">&darr;</span></div>
+          </div>
+        </div>
+
+        <div class="mem-detail-panel">
+          <div class="mem-detail-card" id="memDetailCard">
+            <!-- Filled by JS -->
+          </div>
+
+          <div class="bandwidth-viz">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-primary);">带宽对比 (H100)</div>
+            <div class="bw-row">
+              <div class="bw-label">Register</div>
+              <div class="bw-bar"><div class="bw-fill reg-bw" id="bwReg" style="width:0%">~80 TB/s</div></div>
+            </div>
+            <div class="bw-row">
+              <div class="bw-label">SMEM</div>
+              <div class="bw-bar"><div class="bw-fill smem-bw" id="bwSmem" style="width:0%">~33 TB/s</div></div>
+            </div>
+            <div class="bw-row">
+              <div class="bw-label">L2</div>
+              <div class="bw-bar"><div class="bw-fill l2-bw" id="bwL2" style="width:0%">~12 TB/s</div></div>
+            </div>
+            <div class="bw-row">
+              <div class="bw-label">HBM</div>
+              <div class="bw-bar"><div class="bw-fill hbm-bw" id="bwHbm" style="width:0%">3.35 TB/s</div></div>
+            </div>
+          </div>
+
+          <div class="mem-wall-box">
+            <div class="mem-wall-title">&#x1F9F1; 显存墙问题</div>
+            <div class="mem-wall-text">
+              GPT-4 参数量约 1.8 万亿，FP16 需要 ~3.6 TB 显存。单张 H100 只有 80 GB HBM3。
+              一个模型需要 <strong>45+ 张 H100</strong> 才能放下参数。这就是为什么需要模型并行、量化压缩等技术。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    数据基于 NVIDIA H100 SXM (Hopper 架构) | 点击各层级元素可查看详情
+  </div>
+</div>
+
+<script>
+/* ===== TAB SWITCHING ===== */
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('.panel');
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const idx = parseInt(btn.dataset.tab);
+    tabBtns.forEach(b => b.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel' + idx).classList.add('active');
+
+    if (idx === 1) { initHierarchy(); }
+    if (idx === 3) { animateCoreCompare(); }
+    if (idx === 4) { animateMemoryBars(); selectMemLevel('reg'); }
+  });
+});
+
+/* ===== VIEW 1: CPU vs GPU cores ===== */
+function initCores() {
+  const cpuGrid = document.getElementById('cpuCores');
+  const gpuGrid = document.getElementById('gpuCores');
+  cpuGrid.innerHTML = '';
+  gpuGrid.innerHTML = '';
+
+  for (let i = 0; i < 16; i++) {
+    const core = document.createElement('div');
+    core.className = 'core cpu-core';
+    core.textContent = 'C' + i;
+    core.id = 'cpu-c-' + i;
+    cpuGrid.appendChild(core);
+  }
+  for (let i = 0; i < 256; i++) {
+    const core = document.createElement('div');
+    core.className = 'core gpu-core';
+    core.id = 'gpu-c-' + i;
+    gpuGrid.appendChild(core);
+  }
+
+  animateCoresLoop();
+}
+
+let coreAnimFrame = null;
+function animateCoresLoop() {
+  let step = 0;
+  function tick() {
+    // CPU: light up a few cores at a time
+    document.querySelectorAll('.core.cpu-core').forEach((c, i) => {
+      c.classList.toggle('active', i === (step % 16));
+    });
+    // GPU: waves
+    document.querySelectorAll('.core.gpu-core').forEach((c, i) => {
+      const wave = Math.sin((step * 0.15) + (i * 0.08)) > 0.3;
+      c.classList.toggle('active', wave);
+    });
+    step++;
+    coreAnimFrame = requestAnimationFrame(() => setTimeout(tick, 120));
+  }
+  tick();
+}
+
+/* Race */
+let raceRunning = false;
+function startRace() {
+  if (raceRunning) return;
+  raceRunning = true;
+  const btn = document.getElementById('raceBtn');
+  btn.disabled = true;
+  document.getElementById('raceResult').textContent = '';
+
+  const cpuR = document.getElementById('cpuRunner');
+  const gpuR = document.getElementById('gpuRunner');
+  cpuR.style.width = '0%';
+  gpuR.style.width = '0%';
+
+  const totalTasks = 1024;
+  const cpuCores = 8;
+  const gpuCores = 256;
+  const cpuSpeed = 100 / (totalTasks / cpuCores); // percent per tick
+  const gpuSpeed = 100 / (totalTasks / gpuCores);
+
+  let cpuProg = 0, gpuProg = 0;
+  let cpuDone = false, gpuDone = false;
+
+  function tick() {
+    if (!cpuDone) {
+      cpuProg = Math.min(100, cpuProg + cpuSpeed);
+      cpuR.style.width = cpuProg + '%';
+      cpuR.textContent = Math.floor(cpuProg) + '%';
+      if (cpuProg >= 100) cpuDone = true;
+    }
+    if (!gpuDone) {
+      gpuProg = Math.min(100, gpuProg + gpuSpeed);
+      gpuR.style.width = gpuProg + '%';
+      gpuR.textContent = Math.floor(gpuProg) + '%';
+      if (gpuProg >= 100) gpuDone = true;
+    }
+    if (!cpuDone || !gpuDone) {
+      requestAnimationFrame(tick);
+    } else {
+      const speedup = (cpuCores > 0) ? (gpuCores / cpuCores) : 1;
+      document.getElementById('raceResult').textContent =
+        'GPU 完成速度是 CPU 的 ' + speedup + ' 倍！(256 核并行 vs 8 核并行)';
+      raceRunning = false;
+      btn.disabled = false;
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ===== VIEW 2: Hierarchy ===== */
+function initHierarchy() {
+  const blocksGrid = document.getElementById('blocksGrid');
+  if (blocksGrid.children.length > 0) return; // already init
+
+  for (let i = 0; i < 12; i++) {
+    const b = document.createElement('div');
+    b.className = 'block-item';
+    b.textContent = 'Block(' + Math.floor(i / 4) + ',' + (i % 4) + ')';
+    b.onclick = () => showBlock(i);
+    blocksGrid.appendChild(b);
+  }
+}
+
+function showBlock(idx) {
+  document.querySelectorAll('.block-item').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  const detail = document.getElementById('blockDetail');
+  detail.style.display = 'block';
+  detail.style.animation = 'fadeIn 0.3s ease';
+
+  const warpC = document.getElementById('warpContainer');
+  warpC.innerHTML = '';
+  for (let w = 0; w < 8; w++) {
+    const warp = document.createElement('div');
+    warp.className = 'warp-item';
+    warp.textContent = 'Warp ' + w;
+    warp.onclick = (e) => { e.stopPropagation(); showWarp(w); };
+    warpC.appendChild(warp);
+  }
+  document.getElementById('warpDetail').style.display = 'none';
+}
+
+function showWarp(idx) {
+  document.querySelectorAll('.warp-item').forEach((w, i) => {
+    w.classList.toggle('active', i === idx);
+  });
+  const detail = document.getElementById('warpDetail');
+  detail.style.display = 'block';
+  detail.style.animation = 'fadeIn 0.3s ease';
+
+  const threadRow = document.getElementById('threadRow');
+  threadRow.innerHTML = '';
+  for (let t = 0; t < 32; t++) {
+    const td = document.createElement('div');
+    td.className = 'thread-dot';
+    threadRow.appendChild(td);
+  }
+  // Animate threads
+  let step = 0;
+  function animThreads() {
+    document.querySelectorAll('#threadRow .thread-dot').forEach((d, i) => {
+      d.classList.toggle('active', true); // SIMT: all active together
+    });
+    step++;
+    if (step < 3) setTimeout(animThreads, 400);
+  }
+  setTimeout(animThreads, 200);
+}
+
+/* ===== VIEW 3: Matrix Multiply ===== */
+const MAT_SIZE = 4;
+const matA = [[2,0,1,3],[1,2,0,1],[3,1,2,0],[0,1,3,2]];
+const matB = [[1,2,0,1],[0,1,2,3],[1,0,1,2],[2,1,0,1]];
+let matRunning = false;
+
+function computeC(a, b) {
+  const c = [];
+  for (let i = 0; i < MAT_SIZE; i++) {
+    c[i] = [];
+    for (let j = 0; j < MAT_SIZE; j++) {
+      let sum = 0;
+      for (let k = 0; k < MAT_SIZE; k++) sum += a[i][k] * b[k][j];
+      c[i][j] = sum;
+    }
+  }
+  return c;
+}
+
+const matC = computeC(matA, matB);
+
+function buildMatrixGrid(containerId, mat, prefix) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  for (let i = 0; i < MAT_SIZE; i++) {
+    for (let j = 0; j < MAT_SIZE; j++) {
+      const cell = document.createElement('div');
+      cell.className = 'matrix-cell';
+      cell.id = prefix + '-' + i + '-' + j;
+      cell.textContent = mat ? mat[i][j] : '?';
+      el.appendChild(cell);
+    }
+  }
+}
+
+function initMatrixView() {
+  buildMatrixGrid('cpuMatA', matA, 'ca');
+  buildMatrixGrid('cpuMatB', matB, 'cb');
+  buildMatrixGrid('cpuMatC', null, 'cc');
+  buildMatrixGrid('gpuMatA', matA, 'ga');
+  buildMatrixGrid('gpuMatB', matB, 'gb');
+  buildMatrixGrid('gpuMatC', null, 'gc');
+}
+
+function resetMatrixDemo() {
+  matRunning = false;
+  document.getElementById('matrixBtn').disabled = false;
+  document.getElementById('cpuStep').textContent = '-- 等待开始 --';
+  document.getElementById('gpuStep').textContent = '-- 等待开始 --';
+  document.getElementById('cpuProgress').style.width = '0%';
+  document.getElementById('gpuProgress').style.width = '0%';
+  document.getElementById('cpuTime').textContent = '';
+  document.getElementById('gpuTime').textContent = '';
+  initMatrixView();
+}
+
+function startMatrixDemo() {
+  if (matRunning) return;
+  matRunning = true;
+  document.getElementById('matrixBtn').disabled = true;
+  resetMatrixHighlights();
+
+  // CPU: sequential
+  const cpuOrder = [];
+  for (let i = 0; i < MAT_SIZE; i++)
+    for (let j = 0; j < MAT_SIZE; j++)
+      cpuOrder.push([i, j]);
+
+  let cpuIdx = 0;
+  const cpuInterval = 300;
+  let cpuStartTime = performance.now();
+
+  function cpuTick() {
+    if (cpuIdx > 0) {
+      const prev = cpuOrder[cpuIdx - 1];
+      const cell = document.getElementById('cc-' + prev[0] + '-' + prev[1]);
+      cell.className = 'matrix-cell done';
+      cell.textContent = matC[prev[0]][prev[1]];
+      // un-highlight A row and B col
+      for (let k = 0; k < MAT_SIZE; k++) {
+        document.getElementById('ca-' + prev[0] + '-' + k).className = 'matrix-cell';
+        document.getElementById('cb-' + k + '-' + prev[1]).className = 'matrix-cell';
+      }
+    }
+    if (cpuIdx < cpuOrder.length) {
+      const [r, c] = cpuOrder[cpuIdx];
+      // Highlight current A row and B column
+      for (let k = 0; k < MAT_SIZE; k++) {
+        document.getElementById('ca-' + r + '-' + k).className = 'matrix-cell highlight';
+        document.getElementById('cb-' + k + '-' + c).className = 'matrix-cell highlight';
+      }
+      const cell = document.getElementById('cc-' + r + '-' + c);
+      cell.className = 'matrix-cell computing';
+      cell.textContent = '...';
+
+      document.getElementById('cpuStep').textContent =
+        'C[' + r + '][' + c + '] = A[' + r + '][] * B[][' + c + '] (' + (cpuIdx + 1) + '/16)';
+      document.getElementById('cpuProgress').style.width = ((cpuIdx + 1) / 16 * 100) + '%';
+      cpuIdx++;
+      setTimeout(cpuTick, cpuInterval);
+    } else {
+      const elapsed = ((performance.now() - cpuStartTime) / 1000).toFixed(1);
+      document.getElementById('cpuTime').textContent = '耗时 ' + elapsed + 's (串行 16 步)';
+      document.getElementById('cpuStep').textContent = '完成！串行逐个计算';
+    }
+  }
+
+  // GPU: all at once (with short staged delay for visual effect)
+  function gpuCompute() {
+    document.getElementById('gpuStep').textContent = '16 个核心同时计算所有 C[i][j]...';
+    // Highlight all
+    for (let i = 0; i < MAT_SIZE; i++) {
+      for (let j = 0; j < MAT_SIZE; j++) {
+        const cell = document.getElementById('gc-' + i + '-' + j);
+        cell.className = 'matrix-cell computing';
+        cell.textContent = '...';
+      }
+    }
+    document.getElementById('gpuProgress').style.width = '50%';
+
+    setTimeout(() => {
+      for (let i = 0; i < MAT_SIZE; i++) {
+        for (let j = 0; j < MAT_SIZE; j++) {
+          const cell = document.getElementById('gc-' + i + '-' + j);
+          cell.className = 'matrix-cell done';
+          cell.textContent = matC[i][j];
+        }
+      }
+      document.getElementById('gpuProgress').style.width = '100%';
+      document.getElementById('gpuStep').textContent = '完成！16 核并行一步到位';
+      document.getElementById('gpuTime').textContent = '耗时 0.6s (并行 1 步)';
+    }, 600);
+  }
+
+  cpuTick();
+  gpuCompute();
+}
+
+function resetMatrixHighlights() {
+  document.querySelectorAll('.matrix-cell').forEach(c => {
+    c.className = 'matrix-cell';
+  });
+}
+
+/* ===== VIEW 4: Core compare animation ===== */
+function animateCoreCompare() {
+  // Animate speed bars
+  setTimeout(() => {
+    document.getElementById('cudaBar').style.width = '6.8%';
+    document.getElementById('tensorBar').style.width = '100%';
+  }, 200);
+
+  // Tensor Core matrix animation
+  initTensorMatrices();
+  animateTensorCycle();
+}
+
+function initTensorMatrices() {
+  ['tensorA','tensorB','tensorC','tensorD'].forEach((id, mIdx) => {
+    const el = document.getElementById(id);
+    if (el.children.length > 0) return;
+    const classes = ['a-cell','b-cell','a-cell','c-cell'];
+    for (let i = 0; i < 16; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'tensor-cell ' + classes[mIdx];
+      el.appendChild(cell);
+    }
+  });
+}
+
+let tensorAnimInterval = null;
+function animateTensorCycle() {
+  if (tensorAnimInterval) clearInterval(tensorAnimInterval);
+  let phase = 0;
+  tensorAnimInterval = setInterval(() => {
+    document.querySelectorAll('#tensorD .tensor-cell').forEach((c, i) => {
+      c.classList.toggle('active', phase % 2 === 0);
+      c.style.background = phase % 2 === 0 ? 'rgba(34,197,94,0.6)' : 'rgba(34,197,94,0.3)';
+    });
+    phase++;
+  }, 800);
+}
+
+/* ===== VIEW 5: Memory Hierarchy ===== */
+const memData = {
+  reg: {
+    title: 'Register (寄存器)',
+    color: 'var(--accent-green)',
+    rows: [
+      ['容量', '每线程 255 个 (32-bit)'],
+      ['带宽', '~80 TB/s (估算)'],
+      ['延迟', '~1 时钟周期'],
+      ['作用域', '线程私有'],
+      ['特点', '速度最快，编译器自动分配'],
+    ]
+  },
+  smem: {
+    title: 'Shared Memory (共享内存)',
+    color: 'var(--accent-cyan)',
+    rows: [
+      ['容量', '每 SM 128 KB (H100)'],
+      ['带宽', '~33 TB/s (估算)'],
+      ['延迟', '~5 时钟周期'],
+      ['作用域', 'Block 内所有线程共享'],
+      ['特点', '程序员手动管理，用于线程协作'],
+    ]
+  },
+  l2: {
+    title: 'L2 Cache (二级缓存)',
+    color: 'var(--accent-blue)',
+    rows: [
+      ['容量', '50 MB (H100)'],
+      ['带宽', '~12 TB/s'],
+      ['延迟', '~30 时钟周期'],
+      ['作用域', '全 GPU 所有 SM 共享'],
+      ['特点', '硬件自动管理，减少 HBM 访问'],
+    ]
+  },
+  hbm: {
+    title: 'HBM (高带宽显存)',
+    color: 'var(--accent-purple)',
+    rows: [
+      ['容量', '80 GB HBM3 (H100)'],
+      ['带宽', '3.35 TB/s'],
+      ['延迟', '~300 时钟周期'],
+      ['作用域', '全 GPU + CPU 可访问'],
+      ['特点', '存放模型参数和激活值'],
+    ]
+  }
+};
+
+function selectMemLevel(level) {
+  document.querySelectorAll('.mem-level').forEach(el => {
+    el.classList.toggle('active', el.dataset.level === level);
+  });
+
+  const data = memData[level];
+  const card = document.getElementById('memDetailCard');
+  let html = '<div class="mem-detail-title" style="color:' + data.color + '">' + data.title + '</div>';
+  data.rows.forEach(([k, v]) => {
+    html += '<div class="mem-detail-row"><span class="mem-detail-key">' + k + '</span><span class="mem-detail-val">' + v + '</span></div>';
+  });
+  card.innerHTML = html;
+}
+
+function animateMemoryBars() {
+  setTimeout(() => {
+    document.getElementById('bwReg').style.width = '100%';
+    document.getElementById('bwSmem').style.width = '41%';
+    document.getElementById('bwL2').style.width = '15%';
+    document.getElementById('bwHbm').style.width = '4.2%';
+  }, 200);
+}
+
+/* ===== INIT ===== */
+function init() {
+  initCores();
+  initMatrixView();
+  selectMemLevel('reg');
+  initTensorMatrices();
+}
+
+init();
+
+/* ===== GLOSSARY ===== */
+document.addEventListener('DOMContentLoaded', function() {
+  var glossaryBtn = document.getElementById('glossaryBtn');
+  var glossaryPanel = document.getElementById('glossaryPanel');
+  var glossaryClose = document.getElementById('glossaryClose');
+  if (!glossaryBtn || !glossaryPanel) return;
+
+  glossaryBtn.addEventListener('click', function() {
+    glossaryPanel.classList.toggle('visible');
+  });
+
+  if (glossaryClose) {
+    glossaryClose.addEventListener('click', function() {
+      glossaryPanel.classList.remove('visible');
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') glossaryPanel.classList.remove('visible');
+  });
+});
+</script>
+
+<!-- Glossary Button -->
+<button id="glossaryBtn" style="
+  position:fixed; bottom:28px; right:28px; z-index:9999;
+  width:52px; height:52px; border-radius:50%; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+  box-shadow:0 4px 20px rgba(59,130,246,0.4);
+  font-size:24px; color:#fff; display:flex; align-items:center; justify-content:center;
+  transition:transform 0.2s,box-shadow 0.2s;
+" onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 28px rgba(59,130,246,0.6)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 20px rgba(59,130,246,0.4)'"
+  title="术语表">&#x2753;</button>
+
+<!-- Glossary Panel -->
+<div id="glossaryPanel" style="
+  position:fixed; top:0; right:-520px; z-index:10000;
+  width:500px; max-width:92vw; height:100vh;
+  background:rgba(10,14,26,0.97); border-left:1px solid #2a3555;
+  backdrop-filter:blur(20px); overflow-y:auto;
+  transition:right 0.35s cubic-bezier(0.4,0,0.2,1);
+  padding:0;
+">
+  <style>
+    #glossaryPanel.visible { right:0 !important; }
+    .gloss-header { position:sticky; top:0; background:rgba(10,14,26,0.95); padding:20px 24px 14px; border-bottom:1px solid #2a3555; display:flex; align-items:center; justify-content:space-between; z-index:1; }
+    .gloss-title { font-size:18px; font-weight:700; color:#e2e8f0; }
+    .gloss-close { background:none; border:none; color:#64748b; font-size:22px; cursor:pointer; padding:4px 8px; border-radius:6px; transition:color 0.2s,background 0.2s; }
+    .gloss-close:hover { color:#e2e8f0; background:rgba(255,255,255,0.08); }
+    .gloss-list { padding:12px 24px 32px; }
+    .gloss-item { padding:12px 0; border-bottom:1px solid rgba(42,53,85,0.5); }
+    .gloss-item:last-child { border-bottom:none; }
+    .gloss-term { font-size:14px; font-weight:700; color:#8b5cf6; font-family:'JetBrains Mono',monospace; margin-bottom:2px; }
+    .gloss-term .gloss-en { color:#64748b; font-weight:400; font-size:12px; margin-left:6px; }
+    .gloss-def { font-size:13px; color:#94a3b8; line-height:1.6; }
+  </style>
+  <div class="gloss-header">
+    <div class="gloss-title">&#x1F4D6; 术语表 Glossary</div>
+    <button class="gloss-close" id="glossaryClose" title="关闭">&#x2715;</button>
+  </div>
+  <div class="gloss-list">
+    <div class="gloss-item">
+      <div class="gloss-term">GPU<span class="gloss-en">Graphics Processing Unit, 图形处理器</span></div>
+      <div class="gloss-def">拥有数千个计算核心的并行处理器，AI计算的主力</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">CPU<span class="gloss-en">Central Processing Unit, 中央处理器</span></div>
+      <div class="gloss-def">拥有少量强大核心的通用处理器，擅长复杂逻辑</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">CUDA Core</div>
+      <div class="gloss-def">NVIDIA GPU的通用计算核心，执行浮点乘加运算</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Tensor Core</div>
+      <div class="gloss-def">NVIDIA GPU的专用矩阵计算核心，一次完成4×4矩阵乘法，速度是CUDA Core的8-16倍</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Thread<span class="gloss-en">线程</span></div>
+      <div class="gloss-def">GPU中最小的执行单元，一个线程执行一次计算</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Warp<span class="gloss-en">线程束</span></div>
+      <div class="gloss-def">32个线程组成的执行组，同步执行相同指令</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Block<span class="gloss-en">线程块</span></div>
+      <div class="gloss-def">多个Warp组成的协作组，可共享内存</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Grid<span class="gloss-en">网格</span></div>
+      <div class="gloss-def">多个Block组成的计算任务全集</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">SM<span class="gloss-en">Streaming Multiprocessor, 流式多处理器</span></div>
+      <div class="gloss-def">GPU的基本计算模块，包含多个CUDA/Tensor Core</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">SIMT<span class="gloss-en">Single Instruction Multiple Threads</span></div>
+      <div class="gloss-def">单指令多线程，所有线程执行相同指令但处理不同数据</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">HBM<span class="gloss-en">High Bandwidth Memory, 高带宽存储器</span></div>
+      <div class="gloss-def">GPU专用显存，堆叠式封装，带宽极高</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">FLOPS<span class="gloss-en">Floating Point Operations Per Second</span></div>
+      <div class="gloss-def">每秒浮点运算次数，衡量算力的单位</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">显存带宽<span class="gloss-en">Memory Bandwidth</span></div>
+      <div class="gloss-def">数据在显存和计算核心之间的传输速度</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">FMA<span class="gloss-en">Fused Multiply-Add</span></div>
+      <div class="gloss-def">融合乘加运算，a×b+c一步完成</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -176,6 +176,18 @@ body {
 .ctrl-btn:hover { background: var(--card-bg); border-color: #cbd5e1; }
 .ctrl-btn.primary { background: var(--ai-blue); color: white; border-color: var(--ai-blue); }
 .ctrl-btn.primary:hover { background: #1d4ed8; }
+.btn-step {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+.btn-step:hover {
+  background: #fef3c7;
+}
+.btn-step:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* Characters — common */
 .character {
@@ -557,9 +569,10 @@ body {
   </div>
 
   <div class="controls">
-    <button class="ctrl-btn" onclick="prevStep()">&#9664; 上一步</button>
+    <button class="ctrl-btn" id="btn-prev" onclick="prevStep()">&#9664; 上一步</button>
+    <button class="ctrl-btn btn-step" id="btn-step" onclick="singleStep()">单步 &#9654;|</button>
+    <button class="ctrl-btn" id="btn-next" onclick="nextStep()">下一步 &#9654;</button>
     <button class="ctrl-btn primary" id="btn-play" onclick="toggleAutoPlay()">&#9654; 自动播放</button>
-    <button class="ctrl-btn" onclick="nextStep()">下一步 &#9654;</button>
     <button class="ctrl-btn" onclick="replay()">&#8635; 重播</button>
   </div>
 
@@ -733,6 +746,7 @@ let currentTab = 'attack'; // 'attack' | 'defense'
 let currentStep = 0;
 let autoPlaying = false;
 let autoPlayTimer = null;
+let playMode = 'idle'; // 'idle' | 'auto' | 'paused'
 const STEPS_ATTACK = 4;
 const STEPS_DEFENSE = 4;
 
@@ -746,10 +760,12 @@ function totalSteps() {
 function switchTab(tab) {
   currentTab = tab;
   currentStep = 0;
+  playMode = 'idle';
   stopAutoPlay();
   document.getElementById('tab-attack').className = tab === 'attack' ? 'tab-btn active-attack' : 'tab-btn';
   document.getElementById('tab-defense').className = tab === 'defense' ? 'tab-btn active-defense' : 'tab-btn';
   render();
+  updateControlUI();
 }
 
 // ============================
@@ -759,6 +775,7 @@ function nextStep() {
   if (currentStep < totalSteps() - 1) {
     currentStep++;
     render();
+    updateControlUI();
   } else {
     stopAutoPlay();
   }
@@ -769,6 +786,7 @@ function prevStep() {
     currentStep--;
     stopAutoPlay();
     render();
+    updateControlUI();
   }
 }
 
@@ -776,30 +794,67 @@ function goToStep(s) {
   currentStep = s;
   stopAutoPlay();
   render();
+  updateControlUI();
 }
 
 function replay() {
   currentStep = 0;
   stopAutoPlay();
   render();
+  updateControlUI();
+}
+
+function singleStep() {
+  if (playMode === 'auto') {
+    stopAutoPlay();
+  }
+  if (currentStep < totalSteps() - 1) {
+    currentStep++;
+    render();
+    updateControlUI();
+  }
 }
 
 function toggleAutoPlay() {
-  if (autoPlaying) {
+  if (playMode === 'auto') {
+    // auto -> paused
     stopAutoPlay();
+  } else if (playMode === 'paused') {
+    // paused -> auto (resume from current position)
+    resumeAutoPlay();
   } else {
+    // idle -> start from step 0
     startAutoPlay();
   }
 }
 
 function startAutoPlay() {
   autoPlaying = true;
-  document.getElementById('btn-play').innerHTML = '&#9646;&#9646; 暂停';
-  if (currentStep >= totalSteps() - 1) { currentStep = 0; render(); }
+  playMode = 'auto';
+  // Always reset to step 0 first
+  currentStep = 0;
+  render();
+  updateControlUI();
   autoPlayTimer = setInterval(() => {
     if (currentStep < totalSteps() - 1) {
       currentStep++;
       render();
+      updateControlUI();
+    } else {
+      stopAutoPlay();
+    }
+  }, 3500);
+}
+
+function resumeAutoPlay() {
+  autoPlaying = true;
+  playMode = 'auto';
+  updateControlUI();
+  autoPlayTimer = setInterval(() => {
+    if (currentStep < totalSteps() - 1) {
+      currentStep++;
+      render();
+      updateControlUI();
     } else {
       stopAutoPlay();
     }
@@ -807,10 +862,60 @@ function startAutoPlay() {
 }
 
 function stopAutoPlay() {
-  autoPlaying = false;
-  document.getElementById('btn-play').innerHTML = '&#9654; 自动播放';
   if (autoPlayTimer) { clearInterval(autoPlayTimer); autoPlayTimer = null; }
+  autoPlaying = false;
+  if (playMode === 'auto') {
+    playMode = 'paused';
+  } else {
+    playMode = 'idle';
+  }
+  updateControlUI();
 }
+
+function updateControlUI() {
+  const btnPlay = document.getElementById('btn-play');
+  const btnStep = document.getElementById('btn-step');
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  const atEnd = currentStep >= totalSteps() - 1;
+  const atStart = currentStep <= 0;
+
+  if (playMode === 'auto') {
+    btnPlay.innerHTML = '&#9208; 暂停';
+  } else if (playMode === 'paused') {
+    btnPlay.innerHTML = '&#9654; 继续';
+  } else {
+    btnPlay.innerHTML = '&#9654; 自动播放';
+  }
+
+  btnStep.disabled = atEnd;
+  btnPrev.disabled = atStart;
+  btnNext.disabled = atEnd;
+}
+
+// Keyboard handler
+document.addEventListener('keydown', function(e) {
+  switch (e.key) {
+    case 'ArrowLeft':
+      prevStep();
+      break;
+    case 'ArrowRight':
+      nextStep();
+      break;
+    case ' ':
+      e.preventDefault();
+      toggleAutoPlay();
+      break;
+    case 's':
+    case 'S':
+      singleStep();
+      break;
+    case 'r':
+    case 'R':
+      replay();
+      break;
+  }
+});
 
 
 // ============================
@@ -1049,6 +1154,7 @@ function toggleCard(el) {
 // Init
 // ============================
 render();
+updateControlUI();
 </script>
 </body>
 </html>

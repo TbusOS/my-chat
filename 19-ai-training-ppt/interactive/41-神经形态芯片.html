@@ -1,0 +1,1958 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神经形态芯片 — 用 20 瓦模拟 860 亿神经元</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a1628;
+  color: #e2e8f0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Background organic texture */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(6, 78, 80, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 50%, rgba(15, 40, 80, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 80%, rgba(10, 30, 60, 0.2) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 24px 20px 16px;
+}
+
+.header h1 {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+}
+
+.header h1 .bio {
+  color: #4ade80;
+}
+
+.header h1 .chip {
+  color: #38bdf8;
+}
+
+.header .subtitle {
+  font-size: 15px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Tab Navigation */
+.tab-nav {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 20px 0;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 12px;
+  padding: 4px;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: #e2e8f0;
+  background: rgba(71, 85, 105, 0.3);
+}
+
+.tab-btn.active {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.1);
+}
+
+/* Panels */
+.panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+
+.panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Panel 1: Brain vs GPU ===== */
+.comparison-stage {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.comparison-card {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.comparison-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.comparison-card.brain::before {
+  background: linear-gradient(90deg, #f59e0b, #ef4444, #f59e0b);
+}
+
+.comparison-card.gpu::before {
+  background: linear-gradient(90deg, #22c55e, #3b82f6, #22c55e);
+}
+
+.card-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.brain .card-title { color: #fbbf24; }
+.gpu .card-title { color: #60a5fa; }
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.2);
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.brain .stat-value { color: #fbbf24; }
+.gpu .stat-value { color: #60a5fa; }
+
+.efficiency-banner {
+  margin-top: 24px;
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(249, 115, 22, 0.1));
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.efficiency-banner .big-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.efficiency-banner .desc {
+  font-size: 16px;
+  color: #f87171;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Power bars */
+.power-bar-container {
+  margin-top: 20px;
+}
+
+.power-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.power-bar {
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.8);
+  overflow: hidden;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.power-bar-fill {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.power-bar-fill.brain-bar {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  width: 0;
+}
+
+.power-bar-fill.gpu-bar {
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  width: 0;
+}
+
+/* ===== Panel 2: SNN Canvas ===== */
+.snn-section {
+  margin-top: 16px;
+}
+
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(10, 20, 40, 0.8);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.canvas-wrapper canvas {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+
+.canvas-overlay {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.canvas-label {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+}
+
+.canvas-label.bio-label {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.canvas-label.silicon-label {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.canvas-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  pointer-events: none;
+  animation: pulse-hint 2s ease-in-out infinite;
+}
+
+@keyframes pulse-hint {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.snn-explain {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.explain-card {
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.explain-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.explain-card.ann h3 { color: #a78bfa; }
+.explain-card.snn h3 { color: #34d399; }
+
+.explain-card ul {
+  list-style: none;
+  padding: 0;
+}
+
+.explain-card li {
+  font-size: 13px;
+  color: #cbd5e1;
+  padding: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.explain-card li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.explain-card.ann li::before { background: #a78bfa; }
+.explain-card.snn li::before { background: #34d399; }
+
+/* ===== Panel 3: Chips ===== */
+.chips-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.chip-card {
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.chip-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.chip-card:nth-child(1)::before { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
+.chip-card:nth-child(2)::before { background: linear-gradient(90deg, #8b5cf6, #ec4899); }
+.chip-card:nth-child(3)::before { background: linear-gradient(90deg, #10b981, #84cc16); }
+
+.chip-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(71, 85, 105, 0.6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.chip-card .chip-logo {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.chip-card:nth-child(1) .chip-logo { color: #38bdf8; }
+.chip-card:nth-child(2) .chip-logo { color: #c084fc; }
+.chip-card:nth-child(3) .chip-logo { color: #4ade80; }
+
+.chip-card .chip-name {
+  font-size: 20px;
+  font-weight: 900;
+  margin-bottom: 16px;
+}
+
+.chip-card:nth-child(1) .chip-name { color: #38bdf8; }
+.chip-card:nth-child(2) .chip-name { color: #c084fc; }
+.chip-card:nth-child(3) .chip-name { color: #4ade80; }
+
+.chip-spec {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.2);
+  font-size: 13px;
+}
+
+.chip-spec:last-child { border-bottom: none; }
+
+.chip-spec .spec-label { color: #94a3b8; }
+.chip-spec .spec-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.chip-highlight {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.chip-card:nth-child(1) .chip-highlight {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.chip-card:nth-child(2) .chip-highlight {
+  background: rgba(192, 132, 252, 0.1);
+  color: #c084fc;
+  border: 1px solid rgba(192, 132, 252, 0.2);
+}
+
+.chip-card:nth-child(3) .chip-highlight {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.2);
+}
+
+/* ===== Panel 4: SNN vs ANN comparison ===== */
+.compare-section {
+  margin-top: 16px;
+}
+
+.compare-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(10, 20, 40, 0.8);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.compare-canvas-wrapper canvas {
+  display: block;
+  width: 100%;
+}
+
+.compare-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ctrl-btn {
+  padding: 10px 24px;
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  background: rgba(15, 23, 42, 0.8);
+  color: #e2e8f0;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ctrl-btn:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.ctrl-btn.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+/* ===== Panel 5: Future ===== */
+.future-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.future-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.advantages .future-section-title { color: #4ade80; }
+.challenges .future-section-title { color: #f87171; }
+
+.future-card {
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.future-item {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.15);
+}
+
+.future-item:last-child { border-bottom: none; }
+
+.future-item h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.advantages .future-item h4 { color: #4ade80; }
+.challenges .future-item h4 { color: #f87171; }
+
+.future-item p {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+/* Energy Dashboard */
+.energy-dashboard {
+  margin-top: 24px;
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.energy-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fbbf24;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.energy-meters {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+}
+
+.meter {
+  text-align: center;
+}
+
+.meter-label {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.meter-ring {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+
+.meter-ring svg {
+  transform: rotate(-90deg);
+}
+
+.meter-ring .value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.meter-ring .unit {
+  font-size: 11px;
+  color: #94a3b8;
+  display: block;
+  font-weight: 400;
+}
+
+.meter.brain-meter .value { color: #fbbf24; }
+.meter.gpu-meter .value { color: #60a5fa; }
+.meter.neuromorphic-meter .value { color: #4ade80; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .comparison-stage { flex-direction: column; }
+  .chips-grid { grid-template-columns: 1fr; }
+  .snn-explain { grid-template-columns: 1fr; }
+  .future-grid { grid-template-columns: 1fr; }
+  .energy-meters { flex-direction: column; align-items: center; gap: 24px; }
+}
+
+@media (max-width: 600px) {
+  .header h1 { font-size: 22px; }
+  .tab-btn { padding: 8px 12px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1><span class="bio">神经形态芯片</span> — 用 <span class="chip">20 瓦</span>模拟 <span class="bio">860 亿</span>神经元</h1>
+    <p class="subtitle">模仿大脑的计算革命：事件驱动、脉冲传播、极低功耗</p>
+  </div>
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="comparison">人脑 vs GPU</button>
+    <button class="tab-btn" data-tab="snn">脉冲神经网络</button>
+    <button class="tab-btn" data-tab="chips">代表芯片</button>
+    <button class="tab-btn" data-tab="compare">SNN vs ANN</button>
+    <button class="tab-btn" data-tab="future">未来展望</button>
+  </nav>
+
+  <!-- Panel 1: Brain vs GPU -->
+  <div class="panel active" id="panel-comparison">
+    <div class="comparison-stage">
+      <div class="comparison-card brain">
+        <div class="card-icon">🧠</div>
+        <div class="card-title">人脑</div>
+        <div class="stat-row">
+          <span class="stat-label">计算单元</span>
+          <span class="stat-value">860 亿神经元</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">连接数</span>
+          <span class="stat-value">100 万亿突触</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">功耗</span>
+          <span class="stat-value">~20 W</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">驱动模式</span>
+          <span class="stat-value">事件驱动</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">工作方式</span>
+          <span class="stat-value">有信号才激活</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">信息编码</span>
+          <span class="stat-value">脉冲时序</span>
+        </div>
+      </div>
+      <div class="comparison-card gpu">
+        <div class="card-icon">🖥️</div>
+        <div class="card-title">GPU (AI 芯片)</div>
+        <div class="stat-row">
+          <span class="stat-label">计算单元</span>
+          <span class="stat-value">数千 CUDA 核心</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">显存</span>
+          <span class="stat-value">80-192 GB HBM</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">功耗</span>
+          <span class="stat-value">300-700 W</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">驱动模式</span>
+          <span class="stat-value">时钟驱动</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">工作方式</span>
+          <span class="stat-value">每周期都计算</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">信息编码</span>
+          <span class="stat-value">浮点数值</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="efficiency-banner">
+      <div class="big-number" id="efficiency-number">0x</div>
+      <div class="desc">人脑能效比 GPU 高出的倍数</div>
+    </div>
+
+    <div class="power-bar-container">
+      <div class="power-bar-label">
+        <span style="color:#fbbf24">🧠 人脑</span>
+        <span style="color:#94a3b8" class="power-val-brain">20W</span>
+      </div>
+      <div class="power-bar">
+        <div class="power-bar-fill brain-bar" id="brain-bar"></div>
+      </div>
+      <div class="power-bar-label">
+        <span style="color:#60a5fa">🖥️ NVIDIA H100</span>
+        <span style="color:#94a3b8" class="power-val-gpu">700W</span>
+      </div>
+      <div class="power-bar">
+        <div class="power-bar-fill gpu-bar" id="gpu-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 2: SNN -->
+  <div class="panel" id="panel-snn">
+    <div class="snn-section">
+      <div class="canvas-wrapper">
+        <canvas id="snn-canvas" width="1200" height="500"></canvas>
+        <div class="canvas-overlay">
+          <div class="canvas-label bio-label">生物神经元 (暖色脉冲)</div>
+          <div class="canvas-label silicon-label">硅基芯片 (冷色脉冲)</div>
+        </div>
+        <div class="canvas-hint">点击任意神经元触发脉冲传播</div>
+      </div>
+
+      <div class="snn-explain">
+        <div class="explain-card ann">
+          <h3><span style="font-size:20px">🔢</span> ANN (人工神经网络)</h3>
+          <ul>
+            <li>使用连续浮点值激活</li>
+            <li>每次前向传播所有神经元计算</li>
+            <li>同步计算，依赖全局时钟</li>
+            <li>高精度，高功耗</li>
+          </ul>
+        </div>
+        <div class="explain-card snn">
+          <h3><span style="font-size:20px">⚡</span> SNN (脉冲神经网络)</h3>
+          <ul>
+            <li>使用二值脉冲 (Spike) 传播</li>
+            <li>仅收到脉冲的神经元激活</li>
+            <li>异步计算，事件驱动</li>
+            <li>信息编码在脉冲时间间隔中</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 3: Chips -->
+  <div class="panel" id="panel-chips">
+    <div class="chips-grid">
+      <div class="chip-card">
+        <div class="chip-logo">INTEL</div>
+        <div class="chip-name">Loihi 2</div>
+        <div class="chip-spec">
+          <span class="spec-label">神经元</span>
+          <span class="spec-value">100 万</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">突触</span>
+          <span class="spec-value">1.28 亿</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">制程</span>
+          <span class="spec-value">Intel 4</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">时钟</span>
+          <span class="spec-value">异步 / 无全局时钟</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">特性</span>
+          <span class="spec-value">支持在线学习</span>
+        </div>
+        <div class="chip-highlight">可编程神经元模型 + 片上学习</div>
+      </div>
+      <div class="chip-card">
+        <div class="chip-logo">IBM</div>
+        <div class="chip-name">TrueNorth</div>
+        <div class="chip-spec">
+          <span class="spec-label">晶体管</span>
+          <span class="spec-value">5.4 亿</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">神经元</span>
+          <span class="spec-value">100 万</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">突触</span>
+          <span class="spec-value">2.56 亿</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">功耗</span>
+          <span class="spec-value">~70 mW</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">用途</span>
+          <span class="spec-value">模式识别</span>
+        </div>
+        <div class="chip-highlight">功耗仅 70 毫瓦，实时模式识别</div>
+      </div>
+      <div class="chip-card">
+        <div class="chip-logo">SYNSENSE 时识科技</div>
+        <div class="chip-name">Speck</div>
+        <div class="chip-spec">
+          <span class="spec-label">类型</span>
+          <span class="spec-value">类脑视觉芯片</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">传感器</span>
+          <span class="spec-value">事件驱动摄像头</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">处理</span>
+          <span class="spec-value">SNN 实时处理</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">功耗</span>
+          <span class="spec-value">< 1 mW</span>
+        </div>
+        <div class="chip-spec">
+          <span class="spec-label">场景</span>
+          <span class="spec-value">IoT / 可穿戴</span>
+        </div>
+        <div class="chip-highlight">事件摄像头 + SNN = 微瓦级视觉</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 4: SNN vs ANN comparison -->
+  <div class="panel" id="panel-compare">
+    <div class="compare-section">
+      <div class="compare-controls">
+        <button class="ctrl-btn active" id="btn-start-compare">开始对比</button>
+        <button class="ctrl-btn" id="btn-reset-compare">重置</button>
+      </div>
+      <div class="compare-canvas-wrapper" style="margin-top:16px">
+        <canvas id="compare-canvas" width="1200" height="480"></canvas>
+      </div>
+      <div class="energy-dashboard" style="margin-top:16px">
+        <div class="energy-title">实时能效仪表盘</div>
+        <div class="energy-meters">
+          <div class="meter brain-meter">
+            <div class="meter-label">🧠 人脑</div>
+            <div class="meter-ring">
+              <svg width="120" height="120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(251,191,36,0.15)" stroke-width="10"/>
+                <circle id="ring-brain" cx="60" cy="60" r="50" fill="none" stroke="#fbbf24" stroke-width="10"
+                  stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round"/>
+              </svg>
+              <div class="value">20<span class="unit">W</span></div>
+            </div>
+          </div>
+          <div class="meter gpu-meter">
+            <div class="meter-label">🖥️ GPU</div>
+            <div class="meter-ring">
+              <svg width="120" height="120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(96,165,250,0.15)" stroke-width="10"/>
+                <circle id="ring-gpu" cx="60" cy="60" r="50" fill="none" stroke="#60a5fa" stroke-width="10"
+                  stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round"/>
+              </svg>
+              <div class="value">700<span class="unit">W</span></div>
+            </div>
+          </div>
+          <div class="meter neuromorphic-meter">
+            <div class="meter-label">🔬 神经形态</div>
+            <div class="meter-ring">
+              <svg width="120" height="120">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(74,222,128,0.15)" stroke-width="10"/>
+                <circle id="ring-neuro" cx="60" cy="60" r="50" fill="none" stroke="#4ade80" stroke-width="10"
+                  stroke-dasharray="314" stroke-dashoffset="314" stroke-linecap="round"/>
+              </svg>
+              <div class="value">0.07<span class="unit">W</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 5: Future -->
+  <div class="panel" id="panel-future">
+    <div class="future-grid">
+      <div class="future-card advantages">
+        <div class="future-section-title"><span style="font-size:22px">🚀</span> 为什么是终极方向</div>
+        <div class="future-item">
+          <h4>极低功耗</h4>
+          <p>功耗从百瓦降至毫瓦级，使 AI 可运行在可穿戴设备、IoT 传感器等边缘设备上</p>
+        </div>
+        <div class="future-item">
+          <h4>事件驱动</h4>
+          <p>无需等待时钟周期，有事件即响应，实现真正的实时处理，延迟降至微秒级</p>
+        </div>
+        <div class="future-item">
+          <h4>天然时序处理</h4>
+          <p>信息编码在脉冲时间间隔中，天然适合语音识别、传感器融合等时间序列任务</p>
+        </div>
+        <div class="future-item">
+          <h4>在线学习</h4>
+          <p>不需要离线收集数据训练，可在运行中持续学习和适应，类似生物大脑</p>
+        </div>
+      </div>
+      <div class="future-card challenges">
+        <div class="future-section-title"><span style="font-size:22px">⚠️</span> 当前挑战</div>
+        <div class="future-item">
+          <h4>编程模型不兼容</h4>
+          <p>无法使用 PyTorch/TensorFlow 等主流框架，需要全新的编程范式和工具链</p>
+        </div>
+        <div class="future-item">
+          <h4>训练方法不成熟</h4>
+          <p>反向传播算法对脉冲的离散特性不友好，梯度无法直接通过 spike 传播</p>
+        </div>
+        <div class="future-item">
+          <h4>精度和规模不足</h4>
+          <p>当前百万级神经元离大脑的 860 亿还差 5 个数量级，精度也远低于 GPU</p>
+        </div>
+        <div class="future-item">
+          <h4>生态系统薄弱</h4>
+          <p>缺乏成熟的开发者社区、预训练模型和应用案例，商业化路径尚不清晰</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== Tab Navigation ====================
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('.panel');
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabId = btn.dataset.tab;
+    tabBtns.forEach(b => b.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + tabId).classList.add('active');
+
+    if (tabId === 'comparison') {
+      animatePowerBars();
+      animateEfficiencyNumber();
+    }
+    if (tabId === 'snn') {
+      initSNNCanvas();
+    }
+    if (tabId === 'compare') {
+      initCompareCanvas();
+    }
+  });
+});
+
+// ==================== Panel 1: Efficiency Animation ====================
+function animateEfficiencyNumber() {
+  const el = document.getElementById('efficiency-number');
+  let current = 0;
+  const target = 10000;
+  const duration = 2000;
+  const start = performance.now();
+
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    current = Math.round(eased * target);
+    el.textContent = current.toLocaleString() + 'x';
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function animatePowerBars() {
+  setTimeout(() => {
+    document.getElementById('brain-bar').style.width = '2.86%';
+    document.getElementById('gpu-bar').style.width = '100%';
+  }, 300);
+}
+
+// Initial animation
+setTimeout(() => {
+  animatePowerBars();
+  animateEfficiencyNumber();
+}, 500);
+
+// ==================== Panel 2: SNN Neural Network Canvas ====================
+let snnCtx, snnCanvas;
+let snnNeurons = [];
+let snnConnections = [];
+let snnSpikes = [];
+let snnRipples = [];
+let snnAnimId = null;
+
+function initSNNCanvas() {
+  snnCanvas = document.getElementById('snn-canvas');
+  snnCtx = snnCanvas.getContext('2d');
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = snnCanvas.getBoundingClientRect();
+  snnCanvas.width = rect.width * dpr;
+  snnCanvas.height = rect.height * dpr;
+  snnCtx.scale(dpr, dpr);
+  snnCanvas.style.width = rect.width + 'px';
+  snnCanvas.style.height = rect.height + 'px';
+
+  const w = rect.width;
+  const h = rect.height;
+  const midX = w / 2;
+
+  snnNeurons = [];
+  snnConnections = [];
+  snnSpikes = [];
+  snnRipples = [];
+
+  // Generate neurons - left side (bio) and right side (silicon)
+  const neuronCount = 28;
+  for (let i = 0; i < neuronCount; i++) {
+    const side = i < neuronCount / 2 ? 'bio' : 'silicon';
+    const offsetX = side === 'bio' ? 0 : midX;
+    const areaW = midX - 40;
+    const x = offsetX + 40 + Math.random() * areaW;
+    const y = 50 + Math.random() * (h - 100);
+    const r = 6 + Math.random() * 6;
+    snnNeurons.push({
+      x, y, r, side,
+      energy: 0,
+      threshold: 0.8,
+      potential: 0,
+      lastSpike: -Infinity,
+      connections: []
+    });
+  }
+
+  // Generate connections
+  snnNeurons.forEach((n, i) => {
+    const sameSide = snnNeurons.filter((m, j) => j !== i && m.side === n.side);
+    const nearest = sameSide
+      .map((m, j) => ({ idx: snnNeurons.indexOf(m), dist: Math.hypot(m.x - n.x, m.y - n.y) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 2 + Math.floor(Math.random() * 2));
+
+    nearest.forEach(nn => {
+      if (!snnConnections.find(c => (c.from === i && c.to === nn.idx) || (c.from === nn.idx && c.to === i))) {
+        snnConnections.push({ from: i, to: nn.idx, weight: 0.3 + Math.random() * 0.4 });
+        n.connections.push(nn.idx);
+        snnNeurons[nn.idx].connections.push(i);
+      }
+    });
+  });
+
+  // Click handler
+  snnCanvas.onclick = function(e) {
+    const rect2 = snnCanvas.getBoundingClientRect();
+    const mx = e.clientX - rect2.left;
+    const my = e.clientY - rect2.top;
+
+    let closest = null;
+    let closestDist = Infinity;
+    snnNeurons.forEach((n, i) => {
+      const d = Math.hypot(n.x - mx, n.y - my);
+      if (d < closestDist && d < 30) {
+        closestDist = d;
+        closest = i;
+      }
+    });
+
+    if (closest !== null) {
+      triggerSNNSpike(closest);
+    }
+  };
+
+  if (snnAnimId) cancelAnimationFrame(snnAnimId);
+  snnAnimLoop();
+
+  // Auto-trigger some spikes for demo
+  setTimeout(() => triggerSNNSpike(2), 800);
+  setTimeout(() => triggerSNNSpike(neuronCount - 3), 1200);
+}
+
+function triggerSNNSpike(idx) {
+  const n = snnNeurons[idx];
+  const now = performance.now();
+  n.energy = 1;
+  n.lastSpike = now;
+
+  snnRipples.push({ x: n.x, y: n.y, r: 0, maxR: 40, alpha: 1, side: n.side });
+
+  // Propagate to connected neurons with delay
+  n.connections.forEach((ci, i) => {
+    const target = snnNeurons[ci];
+    const dist = Math.hypot(target.x - n.x, target.y - n.y);
+    const delay = dist * 2;
+    const conn = snnConnections.find(c => (c.from === idx && c.to === ci) || (c.from === ci && c.to === idx));
+    const weight = conn ? conn.weight : 0.3;
+
+    snnSpikes.push({
+      from: idx,
+      to: ci,
+      progress: 0,
+      speed: 0.003 + Math.random() * 0.002,
+      weight: weight,
+      side: n.side,
+      startTime: now + delay * 0.5
+    });
+  });
+}
+
+function snnAnimLoop() {
+  if (!snnCtx) return;
+  const rect = snnCanvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+  const midX = w / 2;
+  const now = performance.now();
+
+  snnCtx.clearRect(0, 0, w, h);
+
+  // Draw divider
+  snnCtx.save();
+  snnCtx.strokeStyle = 'rgba(71, 85, 105, 0.3)';
+  snnCtx.setLineDash([4, 8]);
+  snnCtx.beginPath();
+  snnCtx.moveTo(midX, 0);
+  snnCtx.lineTo(midX, h);
+  snnCtx.stroke();
+  snnCtx.restore();
+
+  // Side labels
+  snnCtx.save();
+  snnCtx.font = '13px "Noto Sans SC"';
+  snnCtx.fillStyle = 'rgba(251,191,36,0.4)';
+  snnCtx.textAlign = 'center';
+  snnCtx.fillText('生物神经元网络', midX / 2, h - 16);
+  snnCtx.fillStyle = 'rgba(56,189,248,0.4)';
+  snnCtx.fillText('硅基神经形态芯片', midX + midX / 2, h - 16);
+  snnCtx.restore();
+
+  // Draw connections
+  snnConnections.forEach(conn => {
+    const a = snnNeurons[conn.from];
+    const b = snnNeurons[conn.to];
+    const activeA = a.energy > 0.1;
+    const activeB = b.energy > 0.1;
+    const isBio = a.side === 'bio';
+
+    snnCtx.beginPath();
+    snnCtx.moveTo(a.x, a.y);
+    snnCtx.lineTo(b.x, b.y);
+
+    if (activeA || activeB) {
+      const alpha = Math.max(a.energy, b.energy) * 0.6;
+      snnCtx.strokeStyle = isBio
+        ? `rgba(251, 191, 36, ${alpha})`
+        : `rgba(56, 189, 248, ${alpha})`;
+      snnCtx.lineWidth = 1.5;
+    } else {
+      snnCtx.strokeStyle = 'rgba(71, 85, 105, 0.15)';
+      snnCtx.lineWidth = 0.5;
+    }
+    snnCtx.stroke();
+  });
+
+  // Draw spike particles
+  snnSpikes = snnSpikes.filter(spike => {
+    if (now < spike.startTime) return true;
+    spike.progress += spike.speed;
+    if (spike.progress >= 1) {
+      const target = snnNeurons[spike.to];
+      target.potential += spike.weight;
+      if (target.potential >= target.threshold && now - target.lastSpike > 500) {
+        target.potential = 0;
+        triggerSNNSpike(spike.to);
+      }
+      return false;
+    }
+
+    const a = snnNeurons[spike.from];
+    const b = snnNeurons[spike.to];
+    const px = a.x + (b.x - a.x) * spike.progress;
+    const py = a.y + (b.y - a.y) * spike.progress;
+    const isBio = spike.side === 'bio';
+
+    snnCtx.beginPath();
+    snnCtx.arc(px, py, 3, 0, Math.PI * 2);
+    const color = isBio ? '251, 191, 36' : '56, 189, 248';
+    snnCtx.fillStyle = `rgba(${color}, 0.9)`;
+    snnCtx.fill();
+
+    // Glow
+    const grd = snnCtx.createRadialGradient(px, py, 0, px, py, 10);
+    grd.addColorStop(0, `rgba(${color}, 0.4)`);
+    grd.addColorStop(1, `rgba(${color}, 0)`);
+    snnCtx.fillStyle = grd;
+    snnCtx.beginPath();
+    snnCtx.arc(px, py, 10, 0, Math.PI * 2);
+    snnCtx.fill();
+
+    return true;
+  });
+
+  // Draw ripples
+  snnRipples = snnRipples.filter(rip => {
+    rip.r += 1.2;
+    rip.alpha -= 0.02;
+    if (rip.alpha <= 0) return false;
+
+    const isBio = rip.side === 'bio';
+    const color = isBio ? '251, 191, 36' : '56, 189, 248';
+    snnCtx.beginPath();
+    snnCtx.arc(rip.x, rip.y, rip.r, 0, Math.PI * 2);
+    snnCtx.strokeStyle = `rgba(${color}, ${rip.alpha * 0.5})`;
+    snnCtx.lineWidth = 2;
+    snnCtx.stroke();
+    return true;
+  });
+
+  // Draw neurons
+  snnNeurons.forEach(n => {
+    n.energy *= 0.97;
+    n.potential *= 0.995;
+    const isBio = n.side === 'bio';
+    const baseColor = isBio ? [251, 191, 36] : [56, 189, 248];
+
+    // Glow when active
+    if (n.energy > 0.1) {
+      const grd = snnCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 3);
+      grd.addColorStop(0, `rgba(${baseColor.join(',')}, ${n.energy * 0.5})`);
+      grd.addColorStop(1, `rgba(${baseColor.join(',')}, 0)`);
+      snnCtx.fillStyle = grd;
+      snnCtx.beginPath();
+      snnCtx.arc(n.x, n.y, n.r * 3, 0, Math.PI * 2);
+      snnCtx.fill();
+    }
+
+    // Neuron body
+    snnCtx.beginPath();
+    snnCtx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    const brightness = 0.15 + n.energy * 0.85;
+    snnCtx.fillStyle = `rgba(${baseColor.join(',')}, ${brightness})`;
+    snnCtx.fill();
+
+    snnCtx.strokeStyle = `rgba(${baseColor.join(',')}, ${0.3 + n.energy * 0.7})`;
+    snnCtx.lineWidth = 1.5;
+    snnCtx.stroke();
+
+    // Potential indicator (inner ring)
+    if (n.potential > 0.1) {
+      snnCtx.beginPath();
+      snnCtx.arc(n.x, n.y, n.r * 0.5, 0, Math.PI * 2 * Math.min(n.potential / n.threshold, 1));
+      snnCtx.strokeStyle = `rgba(255, 255, 255, ${n.potential * 0.8})`;
+      snnCtx.lineWidth = 2;
+      snnCtx.stroke();
+    }
+  });
+
+  snnAnimId = requestAnimationFrame(snnAnimLoop);
+}
+
+// ==================== Panel 4: SNN vs ANN Comparison ====================
+let cmpCtx, cmpCanvas;
+let cmpRunning = false;
+let cmpAnimId = null;
+let annNeurons = [];
+let snnCompNeurons = [];
+let annActivations = [];
+let snnCompSpikes = [];
+let annComputeCount = 0;
+let snnComputeCount = 0;
+let cmpStartTime = 0;
+let energyAnimId = null;
+
+function initCompareCanvas() {
+  cmpCanvas = document.getElementById('compare-canvas');
+  cmpCtx = cmpCanvas.getContext('2d');
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = cmpCanvas.getBoundingClientRect();
+  cmpCanvas.width = rect.width * dpr;
+  cmpCanvas.height = rect.height * dpr;
+  cmpCtx.scale(dpr, dpr);
+  cmpCanvas.style.width = rect.width + 'px';
+  cmpCanvas.style.height = rect.height + 'px';
+
+  const w = rect.width;
+  const h = rect.height;
+  const midX = w / 2;
+
+  // Create ANN layers (left side)
+  annNeurons = [];
+  const layers = [4, 6, 6, 4];
+  const layerSpacing = (midX - 80) / (layers.length + 1);
+  layers.forEach((count, li) => {
+    const lx = 40 + layerSpacing * (li + 1);
+    const spacing = (h - 60) / (count + 1);
+    for (let ni = 0; ni < count; ni++) {
+      annNeurons.push({
+        x: lx,
+        y: 30 + spacing * (ni + 1),
+        r: 8,
+        layer: li,
+        activated: false,
+        value: 0
+      });
+    }
+  });
+
+  // Create SNN network (right side)
+  snnCompNeurons = [];
+  const snnLayers = [4, 6, 6, 4];
+  const snnLayerSpacing = (midX - 80) / (snnLayers.length + 1);
+  snnLayers.forEach((count, li) => {
+    const lx = midX + 40 + snnLayerSpacing * (li + 1);
+    const spacing = (h - 60) / (count + 1);
+    for (let ni = 0; ni < count; ni++) {
+      snnCompNeurons.push({
+        x: lx,
+        y: 30 + spacing * (ni + 1),
+        r: 8,
+        layer: li,
+        energy: 0,
+        potential: 0,
+        threshold: 0.6 + Math.random() * 0.3,
+        spiked: false
+      });
+    }
+  });
+
+  annActivations = [];
+  snnCompSpikes = [];
+  annComputeCount = 0;
+  snnComputeCount = 0;
+
+  drawCompareStatic();
+}
+
+function drawCompareStatic() {
+  if (!cmpCtx) return;
+  const rect = cmpCanvas.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+  const midX = w / 2;
+
+  cmpCtx.clearRect(0, 0, w, h);
+
+  // Divider
+  cmpCtx.save();
+  cmpCtx.strokeStyle = 'rgba(71, 85, 105, 0.3)';
+  cmpCtx.setLineDash([4, 8]);
+  cmpCtx.beginPath();
+  cmpCtx.moveTo(midX, 0);
+  cmpCtx.lineTo(midX, h);
+  cmpCtx.stroke();
+  cmpCtx.restore();
+
+  // Labels
+  cmpCtx.save();
+  cmpCtx.font = 'bold 16px "Noto Sans SC"';
+  cmpCtx.textAlign = 'center';
+  cmpCtx.fillStyle = '#a78bfa';
+  cmpCtx.fillText('ANN (人工神经网络)', midX / 2, 24);
+  cmpCtx.fillStyle = '#34d399';
+  cmpCtx.fillText('SNN (脉冲神经网络)', midX + midX / 2, 24);
+  cmpCtx.restore();
+
+  // Compute counters
+  cmpCtx.save();
+  cmpCtx.font = '12px "JetBrains Mono"';
+  cmpCtx.textAlign = 'center';
+  cmpCtx.fillStyle = '#a78bfa';
+  cmpCtx.fillText('计算次数: ' + annComputeCount, midX / 2, h - 10);
+  cmpCtx.fillStyle = '#34d399';
+  cmpCtx.fillText('计算次数: ' + snnComputeCount, midX + midX / 2, h - 10);
+  cmpCtx.restore();
+
+  // Draw ANN connections
+  const layerIndices = {};
+  annNeurons.forEach((n, i) => {
+    if (!layerIndices[n.layer]) layerIndices[n.layer] = [];
+    layerIndices[n.layer].push(i);
+  });
+
+  Object.keys(layerIndices).forEach(li => {
+    const nextLi = parseInt(li) + 1;
+    if (!layerIndices[nextLi]) return;
+    layerIndices[li].forEach(ai => {
+      layerIndices[nextLi].forEach(bi => {
+        const a = annNeurons[ai];
+        const b = annNeurons[bi];
+        cmpCtx.beginPath();
+        cmpCtx.moveTo(a.x, a.y);
+        cmpCtx.lineTo(b.x, b.y);
+        cmpCtx.strokeStyle = a.activated || b.activated
+          ? 'rgba(167, 139, 250, 0.3)'
+          : 'rgba(71, 85, 105, 0.12)';
+        cmpCtx.lineWidth = 0.5;
+        cmpCtx.stroke();
+      });
+    });
+  });
+
+  // Draw SNN connections
+  const snnLayerIndices = {};
+  snnCompNeurons.forEach((n, i) => {
+    if (!snnLayerIndices[n.layer]) snnLayerIndices[n.layer] = [];
+    snnLayerIndices[n.layer].push(i);
+  });
+
+  Object.keys(snnLayerIndices).forEach(li => {
+    const nextLi = parseInt(li) + 1;
+    if (!snnLayerIndices[nextLi]) return;
+    snnLayerIndices[li].forEach(ai => {
+      snnLayerIndices[nextLi].forEach(bi => {
+        const a = snnCompNeurons[ai];
+        const b = snnCompNeurons[bi];
+        cmpCtx.beginPath();
+        cmpCtx.moveTo(a.x, a.y);
+        cmpCtx.lineTo(b.x, b.y);
+        cmpCtx.strokeStyle = a.energy > 0.1 || b.energy > 0.1
+          ? 'rgba(52, 211, 153, 0.3)'
+          : 'rgba(71, 85, 105, 0.12)';
+        cmpCtx.lineWidth = 0.5;
+        cmpCtx.stroke();
+      });
+    });
+  });
+
+  // Draw ANN neurons
+  annNeurons.forEach(n => {
+    cmpCtx.beginPath();
+    cmpCtx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    const alpha = n.activated ? 0.9 : 0.2;
+    cmpCtx.fillStyle = `rgba(167, 139, 250, ${alpha})`;
+    cmpCtx.fill();
+    cmpCtx.strokeStyle = `rgba(167, 139, 250, ${0.4 + (n.activated ? 0.6 : 0)})`;
+    cmpCtx.lineWidth = 1.5;
+    cmpCtx.stroke();
+
+    if (n.activated) {
+      const grd = cmpCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 2.5);
+      grd.addColorStop(0, 'rgba(167, 139, 250, 0.3)');
+      grd.addColorStop(1, 'rgba(167, 139, 250, 0)');
+      cmpCtx.fillStyle = grd;
+      cmpCtx.beginPath();
+      cmpCtx.arc(n.x, n.y, n.r * 2.5, 0, Math.PI * 2);
+      cmpCtx.fill();
+    }
+  });
+
+  // Draw SNN neurons
+  snnCompNeurons.forEach(n => {
+    cmpCtx.beginPath();
+    cmpCtx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    const alpha = n.energy > 0.1 ? (0.2 + n.energy * 0.8) : 0.2;
+    cmpCtx.fillStyle = `rgba(52, 211, 153, ${alpha})`;
+    cmpCtx.fill();
+    cmpCtx.strokeStyle = `rgba(52, 211, 153, ${0.4 + (n.energy > 0.1 ? 0.6 : 0)})`;
+    cmpCtx.lineWidth = 1.5;
+    cmpCtx.stroke();
+
+    if (n.energy > 0.3) {
+      const grd = cmpCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 2.5);
+      grd.addColorStop(0, `rgba(52, 211, 153, ${n.energy * 0.4})`);
+      grd.addColorStop(1, 'rgba(52, 211, 153, 0)');
+      cmpCtx.fillStyle = grd;
+      cmpCtx.beginPath();
+      cmpCtx.arc(n.x, n.y, n.r * 2.5, 0, Math.PI * 2);
+      cmpCtx.fill();
+    }
+  });
+
+  // Draw SNN spike particles
+  snnCompSpikes.forEach(spike => {
+    const a = snnCompNeurons[spike.from];
+    const b = snnCompNeurons[spike.to];
+    const px = a.x + (b.x - a.x) * spike.progress;
+    const py = a.y + (b.y - a.y) * spike.progress;
+
+    cmpCtx.beginPath();
+    cmpCtx.arc(px, py, 3, 0, Math.PI * 2);
+    cmpCtx.fillStyle = 'rgba(52, 211, 153, 0.9)';
+    cmpCtx.fill();
+
+    const grd = cmpCtx.createRadialGradient(px, py, 0, px, py, 8);
+    grd.addColorStop(0, 'rgba(52, 211, 153, 0.4)');
+    grd.addColorStop(1, 'rgba(52, 211, 153, 0)');
+    cmpCtx.fillStyle = grd;
+    cmpCtx.beginPath();
+    cmpCtx.arc(px, py, 8, 0, Math.PI * 2);
+    cmpCtx.fill();
+  });
+}
+
+function startComparison() {
+  if (cmpRunning) return;
+  cmpRunning = true;
+  cmpStartTime = performance.now();
+  annComputeCount = 0;
+  snnComputeCount = 0;
+
+  // Reset states
+  annNeurons.forEach(n => { n.activated = false; n.value = 0; });
+  snnCompNeurons.forEach(n => { n.energy = 0; n.potential = 0; n.spiked = false; });
+  snnCompSpikes = [];
+
+  // ANN: activate all layers simultaneously in waves
+  const layerIndices = {};
+  annNeurons.forEach((n, i) => {
+    if (!layerIndices[n.layer]) layerIndices[n.layer] = [];
+    layerIndices[n.layer].push(i);
+  });
+
+  const layerKeys = Object.keys(layerIndices).sort((a, b) => a - b);
+  layerKeys.forEach((li, waveIdx) => {
+    setTimeout(() => {
+      layerIndices[li].forEach(idx => {
+        annNeurons[idx].activated = true;
+        annComputeCount++;
+      });
+    }, waveIdx * 500);
+  });
+
+  // SNN: sparse activation with spikes
+  const snnLayerIndices = {};
+  snnCompNeurons.forEach((n, i) => {
+    if (!snnLayerIndices[n.layer]) snnLayerIndices[n.layer] = [];
+    snnLayerIndices[n.layer].push(i);
+  });
+
+  const snnLayerKeys = Object.keys(snnLayerIndices).sort((a, b) => a - b);
+
+  // Only some input neurons spike
+  const inputIndices = snnLayerIndices[snnLayerKeys[0]] || [];
+  const spikeInputs = inputIndices.filter(() => Math.random() > 0.3);
+
+  spikeInputs.forEach((idx, i) => {
+    setTimeout(() => {
+      snnCompNeurons[idx].energy = 1;
+      snnCompNeurons[idx].spiked = true;
+      snnComputeCount++;
+
+      // Propagate to next layer
+      const nextLayerKey = snnLayerKeys[1];
+      if (snnLayerIndices[nextLayerKey]) {
+        const targets = snnLayerIndices[nextLayerKey].filter(() => Math.random() > 0.4);
+        targets.forEach(ti => {
+          snnCompSpikes.push({
+            from: idx,
+            to: ti,
+            progress: 0,
+            speed: 0.015
+          });
+        });
+      }
+    }, 200 + i * 150);
+  });
+
+  // Chain propagation through layers
+  for (let li = 1; li < snnLayerKeys.length; li++) {
+    const layerKey = snnLayerKeys[li];
+    const nextLayerKey = snnLayerKeys[li + 1];
+
+    setTimeout(() => {
+      const neurons = snnLayerIndices[layerKey];
+      const toActivate = neurons.filter(() => Math.random() > 0.4);
+      toActivate.forEach(idx => {
+        snnCompNeurons[idx].energy = 1;
+        snnCompNeurons[idx].spiked = true;
+        snnComputeCount++;
+
+        if (nextLayerKey && snnLayerIndices[nextLayerKey]) {
+          const targets = snnLayerIndices[nextLayerKey].filter(() => Math.random() > 0.5);
+          targets.forEach(ti => {
+            snnCompSpikes.push({
+              from: idx,
+              to: ti,
+              progress: 0,
+              speed: 0.012 + Math.random() * 0.008
+            });
+          });
+        }
+      });
+    }, 600 + li * 600);
+  }
+
+  // Animate energy meters
+  animateEnergyMeters();
+
+  // Run animation loop
+  if (cmpAnimId) cancelAnimationFrame(cmpAnimId);
+  cmpAnimLoop();
+
+  // Stop after all waves
+  setTimeout(() => {
+    cmpRunning = false;
+  }, 600 + snnLayerKeys.length * 600 + 500);
+}
+
+function cmpAnimLoop() {
+  // Update SNN spikes
+  snnCompSpikes = snnCompSpikes.filter(spike => {
+    spike.progress += spike.speed;
+    return spike.progress < 1;
+  });
+
+  // Decay SNN neuron energy
+  snnCompNeurons.forEach(n => {
+    n.energy *= 0.985;
+  });
+
+  drawCompareStatic();
+
+  if (cmpRunning || snnCompSpikes.length > 0 || snnCompNeurons.some(n => n.energy > 0.05)) {
+    cmpAnimId = requestAnimationFrame(cmpAnimLoop);
+  }
+}
+
+function resetComparison() {
+  cmpRunning = false;
+  if (cmpAnimId) cancelAnimationFrame(cmpAnimId);
+  annNeurons.forEach(n => { n.activated = false; n.value = 0; });
+  snnCompNeurons.forEach(n => { n.energy = 0; n.potential = 0; n.spiked = false; });
+  snnCompSpikes = [];
+  annComputeCount = 0;
+  snnComputeCount = 0;
+  drawCompareStatic();
+  resetEnergyMeters();
+}
+
+function animateEnergyMeters() {
+  const circumference = 314;
+  const ringBrain = document.getElementById('ring-brain');
+  const ringGpu = document.getElementById('ring-gpu');
+  const ringNeuro = document.getElementById('ring-neuro');
+
+  // Brain: 20W out of max 700 = ~3%
+  const brainRatio = 20 / 700;
+  // GPU: 700W = 100%
+  const gpuRatio = 1;
+  // Neuromorphic: 0.07W out of 700 = ~0.01%
+  const neuroRatio = 0.07 / 700;
+
+  ringBrain.style.transition = 'stroke-dashoffset 2s ease';
+  ringGpu.style.transition = 'stroke-dashoffset 2s ease';
+  ringNeuro.style.transition = 'stroke-dashoffset 2s ease';
+
+  setTimeout(() => {
+    ringBrain.style.strokeDashoffset = circumference * (1 - brainRatio);
+    ringGpu.style.strokeDashoffset = circumference * (1 - gpuRatio);
+    ringNeuro.style.strokeDashoffset = circumference * (1 - neuroRatio);
+  }, 100);
+}
+
+function resetEnergyMeters() {
+  const ringBrain = document.getElementById('ring-brain');
+  const ringGpu = document.getElementById('ring-gpu');
+  const ringNeuro = document.getElementById('ring-neuro');
+  ringBrain.style.transition = 'none';
+  ringGpu.style.transition = 'none';
+  ringNeuro.style.transition = 'none';
+  ringBrain.style.strokeDashoffset = 314;
+  ringGpu.style.strokeDashoffset = 314;
+  ringNeuro.style.strokeDashoffset = 314;
+}
+
+document.getElementById('btn-start-compare').addEventListener('click', function() {
+  this.classList.add('active');
+  document.getElementById('btn-reset-compare').classList.remove('active');
+  startComparison();
+});
+
+document.getElementById('btn-reset-compare').addEventListener('click', function() {
+  this.classList.add('active');
+  document.getElementById('btn-start-compare').classList.remove('active');
+  resetComparison();
+});
+
+// ==================== Auto-init on load ====================
+window.addEventListener('load', () => {
+  // Slight delay for layout
+  setTimeout(() => {
+    initSNNCanvas();
+    initCompareCanvas();
+  }, 200);
+});
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('panel-snn').classList.contains('active')) {
+    initSNNCanvas();
+  }
+  if (document.getElementById('panel-compare').classList.contains('active')) {
+    initCompareCanvas();
+  }
+});
+</script>
+
+<!-- Glossary Button & Panel -->
+<style>
+.glossary-btn {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f1f35, #1a2e4a);
+  border: 1px solid #2d4a6f;
+  color: #e2e8f0;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  z-index: 9999;
+  transition: all 0.3s ease;
+}
+.glossary-btn:hover {
+  transform: scale(1.1);
+  border-color: #4ade80;
+  box-shadow: 0 4px 24px rgba(74,222,128,0.3);
+}
+.glossary-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.glossary-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.glossary-panel {
+  position: fixed;
+  top: 0;
+  right: -460px;
+  width: 440px;
+  max-width: 90vw;
+  height: 100vh;
+  background: #0a1628;
+  border-left: 1px solid #1a2e4a;
+  z-index: 10001;
+  transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+}
+.glossary-panel.active {
+  right: 0;
+}
+.glossary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #1a2e4a;
+  flex-shrink: 0;
+}
+.glossary-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin: 0;
+}
+.glossary-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid #2d4a6f;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.glossary-close:hover {
+  background: rgba(239,68,68,0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.glossary-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 32px;
+}
+.glossary-body::-webkit-scrollbar {
+  width: 4px;
+}
+.glossary-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.glossary-body::-webkit-scrollbar-thumb {
+  background: #2d4a6f;
+  border-radius: 4px;
+}
+.glossary-item {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(26,46,74,0.8);
+}
+.glossary-item:last-child {
+  border-bottom: none;
+}
+.glossary-term {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+.glossary-term .en {
+  font-weight: 400;
+  color: #64748b;
+  font-size: 13px;
+  margin-left: 6px;
+}
+.glossary-def {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+</style>
+
+<button class="glossary-btn" id="glossaryBtn" title="术语表">&#x2753;</button>
+<div class="glossary-overlay" id="glossaryOverlay"></div>
+<div class="glossary-panel" id="glossaryPanel">
+  <div class="glossary-header">
+    <h2>&#x1F4D6; 术语表</h2>
+    <button class="glossary-close" id="glossaryClose">&#x2715;</button>
+  </div>
+  <div class="glossary-body">
+    <div class="glossary-item">
+      <div class="glossary-term">SNN <span class="en">Spiking Neural Network, 脉冲神经网络</span></div>
+      <div class="glossary-def">模仿生物神经元，用脉冲信号传递信息</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">ANN <span class="en">Artificial Neural Network, 人工神经网络</span></div>
+      <div class="glossary-def">传统神经网络，使用连续数值激活</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Spike <span class="en">脉冲</span></div>
+      <div class="glossary-def">SNN中的信息单元，类似生物神经元的电信号</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">事件驱动 <span class="en">Event-Driven</span></div>
+      <div class="glossary-def">只在有信号时才计算，没信号时芯片静默不耗电</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">时钟驱动 <span class="en">Clock-Driven</span></div>
+      <div class="glossary-def">传统芯片按固定频率运行，每个周期都在计算</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">神经元 <span class="en">Neuron</span></div>
+      <div class="glossary-def">计算单元，接收输入、处理后产生输出</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">突触 <span class="en">Synapse</span></div>
+      <div class="glossary-def">神经元之间的连接，类似电线，存储连接权重</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">膜电位 <span class="en">Membrane Potential</span></div>
+      <div class="glossary-def">SNN神经元内部电荷积累量，超过阈值就发射脉冲</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">阈值 <span class="en">Threshold</span></div>
+      <div class="glossary-def">膜电位超过此值时神经元被激活，发出脉冲</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">STDP <span class="en">Spike-Timing-Dependent Plasticity</span></div>
+      <div class="glossary-def">基于脉冲时间的学习规则，前后因果加强连接</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">异步计算 <span class="en">Asynchronous Computing</span></div>
+      <div class="glossary-def">无全局时钟，各部分按需独立运行</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">功耗 <span class="en">Power Consumption</span></div>
+      <div class="glossary-def">芯片运行消耗的电力，以瓦(W)或毫瓦(mW)计</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var btn = document.getElementById('glossaryBtn');
+  var overlay = document.getElementById('glossaryOverlay');
+  var panel = document.getElementById('glossaryPanel');
+  var closeBtn = document.getElementById('glossaryClose');
+
+  function openGlossary() {
+    panel.classList.add('active');
+    overlay.classList.add('active');
+  }
+
+  function closeGlossary() {
+    panel.classList.remove('active');
+    overlay.classList.remove('active');
+  }
+
+  btn.addEventListener('click', openGlossary);
+  overlay.addEventListener('click', closeGlossary);
+  closeBtn.addEventListener('click', closeGlossary);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeGlossary(); }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型家族图谱 — 谁是谁，谁生了谁</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a0e1a;
+  color: #e2e8f0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Stars background */
+.stars-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  animation: twinkle var(--duration) ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: var(--min-opacity); }
+  50% { opacity: var(--max-opacity); }
+}
+
+/* Header */
+.header {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  padding: 24px 20px 8px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+.header p {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* View Tabs */
+.tabs {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 8px 22px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.6);
+  color: #94a3b8;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+
+.tab-btn:hover {
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #e2e8f0;
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.3));
+  border-color: rgba(139, 92, 246, 0.6);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+}
+
+/* Legend */
+.legend {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 2px 20px 10px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-dot.open { background: #34d399; box-shadow: 0 0 6px #34d39966; }
+.legend-dot.closed { background: #818cf8; box-shadow: 0 0 6px #818cf866; }
+
+/* Main Canvas */
+.canvas {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+/* ============================================ */
+/* CAMP VIEW - Flexbox grid layout              */
+/* ============================================ */
+.camp-view {
+  display: none;
+}
+
+.camp-view.active {
+  display: flex;
+  gap: 20px;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.camp-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.camp-header {
+  text-align: center;
+  padding: 12px 0 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.15);
+}
+
+.camp-header h2 {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.camp-header.open-header h2 { color: #34d399; }
+.camp-header.closed-header h2 { color: #818cf8; }
+
+.camp-tag-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.camp-tag {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+.camp-tag.open {
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  color: #6ee7b7;
+}
+
+.camp-tag.closed {
+  background: rgba(129, 140, 248, 0.1);
+  border: 1px solid rgba(129, 140, 248, 0.25);
+  color: #a5b4fc;
+}
+
+.camp-divider {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(100, 116, 139, 0.25) 20%, rgba(100, 116, 139, 0.25) 80%, transparent);
+  flex-shrink: 0;
+}
+
+.family-row {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.3);
+  border: 1px solid rgba(100, 116, 139, 0.08);
+  transition: background 0.3s;
+}
+
+.family-row:hover {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.family-row-label {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.family-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.family-models-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.model-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 7px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border: 1px solid;
+  min-width: 0;
+  max-width: 200px;
+}
+
+.model-chip:hover {
+  transform: translateY(-2px);
+  z-index: 10;
+}
+
+.model-chip-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.model-chip-meta {
+  font-size: 10px;
+  opacity: 0.7;
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ============================================ */
+/* TIMELINE VIEW - Swim lane layout             */
+/* ============================================ */
+.timeline-view {
+  display: none;
+}
+
+.timeline-view.active {
+  display: block;
+  animation: fadeIn 0.5s ease;
+}
+
+.timeline-header-bar {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 60px 0 130px;
+  margin-bottom: 4px;
+  position: relative;
+  height: 40px;
+}
+
+.timeline-axis {
+  position: absolute;
+  left: 130px;
+  right: 60px;
+  bottom: 0;
+  height: 1px;
+  background: #334155;
+}
+
+.timeline-tick {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+}
+
+.timeline-tick::after {
+  content: '';
+  width: 1px;
+  height: 8px;
+  background: #475569;
+}
+
+.timeline-tick-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.swim-lane {
+  display: flex;
+  align-items: stretch;
+  min-height: 52px;
+  margin-bottom: 3px;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.2);
+  border: 1px solid rgba(100, 116, 139, 0.06);
+  overflow: visible;
+}
+
+.swim-lane-label {
+  width: 120px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-right: 1px solid rgba(100, 116, 139, 0.1);
+}
+
+.swim-lane-track {
+  flex: 1;
+  position: relative;
+  min-height: 50px;
+  padding: 6px 0;
+}
+
+.tl-node {
+  position: absolute;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border: 1px solid;
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.tl-node:hover {
+  z-index: 20;
+  transform: scale(1.08);
+}
+
+.tl-node-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tl-node-date {
+  font-size: 9px;
+  opacity: 0.6;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ============================================ */
+/* PARAMS VIEW - Bubble scatter chart           */
+/* ============================================ */
+.params-view {
+  display: none;
+}
+
+.params-view.active {
+  display: block;
+  animation: fadeIn 0.5s ease;
+}
+
+.params-chart-area {
+  position: relative;
+  min-height: 600px;
+  padding: 10px 60px 50px 130px;
+}
+
+.params-x-axis {
+  position: absolute;
+  left: 130px;
+  right: 60px;
+  bottom: 40px;
+  height: 1px;
+  background: linear-gradient(90deg, #334155, #818cf8);
+}
+
+.params-x-tick {
+  position: absolute;
+  bottom: 10px;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.params-family-lane {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+  min-height: 56px;
+  position: relative;
+}
+
+.params-lane-label {
+  width: 120px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 10px;
+}
+
+.params-lane-track {
+  flex: 1;
+  position: relative;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+}
+
+.bubble-node {
+  position: absolute;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.bubble-node:hover {
+  z-index: 20;
+  filter: brightness(1.3);
+  transform: scale(1.1);
+}
+
+.bubble-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  line-height: 1.1;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bubble-tooltip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 100;
+}
+
+.bubble-node:hover .bubble-tooltip {
+  opacity: 1;
+}
+
+/* ============================================ */
+/* DETAIL MODAL                                 */
+/* ============================================ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal-card {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 440px;
+  width: 92%;
+  position: relative;
+  transform: scale(0.9) translateY(20px);
+  transition: transform 0.3s ease;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-overlay.active .modal-card {
+  transform: scale(1) translateY(0);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: #e2e8f0;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.modal-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.modal-company {
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.modal-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.meta-item {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.meta-label {
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.meta-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.modal-features {
+  margin-bottom: 18px;
+}
+
+.modal-features h4 {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.feature-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin: 2px 4px 2px 0;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+
+/* Radar Chart */
+.radar-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.radar-svg {
+  width: 200px;
+  height: 200px;
+}
+
+.radar-grid {
+  stroke: #334155;
+  stroke-width: 0.5;
+  fill: none;
+}
+
+.radar-axis {
+  stroke: #334155;
+  stroke-width: 0.5;
+}
+
+.radar-area {
+  fill-opacity: 0.2;
+  stroke-width: 2;
+}
+
+.radar-point {
+  r: 3;
+}
+
+.radar-label {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 10px;
+  fill: #94a3b8;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .header h1 { font-size: 22px; }
+  .camp-view.active { flex-direction: column; }
+  .camp-divider { width: 100%; height: 1px; }
+  .swim-lane-label, .params-lane-label { width: 90px; font-size: 10px; }
+  .params-chart-area { padding-left: 100px; }
+  .timeline-header-bar { padding-left: 100px; }
+  .timeline-axis { left: 100px; }
+}
+
+@media (max-width: 600px) {
+  .header h1 { font-size: 18px; }
+  .modal-meta { grid-template-columns: 1fr 1fr; }
+  .swim-lane-label, .params-lane-label { width: 70px; font-size: 9px; }
+}
+</style>
+</head>
+<body>
+
+<div class="stars-container" id="stars"></div>
+
+<div class="header">
+  <h1>大模型家族图谱 — 谁是谁，谁生了谁</h1>
+  <p>AI 模型生态全景 (2023-2026) | 点击模型查看详情</p>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-view="camp">阵营视图</button>
+  <button class="tab-btn" data-view="timeline">时间线视图</button>
+  <button class="tab-btn" data-view="params">参数量视图</button>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot open"></div>开源模型</div>
+  <div class="legend-item"><div class="legend-dot closed"></div>闭源模型</div>
+</div>
+
+<div class="canvas">
+  <!-- Camp View -->
+  <div class="camp-view active" id="campView"></div>
+  <!-- Timeline View -->
+  <div class="timeline-view" id="timelineView"></div>
+  <!-- Params View -->
+  <div class="params-view" id="paramsView"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-card">
+    <button class="modal-close" id="modalClose">&times;</button>
+    <div class="modal-header">
+      <div class="modal-icon" id="modalIcon"></div>
+      <div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-company" id="modalCompany"></div>
+      </div>
+    </div>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-features" id="modalFeatures"></div>
+    <div class="radar-container" id="radarContainer"></div>
+  </div>
+</div>
+
+<script>
+// ========== DATA ==========
+const families = {
+  llama: {
+    label: 'Llama (Meta)',
+    company: 'Meta',
+    camp: 'open',
+    color: '#34d399',
+    light: '#6ee7b7',
+    border: '#10b981',
+    glow: 'rgba(52,211,153,0.5)',
+    models: [
+      { id:'llama1', name:'LLaMA 1', date:'2023-02', params:65, paramsLabel:'65B', ctx:'2K',
+        features:['首个开源大模型','奠定开源基础'], radar:[60,55,50,50,40] },
+      { id:'llama2', name:'Llama 2', date:'2023-07', params:70, paramsLabel:'70B', ctx:'4K',
+        features:['商用许可开放','RLHF 对齐'], radar:[70,65,60,60,55] },
+      { id:'llama3', name:'Llama 3', date:'2024-04', params:70, paramsLabel:'70B', ctx:'8K',
+        features:['15T tokens 训练','GQA 注意力'], radar:[80,78,70,75,65] },
+      { id:'llama31', name:'Llama 3.1', date:'2024-07', params:405, paramsLabel:'405B', ctx:'128K',
+        features:['405B 开源最大','128K 上下文','工具调用'], radar:[88,85,75,80,70] },
+      { id:'llama33', name:'Llama 3.3', date:'2024-12', params:70, paramsLabel:'70B', ctx:'128K',
+        features:['媲美 405B 质量','计算量仅1/6'], radar:[87,84,74,79,69] },
+      { id:'llama4scout', name:'Llama 4 Scout', date:'2025-04', params:109, paramsLabel:'17B/109B MoE', ctx:'10M',
+        features:['10M 上下文','原生多模态','MoE 16专家'], radar:[90,88,80,84,74] },
+      { id:'llama4mav', name:'Llama 4 Maverick', date:'2025-04', params:400, paramsLabel:'17B/400B MoE', ctx:'1M',
+        features:['128专家混合','超越 GPT-4o'], radar:[92,91,82,86,76] },
+    ]
+  },
+  qwen: {
+    label: 'Qwen (阿里)',
+    company: '阿里巴巴',
+    camp: 'open',
+    color: '#f97316',
+    light: '#fdba74',
+    border: '#ea580c',
+    glow: 'rgba(249,115,22,0.5)',
+    models: [
+      { id:'qwen2', name:'Qwen 2', date:'2024-06', params:72, paramsLabel:'72B', ctx:'128K',
+        features:['128K 上下文','29种语言'], radar:[82,80,72,90,68] },
+      { id:'qwen25', name:'Qwen 2.5', date:'2024-09', params:72, paramsLabel:'72B', ctx:'128K',
+        features:['编程能力飞跃','Coder/Math专版'], radar:[88,90,78,92,72] },
+      { id:'qwq32b', name:'QwQ-32B', date:'2025-03', params:32.8, paramsLabel:'32.8B', ctx:'128K',
+        features:['开源推理模型','媲美 o1-mini'], radar:[92,88,68,85,70] },
+      { id:'qwen3', name:'Qwen 3', date:'2025-04', params:235, paramsLabel:'235B MoE', ctx:'128K',
+        features:['混合推理','多语言增强'], radar:[93,92,80,94,75] },
+      { id:'qwen35', name:'Qwen 3.5', date:'2026-02', params:122, paramsLabel:'122B MoE', ctx:'262K-1M',
+        features:['201种语言','原生多模态','1M上下文'], radar:[95,94,84,96,78] },
+    ]
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    company: 'DeepSeek',
+    camp: 'open',
+    color: '#22d3ee',
+    light: '#67e8f9',
+    border: '#06b6d4',
+    glow: 'rgba(34,211,238,0.5)',
+    models: [
+      { id:'dsv2', name:'DeepSeek V2', date:'2024-05', params:236, paramsLabel:'236B MoE(21B)', ctx:'128K',
+        features:['MoE 架构创新','极致性价比'], radar:[78,82,65,70,60] },
+      { id:'dsv3', name:'DeepSeek V3', date:'2024-12', params:671, paramsLabel:'671B MoE(37B)', ctx:'128K',
+        features:['训练仅$5.5M','比肩 GPT-4o'], radar:[90,92,78,82,68] },
+      { id:'dsr1', name:'DeepSeek R1', date:'2025-01', params:671, paramsLabel:'671B MoE', ctx:'128K',
+        features:['开源推理链','震动华尔街','媲美 o1'], radar:[95,95,70,80,72] },
+      { id:'dsv3_0324', name:'DS V3-0324', date:'2025-03', params:671, paramsLabel:'671B MoE', ctx:'128K',
+        features:['编码/数学大幅提升'], radar:[92,94,75,82,70] },
+    ]
+  },
+  mistral: {
+    label: 'Mistral',
+    company: 'Mistral AI',
+    camp: 'open',
+    color: '#a3e635',
+    light: '#d9f99d',
+    border: '#84cc16',
+    glow: 'rgba(163,230,53,0.5)',
+    models: [
+      { id:'mixtral', name:'Mixtral 8x7B', date:'2023-12', params:46.7, paramsLabel:'46.7B MoE', ctx:'32K',
+        features:['稀疏 MoE 先驱'], radar:[75,73,65,70,58] },
+      { id:'mistrallg2', name:'Mistral Large 2', date:'2024-07', params:123, paramsLabel:'123B', ctx:'128K',
+        features:['多语言强悍','欧洲旗舰'], radar:[82,80,74,84,66] },
+      { id:'mistrallg3', name:'Mistral Large 3', date:'2025-12', params:675, paramsLabel:'675B MoE(41B)', ctx:'128K',
+        features:['开源前沿模型','图像理解'], radar:[90,88,80,86,72] },
+      { id:'mistralsm4', name:'Mistral Small 4', date:'2026-03', params:119, paramsLabel:'119B MoE', ctx:'128K',
+        features:['统一推理/多模态/编码'], radar:[86,85,78,82,70] },
+    ]
+  },
+  phi: {
+    label: 'Phi (Microsoft)',
+    company: 'Microsoft',
+    camp: 'open',
+    color: '#f472b6',
+    light: '#fbcfe8',
+    border: '#ec4899',
+    glow: 'rgba(244,114,182,0.5)',
+    models: [
+      { id:'phi4', name:'Phi-4', date:'2024-12', params:14, paramsLabel:'14B', ctx:'16K',
+        features:['数学超越 GPT-4o','合成数据训练'], radar:[82,80,65,60,68] },
+      { id:'phi4mm', name:'Phi-4-multimodal', date:'2025-03', params:5.6, paramsLabel:'5.6B', ctx:'16K',
+        features:['语音+视觉+文本统一'], radar:[72,70,62,58,65] },
+      { id:'phi4rv', name:'Phi-4-reasoning', date:'2026-03', params:15, paramsLabel:'15B', ctx:'16K',
+        features:['紧凑多模态推理'], radar:[84,82,68,62,70] },
+    ]
+  },
+  gpt: {
+    label: 'GPT (OpenAI)',
+    company: 'OpenAI',
+    camp: 'closed',
+    color: '#818cf8',
+    light: '#c7d2fe',
+    border: '#6366f1',
+    glow: 'rgba(129,140,248,0.5)',
+    models: [
+      { id:'gpt4', name:'GPT-4', date:'2023-03', params:1800, paramsLabel:'~1.8T MoE', ctx:'8K-128K',
+        features:['多模态输入','专业考试水平'], radar:[90,88,85,82,80] },
+      { id:'gpt4o', name:'GPT-4o', date:'2024-05', params:500, paramsLabel:'undisclosed', ctx:'128K',
+        features:['原生多模态','端到端语音'], radar:[88,86,88,85,78] },
+      { id:'o1', name:'o1', date:'2024-12', params:500, paramsLabel:'undisclosed', ctx:'200K',
+        features:['思维链推理','数学突破'], radar:[96,95,60,75,82] },
+      { id:'o3mini', name:'o3-mini', date:'2025-01', params:200, paramsLabel:'undisclosed', ctx:'200K',
+        features:['低成本推理','可调推理强度'], radar:[90,92,58,72,80] },
+      { id:'gpt45', name:'GPT-4.5', date:'2025-02', params:12800, paramsLabel:'~12.8T dense', ctx:'128K',
+        features:['最大稠密模型','减少幻觉'], radar:[93,90,90,88,84] },
+      { id:'gpt5', name:'GPT-5', date:'2025-08', params:5000, paramsLabel:'undisclosed', ctx:'1M',
+        features:['默认ChatGPT模型','全面超越'], radar:[96,95,92,90,86] },
+      { id:'gpt54', name:'GPT-5.4', date:'2026-03', params:8000, paramsLabel:'undisclosed', ctx:'1M',
+        features:['最新旗舰','原生计算机使用','思考模式'], radar:[98,97,94,92,88] },
+    ]
+  },
+  claude: {
+    label: 'Claude (Anthropic)',
+    company: 'Anthropic',
+    camp: 'closed',
+    color: '#c084fc',
+    light: '#e9d5ff',
+    border: '#a855f7',
+    glow: 'rgba(192,132,252,0.5)',
+    models: [
+      { id:'claude3o', name:'Claude 3 Opus', date:'2024-03', params:200, paramsLabel:'undisclosed', ctx:'200K',
+        features:['顶级推理','最强安全'], radar:[92,90,88,85,95] },
+      { id:'claude35s', name:'Claude 3.5 Sonnet', date:'2024-10', params:150, paramsLabel:'undisclosed', ctx:'200K',
+        features:['超越 Opus','计算机使用'], radar:[90,94,90,85,92] },
+      { id:'claude35h', name:'Claude 3.5 Haiku', date:'2024-11', params:50, paramsLabel:'undisclosed', ctx:'200K',
+        features:['极速响应','近 Sonnet 质量'], radar:[78,80,78,75,85] },
+      { id:'claude4s', name:'Claude Sonnet 4', date:'2025-05', params:200, paramsLabel:'undisclosed', ctx:'200K',
+        features:['编码飞跃','Agent能力'], radar:[92,96,90,88,94] },
+      { id:'claude4o', name:'Claude Opus 4', date:'2025-05', params:400, paramsLabel:'undisclosed', ctx:'200K',
+        features:['深度推理','持续工作'], radar:[96,94,92,90,96] },
+      { id:'claude46o', name:'Opus 4.6', date:'2026-02', params:500, paramsLabel:'undisclosed', ctx:'1M',
+        features:['1M上下文GA','Agent团队协作'], radar:[98,97,94,92,97] },
+      { id:'claude46s', name:'Sonnet 4.6', date:'2026-02', params:250, paramsLabel:'undisclosed', ctx:'1M',
+        features:['超高性价比','智能搜索'], radar:[93,95,90,90,94] },
+    ]
+  },
+  gemini: {
+    label: 'Gemini (Google)',
+    company: 'Google',
+    camp: 'closed',
+    color: '#60a5fa',
+    light: '#bfdbfe',
+    border: '#3b82f6',
+    glow: 'rgba(96,165,250,0.5)',
+    models: [
+      { id:'gemini15p', name:'Gemini 1.5 Pro', date:'2024-02', params:540, paramsLabel:'MoE', ctx:'2M',
+        features:['200万上下文','视频理解'], radar:[86,82,84,88,75] },
+      { id:'gemini20f', name:'Gemini 2.0 Flash', date:'2025-02', params:400, paramsLabel:'MoE', ctx:'1M',
+        features:['多模态输出','工具使用'], radar:[88,86,85,88,77] },
+      { id:'gemini25p', name:'Gemini 2.5 Pro', date:'2025-03', params:540, paramsLabel:'MoE', ctx:'1M',
+        features:['首个思考模型','编码顶级'], radar:[95,94,88,92,82] },
+      { id:'gemini3f', name:'Gemini 3 Flash', date:'2025-11', params:400, paramsLabel:'MoE', ctx:'1M',
+        features:['Pro级推理+Flash速度'], radar:[92,90,86,90,80] },
+      { id:'gemini31p', name:'Gemini 3.1 Pro', date:'2026-02', params:800, paramsLabel:'MoE', ctx:'2M',
+        features:['推理性能翻倍','ARC-AGI-2 77.1%'], radar:[97,95,90,94,84] },
+      { id:'gemini31fl', name:'Gemini 3.1 FL', date:'2026-03', params:200, paramsLabel:'MoE', ctx:'1M',
+        features:['363 tok/s','最高性价比'], radar:[85,83,80,86,78] },
+    ]
+  },
+  grok: {
+    label: 'Grok (xAI)',
+    company: 'xAI',
+    camp: 'closed',
+    color: '#ef4444',
+    light: '#fca5a5',
+    border: '#dc2626',
+    glow: 'rgba(239,68,68,0.5)',
+    models: [
+      { id:'grok2', name:'Grok 2', date:'2024-08', params:600, paramsLabel:'undisclosed', ctx:'128K',
+        features:['实时数据访问','X平台整合'], radar:[80,78,82,70,60] },
+      { id:'grok3', name:'Grok 3', date:'2025-02', params:3000, paramsLabel:'~3T MoE', ctx:'1M',
+        features:['20万H100训练','深度搜索'], radar:[92,90,85,78,68] },
+      { id:'grok41', name:'Grok 4.1', date:'2025-11', params:4000, paramsLabel:'undisclosed', ctx:'1M',
+        features:['LMArena #1','幻觉降65%'], radar:[96,94,88,82,75] },
+    ]
+  },
+};
+
+// Collect all models flat for easy access
+function getAllModels() {
+  const result = [];
+  Object.entries(families).forEach(([fk, fam]) => {
+    fam.models.forEach(m => {
+      result.push({ ...m, family: fk, company: fam.company, camp: fam.camp });
+    });
+  });
+  return result;
+}
+
+const allModels = getAllModels();
+
+// ========== STARS ==========
+function createStars() {
+  const container = document.getElementById('stars');
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < 180; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    const size = Math.random() * 2 + 0.5;
+    star.style.width = size + 'px';
+    star.style.height = size + 'px';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.setProperty('--duration', (Math.random() * 4 + 2) + 's');
+    star.style.setProperty('--min-opacity', (Math.random() * 0.2 + 0.05).toString());
+    star.style.setProperty('--max-opacity', (Math.random() * 0.5 + 0.3).toString());
+    star.style.animationDelay = (Math.random() * 4) + 's';
+    fragment.appendChild(star);
+  }
+  container.appendChild(fragment);
+}
+createStars();
+
+// ========== HELPERS ==========
+function formatParams(p) {
+  if (p >= 1000) return (p / 1000).toFixed(1) + 'T';
+  return p + 'B';
+}
+
+function formatCtx(c) {
+  return c;
+}
+
+function chipStyle(fam) {
+  return `background: ${fam.color}15; border-color: ${fam.color}40; color: ${fam.light};`;
+}
+
+function chipHoverBg(fam) {
+  return `background: ${fam.color}30; border-color: ${fam.color}60; box-shadow: 0 4px 16px ${fam.glow};`;
+}
+
+// ========== CAMP VIEW ==========
+function buildCampView() {
+  const el = document.getElementById('campView');
+  const openFamilies = Object.entries(families).filter(([_, f]) => f.camp === 'open');
+  const closedFamilies = Object.entries(families).filter(([_, f]) => f.camp === 'closed');
+
+  function buildColumn(famList, campType) {
+    const headerClass = campType === 'open' ? 'open-header' : 'closed-header';
+    const headerTitle = campType === 'open' ? 'OPEN SOURCE' : 'CLOSED SOURCE';
+    const tags = campType === 'open'
+      ? ['可本地部署', '可微调', '社区生态']
+      : ['API 驱动', '安全对齐', '强推理'];
+    const tagClass = campType === 'open' ? 'open' : 'closed';
+
+    let html = `<div class="camp-column">`;
+    html += `<div class="camp-header ${headerClass}">`;
+    html += `<h2>${headerTitle}</h2>`;
+    html += `<div class="camp-tag-row">`;
+    tags.forEach(t => {
+      html += `<span class="camp-tag ${tagClass}">${t}</span>`;
+    });
+    html += `</div></div>`;
+
+    famList.forEach(([fk, fam]) => {
+      html += `<div class="family-row">`;
+      html += `<div class="family-row-label"><span class="family-color-dot" style="background:${fam.color};box-shadow:0 0 6px ${fam.glow}"></span>${fam.label}</div>`;
+      html += `<div class="family-models-wrap">`;
+      fam.models.forEach(m => {
+        html += `<div class="model-chip" data-id="${m.id}" style="${chipStyle(fam)}"
+          onmouseenter="this.style.cssText='${chipHoverBg(fam)}'"
+          onmouseleave="this.style.cssText='${chipStyle(fam)}'">
+          <span class="model-chip-name">${m.name}</span>
+          <span class="model-chip-meta">${m.date} | ${m.paramsLabel}</span>
+        </div>`;
+      });
+      html += `</div></div>`;
+    });
+
+    html += `</div>`;
+    return html;
+  }
+
+  el.innerHTML = buildColumn(openFamilies, 'open')
+    + '<div class="camp-divider"></div>'
+    + buildColumn(closedFamilies, 'closed');
+
+  el.querySelectorAll('.model-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const m = allModels.find(x => x.id === chip.dataset.id);
+      if (m) openModal(m);
+    });
+  });
+}
+
+// ========== TIMELINE VIEW ==========
+function buildTimelineView() {
+  const el = document.getElementById('timelineView');
+
+  // Date range: 2023-01 to 2026-06
+  const minDate = new Date('2023-01-01');
+  const maxDate = new Date('2026-07-01');
+  const totalMs = maxDate - minDate;
+
+  function dateToPct(dateStr) {
+    const d = new Date(dateStr + '-01');
+    return Math.max(0, Math.min(100, ((d - minDate) / totalMs) * 100));
+  }
+
+  // Build year ticks
+  const years = [2023, 2024, 2025, 2026];
+  let headerHtml = '<div class="timeline-header-bar"><div class="timeline-axis"></div>';
+  years.forEach(y => {
+    const pct = dateToPct(y + '-01');
+    headerHtml += `<div class="timeline-tick" style="left:calc(130px + (100% - 190px) * ${pct / 100})">
+      <span class="timeline-tick-label">${y}</span>
+    </div>`;
+  });
+  headerHtml += '</div>';
+
+  // Build swim lanes
+  let lanesHtml = '';
+  const allFamilyKeys = Object.keys(families);
+
+  allFamilyKeys.forEach(fk => {
+    const fam = families[fk];
+    lanesHtml += `<div class="swim-lane">`;
+    lanesHtml += `<div class="swim-lane-label"><span class="family-color-dot" style="background:${fam.color};box-shadow:0 0 6px ${fam.glow}"></span><span>${fam.label}</span></div>`;
+    lanesHtml += `<div class="swim-lane-track" id="track-${fk}"></div>`;
+    lanesHtml += `</div>`;
+  });
+
+  el.innerHTML = headerHtml + lanesHtml;
+
+  // Place nodes in tracks with collision avoidance
+  allFamilyKeys.forEach(fk => {
+    const fam = families[fk];
+    const track = document.getElementById('track-' + fk);
+    const trackWidth = track.offsetWidth || 800;
+
+    // Sort models by date
+    const sorted = [...fam.models].sort((a, b) => a.date.localeCompare(b.date));
+
+    // Collision avoidance: track placed items as {left, right, row}
+    const placed = [];
+    const nodeWidthEstimate = 90; // approximate width of a tl-node in px
+    const rowHeight = 28;
+    let maxRow = 0;
+
+    sorted.forEach(m => {
+      const pct = dateToPct(m.date);
+      const leftPx = (pct / 100) * trackWidth;
+
+      // Find row without collision
+      let row = 0;
+      let collision = true;
+      while (collision) {
+        collision = false;
+        for (const p of placed) {
+          if (p.row === row) {
+            // Check horizontal overlap
+            const myLeft = leftPx - nodeWidthEstimate / 2;
+            const myRight = leftPx + nodeWidthEstimate / 2;
+            if (!(myRight < p.left || myLeft > p.right)) {
+              collision = true;
+              row++;
+              break;
+            }
+          }
+        }
+      }
+
+      placed.push({
+        left: leftPx - nodeWidthEstimate / 2,
+        right: leftPx + nodeWidthEstimate / 2,
+        row: row
+      });
+      if (row > maxRow) maxRow = row;
+
+      const node = document.createElement('div');
+      node.className = 'tl-node';
+      node.dataset.id = m.id;
+      node.style.cssText = `left: ${pct}%; top: ${6 + row * rowHeight}px; transform: translateX(-50%); background: ${fam.color}15; border-color: ${fam.color}40; color: ${fam.light};`;
+      node.innerHTML = `<span class="tl-node-name">${m.name}</span><span class="tl-node-date">${m.date}</span>`;
+      node.addEventListener('click', () => {
+        const full = allModels.find(x => x.id === m.id);
+        if (full) openModal(full);
+      });
+      node.addEventListener('mouseenter', () => {
+        node.style.background = fam.color + '30';
+        node.style.borderColor = fam.color + '70';
+        node.style.boxShadow = '0 4px 16px ' + fam.glow;
+      });
+      node.addEventListener('mouseleave', () => {
+        node.style.background = fam.color + '15';
+        node.style.borderColor = fam.color + '40';
+        node.style.boxShadow = 'none';
+      });
+      track.appendChild(node);
+    });
+
+    // Expand track height if needed
+    const neededHeight = 6 + (maxRow + 1) * rowHeight + 6;
+    if (neededHeight > 50) {
+      track.style.minHeight = neededHeight + 'px';
+    }
+  });
+}
+
+// ========== PARAMS VIEW ==========
+function buildParamsView() {
+  const el = document.getElementById('paramsView');
+
+  // X axis: log scale of params. Range: 1B to 13000B (13T)
+  const logMin = Math.log10(1);
+  const logMax = Math.log10(13000);
+
+  function paramToPct(p) {
+    const logP = Math.log10(Math.max(1, p));
+    return Math.max(2, Math.min(96, ((logP - logMin) / (logMax - logMin)) * 100));
+  }
+
+  function paramToSize(p) {
+    const logP = Math.log10(Math.max(1, p));
+    return Math.max(28, Math.min(70, 20 + (logP / logMax) * 55));
+  }
+
+  // X-axis ticks
+  const ticks = [
+    { label: '5B', val: 5 },
+    { label: '14B', val: 14 },
+    { label: '70B', val: 70 },
+    { label: '200B', val: 200 },
+    { label: '671B', val: 671 },
+    { label: '1.8T', val: 1800 },
+    { label: '12.8T', val: 12800 },
+  ];
+
+  let chartHtml = '<div class="params-chart-area">';
+
+  // Family lanes
+  const allFamilyKeys = Object.keys(families);
+  allFamilyKeys.forEach(fk => {
+    const fam = families[fk];
+    chartHtml += `<div class="params-family-lane">`;
+    chartHtml += `<div class="params-lane-label"><span class="family-color-dot" style="background:${fam.color};box-shadow:0 0 6px ${fam.glow}"></span><span>${fam.label}</span></div>`;
+    chartHtml += `<div class="params-lane-track" id="ptrack-${fk}"></div>`;
+    chartHtml += `</div>`;
+  });
+
+  // X axis
+  chartHtml += '<div class="params-x-axis"></div>';
+  ticks.forEach(t => {
+    const pct = paramToPct(t.val);
+    chartHtml += `<div class="params-x-tick" style="left:calc(130px + (100% - 190px) * ${pct / 100})">${t.label}</div>`;
+  });
+
+  chartHtml += '</div>';
+  el.innerHTML = chartHtml;
+
+  // Place bubbles with collision avoidance
+  allFamilyKeys.forEach(fk => {
+    const fam = families[fk];
+    const track = document.getElementById('ptrack-' + fk);
+    const trackWidth = track.offsetWidth || 800;
+
+    const sorted = [...fam.models].sort((a, b) => a.params - b.params);
+    const placed = []; // {cx, cy, r}
+
+    sorted.forEach(m => {
+      const pct = paramToPct(m.params);
+      const size = paramToSize(m.params);
+      const r = size / 2;
+      let cx = (pct / 100) * trackWidth;
+      let cy = 28; // center of lane
+
+      // Collision detection: nudge vertically
+      let attempts = 0;
+      let direction = 1;
+      const step = 4;
+      while (attempts < 30) {
+        let collides = false;
+        for (const p of placed) {
+          const dx = cx - p.cx;
+          const dy = cy - p.cy;
+          const minDist = r + p.r + 3;
+          if (Math.sqrt(dx * dx + dy * dy) < minDist) {
+            collides = true;
+            break;
+          }
+        }
+        if (!collides) break;
+        cy += step * direction;
+        direction = direction > 0 ? -1 : (Math.abs(direction) + 1) * (direction < 0 ? 1 : -1);
+        if (direction > 0) direction = Math.abs(direction) + 1;
+        else direction = -(Math.abs(direction) + 1);
+        attempts++;
+      }
+
+      placed.push({ cx, cy, r });
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble-node';
+      bubble.dataset.id = m.id;
+      bubble.style.cssText = `
+        width: ${size}px;
+        height: ${size}px;
+        left: ${cx - r}px;
+        top: ${cy - r}px;
+        background: radial-gradient(circle at 35% 35%, ${fam.light}, ${fam.color});
+        border: 2px solid ${fam.border};
+        box-shadow: 0 0 12px ${fam.glow};
+      `;
+
+      const shortName = m.name.length > 10 ? m.name.substring(0, 9) + '..' : m.name;
+      bubble.innerHTML = `
+        <span class="bubble-label">${size >= 36 ? shortName : ''}</span>
+        <div class="bubble-tooltip">
+          <strong>${m.name}</strong><br>
+          ${m.paramsLabel} | ctx ${m.ctx}
+        </div>
+      `;
+
+      bubble.addEventListener('click', () => {
+        const full = allModels.find(x => x.id === m.id);
+        if (full) openModal(full);
+      });
+
+      track.appendChild(bubble);
+    });
+
+    // Expand lane height if needed
+    let maxBottom = 56;
+    placed.forEach(p => {
+      const bottom = p.cy + p.r + 6;
+      if (bottom > maxBottom) maxBottom = bottom;
+    });
+    let maxTop = 0;
+    placed.forEach(p => {
+      const top = p.cy - p.r;
+      if (top < maxTop) maxTop = top;
+    });
+    if (maxTop < 0) {
+      // shift all bubbles down
+      const shift = -maxTop + 4;
+      track.querySelectorAll('.bubble-node').forEach((b, i) => {
+        const oldTop = parseFloat(b.style.top);
+        b.style.top = (oldTop + shift) + 'px';
+      });
+      maxBottom += shift;
+    }
+    if (maxBottom > 56) {
+      track.style.minHeight = maxBottom + 'px';
+    }
+  });
+}
+
+// ========== VIEW SWITCHING ==========
+let currentView = 'camp';
+
+function switchView(view) {
+  currentView = view;
+  const campEl = document.getElementById('campView');
+  const tlEl = document.getElementById('timelineView');
+  const paramsEl = document.getElementById('paramsView');
+
+  campEl.classList.toggle('active', view === 'camp');
+  tlEl.classList.toggle('active', view === 'timeline');
+  paramsEl.classList.toggle('active', view === 'params');
+
+  // Rebuild dynamic views on switch (timeline & params need layout recalc)
+  if (view === 'timeline') {
+    buildTimelineView();
+  } else if (view === 'params') {
+    // small delay to let CSS display take effect for width calculations
+    requestAnimationFrame(() => {
+      buildParamsView();
+    });
+  }
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    switchView(btn.dataset.view);
+  });
+});
+
+// ========== MODAL ==========
+function openModal(m) {
+  const fam = families[m.family];
+  const modal = document.getElementById('modal');
+  document.getElementById('modalTitle').textContent = m.name;
+  document.getElementById('modalCompany').textContent = fam.company + ' | ' + (m.camp === 'open' ? '开源' : '闭源');
+
+  const icon = document.getElementById('modalIcon');
+  icon.style.background = `radial-gradient(circle at 35% 35%, ${fam.light}, ${fam.color})`;
+  icon.style.boxShadow = `0 0 20px ${fam.glow}`;
+
+  document.getElementById('modalMeta').innerHTML = `
+    <div class="meta-item"><div class="meta-label">发布日期</div><div class="meta-value">${m.date}</div></div>
+    <div class="meta-item"><div class="meta-label">参数量</div><div class="meta-value">${m.paramsLabel}</div></div>
+    <div class="meta-item"><div class="meta-label">上下文</div><div class="meta-value">${m.ctx}</div></div>
+  `;
+
+  document.getElementById('modalFeatures').innerHTML = `
+    <h4>核心特色</h4>
+    ${m.features.map(f => `<span class="feature-tag" style="background:${fam.color}15;border-color:${fam.color}35;color:${fam.light}">${f}</span>`).join('')}
+  `;
+
+  drawRadar(m.radar, fam.color, fam.glow);
+  modal.classList.add('active');
+}
+
+function drawRadar(values, color, glow) {
+  const labels = ['推理', '编程', '创意', '多语言', '安全'];
+  const cx = 100, cy = 100, r = 70;
+  const angles = labels.map((_, i) => (Math.PI * 2 * i / labels.length) - Math.PI / 2);
+
+  let gridSvg = '';
+  [0.25, 0.5, 0.75, 1].forEach(scale => {
+    const pts = angles.map(a => `${cx + r * scale * Math.cos(a)},${cy + r * scale * Math.sin(a)}`).join(' ');
+    gridSvg += `<polygon points="${pts}" class="radar-grid"/>`;
+  });
+
+  let axisSvg = '';
+  angles.forEach(a => {
+    axisSvg += `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(a)}" y2="${cy + r * Math.sin(a)}" class="radar-axis"/>`;
+  });
+
+  const dataPts = values.map((v, i) => {
+    const s = v / 100;
+    return `${cx + r * s * Math.cos(angles[i])},${cy + r * s * Math.sin(angles[i])}`;
+  });
+  const areaSvg = `<polygon points="${dataPts.join(' ')}" class="radar-area" fill="${color}" stroke="${color}"/>`;
+
+  const pointsSvg = values.map((v, i) => {
+    const s = v / 100;
+    return `<circle cx="${cx + r * s * Math.cos(angles[i])}" cy="${cy + r * s * Math.sin(angles[i])}" class="radar-point" fill="${color}" stroke="#fff" stroke-width="1"/>`;
+  }).join('');
+
+  const labelsSvg = labels.map((l, i) => {
+    const lr = r + 18;
+    return `<text x="${cx + lr * Math.cos(angles[i])}" y="${cy + lr * Math.sin(angles[i])}" class="radar-label">${l}</text>`;
+  }).join('');
+
+  document.getElementById('radarContainer').innerHTML = `
+    <svg class="radar-svg" viewBox="0 0 200 200">
+      ${gridSvg}
+      ${axisSvg}
+      ${areaSvg}
+      ${pointsSvg}
+      ${labelsSvg}
+    </svg>
+  `;
+}
+
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('modal').classList.remove('active');
+  }
+});
+document.getElementById('modalClose').addEventListener('click', () => {
+  document.getElementById('modal').classList.remove('active');
+});
+
+// Keyboard close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('modal').classList.remove('active');
+  }
+});
+
+// ========== INIT ==========
+function init() {
+  buildCampView();
+  // Pre-build timeline & params only when first viewed (via switchView)
+}
+
+window.addEventListener('resize', () => {
+  if (currentView === 'timeline') {
+    buildTimelineView();
+  } else if (currentView === 'params') {
+    buildParamsView();
+  }
+});
+
+init();
+</script>
+</body>
+</html>

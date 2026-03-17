@@ -93,6 +93,19 @@ header .subtitle {
   background: #b91c1c;
 }
 
+.btn-step {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+.btn-step:hover {
+  background: #fef3c7;
+}
+.btn-step:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Flow diagram */
 .flow-container {
   display: flex;
@@ -403,6 +416,9 @@ header .subtitle {
     <button class="control-btn" id="prev-btn" onclick="prevStep()" disabled>
       &#9664; 上一步
     </button>
+    <button class="control-btn btn-step" id="step-btn" onclick="singleStep()">
+      单步 &#9654;|
+    </button>
     <button class="control-btn" id="next-btn" onclick="manualNext()">
       下一步 &#9654;
     </button>
@@ -411,7 +427,7 @@ header .subtitle {
       <span id="autoplay-text">自动播放</span>
     </button>
     <button class="control-btn" onclick="resetFlow()">
-      &#8635; 重置
+      &#8635; 重播
     </button>
   </div>
 
@@ -483,7 +499,7 @@ var steps = [
 
 var currentStep = -1;
 var autoPlayTimer = null;
-var isPlaying = false;
+var playMode = 'idle'; // 'idle' | 'auto' | 'paused'
 
 function renderFlow() {
   var container = document.getElementById('flow-container');
@@ -559,65 +575,111 @@ function activateStep(index) {
   document.getElementById('detail-desc').textContent = step.desc;
 
   panel.classList.add('open');
-  updateStepButtons();
+  updateControlUI();
 }
 
-function updateStepButtons() {
+function updateControlUI() {
+  // Update prev/next buttons
   var prevBtn = document.getElementById('prev-btn');
   var nextBtn = document.getElementById('next-btn');
+  var stepBtn = document.getElementById('step-btn');
   prevBtn.disabled = currentStep <= 0;
   nextBtn.disabled = currentStep >= steps.length - 1;
+  stepBtn.disabled = currentStep >= steps.length - 1;
+
+  // Update autoplay button
+  var btn = document.getElementById('autoplay-btn');
+  var icon = document.getElementById('autoplay-icon');
+  var text = document.getElementById('autoplay-text');
+
+  if (playMode === 'auto') {
+    btn.classList.remove('primary');
+    btn.classList.add('playing');
+    icon.innerHTML = '&#9646;&#9646;';
+    text.textContent = '暂停';
+  } else if (playMode === 'paused') {
+    btn.classList.add('primary');
+    btn.classList.remove('playing');
+    icon.innerHTML = '&#9654;';
+    text.textContent = '继续播放';
+  } else {
+    btn.classList.add('primary');
+    btn.classList.remove('playing');
+    icon.innerHTML = '&#9654;';
+    text.textContent = '自动播放';
+  }
+}
+
+function singleStep() {
+  // If auto-playing, pause first
+  if (playMode === 'auto') {
+    clearAutoTimer();
+    playMode = 'paused';
+  }
+
+  // Advance one step
+  if (currentStep < steps.length - 1) {
+    activateStep(currentStep + 1);
+  }
 }
 
 function manualNext() {
-  stopAutoPlay();
+  if (playMode === 'auto') {
+    clearAutoTimer();
+    playMode = 'paused';
+  }
   if (currentStep < steps.length - 1) {
     activateStep(currentStep + 1);
-    updateStepButtons();
   }
 }
 
 function prevStep() {
-  stopAutoPlay();
+  if (playMode === 'auto') {
+    clearAutoTimer();
+    playMode = 'paused';
+  }
   if (currentStep > 0) {
     activateStep(currentStep - 1);
-    updateStepButtons();
   }
 }
 
 function toggleAutoPlay() {
-  if (isPlaying) {
-    stopAutoPlay();
+  if (playMode === 'auto') {
+    // Pause
+    clearAutoTimer();
+    playMode = 'paused';
+    updateControlUI();
+  } else if (playMode === 'paused') {
+    // Resume from current position
+    playMode = 'auto';
+    updateControlUI();
+    if (currentStep < steps.length - 1) {
+      playStep(currentStep + 1);
+    } else {
+      playMode = 'idle';
+      updateControlUI();
+    }
   } else {
+    // idle: start from beginning
     startAutoPlay();
   }
 }
 
 function startAutoPlay() {
-  isPlaying = true;
-  var btn = document.getElementById('autoplay-btn');
-  btn.classList.remove('primary');
-  btn.classList.add('playing');
-  document.getElementById('autoplay-icon').innerHTML = '&#9724;';
-  document.getElementById('autoplay-text').textContent = '停止';
-
-  // Start from beginning or next step
-  var startIndex = currentStep >= steps.length - 1 ? 0 : currentStep + 1;
-  if (currentStep < 0) startIndex = 0;
-
-  if (startIndex === 0) {
-    resetFlow();
-    setTimeout(function() {
-      playStep(0);
-    }, 300);
-  } else {
-    playStep(startIndex);
-  }
+  resetFlowSilent();
+  playMode = 'auto';
+  updateControlUI();
+  setTimeout(function() {
+    playStep(0);
+  }, 300);
 }
 
 function playStep(index) {
-  if (!isPlaying || index >= steps.length) {
-    stopAutoPlay();
+  if (playMode !== 'auto' || index >= steps.length) {
+    if (index >= steps.length) {
+      playMode = 'idle';
+      updateControlUI();
+    }
     return;
   }
 
@@ -628,21 +690,21 @@ function playStep(index) {
   }, 2500);
 }
 
-function stopAutoPlay() {
-  isPlaying = false;
+function clearAutoTimer() {
   if (autoPlayTimer) {
     clearTimeout(autoPlayTimer);
     autoPlayTimer = null;
   }
-  var btn = document.getElementById('autoplay-btn');
-  btn.classList.add('primary');
-  btn.classList.remove('playing');
-  document.getElementById('autoplay-icon').innerHTML = '&#9654;';
-  document.getElementById('autoplay-text').textContent = '自动播放';
 }
 
-function resetFlow() {
-  stopAutoPlay();
+function stopAutoPlay() {
+  clearAutoTimer();
+  playMode = 'idle';
+  updateControlUI();
+}
+
+function resetFlowSilent() {
+  clearAutoTimer();
   currentStep = -1;
 
   var cards = document.querySelectorAll('.step-card');
@@ -659,14 +721,40 @@ function resetFlow() {
   document.getElementById('detail-panel').classList.remove('open');
 }
 
+function resetFlow() {
+  clearAutoTimer();
+  playMode = 'idle';
+  currentStep = -1;
+
+  var cards = document.querySelectorAll('.step-card');
+  cards.forEach(function(card) {
+    card.classList.remove('active', 'visited');
+  });
+
+  var arrows = document.querySelectorAll('.arrow');
+  arrows.forEach(function(arrow) {
+    arrow.classList.remove('active');
+  });
+
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('detail-panel').classList.remove('open');
+  updateControlUI();
+}
+
 // Keyboard support
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'ArrowRight' || e.key === ' ') {
+  if (e.key === ' ') {
+    e.preventDefault();
+    singleStep();
+  } else if (e.key === 'ArrowRight') {
     e.preventDefault();
     manualNext();
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault();
     prevStep();
+  } else if (e.key === 'p' || e.key === 'P') {
+    e.preventDefault();
+    toggleAutoPlay();
   }
 });
 

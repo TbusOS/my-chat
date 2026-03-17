@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer 优缺点擂台 — 强大，但不完美</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a0f1e;
+  color: #e2e8f0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ==================== Header ==================== */
+.header {
+  text-align: center;
+  padding: 28px 20px 12px;
+  position: relative;
+  z-index: 10;
+}
+
+.header h1 {
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #22c55e, #e2e8f0 40%, #e2e8f0 60%, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 15px;
+  color: #64748b;
+  margin-top: 6px;
+  font-weight: 400;
+}
+
+/* ==================== Controls ==================== */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 20px 16px;
+  position: relative;
+  z-index: 10;
+}
+
+.btn {
+  font-family: 'Noto Sans SC', sans-serif;
+  padding: 8px 22px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(6px);
+}
+
+.btn:hover {
+  background: rgba(255,255,255,0.12);
+  transform: translateY(-1px);
+}
+
+.btn.active {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #a5b4fc;
+}
+
+.btn-reset {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.btn-reset:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* ==================== Arena Layout ==================== */
+.arena {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  padding: 0 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 520px;
+  position: relative;
+}
+
+/* ==================== Chip Panels ==================== */
+.panel {
+  flex: 1;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+.panel-pros .panel-title {
+  color: #4ade80;
+}
+
+.panel-cons .panel-title {
+  color: #f87171;
+}
+
+/* ==================== Chip Cards ==================== */
+.chip {
+  position: relative;
+  padding: 14px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
+  overflow: hidden;
+}
+
+.chip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  transition: border-color 0.3s ease;
+}
+
+.chip-pro {
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.chip-pro::before {
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.chip-pro:hover::before {
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.chip-con {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.chip-con::before {
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.chip-con:hover::before {
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.chip:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.chip.placed {
+  opacity: 0.35;
+  transform: scale(0.95);
+  pointer-events: none;
+}
+
+.chip.placing {
+  animation: chipFlyOut 0.6s ease-in-out forwards;
+}
+
+.chip-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.chip-name {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.chip-pro .chip-name { color: #4ade80; }
+.chip-con .chip-name { color: #f87171; }
+
+.chip-brief {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+@keyframes chipFlyOut {
+  0% { transform: scale(1); opacity: 1; }
+  40% { transform: scale(1.08); opacity: 0.9; }
+  100% { transform: scale(0.95); opacity: 0.35; }
+}
+
+/* ==================== Balance / Scale ==================== */
+.scale-container {
+  width: 280px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 20px;
+  position: relative;
+}
+
+.scale-pillar {
+  width: 6px;
+  height: 180px;
+  background: linear-gradient(to top, #334155, #475569);
+  border-radius: 3px;
+  position: relative;
+  z-index: 2;
+}
+
+.scale-pillar::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50px;
+  height: 10px;
+  background: #334155;
+  border-radius: 5px;
+}
+
+.scale-pillar-top {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  background: #64748b;
+  border-radius: 50%;
+  z-index: 5;
+}
+
+.scale-beam-wrapper {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  height: 180px;
+  z-index: 3;
+}
+
+.scale-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center 0;
+}
+
+.beam-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #4ade80, #64748b 30%, #64748b 70%, #f87171);
+  border-radius: 2px;
+}
+
+/* Chains */
+.chain-left, .chain-right {
+  position: absolute;
+  top: 4px;
+  width: 2px;
+  height: 100px;
+  background: repeating-linear-gradient(to bottom, #475569 0px, #475569 6px, transparent 6px, transparent 10px);
+}
+
+.chain-left { left: 10px; }
+.chain-right { right: 10px; }
+
+/* Pans */
+.pan {
+  position: absolute;
+  width: 100px;
+  height: 20px;
+  border-radius: 0 0 50% 50%;
+  top: 104px;
+}
+
+.pan-left {
+  left: -30px;
+  background: linear-gradient(to bottom, #166534, #14532d);
+  border: 1.5px solid rgba(34, 197, 94, 0.3);
+  border-top: none;
+}
+
+.pan-right {
+  right: -30px;
+  background: linear-gradient(to bottom, #7f1d1d, #6b1a1a);
+  border: 1.5px solid rgba(239, 68, 68, 0.3);
+  border-top: none;
+}
+
+/* Chip counters on pans */
+.pan-chips {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  width: 90px;
+}
+
+.pan-chip-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  animation: dotLand 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pan-chip-dot.pro {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.pan-chip-dot.con {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+@keyframes dotLand {
+  0% { transform: translateY(-30px) scale(0); opacity: 0; }
+  60% { transform: translateY(4px) scale(1.2); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Score display */
+.score-display {
+  display: flex;
+  justify-content: space-between;
+  width: 220px;
+  margin-top: 16px;
+  position: relative;
+  z-index: 4;
+}
+
+.score-box {
+  text-align: center;
+  padding: 6px 16px;
+  border-radius: 8px;
+  min-width: 70px;
+}
+
+.score-box.pro-score {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.score-box.con-score {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.score-label {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.score-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.score-box.pro-score .score-value { color: #4ade80; }
+.score-box.con-score .score-value { color: #f87171; }
+
+.vs-text {
+  font-size: 13px;
+  color: #475569;
+  align-self: center;
+  font-weight: 700;
+}
+
+/* ==================== Detail Popup ==================== */
+.detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.detail-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.detail-card {
+  max-width: 440px;
+  width: 90%;
+  padding: 28px;
+  border-radius: 16px;
+  background: #1e293b;
+  border: 1.5px solid rgba(255,255,255,0.1);
+  transform: translateY(20px) scale(0.95);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.detail-overlay.visible .detail-card {
+  transform: translateY(0) scale(1);
+}
+
+.detail-card.pro-detail {
+  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 40px rgba(34, 197, 94, 0.1);
+}
+
+.detail-card.con-detail {
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.1);
+}
+
+.detail-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.detail-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.pro-detail .detail-title { color: #4ade80; }
+.con-detail .detail-title { color: #f87171; }
+
+.detail-desc {
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
+
+.detail-tag {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  margin-right: 6px;
+}
+
+.pro-detail .detail-tag {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+.con-detail .detail-tag {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.detail-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.06);
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.detail-close:hover {
+  background: rgba(255,255,255,0.12);
+  color: #e2e8f0;
+}
+
+/* ==================== Summary Bar ==================== */
+.summary-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, #0f172a 60%, transparent);
+  padding: 40px 20px 20px;
+  text-align: center;
+  z-index: 50;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s ease;
+  pointer-events: none;
+}
+
+.summary-bar.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+.summary-text {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.summary-text .green { color: #4ade80; }
+.summary-text .red { color: #f87171; }
+.summary-text .white { color: #e2e8f0; }
+
+.summary-sub {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* ==================== Background FX ==================== */
+.bg-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-glow.green {
+  width: 400px;
+  height: 400px;
+  background: #22c55e;
+  top: 10%;
+  left: -5%;
+}
+
+.bg-glow.red {
+  width: 400px;
+  height: 400px;
+  background: #ef4444;
+  top: 10%;
+  right: -5%;
+}
+
+/* ==================== Responsive ==================== */
+@media (max-width: 860px) {
+  .arena {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .panel {
+    max-width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .panel-title {
+    width: 100%;
+  }
+
+  .chip {
+    flex: 1;
+    min-width: 140px;
+    max-width: 200px;
+  }
+
+  .scale-container {
+    order: -1;
+    width: 260px;
+    min-width: unset;
+  }
+}
+
+/* ==================== Particle ring on scale ==================== */
+.ring-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: ringOrbit 4s linear infinite;
+}
+
+@keyframes ringOrbit {
+  0% { transform: rotate(0deg) translateX(40px) rotate(0deg); opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { transform: rotate(360deg) translateX(40px) rotate(-360deg); opacity: 0.6; }
+}
+</style>
+</head>
+<body>
+
+<!-- Background Glow -->
+<div class="bg-glow green"></div>
+<div class="bg-glow red"></div>
+
+<!-- Header -->
+<div class="header">
+  <h1>Transformer 优缺点擂台 — 强大，但不完美</h1>
+  <p>点击筹码放上天平，或使用自动演示模式</p>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="btn" id="btnAuto">&#9654; 自动演示</button>
+  <button class="btn btn-reset" id="btnReset">&#8635; 重置</button>
+</div>
+
+<!-- Arena -->
+<div class="arena">
+
+  <!-- Left Panel: Pros -->
+  <div class="panel panel-pros" id="panelPros">
+    <div class="panel-title">&#9889; 优势阵营</div>
+  </div>
+
+  <!-- Scale -->
+  <div class="scale-container">
+    <div class="scale-pillar">
+      <div class="scale-pillar-top"></div>
+    </div>
+    <div class="scale-beam-wrapper">
+      <div class="scale-beam" id="scaleBeam">
+        <div class="beam-bar"></div>
+        <div class="chain-left"></div>
+        <div class="chain-right"></div>
+        <div class="pan pan-left" id="panLeft">
+          <div class="pan-chips" id="panChipsLeft"></div>
+        </div>
+        <div class="pan pan-right" id="panRight">
+          <div class="pan-chips" id="panChipsRight"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="score-display">
+      <div class="score-box pro-score">
+        <div class="score-label">优势</div>
+        <div class="score-value" id="proCount">0</div>
+      </div>
+      <div class="vs-text">VS</div>
+      <div class="score-box con-score">
+        <div class="score-label">劣势</div>
+        <div class="score-value" id="conCount">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel: Cons -->
+  <div class="panel panel-cons" id="panelCons">
+    <div class="panel-title">&#9888;&#65039; 劣势阵营</div>
+  </div>
+
+</div>
+
+<!-- Detail Overlay -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-card" id="detailCard">
+    <button class="detail-close" id="detailClose">&times;</button>
+    <div class="detail-icon" id="detailIcon"></div>
+    <div class="detail-title" id="detailTitle"></div>
+    <div class="detail-desc" id="detailDesc"></div>
+    <div id="detailTags"></div>
+  </div>
+</div>
+
+<!-- Summary Bar -->
+<div class="summary-bar" id="summaryBar">
+  <div class="summary-text">
+    <span class="green">5 项核心优势</span>
+    <span class="white"> vs </span>
+    <span class="red">6 项已知局限</span>
+  </div>
+  <div class="summary-sub">
+    Transformer 凭借并行计算和 Scaling Law 统治了 AI 领域，<br>
+    但 O(n&sup2;) 复杂度、幻觉和能耗问题仍是未解的挑战。<br>
+    <strong style="color:#a5b4fc;">理解局限，才能更好地驾驭它。</strong>
+  </div>
+</div>
+
+<script>
+// ==================== Data ====================
+const PROS = [
+  {
+    id: 'pro1',
+    icon: '\u26A1',
+    name: '\u5E76\u884C\u8BA1\u7B97',
+    brief: '\u4E0D\u50CF RNN \u9010\u6B65\u5904\u7406\uFF0C\u53EF\u4E00\u6B21\u6027\u5904\u7406\u6574\u4E2A\u5E8F\u5217',
+    detail: 'RNN \u5FC5\u987B\u6309\u987A\u5E8F\u9010\u4E2A\u5904\u7406 token\uFF0C\u65E0\u6CD5\u5E76\u884C\u3002\u800C Transformer \u7684 Self-Attention \u8BA9\u6BCF\u4E2A token \u540C\u65F6\u201C\u770B\u89C1\u201D\u6240\u6709\u5176\u4ED6 token\uFF0C\u53EF\u4EE5\u5145\u5206\u5229\u7528 GPU \u7684\u5E76\u884C\u8BA1\u7B97\u80FD\u529B\u3002\u8FD9\u662F Transformer \u8BAD\u7EC3\u901F\u5EA6\u8FDC\u8D85 RNN \u7684\u6838\u5FC3\u539F\u56E0\u3002',
+    tags: ['Self-Attention', 'GPU\u5229\u7528\u7387']
+  },
+  {
+    id: 'pro2',
+    icon: '\uD83D\uDD17',
+    name: '\u957F\u8DDD\u79BB\u4F9D\u8D56',
+    brief: '\u6CE8\u610F\u529B\u673A\u5236\u8BA9\u76F8\u9694\u5F88\u8FDC\u7684\u8BCD\u76F4\u63A5\u5BF9\u8BDD',
+    detail: 'RNN \u5904\u7406\u957F\u5E8F\u5217\u65F6\uFF0C\u65E9\u671F\u4FE1\u606F\u4F1A\u9010\u6E10\u201C\u9057\u5FD8\u201D\uFF08\u68AF\u5EA6\u6D88\u5931\uFF09\u3002Transformer \u7684\u6CE8\u610F\u529B\u673A\u5236\u8BA9\u4EFB\u610F\u4E24\u4E2A\u4F4D\u7F6E\u7684 token \u76F4\u63A5\u8BA1\u7B97\u5173\u8054\u5206\u6570\uFF0C\u65E0\u8BBA\u5B83\u4EEC\u76F8\u8DDD\u591A\u8FDC\u3002\u8FD9\u8BA9\u6A21\u578B\u80FD\u7406\u89E3\u201C\u5C0F\u660E\u2026\u2026\u4ED6\u201D\u8FD9\u79CD\u8DE8\u8DDD\u79BB\u6307\u4EE3\u5173\u7CFB\u3002',
+    tags: ['Attention', '\u68AF\u5EA6\u6D41\u52A8']
+  },
+  {
+    id: 'pro3',
+    icon: '\uD83D\uDCC8',
+    name: 'Scaling Law',
+    brief: '\u53C2\u6570\u91CF\u2191 \u6570\u636E\u91CF\u2191 \u7B97\u529B\u2191 \u2192 \u6027\u80FD\u53EF\u9884\u6D4B\u5730\u63D0\u5347',
+    detail: 'OpenAI \u7684 Kaplan \u7B49\u4EBA\u53D1\u73B0\uFF1ATransformer \u7684\u6D4B\u8BD5\u635F\u5931\u4E0E\u53C2\u6570\u91CF\u3001\u6570\u636E\u91CF\u3001\u8BA1\u7B97\u91CF\u4E4B\u95F4\u5B58\u5728\u5E42\u5F8B\u5173\u7CFB\u3002\u8FD9\u610F\u5473\u7740\u201C\u53EA\u8981\u5806\u8D44\u6E90\uFF0C\u6027\u80FD\u5C31\u80FD\u63D0\u5347\u201D\uFF0C\u8FD9\u662F\u5927\u6A21\u578B\u519B\u5907\u7ADE\u8D5B\u7684\u7406\u8BBA\u57FA\u7840\u3002',
+    tags: ['Power Law', '\u53EF\u9884\u6D4B\u6027']
+  },
+  {
+    id: 'pro4',
+    icon: '\uD83C\uDFAF',
+    name: '\u8FC1\u79FB\u5B66\u4E60',
+    brief: '\u9884\u8BAD\u7EC3\u4E00\u6B21\uFF0C\u5FAE\u8C03\u5230\u65E0\u6570\u4E0B\u6E38\u4EFB\u52A1',
+    detail: 'BERT/GPT \u7B49\u6A21\u578B\u5728\u5927\u89C4\u6A21\u8BED\u6599\u4E0A\u9884\u8BAD\u7EC3\u540E\uFF0C\u5DF2\u7ECF\u5B66\u5230\u4E86\u901A\u7528\u7684\u8BED\u8A00\u8868\u793A\u3002\u53EA\u9700\u5C11\u91CF\u6807\u6CE8\u6570\u636E\u5FAE\u8C03\uFF0C\u5C31\u80FD\u9002\u914D\u60C5\u611F\u5206\u6790\u3001\u95EE\u7B54\u3001\u7FFB\u8BD1\u3001\u4EE3\u7801\u751F\u6210\u7B49\u5404\u79CD\u4EFB\u52A1\u3002\u8FD9\u5927\u5927\u964D\u4F4E\u4E86 AI \u5E94\u7528\u7684\u95E8\u69DB\u3002',
+    tags: ['Pre-train', 'Fine-tune']
+  },
+  {
+    id: 'pro5',
+    icon: '\uD83C\uDF10',
+    name: '\u751F\u6001\u6210\u719F',
+    brief: '\u6846\u67B6\u3001\u786C\u4EF6\u3001\u5DE5\u5177\u94FE\u5168\u9762\u5B8C\u5584',
+    detail: 'PyTorch/JAX \u63D0\u4F9B\u4E86\u6210\u719F\u7684\u8BAD\u7EC3\u6846\u67B6\uFF1BNVIDIA GPU\u3001Google TPU\u3001\u534E\u4E3A\u6607\u817E\u7B49\u786C\u4EF6\u5168\u9762\u652F\u6301\uFF1BHugging Face \u63D0\u4F9B\u4E86\u6570\u5343\u4E2A\u9884\u8BAD\u7EC3\u6A21\u578B\u3002\u4ECE\u8BAD\u7EC3\u5230\u90E8\u7F72\u7684\u6574\u4E2A\u5DE5\u5177\u94FE\u90FD\u5DF2\u7ECF\u975E\u5E38\u5B8C\u5584\u3002',
+    tags: ['PyTorch', 'HuggingFace', 'CUDA']
+  }
+];
+
+const CONS = [
+  {
+    id: 'con1',
+    icon: '\uD83D\uDCC0',
+    name: 'O(n\u00B2) \u590D\u6742\u5EA6',
+    brief: '\u6CE8\u610F\u529B\u8BA1\u7B97\u91CF\u968F\u5E8F\u5217\u957F\u5EA6\u5E73\u65B9\u589E\u957F',
+    detail: 'Self-Attention \u9700\u8981\u8BA1\u7B97\u6BCF\u5BF9 token \u4E4B\u95F4\u7684\u5173\u8054\u5206\u6570\uFF0C\u590D\u6742\u5EA6\u4E3A O(n\u00B2)\u3002\u5F53\u5E8F\u5217\u957F\u5EA6\u4E3A 128K tokens \u65F6\uFF0C\u9700\u8981 128K\u00B2 = 160 \u4EBF\u6B21\u6CE8\u610F\u529B\u8BA1\u7B97\u3002\u8FD9\u662F\u957F\u6587\u672C\u5904\u7406\u7684\u6838\u5FC3\u74F6\u9888\u3002',
+    tags: ['Attention O(n\u00B2)', '\u8BA1\u7B97\u74F6\u9888']
+  },
+  {
+    id: 'con2',
+    icon: '\uD83E\uDDE9',
+    name: '\u65E0\u771F\u6B63\u63A8\u7406',
+    brief: '\u6A21\u5F0F\u5339\u914D\u800C\u975E\u903B\u8F91\u63A8\u7406\uFF0C\u6570\u5B66\u4EFB\u52A1\u6613\u72AF\u9519',
+    detail: 'Transformer \u672C\u8D28\u4E0A\u662F\u901A\u8FC7\u7EDF\u8BA1\u6A21\u5F0F\u9884\u6D4B\u4E0B\u4E00\u4E2A token\uFF0C\u800C\u975E\u8FDB\u884C\u903B\u8F91\u63A8\u5BFC\u3002\u5B83\u53EF\u80FD\u201C\u80CC\u4E0B\u6765\u201D\u4E86 3+5=8\uFF0C\u4F46\u5E76\u4E0D\u771F\u6B63\u7406\u89E3\u52A0\u6CD5\u3002\u8FD9\u5BFC\u81F4\u5728\u590D\u6742\u6570\u5B66\u3001\u591A\u6B65\u63A8\u7406\u548C\u53CD\u4E8B\u5B9E\u95EE\u9898\u4E0A\u7ECF\u5E38\u5931\u8D25\u3002',
+    tags: ['\u6A21\u5F0F\u5339\u914D', '\u975E\u7B26\u53F7\u63A8\u7406']
+  },
+  {
+    id: 'con3',
+    icon: '\uD83D\uDC7B',
+    name: '\u5E7B\u89C9\u95EE\u9898',
+    brief: '\u4F1A\u81EA\u4FE1\u5730\u7F16\u9020\u4E0D\u5B58\u5728\u7684\u4E8B\u5B9E',
+    detail: '\u6A21\u578B\u7684\u751F\u6210\u8FC7\u7A0B\u662F\u6982\u7387\u6027\u7684\uFF0C\u5F53\u8BAD\u7EC3\u6570\u636E\u4E2D\u6CA1\u6709\u76F4\u63A5\u7B54\u6848\u65F6\uFF0C\u5B83\u4F1A\u201C\u63D2\u503C\u201D\u751F\u6210\u770B\u8D77\u6765\u5408\u7406\u4F46\u5B9E\u9645\u9519\u8BEF\u7684\u5185\u5BB9\u3002\u66F4\u5371\u9669\u7684\u662F\uFF0C\u5B83\u7684\u8BED\u6C14\u901A\u5E38\u975E\u5E38\u81EA\u4FE1\uFF0C\u8BA9\u7528\u6237\u96BE\u4EE5\u5206\u8FA8\u771F\u4F2A\u3002',
+    tags: ['Hallucination', '\u53EF\u9760\u6027']
+  },
+  {
+    id: 'con4',
+    icon: '\uD83D\uDCE6',
+    name: '\u4E0A\u4E0B\u6587\u7A97\u53E3',
+    brief: '\u8BB0\u5FC6\u6709\u9650\uFF0C\u8D85\u51FA\u7A97\u53E3\u5C31\u201C\u5931\u5FC6\u201D',
+    detail: '\u6BCF\u4E2A\u6A21\u578B\u90FD\u6709\u56FA\u5B9A\u7684\u4E0A\u4E0B\u6587\u7A97\u53E3\u5927\u5C0F\uFF08\u5982 GPT-4 \u7684 128K\uFF09\u3002\u8D85\u51FA\u7A97\u53E3\u7684\u5185\u5BB9\u4F1A\u88AB\u622A\u65AD\uFF0C\u6A21\u578B\u5B8C\u5168\u65E0\u6CD5\u611F\u77E5\u3002\u5373\u4F7F\u5728\u7A97\u53E3\u5185\uFF0C\u4E2D\u95F4\u90E8\u5206\u7684\u4FE1\u606F\u4E5F\u5F80\u5F80\u88AB\u201C\u5FFD\u89C6\u201D\uFF08Lost in the Middle \u73B0\u8C61\uFF09\u3002',
+    tags: ['Context Window', 'Lost in Middle']
+  },
+  {
+    id: 'con5',
+    icon: '\uD83D\uDD0B',
+    name: '\u80FD\u8017\u5DE8\u5927',
+    brief: '\u8BAD\u7EC3 GPT-4 \u4F30\u8BA1\u6D88\u8017 ~50GWh \u7535\u80FD',
+    detail: '\u8BAD\u7EC3\u4E00\u4E2A\u5927\u578B Transformer \u6A21\u578B\u9700\u8981\u6570\u5343\u5F20 GPU \u8FD0\u884C\u6570\u6708\u3002GPT-4 \u7684\u8BAD\u7EC3\u80FD\u8017\u4F30\u8BA1\u7EA6 50GWh\uFF0C\u76F8\u5F53\u4E8E\u4E00\u4E2A\u5C0F\u578B\u57CE\u5E02\u4E00\u5E74\u7684\u7528\u7535\u91CF\u3002\u8FD9\u5F15\u53D1\u4E86\u5BF9 AI \u73AF\u5883\u5F71\u54CD\u548C\u53EF\u6301\u7EED\u6027\u7684\u5E7F\u6CDB\u8BA8\u8BBA\u3002',
+    tags: ['~50GWh', '\u78B3\u6392\u653E']
+  },
+  {
+    id: 'con6',
+    icon: '\uD83D\uDD04',
+    name: '\u7F3A\u4E4F\u6301\u7EED\u5B66\u4E60',
+    brief: '\u4E0D\u80FD\u589E\u91CF\u66F4\u65B0\u77E5\u8BC6\uFF0C\u9700\u5B8C\u5168\u91CD\u65B0\u8BAD\u7EC3',
+    detail: '\u5F53\u9700\u8981\u66F4\u65B0\u6A21\u578B\u7684\u77E5\u8BC6\u65F6\uFF0C\u65E0\u6CD5\u50CF\u6570\u636E\u5E93\u4E00\u6837\u7B80\u5355\u5730\u201C\u63D2\u5165\u65B0\u8BB0\u5F55\u201D\u3002\u5FAE\u8C03\u53EF\u80FD\u5BFC\u81F4\u7075\u707E\u6027\u9057\u5FD8\uFF08Catastrophic Forgetting\uFF09\uFF0C\u4E25\u91CD\u7684\u66F4\u65B0\u5F80\u5F80\u9700\u8981\u91CD\u65B0\u8BAD\u7EC3\u6574\u4E2A\u6A21\u578B\uFF0C\u6210\u672C\u6781\u9AD8\u3002',
+    tags: ['Catastrophic Forgetting', '\u91CD\u8BAD\u7EC3\u6210\u672C']
+  }
+];
+
+// ==================== State ====================
+let proPlaced = 0;
+let conPlaced = 0;
+let autoRunning = false;
+let autoTimer = null;
+const placedSet = new Set();
+
+// ==================== DOM References ====================
+const panelPros = document.getElementById('panelPros');
+const panelCons = document.getElementById('panelCons');
+const scaleBeam = document.getElementById('scaleBeam');
+const panChipsLeft = document.getElementById('panChipsLeft');
+const panChipsRight = document.getElementById('panChipsRight');
+const proCountEl = document.getElementById('proCount');
+const conCountEl = document.getElementById('conCount');
+const detailOverlay = document.getElementById('detailOverlay');
+const detailCard = document.getElementById('detailCard');
+const detailIcon = document.getElementById('detailIcon');
+const detailTitle = document.getElementById('detailTitle');
+const detailDesc = document.getElementById('detailDesc');
+const detailTags = document.getElementById('detailTags');
+const detailClose = document.getElementById('detailClose');
+const summaryBar = document.getElementById('summaryBar');
+const btnAuto = document.getElementById('btnAuto');
+const btnReset = document.getElementById('btnReset');
+
+// ==================== Render Chips ====================
+function renderChips() {
+  PROS.forEach(function(item) {
+    const el = document.createElement('div');
+    el.className = 'chip chip-pro';
+    el.dataset.id = item.id;
+    el.innerHTML =
+      '<div class="chip-icon">' + item.icon + '</div>' +
+      '<div class="chip-name">' + item.name + '</div>' +
+      '<div class="chip-brief">' + item.brief + '</div>';
+    el.addEventListener('click', function() { placeChip(item, el, 'pro'); });
+    panelPros.appendChild(el);
+  });
+
+  CONS.forEach(function(item) {
+    const el = document.createElement('div');
+    el.className = 'chip chip-con';
+    el.dataset.id = item.id;
+    el.innerHTML =
+      '<div class="chip-icon">' + item.icon + '</div>' +
+      '<div class="chip-name">' + item.name + '</div>' +
+      '<div class="chip-brief">' + item.brief + '</div>';
+    el.addEventListener('click', function() { placeChip(item, el, 'con'); });
+    panelCons.appendChild(el);
+  });
+}
+
+// ==================== Place Chip ====================
+function placeChip(item, el, type) {
+  if (placedSet.has(item.id)) return;
+  placedSet.add(item.id);
+
+  el.classList.add('placing');
+  setTimeout(function() { el.classList.add('placed'); }, 600);
+
+  if (type === 'pro') {
+    proPlaced++;
+    proCountEl.textContent = proPlaced;
+    addDotToPan('left', 'pro');
+  } else {
+    conPlaced++;
+    conCountEl.textContent = conPlaced;
+    addDotToPan('right', 'con');
+  }
+
+  updateScale();
+  showDetail(item, type);
+  checkComplete();
+}
+
+// ==================== Add dot to pan ====================
+function addDotToPan(side, cls) {
+  var container = side === 'left' ? panChipsLeft : panChipsRight;
+  var dot = document.createElement('div');
+  dot.className = 'pan-chip-dot ' + cls;
+  container.appendChild(dot);
+}
+
+// ==================== Update Scale Tilt ====================
+function updateScale() {
+  // Positive angle = tilts right (cons heavier), negative = tilts left (pros heavier)
+  // Each pro chip weighs 1.2 (slightly heavier to make final tilt favor pros slightly)
+  var proWeight = proPlaced * 1.2;
+  var conWeight = conPlaced * 1.0;
+  var diff = conWeight - proWeight;
+  // Clamp angle between -12 and 12 degrees
+  var maxAngle = 12;
+  var angle = diff * 3;
+  if (angle > maxAngle) angle = maxAngle;
+  if (angle < -maxAngle) angle = -maxAngle;
+  scaleBeam.style.transform = 'rotate(' + angle + 'deg)';
+}
+
+// ==================== Show Detail Popup ====================
+function showDetail(item, type) {
+  detailCard.className = 'detail-card ' + (type === 'pro' ? 'pro-detail' : 'con-detail');
+  detailIcon.textContent = item.icon;
+  detailTitle.textContent = item.name;
+  detailDesc.textContent = item.detail;
+  detailTags.innerHTML = '';
+  item.tags.forEach(function(tag) {
+    var span = document.createElement('span');
+    span.className = 'detail-tag';
+    span.textContent = tag;
+    detailTags.appendChild(span);
+  });
+  detailOverlay.classList.add('visible');
+}
+
+function hideDetail() {
+  detailOverlay.classList.remove('visible');
+}
+
+detailClose.addEventListener('click', hideDetail);
+detailOverlay.addEventListener('click', function(e) {
+  if (e.target === detailOverlay) hideDetail();
+});
+
+// ==================== Check Complete ====================
+function checkComplete() {
+  if (proPlaced === PROS.length && conPlaced === CONS.length) {
+    setTimeout(function() {
+      summaryBar.classList.add('visible');
+    }, 800);
+  }
+}
+
+// ==================== Auto Demo ====================
+function startAuto() {
+  if (autoRunning) {
+    stopAuto();
+    return;
+  }
+
+  autoRunning = true;
+  btnAuto.classList.add('active');
+  btnAuto.innerHTML = '&#9724; \u6682\u505C\u6F14\u793A';
+
+  // Build interleaved queue: pro, con, pro, con, ...
+  var queue = [];
+  var maxLen = Math.max(PROS.length, CONS.length);
+  for (var i = 0; i < maxLen; i++) {
+    if (i < PROS.length && !placedSet.has(PROS[i].id)) {
+      queue.push({ item: PROS[i], type: 'pro' });
+    }
+    if (i < CONS.length && !placedSet.has(CONS[i].id)) {
+      queue.push({ item: CONS[i], type: 'con' });
+    }
+  }
+
+  var idx = 0;
+  function next() {
+    if (idx >= queue.length || !autoRunning) {
+      stopAuto();
+      return;
+    }
+    var entry = queue[idx];
+    var selector = '.chip[data-id="' + entry.item.id + '"]';
+    var el = document.querySelector(selector);
+    if (el && !placedSet.has(entry.item.id)) {
+      placeChip(entry.item, el, entry.type);
+    }
+    idx++;
+    autoTimer = setTimeout(function() {
+      hideDetail();
+      setTimeout(next, 400);
+    }, 1800);
+  }
+
+  // Close any open detail first
+  hideDetail();
+  setTimeout(next, 500);
+}
+
+function stopAuto() {
+  autoRunning = false;
+  if (autoTimer) {
+    clearTimeout(autoTimer);
+    autoTimer = null;
+  }
+  btnAuto.classList.remove('active');
+  btnAuto.innerHTML = '&#9654; \u81EA\u52A8\u6F14\u793A';
+}
+
+btnAuto.addEventListener('click', startAuto);
+
+// ==================== Reset ====================
+function resetAll() {
+  stopAuto();
+  hideDetail();
+  summaryBar.classList.remove('visible');
+
+  proPlaced = 0;
+  conPlaced = 0;
+  placedSet.clear();
+
+  proCountEl.textContent = '0';
+  conCountEl.textContent = '0';
+  scaleBeam.style.transform = 'rotate(0deg)';
+  panChipsLeft.innerHTML = '';
+  panChipsRight.innerHTML = '';
+
+  // Remove all chip elements and re-render
+  document.querySelectorAll('.chip').forEach(function(el) { el.remove(); });
+  renderChips();
+}
+
+btnReset.addEventListener('click', resetAll);
+
+// ==================== Keyboard ====================
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    hideDetail();
+  }
+});
+
+// ==================== Init ====================
+renderChips();
+</script>
+
+<!-- Glossary Button & Panel -->
+<button id="glossaryBtn" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:44px;height:44px;border-radius:50%;background:rgba(99,102,241,0.3);border:1px solid rgba(99,102,241,0.5);color:#a5b4fc;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.3s;" onclick="toggleGlossary()">&#10067;</button>
+<div id="glossaryPanel" style="position:fixed;right:0;top:0;height:100vh;width:340px;background:rgba(15,23,42,0.97);border-left:1px solid rgba(99,102,241,0.2);overflow-y:auto;padding:24px;z-index:10000;transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h3 style="color:#a5b4fc;font-size:17px;font-weight:700;margin:0;">&#128218; 术语表</h3>
+    <button onclick="toggleGlossary()" style="background:rgba(255,255,255,0.06);border:none;color:#94a3b8;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">&times;</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">O(n&sup2;) 复杂度</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">计算量随输入长度n的平方增长。128K tokens就需要128K&times;128K&asymp;164亿次注意力计算</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Scaling Law (扩展定律)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">模型能力随参数量、数据量、算力三者的增加可预测地提升</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">幻觉 (Hallucination)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">模型自信地编造不存在的事实、引用或数据</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">上下文窗口 (Context Window)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">模型一次对话能记住的最大信息量</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">RLHF (人类反馈强化学习)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">用人类偏好来训练模型，使输出更安全有用</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">迁移学习 (Transfer Learning)</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">在大量数据上预训练，然后迁移到特定任务</div>
+    </div>
+    <div style="padding:12px;border-radius:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">灾难性遗忘</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.6;">学新知识时丢失旧知识，需要完全重新训练</div>
+    </div>
+  </div>
+</div>
+<script>
+function toggleGlossary() {
+  var panel = document.getElementById('glossaryPanel');
+  var isOpen = panel.style.transform === 'translateX(0%)';
+  panel.style.transform = isOpen ? 'translateX(100%)' : 'translateX(0%)';
+}
+</script>
+</body>
+</html>

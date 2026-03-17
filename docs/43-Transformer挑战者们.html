@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer 挑战者们 — 谁能打破注意力的统治</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --gold: #fbbf24;
+  --gold-dark: #d97706;
+  --mamba-color: #22d3ee;
+  --rwkv-color: #a78bfa;
+  --moe-color: #f472b6;
+  --linear-color: #34d399;
+  --hybrid-color: #fb923c;
+  --bg-dark: #0f0e17;
+  --bg-card: #1a1a2e;
+  --bg-ring: #16213e;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Stars background */
+.stars {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  width: 2px; height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  animation: twinkle var(--dur) ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  from { opacity: 0.1; }
+  to { opacity: 0.8; }
+}
+
+/* Main container */
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 20px 0 28px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+  background: linear-gradient(135deg, var(--gold), #fff, var(--gold));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.header .subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* Arena section */
+.arena {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+/* The champion in center */
+.champion {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.15), transparent 70%);
+  border: 2px solid rgba(251, 191, 36, 0.4);
+  border-radius: 50%;
+  margin: 20px 0;
+  animation: championPulse 3s ease-in-out infinite;
+  cursor: default;
+}
+
+@keyframes championPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.2), 0 0 60px rgba(251, 191, 36, 0.05); }
+  50% { box-shadow: 0 0 40px rgba(251, 191, 36, 0.35), 0 0 80px rgba(251, 191, 36, 0.1); }
+}
+
+.crown {
+  font-size: 36px;
+  margin-bottom: 2px;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
+  animation: crownFloat 2.5s ease-in-out infinite;
+}
+
+@keyframes crownFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.champion-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.champion-year {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.champion-weakness {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #ef4444;
+  margin-top: 6px;
+  padding: 2px 10px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Challenger ring around champion */
+.challengers-ring {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 900px;
+}
+
+.challenger-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 8px;
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.35s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.challenger-node::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, var(--c-color) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.challenger-node:hover::before,
+.challenger-node.active::before {
+  opacity: 0.08;
+}
+
+.challenger-node:hover,
+.challenger-node.active {
+  border-color: var(--c-color);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3), 0 0 20px color-mix(in srgb, var(--c-color) 20%, transparent);
+}
+
+.challenger-node .icon {
+  font-size: 32px;
+  position: relative;
+  z-index: 1;
+}
+
+.challenger-node .name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-color);
+  position: relative;
+  z-index: 1;
+}
+
+.challenger-node .tagline {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* VS flash */
+.vs-flash {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.vs-flash.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vs-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 120px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 60px rgba(255, 255, 255, 0.6), 0 0 120px var(--flash-color);
+  animation: vsSlam 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes vsSlam {
+  0% { transform: scale(3); opacity: 0; }
+  40% { transform: scale(0.9); opacity: 1; }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.vs-names {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  bottom: 35%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  opacity: 0;
+  animation: fadeInUp 0.3s ease 0.25s forwards;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.vs-champion {
+  color: var(--gold);
+}
+
+.vs-challenger {
+  color: var(--flash-color);
+}
+
+/* Spark lines for VS */
+.spark-line {
+  position: absolute;
+  width: 2px;
+  background: linear-gradient(to bottom, transparent, var(--flash-color), transparent);
+  animation: sparkFly 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes sparkFly {
+  0% { opacity: 1; transform: scaleY(0); }
+  50% { opacity: 1; transform: scaleY(1); }
+  100% { opacity: 0; transform: scaleY(1) translateY(-20px); }
+}
+
+/* Detail panel */
+.detail-panel {
+  background: var(--bg-card);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 32px;
+  margin-bottom: 32px;
+  min-height: 300px;
+  position: relative;
+  overflow: hidden;
+}
+
+.detail-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--active-color, var(--gold)), transparent);
+  transition: all 0.5s ease;
+}
+
+/* Default state - champion overview */
+.champion-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.overview-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.overview-icon {
+  font-size: 48px;
+}
+
+.overview-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-title h2 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--active-color, var(--gold));
+}
+
+.overview-title .since {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.overview-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.badge.strength {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.badge.weakness {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.badge.neutral {
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.2);
+  color: #93c5fd;
+}
+
+/* Challenger detail */
+.challenger-detail {
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+  animation: fadeIn 0.4s ease;
+}
+
+.challenger-detail.active {
+  display: flex;
+}
+
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-section h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.detail-section p, .detail-section li {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.detail-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.detail-section li {
+  padding-left: 20px;
+  position: relative;
+}
+
+.detail-section li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--active-color, var(--gold));
+  opacity: 0.6;
+}
+
+.complexity-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.complexity-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 60px;
+}
+
+.complexity-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--active-color, var(--gold));
+}
+
+.complexity-vis {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.complexity-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--active-color, var(--gold));
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.author-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.principle-box {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border-left: 3px solid var(--active-color, var(--gold));
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+/* Comparison table */
+.comparison-section {
+  margin-top: 8px;
+}
+
+.comparison-section h2 {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 140px repeat(5, 1fr);
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.grid-header {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 14px 12px;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.grid-header.dim-label {
+  text-align: left;
+  padding-left: 16px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.grid-header.transformer-h { color: var(--gold); }
+.grid-header.mamba-h { color: var(--mamba-color); }
+.grid-header.rwkv-h { color: var(--rwkv-color); }
+.grid-header.moe-h { color: var(--moe-color); }
+.grid-header.hybrid-h { color: var(--hybrid-color); }
+
+.grid-cell {
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.01);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.3s ease;
+}
+
+.grid-cell:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.grid-cell.dim-label {
+  text-align: left;
+  align-items: flex-start;
+  padding-left: 16px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.cell-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.cell-bar {
+  width: 100%;
+  max-width: 80px;
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.cell-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Rating stars */
+.rating {
+  display: flex;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.rating .filled { color: var(--gold); }
+.rating .empty { color: rgba(255,255,255,0.1); }
+
+/* Linear attention section (5th row in detail) */
+.linear-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid rgba(52, 211, 153, 0.15);
+  padding: 24px;
+  margin-top: 8px;
+}
+
+.linear-card h3 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  color: var(--linear-color);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.linear-items {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.linear-item {
+  padding: 14px;
+  background: rgba(52, 211, 153, 0.04);
+  border-radius: 12px;
+  border: 1px solid rgba(52, 211, 153, 0.08);
+}
+
+.linear-item .li-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--linear-color);
+  margin-bottom: 6px;
+}
+
+.linear-item .li-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* Footer note */
+.footer-note {
+  text-align: center;
+  padding: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(255,255,255,0.04);
+  margin-top: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header h1 { font-size: 22px; }
+  .challengers-ring { grid-template-columns: repeat(2, 1fr); }
+  .comparison-grid { grid-template-columns: 100px repeat(5, 1fr); font-size: 11px; }
+  .grid-cell, .grid-header { padding: 8px 6px; }
+  .detail-panel { padding: 20px; }
+  .linear-items { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .challengers-ring { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .comparison-grid { grid-template-columns: 80px repeat(5, 1fr); }
+  .header h1 { font-size: 18px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Stars background -->
+<div class="stars" id="stars"></div>
+
+<!-- VS flash overlay -->
+<div class="vs-flash" id="vsFlash">
+  <div class="vs-text" id="vsText">VS</div>
+  <div class="vs-names" id="vsNames">
+    <span class="vs-champion">Transformer</span>
+    <span style="color:#fff;font-size:14px;">VS</span>
+    <span class="vs-challenger" id="vsChallengerName"></span>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Transformer 挑战者们 — 谁能打破注意力的统治</h1>
+    <div class="subtitle">点击挑战者查看详情，了解下一代架构候选人</div>
+  </div>
+
+  <!-- Arena: Champion + Challengers -->
+  <div class="arena">
+    <div class="champion">
+      <div class="crown">👑</div>
+      <div class="champion-name">Transformer</div>
+      <div class="champion-year">擂主 · 2017 至今</div>
+      <div class="champion-weakness">O(n²)</div>
+    </div>
+
+    <div class="challengers-ring">
+      <div class="challenger-node" data-id="mamba" style="--c-color: var(--mamba-color);" onclick="selectChallenger('mamba')">
+        <div class="icon">🐍</div>
+        <div class="name">Mamba</div>
+        <div class="tagline">状态空间模型 · O(n)</div>
+      </div>
+      <div class="challenger-node" data-id="rwkv" style="--c-color: var(--rwkv-color);" onclick="selectChallenger('rwkv')">
+        <div class="icon">🦅</div>
+        <div class="name">RWKV</div>
+        <div class="tagline">RNN+Transformer · O(1)推理</div>
+      </div>
+      <div class="challenger-node" data-id="moe" style="--c-color: var(--moe-color);" onclick="selectChallenger('moe')">
+        <div class="icon">🧠</div>
+        <div class="name">MoE</div>
+        <div class="tagline">稀疏激活 · 已成主流标配</div>
+      </div>
+      <div class="challenger-node" data-id="linear" style="--c-color: var(--linear-color);" onclick="selectChallenger('linear')">
+        <div class="icon">⚡</div>
+        <div class="name">线性注意力</div>
+        <div class="tagline">近似Attention · 降维打击</div>
+      </div>
+      <div class="challenger-node" data-id="hybrid" style="--c-color: var(--hybrid-color);" onclick="selectChallenger('hybrid')">
+        <div class="icon">🔀</div>
+        <div class="name">混合架构</div>
+        <div class="tagline">Transformer+SSM+MoE · 2025新趋势</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Panel -->
+  <div class="detail-panel" id="detailPanel">
+    <!-- Default: Champion overview -->
+    <div class="champion-overview" id="championOverview">
+      <div class="overview-header">
+        <div class="overview-icon">👑</div>
+        <div class="overview-title">
+          <h2>Transformer — 当前擂主</h2>
+          <div class="since">统治时间：2017 ("Attention Is All You Need") 至今</div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>统治地位 · 2026 现状</h3>
+        <p>截至 2026 年 3 月，所有顶级大语言模型（GPT-5.4、Claude Opus 4.6、Gemini 3.1、Llama 4、Qwen 3.5...）仍然基于 Transformer 架构。但趋势正在从"纯 Transformer"转向"Transformer 为核心的混合架构"——结合 SSM 层、MoE 稀疏激活等技术。</p>
+      </div>
+      <div class="overview-badges">
+        <span class="badge strength">✓ 高度并行化</span>
+        <span class="badge strength">✓ 可扩展性极强</span>
+        <span class="badge strength">✓ 生态最成熟</span>
+        <span class="badge strength">✓ 推理能力最强</span>
+        <span class="badge strength">✓ Flash Attention 3 已成标配</span>
+        <span class="badge strength">✓ 1M+ token 上下文已普及</span>
+        <span class="badge weakness">✗ 理论 O(n²) 注意力复杂度</span>
+        <span class="badge weakness">✗ 日益走向混合化</span>
+      </div>
+      <div class="principle-box">
+        <strong>2026 关键变化：</strong>Flash Attention 3 已成为标准实现，将理论 O(n²) 的实际开销大幅降低。Claude Opus 4.6 和 GPT-5.4 已实现 1M+ token 上下文窗口。Transformer 并未被"替代"，而是通过吸收 SSM、MoE 等技术不断进化——<strong>最大的挑战者们正在成为 Transformer 的组成部分</strong>。
+      </div>
+    </div>
+
+    <!-- Mamba detail -->
+    <div class="challenger-detail" id="detail-mamba">
+      <div class="overview-header">
+        <div class="overview-icon">🐍</div>
+        <div class="overview-title">
+          <h2 style="color:var(--mamba-color)">Mamba — 选择性状态空间模型</h2>
+          <div class="author-tag">👤 Albert Gu, Tri Dao · Mamba 1 (2023) · Mamba 2 (2024)</div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>核心创新</h3>
+        <p>选择性状态空间模型（Selective SSM）— 用<strong>递推</strong>替代注意力机制。不再计算所有 token 之间的关系，而是维护一个"隐状态"，每个新 token 动态更新隐状态。</p>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="complexity-bar" style="flex:1;min-width:200px;">
+          <span class="complexity-label">训练</span>
+          <span class="complexity-value" style="color:var(--mamba-color)">O(n)</span>
+          <div class="complexity-vis"><div class="complexity-fill" style="width:30%;background:var(--mamba-color)"></div></div>
+        </div>
+        <div class="complexity-bar" style="flex:1;min-width:200px;">
+          <span class="complexity-label">推理</span>
+          <span class="complexity-value" style="color:var(--mamba-color)">O(n)</span>
+          <div class="complexity-vis"><div class="complexity-fill" style="width:30%;background:var(--mamba-color)"></div></div>
+        </div>
+      </div>
+      <div class="principle-box" style="border-color:var(--mamba-color)">
+        <strong>原理简述：</strong>像 RNN 一样维护隐状态，但使用"选择性扫描"算法实现<strong>并行训练</strong>。关键在于"选择性"——根据输入内容动态调整状态转移矩阵，让模型选择性地记住或遗忘信息。
+      </div>
+      <div class="detail-section" style="margin-top:12px;">
+        <h3>2026 最新进展</h3>
+        <ul>
+          <li><strong>Mamba 2 (2024)</strong> — 提出 SSD (State Space Duality) 框架，揭示 SSM 与注意力机制的数学对偶关系。硬件利用率大幅提升，训练速度比 Mamba 1 快 2-8 倍。</li>
+          <li><strong>Jamba (AI21 Labs)</strong> — 混合 Mamba + Transformer 架构，256K 上下文窗口，已投入生产环境。这是混合架构路线的标杆之作。</li>
+          <li><strong>混合模型成趋势</strong> — 多个团队采用"Mamba 层 + Attention 层"交替的混合架构，用 SSM 处理长序列、用 Attention 做精确推理。</li>
+          <li>在长序列任务（如长文档检索、基因序列分析）上表现突出，但纯 Mamba 在复杂推理任务上仍不及 Transformer。</li>
+        </ul>
+      </div>
+      <div class="overview-badges">
+        <span class="badge strength">✓ O(n) 线性复杂度</span>
+        <span class="badge strength">✓ 长序列性能优秀</span>
+        <span class="badge strength">✓ 显存占用大幅降低</span>
+        <span class="badge strength">✓ Mamba 2 硬件效率大幅提升</span>
+        <span class="badge strength">✓ Jamba 等混合模型已生产就绪</span>
+        <span class="badge weakness">✗ 纯 SSM 推理能力仍弱于 Transformer</span>
+        <span class="badge weakness">✗ 独立生态仍较小</span>
+        <span class="badge neutral">◐ 最佳路径：与 Transformer 混合使用</span>
+      </div>
+    </div>
+
+    <!-- RWKV detail -->
+    <div class="challenger-detail" id="detail-rwkv">
+      <div class="overview-header">
+        <div class="overview-icon">🦅</div>
+        <div class="overview-title">
+          <h2 style="color:var(--rwkv-color)">RWKV — RNN 与 Transformer 的混合体</h2>
+          <div class="author-tag">👤 Bo Peng · RWKV-6 Eagle (2024) · RWKV-7 Goose (2025)</div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>核心创新</h3>
+        <p>"用 Transformer 的方式训练 RNN" — 训练时像 Transformer 一样高度并行，推理时像 RNN 一样递推，实现 <strong>O(1) 常数级推理</strong>。这是真正的恒定内存推理，非常适合资源受限的部署场景。</p>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="complexity-bar" style="flex:1;min-width:200px;">
+          <span class="complexity-label">训练</span>
+          <span class="complexity-value" style="color:var(--rwkv-color)">O(n)</span>
+          <div class="complexity-vis"><div class="complexity-fill" style="width:30%;background:var(--rwkv-color)"></div></div>
+        </div>
+        <div class="complexity-bar" style="flex:1;min-width:200px;">
+          <span class="complexity-label">推理</span>
+          <span class="complexity-value" style="color:var(--rwkv-color)">O(1)</span>
+          <div class="complexity-vis"><div class="complexity-fill" style="width:10%;background:var(--rwkv-color)"></div></div>
+        </div>
+      </div>
+      <div class="principle-box" style="border-color:var(--rwkv-color)">
+        <strong>原理简述：</strong>RWKV = Receptance Weighted Key Value。使用线性注意力的变体实现并行训练，同时保留 RNN 的递推特性。推理时每步只需更新固定大小的状态向量，与上下文长度无关。
+      </div>
+      <div class="detail-section" style="margin-top:12px;">
+        <h3>2026 最新进展</h3>
+        <ul>
+          <li><strong>RWKV-6 "Eagle"</strong> — 多语言能力显著增强，长上下文表现改善。社区已训练多个语言的 Eagle 变体。</li>
+          <li><strong>RWKV-7 "Goose"</strong> — 进一步改进架构设计，在多个基准测试上缩小了与 Transformer 的差距。</li>
+          <li><strong>边缘部署王者</strong> — 由于真正 O(1) 的逐 token 推理内存，RWKV 在边缘设备、嵌入式系统、低资源部署场景中有独特优势。</li>
+          <li>社区持续壮大，但与 Transformer 生态相比仍属小众。主要在中英文社区活跃。</li>
+        </ul>
+      </div>
+      <div class="overview-badges">
+        <span class="badge strength">✓ 训练 O(n)，推理 O(1)</span>
+        <span class="badge strength">✓ 完全开源，社区活跃</span>
+        <span class="badge strength">✓ 推理时显存恒定</span>
+        <span class="badge strength">✓ 边缘部署最佳选择</span>
+        <span class="badge strength">✓ RWKV-7 持续缩小性能差距</span>
+        <span class="badge weakness">✗ 大规模模型验证仍不足</span>
+        <span class="badge weakness">✗ 复杂推理任务仍有差距</span>
+        <span class="badge neutral">◐ 社区增长中但仍属小众</span>
+      </div>
+    </div>
+
+    <!-- MoE detail -->
+    <div class="challenger-detail" id="detail-moe">
+      <div class="overview-header">
+        <div class="overview-icon">🧠</div>
+        <div class="overview-title">
+          <h2 style="color:var(--moe-color)">MoE — 混合专家模型 <span style="font-size:14px;color:#4ade80;">✓ 已成主流</span></h2>
+          <div class="author-tag">📌 DeepSeek V3 (671B/37B) · Mistral Large 3 · Llama 4 · Qwen 3.5</div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>核心创新</h3>
+        <p>稀疏激活 — 模型有多个"专家"子网络，但每次只激活其中少数几个。以 DeepSeek V3 为例：<strong>总参数 671B，但每次推理只激活 37B 的计算量。</strong>用少量计算获得超大模型的效果。</p>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="complexity-bar" style="flex:1;min-width:200px;">
+          <span class="complexity-label">训练</span>
+          <span class="complexity-value" style="color:var(--moe-color)">O(n²) 稀疏</span>
+          <div class="complexity-vis"><div class="complexity-fill" style="width:60%;background:var(--moe-color)"></div></div>
+        </div>
+        <div class="complexity-bar" style="flex:1;min-width:200px;">
+          <span class="complexity-label">推理</span>
+          <span class="complexity-value" style="color:var(--moe-color)">O(n²/k)</span>
+          <div class="complexity-vis"><div class="complexity-fill" style="width:45%;background:var(--moe-color)"></div></div>
+        </div>
+      </div>
+      <div class="principle-box" style="border-color:var(--moe-color)">
+        <strong>2026 重要更新：</strong>MoE 已从"挑战者"变为<strong>主流标准技术</strong>。它不再是 Transformer 的替代品，而是 Transformer 架构内部的标准组件。几乎所有新一代旗舰模型都采用 MoE：DeepSeek V3 (671B/37B active)、Mistral Large 3 (675B/41B active)、Llama 4 (全系 MoE)、Qwen 3.5 (MoE)。训练稳定性问题已基本解决，专家路由技术（如 DeepSeek 的 Multi-Head Latent Attention）持续创新。
+      </div>
+      <div class="detail-section" style="margin-top:12px;">
+        <h3>2026 最新进展</h3>
+        <ul>
+          <li><strong>DeepSeek V3</strong> — 671B 总参数 / 37B 活跃参数，刷新开源模型性能记录。创新的 Multi-Head Latent Attention 和改进的专家路由。</li>
+          <li><strong>Llama 4 全系 MoE</strong> — Meta 全面拥抱 MoE 架构，标志着 MoE 从实验走向标准配置。</li>
+          <li><strong>训练稳定性突破</strong> — 专家坍缩和负载均衡问题已通过 auxiliary loss、router z-loss 等技术大幅缓解。</li>
+          <li><strong>MoE 不再是"挑战者"</strong> — 它已成为 Transformer 架构内部的标准增强技术，就像 LayerNorm 和 RoPE 一样普及。</li>
+        </ul>
+      </div>
+      <div class="overview-badges">
+        <span class="badge strength">✓ 少量计算，超大模型效果</span>
+        <span class="badge strength">✓ 已成为行业标准架构</span>
+        <span class="badge strength">✓ 推理计算量大幅降低</span>
+        <span class="badge strength">✓ DeepSeek/Llama/Mistral/Qwen 全面采用</span>
+        <span class="badge strength">✓ 训练稳定性问题已基本解决</span>
+        <span class="badge weakness">✗ 显存仍需装载全部参数</span>
+        <span class="badge weakness">✗ 通信开销在分布式训练中仍显著</span>
+        <span class="badge neutral">◐ 已从"挑战者"毕业为"标配"</span>
+      </div>
+    </div>
+
+    <!-- Linear Attention detail -->
+    <div class="challenger-detail" id="detail-linear">
+      <div class="overview-header">
+        <div class="overview-icon">⚡</div>
+        <div class="overview-title">
+          <h2 style="color:var(--linear-color)">线性注意力变体 — 优化而非替代</h2>
+          <div class="author-tag">📌 Flash Attention 3 · Performer · Linear Attention</div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>核心创新</h3>
+        <p>两条路线：(1) 用核函数近似 softmax attention，将复杂度从 O(n²) 降到 O(n)；(2) 通过 IO 感知优化（如 Flash Attention），<strong>不改架构</strong>但大幅提速。Flash Attention 3 的成功使得 Transformer 在实践中的 O(n²) 成本大幅降低，反而巩固了 Transformer 的统治地位。</p>
+      </div>
+      <div class="linear-items">
+        <div class="linear-item">
+          <div class="li-name">Flash Attention 3</div>
+          <div class="li-desc">Tri Dao 团队最新版本，针对 Hopper 架构 GPU (H100/H200) 深度优化。异步化 + warp 调度，<strong>已成为 2026 年所有主流模型的标配</strong>，是 1M+ token 上下文的关键支撑。</div>
+        </div>
+        <div class="linear-item">
+          <div class="li-name">Performer / Linear Attn</div>
+          <div class="li-desc">用核函数近似 softmax 实现 O(n) 复杂度。由于 Flash Attention 的成功和混合 SSM 架构的兴起，纯线性注意力路线热度有所下降。</div>
+        </div>
+        <div class="linear-item">
+          <div class="li-name">Ring Attention</div>
+          <div class="li-desc">将长序列切块分发到多个设备上并行计算注意力，实现近乎无限上下文长度。是 1M+ token 模型的另一关键技术。</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;" class="overview-badges">
+        <span class="badge strength">✓ Flash Attention 3 已成为行业标配</span>
+        <span class="badge strength">✓ 支撑 1M+ token 上下文成为现实</span>
+        <span class="badge strength">✓ 可与现有架构完全兼容</span>
+        <span class="badge weakness">✗ 近似方法有精度损失</span>
+        <span class="badge weakness">✗ 纯线性注意力路线热度下降</span>
+        <span class="badge neutral">◐ Flash Attention 反而巩固了 Transformer</span>
+      </div>
+    </div>
+
+    <!-- Hybrid Architecture detail -->
+    <div class="challenger-detail" id="detail-hybrid">
+      <div class="overview-header">
+        <div class="overview-icon">🔀</div>
+        <div class="overview-title">
+          <h2 style="color:var(--hybrid-color)">混合架构 — 2025-2026 真正的新趋势</h2>
+          <div class="author-tag">📌 Jamba · StripedHyena · Mamba+Attention 混合 · SSM+MoE</div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>核心理念</h3>
+        <p>不再追问"谁能替代 Transformer"，而是把各架构的优势<strong>组合</strong>起来。典型做法：用 Attention 层做需要精确推理的部分，用 SSM/Mamba 层高效处理长序列，用 MoE 在不增加推理成本的前提下扩大模型容量。</p>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="complexity-bar" style="flex:1;min-width:200px;">
+          <span class="complexity-label">训练</span>
+          <span class="complexity-value" style="color:var(--hybrid-color)">亚 O(n²)</span>
+          <div class="complexity-vis"><div class="complexity-fill" style="width:50%;background:var(--hybrid-color)"></div></div>
+        </div>
+        <div class="complexity-bar" style="flex:1;min-width:200px;">
+          <span class="complexity-label">推理</span>
+          <span class="complexity-value" style="color:var(--hybrid-color)">优于纯 Transformer</span>
+          <div class="complexity-vis"><div class="complexity-fill" style="width:40%;background:var(--hybrid-color)"></div></div>
+        </div>
+      </div>
+      <div class="principle-box" style="border-color:var(--hybrid-color)">
+        <strong>核心洞察：</strong>2025-2026 年的实践表明，<strong>没有单一架构能在所有维度上最优</strong>。Attention 擅长推理和精确检索，SSM 擅长长序列和低延迟，MoE 擅长高效扩容。混合架构取各家之长：交替使用不同类型的层，在同一个模型中融合多种机制。Jamba (AI21) 是这一路线的先行者，使用交替的 Mamba 层和 Attention 层 + MoE，在 256K 上下文下表现优异。
+      </div>
+      <div class="detail-section" style="margin-top:12px;">
+        <h3>代表模型</h3>
+        <ul>
+          <li><strong>Jamba (AI21 Labs)</strong> — Mamba + Transformer + MoE 三合一，256K 上下文，吞吐量比同等 Transformer 高 3 倍。已投入商业生产。</li>
+          <li><strong>StripedHyena</strong> — Together AI 提出的混合架构，交替 Hyena (长卷积) 层和 Attention 层。</li>
+          <li><strong>Zamba / Zamba2</strong> — Zyphra 的混合 SSM-Transformer 模型，在小模型规模上表现优异。</li>
+          <li><strong>多家实验室在探索</strong> — Google、Meta、Anthropic 等均在研究将 SSM 层融入 Transformer 的可能性。</li>
+        </ul>
+      </div>
+      <div class="overview-badges">
+        <span class="badge strength">✓ 兼具 Attention 的推理力和 SSM 的效率</span>
+        <span class="badge strength">✓ 长序列 + 强推理两不误</span>
+        <span class="badge strength">✓ Jamba 已验证生产可行性</span>
+        <span class="badge strength">✓ 可灵活调整层的配比</span>
+        <span class="badge weakness">✗ 架构设计空间巨大，最优配比未定</span>
+        <span class="badge weakness">✗ 训练和调优复杂度更高</span>
+        <span class="badge neutral">◐ 可能是架构之争的最终答案</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparison Table -->
+  <div class="comparison-section">
+    <h2>⚔️ 赛道对比</h2>
+    <div class="comparison-grid" id="comparisonGrid">
+      <!-- Header row -->
+      <div class="grid-header dim-label">维度</div>
+      <div class="grid-header transformer-h">👑 Transformer</div>
+      <div class="grid-header mamba-h">🐍 Mamba</div>
+      <div class="grid-header rwkv-h">🦅 RWKV</div>
+      <div class="grid-header moe-h">🧠 MoE</div>
+      <div class="grid-header hybrid-h">🔀 混合架构</div>
+
+      <!-- Training complexity -->
+      <div class="grid-cell dim-label">训练复杂度</div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--gold)">O(n²)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="100" style="background:var(--gold)"></div></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--mamba-color)">O(n)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="35" style="background:var(--mamba-color)"></div></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--rwkv-color)">O(n)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="35" style="background:var(--rwkv-color)"></div></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--moe-color)">O(n²) 稀疏</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="70" style="background:var(--moe-color)"></div></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--hybrid-color)">亚 O(n²)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="55" style="background:var(--hybrid-color)"></div></div>
+      </div>
+
+      <!-- Inference complexity -->
+      <div class="grid-cell dim-label">推理复杂度</div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--gold)">O(n²)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="100" style="background:var(--gold)"></div></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--mamba-color)">O(n)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="35" style="background:var(--mamba-color)"></div></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--rwkv-color)">O(1)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="10" style="background:var(--rwkv-color)"></div></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--moe-color)">O(n²/k)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="55" style="background:var(--moe-color)"></div></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--hybrid-color)">亚 O(n²)</span>
+        <div class="cell-bar"><div class="cell-bar-fill" data-width="45" style="background:var(--hybrid-color)"></div></div>
+      </div>
+
+      <!-- Long sequence -->
+      <div class="grid-cell dim-label">长序列能力</div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--gold)">强(FA3)</span>
+        <div class="rating"><span class="filled">★★★★</span><span class="empty">★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--mamba-color)">极强</span>
+        <div class="rating"><span class="filled">★★★★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--rwkv-color)">极强</span>
+        <div class="rating"><span class="filled">★★★★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--moe-color)">强(FA3)</span>
+        <div class="rating"><span class="filled">★★★★</span><span class="empty">★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--hybrid-color)">极强</span>
+        <div class="rating"><span class="filled">★★★★★</span></div>
+      </div>
+
+      <!-- Reasoning -->
+      <div class="grid-cell dim-label">推理能力</div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--gold)">极强</span>
+        <div class="rating"><span class="filled">★★★★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--mamba-color)">中+</span>
+        <div class="rating"><span class="filled">★★★</span><span class="empty">★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--rwkv-color)">中</span>
+        <div class="rating"><span class="filled">★★★</span><span class="empty">★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--moe-color)">极强</span>
+        <div class="rating"><span class="filled">★★★★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--hybrid-color)">强</span>
+        <div class="rating"><span class="filled">★★★★</span><span class="empty">★</span></div>
+      </div>
+
+      <!-- Ecosystem -->
+      <div class="grid-cell dim-label">生态成熟度</div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--gold)">极高</span>
+        <div class="rating"><span class="filled">★★★★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--mamba-color)">中</span>
+        <div class="rating"><span class="filled">★★★</span><span class="empty">★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--rwkv-color)">中低</span>
+        <div class="rating"><span class="filled">★★</span><span class="empty">★★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--moe-color)">极高</span>
+        <div class="rating"><span class="filled">★★★★★</span></div>
+      </div>
+      <div class="grid-cell">
+        <span class="cell-value" style="color:var(--hybrid-color)">新兴</span>
+        <div class="rating"><span class="filled">★★</span><span class="empty">★★★</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Linear Attention bonus card -->
+  <div class="linear-card" style="margin-top:24px;">
+    <h3>⚡ 补充赛道：注意力优化技术</h3>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+      Flash Attention 3 和 Ring Attention 等技术不在上表中，因为它们是对 Transformer 的<strong>工程优化</strong>而非架构替代。讽刺的是，这些优化反而<strong>巩固了 Transformer 的统治</strong>——让 O(n²) 的理论弱点在实践中变得可以接受。
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+      <div style="text-align:center;padding:10px;background:rgba(52,211,153,0.05);border-radius:10px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--linear-color);font-weight:700;">Flash Attn 3</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">H100/H200 深度优化 · 2026 标配</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:rgba(52,211,153,0.05);border-radius:10px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--linear-color);font-weight:700;">1M+</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">上下文窗口已成现实</div>
+      </div>
+      <div style="text-align:center;padding:10px;background:rgba(52,211,153,0.05);border-radius:10px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:20px;color:var(--linear-color);font-weight:700;">Ring Attn</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">分布式长序列 · 跨设备并行</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    架构之争的答案逐渐清晰：<strong>混合才是王道</strong> · Transformer + SSM + MoE 三位一体 · 更新于 2026.03
+  </div>
+</div>
+
+<script>
+// Generate stars
+(function initStars() {
+  var container = document.getElementById('stars');
+  var fragment = document.createDocumentFragment();
+  for (var i = 0; i < 80; i++) {
+    var star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.setProperty('--dur', (1.5 + Math.random() * 3) + 's');
+    star.style.animationDelay = Math.random() * 3 + 's';
+    star.style.width = star.style.height = (1 + Math.random() * 2) + 'px';
+    fragment.appendChild(star);
+  }
+  container.appendChild(fragment);
+})();
+
+// State
+var currentChallenger = null;
+var isAnimating = false;
+
+var challengerColors = {
+  mamba: 'var(--mamba-color)',
+  rwkv: 'var(--rwkv-color)',
+  moe: 'var(--moe-color)',
+  linear: 'var(--linear-color)',
+  hybrid: 'var(--hybrid-color)'
+};
+
+var challengerNames = {
+  mamba: 'Mamba',
+  rwkv: 'RWKV',
+  moe: 'MoE',
+  linear: '线性注意力',
+  hybrid: '混合架构'
+};
+
+function selectChallenger(id) {
+  if (isAnimating) return;
+
+  // If clicking the same one, deselect
+  if (currentChallenger === id) {
+    currentChallenger = null;
+    updateUI(null);
+    return;
+  }
+
+  isAnimating = true;
+  currentChallenger = id;
+
+  // Show VS flash
+  showVsFlash(id, function() {
+    updateUI(id);
+    isAnimating = false;
+  });
+}
+
+function showVsFlash(id, callback) {
+  var flash = document.getElementById('vsFlash');
+  var vsText = document.getElementById('vsText');
+  var challengerNameEl = document.getElementById('vsChallengerName');
+
+  // Set color
+  var color = challengerColors[id];
+  flash.style.setProperty('--flash-color', color);
+  challengerNameEl.textContent = challengerNames[id];
+  challengerNameEl.style.color = color;
+
+  // Reset animation
+  vsText.style.animation = 'none';
+  vsText.offsetHeight; // trigger reflow
+  vsText.style.animation = '';
+
+  var namesEl = document.getElementById('vsNames');
+  namesEl.style.animation = 'none';
+  namesEl.offsetHeight;
+  namesEl.style.animation = '';
+
+  // Add spark lines
+  addSparks(flash, color);
+
+  flash.classList.add('show');
+
+  setTimeout(function() {
+    flash.classList.remove('show');
+    callback();
+  }, 800);
+}
+
+function addSparks(container, color) {
+  // Remove old sparks
+  var oldSparks = container.querySelectorAll('.spark-line');
+  oldSparks.forEach(function(s) { s.remove(); });
+
+  for (var i = 0; i < 12; i++) {
+    var spark = document.createElement('div');
+    spark.className = 'spark-line';
+    spark.style.left = (20 + Math.random() * 60) + '%';
+    spark.style.top = (10 + Math.random() * 80) + '%';
+    spark.style.height = (30 + Math.random() * 60) + 'px';
+    spark.style.background = 'linear-gradient(to bottom, transparent, ' + color + ', transparent)';
+    spark.style.animationDelay = (Math.random() * 0.3) + 's';
+    spark.style.transform = 'rotate(' + (Math.random() * 360) + 'deg)';
+    container.appendChild(spark);
+  }
+}
+
+function updateUI(id) {
+  var panel = document.getElementById('detailPanel');
+  var overview = document.getElementById('championOverview');
+  var nodes = document.querySelectorAll('.challenger-node');
+  var details = document.querySelectorAll('.challenger-detail');
+
+  // Update active node
+  nodes.forEach(function(node) {
+    if (node.dataset.id === id) {
+      node.classList.add('active');
+    } else {
+      node.classList.remove('active');
+    }
+  });
+
+  // Update detail panel
+  if (id === null) {
+    overview.style.display = 'flex';
+    details.forEach(function(d) { d.classList.remove('active'); });
+    panel.style.setProperty('--active-color', 'var(--gold)');
+  } else {
+    overview.style.display = 'none';
+    details.forEach(function(d) {
+      if (d.id === 'detail-' + id) {
+        d.classList.add('active');
+        // Re-trigger animation
+        d.style.animation = 'none';
+        d.offsetHeight;
+        d.style.animation = '';
+      } else {
+        d.classList.remove('active');
+      }
+    });
+    panel.style.setProperty('--active-color', challengerColors[id]);
+  }
+}
+
+// Animate comparison bars on scroll
+function animateBars() {
+  var fills = document.querySelectorAll('.cell-bar-fill');
+  fills.forEach(function(fill) {
+    var width = fill.dataset.width;
+    if (width) {
+      fill.style.width = width + '%';
+    }
+  });
+}
+
+// Intersection Observer for comparison grid
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(entry) {
+    if (entry.isIntersecting) {
+      setTimeout(animateBars, 200);
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.2 });
+
+var grid = document.getElementById('comparisonGrid');
+if (grid) {
+  // Start bars at 0 width
+  var fills = grid.querySelectorAll('.cell-bar-fill');
+  fills.forEach(function(fill) { fill.style.width = '0%'; });
+  observer.observe(grid);
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+  var order = ['mamba', 'rwkv', 'moe', 'linear', 'hybrid'];
+  var idx = order.indexOf(currentChallenger);
+
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    var next = idx < order.length - 1 ? order[idx + 1] : order[0];
+    selectChallenger(next);
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    var prev = idx > 0 ? order[idx - 1] : order[order.length - 1];
+    selectChallenger(prev);
+  } else if (e.key === 'Escape') {
+    currentChallenger = null;
+    updateUI(null);
+  }
+});
+</script>
+
+<!-- Glossary Panel -->
+<style>
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(20, 20, 40, 0.85);
+  color: #e2e8f0;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: all 0.3s ease;
+}
+.glossary-btn:hover {
+  background: rgba(40, 40, 80, 0.95);
+  border-color: rgba(255,255,255,0.3);
+  transform: scale(1.08);
+}
+.glossary-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.glossary-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.glossary-panel {
+  position: fixed;
+  top: 50%;
+  right: -420px;
+  transform: translateY(-50%);
+  width: 400px;
+  max-width: 90vw;
+  max-height: 70vh;
+  z-index: 9999;
+  background: rgba(15, 15, 35, 0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  box-shadow: -4px 0 40px rgba(0,0,0,0.5);
+  overflow-y: auto;
+  padding: 24px;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glossary-panel.visible {
+  right: 24px;
+}
+.glossary-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.glossary-panel::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+.glossary-panel h3 {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.glossary-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.glossary-item:last-child {
+  border-bottom: none;
+}
+.glossary-term {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #93c5fd;
+}
+.glossary-cn {
+  font-size: 13px;
+  color: #c4b5fd;
+  margin-left: 4px;
+}
+.glossary-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-top: 3px;
+}
+</style>
+
+<button class="glossary-btn" id="glossaryBtn" onclick="toggleGlossary()" title="术语表">&#10067;</button>
+<div class="glossary-overlay" id="glossaryOverlay" onclick="toggleGlossary()"></div>
+<div class="glossary-panel" id="glossaryPanel">
+  <h3>&#128218; 术语表</h3>
+  <div class="glossary-item"><div><span class="glossary-term">SSM</span><span class="glossary-cn">（State Space Model, 状态空间模型）</span></div><div class="glossary-desc">一类用递推方程处理序列的模型，复杂度O(n)</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Mamba</span></div><div class="glossary-desc">选择性SSM(2023)，根据输入内容动态调整状态转移，线性复杂度</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">RWKV</span></div><div class="glossary-desc">RNN和Transformer的混合体，训练时可并行，推理时像RNN逐步处理</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">MoE</span><span class="glossary-cn">（Mixture of Experts, 混合专家）</span></div><div class="glossary-desc">模型有多个"专家"子网络，每次只激活少数几个</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">稀疏激活</span><span class="glossary-cn">（Sparse Activation）</span></div><div class="glossary-desc">只激活部分参数进行计算，降低实际计算量</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">路由器</span><span class="glossary-cn">（Router/Gate）</span></div><div class="glossary-desc">MoE中决定哪些专家被激活的选择机制</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">O(n&sup2;)</span></div><div class="glossary-desc">注意力复杂度随序列长度n的平方增长，128K tokens需要128K&times;128K次运算</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">O(n)</span></div><div class="glossary-desc">线性复杂度，计算量与序列长度成正比</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Flash Attention</span></div><div class="glossary-desc">优化GPU内存访问模式的注意力实现，不改变数学结果但大幅加速</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Linear Attention</span><span class="glossary-cn">（线性注意力）</span></div><div class="glossary-desc">用核函数近似softmax，将注意力降到O(n)复杂度</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Scaling Law</span><span class="glossary-cn">（扩展定律）</span></div><div class="glossary-desc">模型性能随参数量/数据量/算力的增加可预测地提升</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">隐状态</span><span class="glossary-cn">（Hidden State）</span></div><div class="glossary-desc">模型内部维护的"记忆"向量，压缩了所有历史信息</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">SSD</span><span class="glossary-cn">（State Space Duality, 状态空间对偶）</span></div><div class="glossary-desc">Mamba 2 提出的理论框架，揭示 SSM 和注意力机制之间的数学对偶关系</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">MLA</span><span class="glossary-cn">（Multi-Head Latent Attention）</span></div><div class="glossary-desc">DeepSeek 提出的注意力变体，用低秩压缩减少KV缓存，大幅提升推理效率</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Jamba</span></div><div class="glossary-desc">AI21 Labs 的混合架构模型，交替使用 Mamba 层和 Attention 层 + MoE，256K 上下文</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">混合架构</span><span class="glossary-cn">（Hybrid Architecture）</span></div><div class="glossary-desc">在同一模型中融合多种架构（如 Transformer + SSM + MoE），取各家之长</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Flash Attention 3</span></div><div class="glossary-desc">第三代 Flash Attention，针对 Hopper GPU 深度优化，2026 年已成为行业标配</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Ring Attention</span></div><div class="glossary-desc">将长序列分块到多个设备并行计算注意力的技术，支撑超长上下文窗口</div></div>
+</div>
+
+<script>
+var glossaryVisible = false;
+function toggleGlossary() {
+  glossaryVisible = !glossaryVisible;
+  document.getElementById('glossaryPanel').classList.toggle('visible', glossaryVisible);
+  document.getElementById('glossaryOverlay').classList.toggle('visible', glossaryVisible);
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && glossaryVisible) toggleGlossary();
+});
+</script>
+</body>
+</html>

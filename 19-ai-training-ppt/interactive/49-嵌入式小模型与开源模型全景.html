@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>嵌入式小模型与开源模型全景 — 人人都能跑的 AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-card: #1a1f35;
+  --bg-card-hover: #232845;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-blue: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --accent-green: #22c55e;
+  --accent-orange: #f97316;
+  --accent-purple: #8b5cf6;
+  --accent-pink: #ec4899;
+  --accent-red: #ef4444;
+  --accent-yellow: #eab308;
+  --border-color: #1e293b;
+  --license-apache: #22c55e;
+  --license-mit: #3b82f6;
+  --license-llama: #f97316;
+  --license-other: #eab308;
+  --license-nc: #ef4444;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 24px 20px 12px;
+  position: relative;
+}
+
+.header h1 {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Glossary Button */
+.glossary-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border: none;
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+  transition: transform 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.glossary-btn:hover { transform: scale(1.1); }
+
+/* Glossary Modal */
+.glossary-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.glossary-overlay.active { display: flex; }
+
+.glossary-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  max-width: 640px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.glossary-modal h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--accent-cyan);
+}
+
+.glossary-modal .close-btn {
+  float: right;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}
+.glossary-modal .close-btn:hover { color: var(--text-primary); }
+
+.glossary-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.glossary-item:last-child { border-bottom: none; }
+
+.glossary-item strong {
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.glossary-item span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-left: 8px;
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  margin: 12px auto 0;
+  max-width: 1200px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-btn {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  transition: all 0.25s;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text-primary); background: var(--bg-card); }
+.tab-btn.active {
+  color: var(--accent-cyan);
+  background: var(--bg-card);
+  border-bottom-color: var(--accent-cyan);
+}
+
+/* Content Area */
+.content-area {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 16px 80px;
+}
+
+.tab-panel {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+.tab-panel.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Search Bar */
+.search-bar {
+  position: relative;
+  margin: 16px 0 12px;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 10px 16px 10px 40px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-bar input:focus { border-color: var(--accent-blue); }
+.search-bar input::placeholder { color: var(--text-muted); }
+
+.search-bar .search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+/* Filter Chips */
+.filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filter-chip {
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+.filter-chip:hover { border-color: var(--accent-blue); color: var(--text-secondary); }
+.filter-chip.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+/* Model Family Section */
+.family-section {
+  margin-bottom: 24px;
+}
+
+.family-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.family-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.family-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.family-header .family-company {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Edge Model Cards */
+.edge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+}
+
+.edge-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: all 0.2s;
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+.edge-card:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.edge-card .card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.edge-card .model-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.edge-card .model-params {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-cyan);
+  background: rgba(6, 182, 212, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.edge-card .model-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.edge-card .card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.license-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.license-apache { background: rgba(34,197,94,0.15); color: var(--license-apache); }
+.license-mit { background: rgba(59,130,246,0.15); color: var(--license-mit); }
+.license-llama { background: rgba(249,115,22,0.15); color: var(--license-llama); }
+.license-other { background: rgba(234,179,8,0.15); color: var(--license-other); }
+.license-nc { background: rgba(239,68,68,0.15); color: var(--license-nc); }
+.license-proprietary { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+
+.device-icons {
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+
+/* Device Legend */
+.device-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.device-legend span {
+  white-space: nowrap;
+}
+
+/* ============ Tab 2: Open Source Grid ============ */
+.category-section {
+  margin-bottom: 28px;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.category-icon {
+  font-size: 18px;
+}
+
+.category-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.category-header .count-badge {
+  font-size: 11px;
+  background: rgba(59,130,246,0.15);
+  color: var(--accent-blue);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: var(--font-mono);
+}
+
+.os-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+.os-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.os-card:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.os-card .os-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.os-card .os-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.os-card .os-params {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent-cyan);
+}
+
+.os-card .os-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ============ Tab 3: License Guide ============ */
+.license-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.license-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  transition: all 0.25s;
+}
+.license-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.license-card h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.license-card .license-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.license-card .permissions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.perm-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.perm-yes {
+  background: rgba(34,197,94,0.15);
+  color: var(--accent-green);
+}
+.perm-no {
+  background: rgba(239,68,68,0.15);
+  color: var(--accent-red);
+}
+.perm-warn {
+  background: rgba(234,179,8,0.15);
+  color: var(--accent-yellow);
+}
+
+.license-card .representatives {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+.license-card .representatives strong {
+  color: var(--text-secondary);
+}
+
+/* License Spectrum */
+.spectrum-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 28px 24px;
+  margin-top: 20px;
+}
+
+.spectrum-title {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+}
+
+.spectrum-bar {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #22c55e 0%, #3b82f6 20%, #eab308 50%, #f97316 70%, #ef4444 100%);
+  margin: 0 20px 40px;
+}
+
+.spectrum-labels {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: -32px;
+  margin-bottom: 32px;
+}
+
+.spectrum-markers {
+  position: relative;
+  height: 120px;
+  margin: 0 20px;
+}
+
+.spectrum-marker {
+  position: absolute;
+  transform: translateX(-50%);
+  text-align: center;
+  cursor: default;
+}
+
+.spectrum-marker .marker-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin: 0 auto 6px;
+  border: 2px solid var(--bg-primary);
+}
+
+.spectrum-marker .marker-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.spectrum-marker .marker-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ============ Tab 4: Edge Deployment ============ */
+.deploy-section {
+  margin-bottom: 28px;
+}
+
+.deploy-section h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deploy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+}
+
+.deploy-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+.deploy-card:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(59,130,246,0.3);
+}
+
+.deploy-card .dc-name {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  margin-bottom: 4px;
+}
+
+.deploy-card .dc-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.deploy-card .dc-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.dc-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(139,92,246,0.12);
+  color: var(--accent-purple);
+  font-family: var(--font-mono);
+}
+
+/* Flow Diagram */
+.flow-diagram {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 28px 20px;
+  margin-top: 20px;
+}
+
+.flow-diagram h3 {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+  border: none;
+  padding: 0;
+}
+
+.flow-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+  padding: 0 10px;
+}
+
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+  text-align: center;
+  padding: 12px;
+}
+
+.flow-step .fs-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: white;
+}
+
+.flow-step .fs-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.flow-step .fs-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.flow-arrow {
+  font-size: 24px;
+  color: var(--accent-cyan);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+/* Stats row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+}
+
+.stat-card .stat-number {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-card .stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Hidden for filter */
+.hidden { display: none !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .header h1 { font-size: 20px; }
+  .tab-btn { padding: 8px 12px; font-size: 12px; }
+  .edge-grid, .os-grid, .deploy-grid { grid-template-columns: 1fr; }
+  .license-cards { grid-template-columns: 1fr; }
+  .flow-steps { flex-direction: column; }
+  .flow-arrow { transform: rotate(90deg); }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .spectrum-markers { height: 160px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>嵌入式小模型与开源模型全景</h1>
+  <p>人人都能跑的 AI — 2026.03 数据快照</p>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-tab="edge">端侧小模型全景</button>
+  <button class="tab-btn" data-tab="opensource">开源模型全景</button>
+  <button class="tab-btn" data-tab="license">许可证指南</button>
+  <button class="tab-btn" data-tab="deploy">边缘部署工具链</button>
+</div>
+
+<!-- Content -->
+<div class="content-area">
+
+<!-- ==================== TAB 1: Edge Models ==================== -->
+<div class="tab-panel active" id="panel-edge">
+
+  <!-- Stats -->
+  <div class="stats-row" style="margin-top:16px;">
+    <div class="stat-card">
+      <div class="stat-number">25+</div>
+      <div class="stat-label">端侧可运行模型</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">39M</div>
+      <div class="stat-label">最小模型参数</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">7</div>
+      <div class="stat-label">主流模型家族</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">82M</div>
+      <div class="stat-label">最小TTS模型</div>
+    </div>
+  </div>
+
+  <!-- Device Legend -->
+  <div class="device-legend">
+    <span>📱 = 手机</span>
+    <span>💻 = 笔记本</span>
+    <span>🖥️ = 台式机</span>
+    <span>🔌 = 嵌入式/IoT</span>
+    <span>🍎 = Apple专属</span>
+  </div>
+
+  <!-- Search -->
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="edgeSearch" placeholder="搜索模型名称、能力、参数量...">
+  </div>
+
+  <!-- Filter Chips -->
+  <div class="filter-chips" id="edgeFilters">
+    <button class="filter-chip active" data-filter="all">全部</button>
+    <button class="filter-chip" data-filter="phone">📱 手机可跑</button>
+    <button class="filter-chip" data-filter="iot">🔌 嵌入式</button>
+    <button class="filter-chip" data-filter="under1b">< 1B 参数</button>
+    <button class="filter-chip" data-filter="multimodal">多模态</button>
+    <button class="filter-chip" data-filter="apache">Apache 2.0</button>
+  </div>
+
+  <!-- Model Families -->
+  <div id="edgeModels"></div>
+
+</div>
+
+<!-- ==================== TAB 2: Open Source Landscape ==================== -->
+<div class="tab-panel" id="panel-opensource">
+
+  <div class="stats-row" style="margin-top:16px;">
+    <div class="stat-card">
+      <div class="stat-number">53</div>
+      <div class="stat-label">开源模型/系列</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">8</div>
+      <div class="stat-label">类别覆盖</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">671B</div>
+      <div class="stat-label">最大开源模型</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">$5.5M</div>
+      <div class="stat-label">DeepSeek V3 训练成本</div>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="osSearch" placeholder="搜索模型、公司、许可证...">
+  </div>
+
+  <div class="filter-chips" id="osFilters">
+    <button class="filter-chip active" data-filter="all">全部</button>
+    <button class="filter-chip" data-filter="cat-lang">通用语言</button>
+    <button class="filter-chip" data-filter="cat-image">图像生成</button>
+    <button class="filter-chip" data-filter="cat-video">视频生成</button>
+    <button class="filter-chip" data-filter="cat-audio">音频/TTS</button>
+    <button class="filter-chip" data-filter="cat-code">代码模型</button>
+    <button class="filter-chip" data-filter="cat-embed">向量嵌入</button>
+    <button class="filter-chip" data-filter="cat-vl">视觉语言</button>
+    <button class="filter-chip" data-filter="cat-special">其他专用</button>
+  </div>
+
+  <div id="osModels"></div>
+
+</div>
+
+<!-- ==================== TAB 3: License Guide ==================== -->
+<div class="tab-panel" id="panel-license">
+
+  <div style="margin-top:16px;">
+    <div class="license-cards" id="licenseCards"></div>
+  </div>
+
+  <!-- Spectrum -->
+  <div class="spectrum-container">
+    <div class="spectrum-title">开源许可证开放程度光谱</div>
+    <div class="spectrum-bar"></div>
+    <div class="spectrum-labels">
+      <span>最开放 ←</span>
+      <span>→ 最受限</span>
+    </div>
+    <div class="spectrum-markers" id="spectrumMarkers"></div>
+  </div>
+
+</div>
+
+<!-- ==================== TAB 4: Edge Deployment ==================== -->
+<div class="tab-panel" id="panel-deploy">
+
+  <div class="stats-row" style="margin-top:16px;">
+    <div class="stat-card">
+      <div class="stat-number">8</div>
+      <div class="stat-label">推理框架</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">5</div>
+      <div class="stat-label">硬件平台</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">150</div>
+      <div class="stat-label">TOPS (M5)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">190+</div>
+      <div class="stat-label">Qualcomm Hub 模型</div>
+    </div>
+  </div>
+
+  <div id="deployContent"></div>
+
+  <!-- Flow Diagram -->
+  <div class="flow-diagram">
+    <h3>端侧部署流水线</h3>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="fs-icon" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);">🧠</div>
+        <div class="fs-label">模型</div>
+        <div class="fs-detail">HF / ModelScope</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="fs-icon" style="background:linear-gradient(135deg,#f97316,#ef4444);">⚡</div>
+        <div class="fs-label">量化</div>
+        <div class="fs-detail">GGUF / INT4 / 2-bit</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="fs-icon" style="background:linear-gradient(135deg,#06b6d4,#3b82f6);">🔧</div>
+        <div class="fs-label">框架</div>
+        <div class="fs-detail">Ollama / MLX / LiteRT</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="fs-icon" style="background:linear-gradient(135deg,#22c55e,#10b981);">💻</div>
+        <div class="fs-label">硬件</div>
+        <div class="fs-detail">NPU / GPU / CPU</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="fs-icon" style="background:linear-gradient(135deg,#ec4899,#8b5cf6);">🚀</div>
+        <div class="fs-label">应用</div>
+        <div class="fs-detail">离线 / 实时 / 隐私</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</div>
+
+<!-- Glossary Button -->
+<button class="glossary-btn" id="glossaryBtn" title="术语表">?</button>
+
+<!-- Glossary Modal -->
+<div class="glossary-overlay" id="glossaryOverlay">
+  <div class="glossary-modal">
+    <button class="close-btn" id="glossaryClose">&times;</button>
+    <h2>术语表 Glossary</h2>
+    <div id="glossaryList"></div>
+  </div>
+</div>
+
+<script>
+// ===================== DATA =====================
+
+const EDGE_FAMILIES = [
+  {
+    name: 'Microsoft Phi-4',
+    company: 'Microsoft',
+    color: '#3b82f6',
+    icon: 'Φ',
+    models: [
+      { name: 'Phi-4-mini', params: '3.8B', license: 'MIT', licenseType: 'mit', desc: '数学推理, 函数调用, 200K词表', devices: '📱💻', tags: ['phone','multimodal'] },
+      { name: 'Phi-4-multimodal', params: '5.6B', license: 'MIT', licenseType: 'mit', desc: '文本+图像+音频统一, 128K上下文', devices: '💻', tags: ['multimodal'] },
+      { name: 'Phi-4-reasoning-vision', params: '15B', license: 'MIT', licenseType: 'mit', desc: '多模态推理, 思维链', devices: '💻🖥️', tags: ['multimodal'] }
+    ]
+  },
+  {
+    name: 'Google Gemma 3',
+    company: 'Google',
+    color: '#22c55e',
+    icon: 'G',
+    models: [
+      { name: 'Gemma 3 270M', params: '270M', license: 'Gemma License', licenseType: 'other', desc: '超轻量文本模型, 32K上下文', devices: '📱💻🔌', tags: ['phone','iot','under1b'] },
+      { name: 'Gemma 3 1B', params: '1B', license: 'Gemma License', licenseType: 'other', desc: '文本, 32K上下文, 2T tokens训练', devices: '📱💻', tags: ['phone'] },
+      { name: 'Gemma 3 4B', params: '4B', license: 'Gemma License', licenseType: 'other', desc: '多模态(文本+图像), 128K, 35+语言', devices: '📱💻', tags: ['phone','multimodal'] }
+    ]
+  },
+  {
+    name: 'Alibaba Qwen 3.5 Small',
+    company: 'Alibaba (March 2026)',
+    color: '#8b5cf6',
+    icon: 'Q',
+    models: [
+      { name: 'Qwen3.5-0.8B', params: '0.8B', license: 'Apache 2.0', licenseType: 'apache', desc: '原生多模态, 262K上下文, 201种语言', devices: '📱💻🔌', tags: ['phone','iot','under1b','multimodal','apache'] },
+      { name: 'Qwen3.5-4B', params: '4B', license: 'Apache 2.0', licenseType: 'apache', desc: '多模态, 多token预测', devices: '📱💻', tags: ['phone','multimodal','apache'] },
+      { name: 'Qwen3.5-9B', params: '9B', license: 'Apache 2.0', licenseType: 'apache', desc: '超越Qwen3-30B, 1M扩展上下文', devices: '💻', tags: ['apache'] }
+    ]
+  },
+  {
+    name: 'Meta Llama 3.2 Small',
+    company: 'Meta',
+    color: '#f97316',
+    icon: 'L',
+    models: [
+      { name: 'Llama 3.2 1B', params: '1B', license: 'Llama License', licenseType: 'llama', desc: '128K上下文, 8语言, 工具调用', devices: '📱💻', tags: ['phone'] },
+      { name: 'Llama 3.2 3B', params: '3B', license: 'Llama License', licenseType: 'llama', desc: '超越Gemma 2 2.6B, 高通/联发科优化', devices: '📱💻', tags: ['phone'] }
+    ]
+  },
+  {
+    name: 'Hugging Face SmolLM2',
+    company: 'Hugging Face',
+    color: '#eab308',
+    icon: 'S',
+    models: [
+      { name: 'SmolLM2-135M', params: '135M', license: 'Apache 2.0', licenseType: 'apache', desc: '超微型, 2T tokens训练', devices: '📱🔌', tags: ['phone','iot','under1b','apache'] },
+      { name: 'SmolLM2-360M', params: '360M', license: 'Apache 2.0', licenseType: 'apache', desc: '文本改写/摘要', devices: '📱🔌', tags: ['phone','iot','under1b','apache'] },
+      { name: 'SmolLM2-1.7B', params: '1.7B', license: 'Apache 2.0', licenseType: 'apache', desc: '超越Llama-1B, 函数调用', devices: '📱💻', tags: ['phone','apache'] }
+    ]
+  },
+  {
+    name: 'RWKV-7',
+    company: 'RWKV Foundation',
+    color: '#06b6d4',
+    icon: 'R',
+    models: [
+      { name: 'RWKV-7 0.19B', params: '0.19B', license: 'Apache 2.0', licenseType: 'apache', desc: 'RNN架构, 恒定内存, 无限上下文', devices: '📱🔌', tags: ['phone','iot','under1b','apache'] },
+      { name: 'RWKV-7 1.5B', params: '1.5B', license: 'Apache 2.0', licenseType: 'apache', desc: '线性时间推理', devices: '📱💻', tags: ['phone','apache'] }
+    ]
+  },
+  {
+    name: '其他端侧模型',
+    company: 'Various',
+    color: '#64748b',
+    icon: '✦',
+    models: [
+      { name: 'TinyLlama 1.1B', params: '1.1B', license: 'Apache 2.0', licenseType: 'apache', desc: 'Llama2架构, 3T tokens, 可跑MCU', devices: '📱🔌', tags: ['phone','iot','apache'] },
+      { name: 'Gemini Nano', params: '~3B', license: 'Proprietary', licenseType: 'proprietary', desc: 'Android原生, 离线可用, 摘要/回复', devices: '📱', tags: ['phone'] },
+      { name: 'Apple ~3B', params: '~3B', license: 'Proprietary', licenseType: 'proprietary', desc: 'MLX框架, 2-bit量化, KV-cache共享', devices: '🍎', tags: [] },
+      { name: 'Kokoro 82M TTS', params: '82M', license: 'Apache 2.0', licenseType: 'apache', desc: '超轻量TTS, 质量媲美大模型', devices: '📱🔌', tags: ['phone','iot','under1b','apache'] },
+      { name: 'Whisper Tiny 39M', params: '39M', license: 'MIT', licenseType: 'mit', desc: '语音识别, 可跑树莓派', devices: '📱🔌', tags: ['phone','iot','under1b'] },
+      { name: 'YOLO26-n', params: '~5M', license: 'AGPL', licenseType: 'other', desc: '目标检测, 边缘优化, NMS-free', devices: '📱🔌', tags: ['phone','iot','under1b'] },
+      { name: 'SAM 2 Tiny', params: '~38M', license: 'Apache 2.0', licenseType: 'apache', desc: '实时分割, 44FPS', devices: '📱', tags: ['phone','under1b','apache'] }
+    ]
+  }
+];
+
+const OS_CATEGORIES = [
+  {
+    name: '通用语言模型',
+    icon: '💬',
+    id: 'cat-lang',
+    models: [
+      { name: 'Llama 4 Scout', params: '109B MoE', license: 'Llama License', lt: 'llama', desc: '10M上下文, 原生多模态' },
+      { name: 'Llama 4 Maverick', params: '400B MoE', license: 'Llama License', lt: 'llama', desc: '128专家, 超越GPT-4o' },
+      { name: 'Qwen 3.5 系列', params: '0.8B-397B', license: 'Apache 2.0', lt: 'apache', desc: '201语言, 原生多模态' },
+      { name: 'DeepSeek V3', params: '671B MoE', license: 'MIT', lt: 'mit', desc: '训练仅$5.5M, 比肩GPT-4o' },
+      { name: 'DeepSeek R1', params: '671B MoE', license: 'MIT', lt: 'mit', desc: '开源推理链, 媲美o1' },
+      { name: 'DeepSeek R1 Distill', params: '1.5B-70B', license: 'MIT/Llama', lt: 'mit', desc: 'R1蒸馏小模型' },
+      { name: 'Mistral Large 3', params: '675B MoE', license: 'Apache 2.0', lt: 'apache', desc: '开源前沿, 图像理解' },
+      { name: 'Mistral Small 4', params: '119B MoE', license: 'Apache 2.0', lt: 'apache', desc: '统一推理/多模态/编码' },
+      { name: 'Phi-4 系列', params: '3.8B-15B', license: 'MIT', lt: 'mit', desc: '数学/推理超越GPT-4o' },
+      { name: 'Gemma 3', params: '270M-27B', license: 'Gemma License', lt: 'other', desc: '多模态, 140+语言' },
+      { name: 'RWKV-7', params: '0.19B-2.9B', license: 'Apache 2.0', lt: 'apache', desc: 'RNN架构, 恒定内存' },
+      { name: 'SmolLM2', params: '135M-1.7B', license: 'Apache 2.0', lt: 'apache', desc: '数据驱动小模型' },
+      { name: 'TinyLlama', params: '1.1B', license: 'Apache 2.0', lt: 'apache', desc: 'MCU可部署' },
+      { name: 'InternLM', params: '7B-20B', license: 'Apache 2.0', lt: 'apache', desc: '中英双语' },
+      { name: 'GLM-4.5', params: '355B', license: 'ChatGLM License', lt: 'other', desc: '中英双语研究模型' },
+      { name: 'Command R+', params: '104B', license: 'CC-BY-NC', lt: 'nc', desc: 'RAG优化, 128K上下文' }
+    ]
+  },
+  {
+    name: '图像生成',
+    icon: '🎨',
+    id: 'cat-image',
+    models: [
+      { name: 'Stable Diffusion 3.5', params: 'Multi', license: 'Stability License', lt: 'other', desc: '成熟生态, 多检查点' },
+      { name: 'FLUX.1 Dev/Schnell', params: 'Multi', license: 'NC/Apache', lt: 'other', desc: 'SOTA文生图' },
+      { name: 'PixArt-Sigma', params: '~600M', license: 'Apache 2.0', lt: 'apache', desc: '4K生成, 高效DiT' },
+      { name: 'Kandinsky 5.0', params: 'Multi', license: 'Open License', lt: 'other', desc: '文生视频Lite' }
+    ]
+  },
+  {
+    name: '视频生成',
+    icon: '🎬',
+    id: 'cat-video',
+    models: [
+      { name: 'HunyuanVideo 1.5', params: '8.3B', license: 'Tencent License', lt: 'other', desc: '14GB显存消费级GPU可跑' },
+      { name: 'Mochi 1', params: '10B', license: 'Apache 2.0', lt: 'apache', desc: '非对称DiT, 开源最佳质量' },
+      { name: 'CogVideoX', params: 'Multi', license: 'Apache 2.0', lt: 'apache', desc: '3D VAE, LoRA支持' },
+      { name: 'Open-Sora 2.0', params: '11B', license: 'Apache 2.0', lt: 'apache', desc: '媲美HunyuanVideo' },
+      { name: 'LTX-Video', params: 'Multi', license: 'Open License', lt: 'other', desc: '30fps超实时速度冠军' }
+    ]
+  },
+  {
+    name: '音频/TTS',
+    icon: '🔊',
+    id: 'cat-audio',
+    models: [
+      { name: 'Fish Speech S2', params: 'Multi', license: 'Apache 2.0', lt: 'apache', desc: 'TTS Arena ELO 1339, 26K+ Stars' },
+      { name: 'Qwen3-TTS', params: '0.6B/1.7B', license: 'Apache 2.0', lt: 'apache', desc: '10语言WER最低' },
+      { name: 'CosyVoice 2', params: '0.5B', license: 'Apache 2.0', lt: 'apache', desc: '150ms超低延迟流式' },
+      { name: 'Bark', params: '~1B', license: 'MIT', lt: 'mit', desc: '文本转音频+语音+音效' },
+      { name: 'Whisper v3', params: '39M-1.55B', license: 'MIT', lt: 'mit', desc: '100+语言语音识别' },
+      { name: 'Stable Audio Open', params: '1.21B', license: 'Open License', lt: 'other', desc: '44.1kHz立体声' },
+      { name: 'Kokoro', params: '82M', license: 'Apache 2.0', lt: 'apache', desc: '超轻量但质量优秀' }
+    ]
+  },
+  {
+    name: '代码模型',
+    icon: '💻',
+    id: 'cat-code',
+    models: [
+      { name: 'Qwen3-Coder-Next', params: '80B MoE/3B active', license: 'Apache 2.0', lt: 'apache', desc: '256K上下文, 本地优先' },
+      { name: 'Qwen2.5-Coder', params: '0.5B-32B', license: 'Apache 2.0', lt: 'apache', desc: '开源代码SOTA' },
+      { name: 'DeepSeek Coder V2', params: 'MoE', license: 'MIT', lt: 'mit', desc: '338种编程语言' },
+      { name: 'StarCoder 2', params: '3B/7B/15B', license: 'OpenRAIL-M', lt: 'other', desc: '619种语言' },
+      { name: 'CodeLlama', params: '7B-70B', license: 'Llama License', lt: 'llama', desc: 'Python特化' },
+      { name: 'Devstral 2', params: '123B', license: 'Modified MIT', lt: 'mit', desc: 'SWE-bench 72.2%' },
+      { name: 'Devstral Small 2', params: '24B', license: 'Apache 2.0', lt: 'apache', desc: '消费级硬件可跑' }
+    ]
+  },
+  {
+    name: '向量嵌入',
+    icon: '🧲',
+    id: 'cat-embed',
+    models: [
+      { name: 'BGE-M3', params: 'Multi', license: 'MIT', lt: 'mit', desc: '多功能/多语言/多粒度' },
+      { name: 'E5', params: '33M-560M', license: 'MIT', lt: 'mit', desc: '微软, 2.7亿对比文本对' },
+      { name: 'Nomic Embed V2 MoE', params: 'MoE', license: 'Apache 2.0', lt: 'apache', desc: '首个MoE嵌入, 100+语言' },
+      { name: 'GTE', params: 'Multi', license: 'Apache 2.0', lt: 'apache', desc: '阿里, 10倍推理速度' },
+      { name: 'Jina Embeddings v4', params: '~3B', license: 'CC-BY-NC', lt: 'nc', desc: '多模态嵌入' }
+    ]
+  },
+  {
+    name: '视觉语言',
+    icon: '👁️',
+    id: 'cat-vl',
+    models: [
+      { name: 'Qwen3.5-VL', params: '0.8B-397B', license: 'Apache 2.0', lt: 'apache', desc: '原生多模态' },
+      { name: 'Pixtral 12B', params: '12B', license: 'Apache 2.0', lt: 'apache', desc: 'Mistral视觉模型' },
+      { name: 'InternVL3-78B', params: '78B', license: 'Apache 2.0', lt: 'apache', desc: 'MMMU 72.2' },
+      { name: 'LLaVA-OneVision 1.5', params: 'Multi', license: 'Apache 2.0', lt: 'apache', desc: '完全开源' },
+      { name: 'CogVLM', params: 'Multi', license: 'Apache 2.0', lt: 'apache', desc: '视觉专家模块' }
+    ]
+  },
+  {
+    name: '其他专用',
+    icon: '🔬',
+    id: 'cat-special',
+    models: [
+      { name: 'SAM 2', params: 'Multi', license: 'Apache 2.0', lt: 'apache', desc: '实时图像/视频分割, 44FPS' },
+      { name: 'DINOv2', params: 'Multi', license: 'Apache 2.0', lt: 'apache', desc: '自监督视觉特征, 无需标注' },
+      { name: 'YOLO26', params: 'Multi', license: 'AGPL', lt: 'other', desc: 'NMS-free目标检测, 边缘优化' },
+      { name: 'Whisper Large-v3', params: '1.55B', license: 'MIT', lt: 'mit', desc: '最佳开源ASR' }
+    ]
+  }
+];
+
+const LICENSE_DATA = [
+  {
+    name: 'Apache 2.0',
+    subtitle: '最宽松',
+    color: '#22c55e',
+    permissions: [
+      { text: '商用 ✅', type: 'yes' },
+      { text: '修改 ✅', type: 'yes' },
+      { text: '分发 ✅', type: 'yes' },
+      { text: '专利授权 ✅', type: 'yes' }
+    ],
+    reps: 'Qwen, Mistral, RWKV, SmolLM2',
+    spectrumPos: 5
+  },
+  {
+    name: 'MIT',
+    subtitle: '最简单',
+    color: '#3b82f6',
+    permissions: [
+      { text: '商用 ✅', type: 'yes' },
+      { text: '修改 ✅', type: 'yes' },
+      { text: '几乎无限制', type: 'yes' }
+    ],
+    reps: 'DeepSeek, Phi-4, Whisper',
+    spectrumPos: 3
+  },
+  {
+    name: 'Llama License',
+    subtitle: '有条件开源',
+    color: '#f97316',
+    permissions: [
+      { text: '商用 ✅ (月活<7亿)', type: 'warn' },
+      { text: '修改 ✅', type: 'yes' },
+      { text: '需标注 Meta', type: 'warn' }
+    ],
+    reps: 'Llama 4, CodeLlama',
+    spectrumPos: 55
+  },
+  {
+    name: 'Gemma License',
+    subtitle: 'Google 定制',
+    color: '#eab308',
+    permissions: [
+      { text: '商用 ✅', type: 'yes' },
+      { text: 'Google保留远程限制权', type: 'warn' }
+    ],
+    reps: 'Gemma 3',
+    spectrumPos: 45
+  },
+  {
+    name: 'CC-BY-NC',
+    subtitle: '非商用',
+    color: '#ef4444',
+    permissions: [
+      { text: '研究 ✅', type: 'yes' },
+      { text: '商用 ❌', type: 'no' }
+    ],
+    reps: 'Command R+, Jina v4',
+    spectrumPos: 80
+  },
+  {
+    name: 'AGPL-3.0',
+    subtitle: '强 Copyleft',
+    color: '#ec4899',
+    permissions: [
+      { text: '商用 ✅', type: 'yes' },
+      { text: '必须开源你的代码', type: 'no' }
+    ],
+    reps: 'YOLO',
+    spectrumPos: 65
+  }
+];
+
+const DEPLOY_FRAMEWORKS = [
+  { name: 'MLX', desc: 'Apple Silicon 专属推理框架', tags: ['Apple', 'Apache 2.0', 'M1-M5'] },
+  { name: 'llama.cpp / GGUF', desc: '跨平台 CPU 推理, 支持 2/3/4/5/6/8-bit 量化', tags: ['跨平台', 'MIT', 'CPU/GPU'] },
+  { name: 'Ollama', desc: '一键本地部署, 自动下载模型, REST API', tags: ['Mac/Linux/Win', 'MIT', '一键部署'] },
+  { name: 'ONNX Runtime Mobile', desc: '跨平台高性能推理, NPU 硬件加速', tags: ['跨平台', 'MIT', 'NPU加速'] },
+  { name: 'LiteRT (原 TF Lite)', desc: 'Google 边缘推理框架, Android/iOS/IoT', tags: ['Android', 'iOS', 'IoT'] },
+  { name: 'MediaPipe', desc: 'Google 预构建 ML 方案: 手势/人脸/姿态检测', tags: ['Google', '预构建', 'Apache 2.0'] },
+  { name: 'Qualcomm AI Hub', desc: '190+ 优化模型, Snapdragon NPU 原生支持', tags: ['Snapdragon', '190+模型', 'NPU'] },
+  { name: 'ExecuTorch (Meta)', desc: 'PyTorch 原生边缘部署, Llama 官方推荐', tags: ['PyTorch', 'Meta', 'BSD'] }
+];
+
+const DEPLOY_HARDWARE = [
+  { name: 'Apple Neural Engine (M4/M5)', desc: '38-150 TOPS, 统一内存架构, MLX 生态', tags: ['38-150 TOPS', '统一内存', 'macOS/iOS'] },
+  { name: 'Qualcomm Snapdragon 8 Gen 5 NPU', desc: '46% AI性能提升, 100x CPU 效率', tags: ['46%提升', '100x CPU', 'Android'] },
+  { name: 'Google Tensor G5', desc: 'Gemini Nano 原生集成, Pixel 专属', tags: ['Gemini Nano', 'Pixel', 'Google'] },
+  { name: 'MediaTek Dimensity', desc: '端侧 AI 加速, 中端手机覆盖', tags: ['中端覆盖', 'Android', 'APU'] },
+  { name: 'Raspberry Pi 5 + AI HAT', desc: '13-26 TOPS AI 加速模块, $70 起', tags: ['13-26 TOPS', '$70', 'IoT'] }
+];
+
+const GLOSSARY = [
+  { term: 'Edge AI (边缘AI)', def: '在终端设备(手机/笔记本)而非云端运行的AI' },
+  { term: 'On-Device (端侧)', def: '完全在设备本地运行，不需要网络' },
+  { term: 'NPU', def: 'Neural Processing Unit — 专为AI设计的处理器' },
+  { term: 'TOPS', def: 'Tera Operations Per Second — 每秒万亿次运算' },
+  { term: 'GGUF', def: 'llama.cpp量化模型格式，边缘部署标配' },
+  { term: 'Quantization (量化)', def: '降低精度(如FP16→INT4)以减小模型体积和加速推理' },
+  { term: 'Apache 2.0', def: '最宽松的开源许可证之一，允许商用、修改、分发，含专利授权' },
+  { term: 'MIT License', def: '最简单的开源许可证，几乎无限制' },
+  { term: 'MoE (Mixture of Experts)', def: '混合专家架构，模型参数很大但实际只激活部分参数' },
+  { term: 'Distillation (蒸馏)', def: '将大模型的知识压缩到小模型中，保留大部分能力' },
+  { term: 'KV-Cache', def: '推理时缓存注意力机制的键值对，避免重复计算以加速生成' },
+  { term: 'ONNX', def: '开放神经网络交换格式，支持跨框架模型转换' }
+];
+
+
+// ===================== RENDER =====================
+
+function renderEdgeModels(searchTerm, filterTag) {
+  const container = document.getElementById('edgeModels');
+  const search = (searchTerm || '').toLowerCase();
+  const filter = filterTag || 'all';
+  let html = '';
+
+  EDGE_FAMILIES.forEach(function(family) {
+    const filteredModels = family.models.filter(function(m) {
+      const matchSearch = !search ||
+        m.name.toLowerCase().includes(search) ||
+        m.desc.toLowerCase().includes(search) ||
+        m.params.toLowerCase().includes(search) ||
+        m.license.toLowerCase().includes(search);
+
+      const matchFilter = filter === 'all' ||
+        m.tags.indexOf(filter) !== -1;
+
+      return matchSearch && matchFilter;
+    });
+
+    if (filteredModels.length === 0) return;
+
+    html += '<div class="family-section">';
+    html += '<div class="family-header">';
+    html += '<div class="family-icon" style="background:' + family.color + '">' + family.icon + '</div>';
+    html += '<div><h3>' + family.name + '</h3><span class="family-company">' + family.company + '</span></div>';
+    html += '</div>';
+    html += '<div class="edge-grid">';
+
+    filteredModels.forEach(function(m) {
+      html += '<div class="edge-card">';
+      html += '<div class="card-top">';
+      html += '<span class="model-name">' + m.name + '</span>';
+      html += '<span class="model-params">' + m.params + '</span>';
+      html += '</div>';
+      html += '<div class="model-desc">' + m.desc + '</div>';
+      html += '<div class="card-bottom">';
+      html += '<span class="license-badge license-' + m.licenseType + '">' + m.license + '</span>';
+      html += '<span class="device-icons">' + m.devices + '</span>';
+      html += '</div>';
+      html += '</div>';
+    });
+
+    html += '</div></div>';
+  });
+
+  if (!html) {
+    html = '<div style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的模型</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function renderOSModels(searchTerm, filterCat) {
+  const container = document.getElementById('osModels');
+  const search = (searchTerm || '').toLowerCase();
+  const filter = filterCat || 'all';
+  let html = '';
+
+  OS_CATEGORIES.forEach(function(cat) {
+    if (filter !== 'all' && filter !== cat.id) return;
+
+    const filteredModels = cat.models.filter(function(m) {
+      return !search ||
+        m.name.toLowerCase().includes(search) ||
+        m.desc.toLowerCase().includes(search) ||
+        m.params.toLowerCase().includes(search) ||
+        m.license.toLowerCase().includes(search);
+    });
+
+    if (filteredModels.length === 0) return;
+
+    html += '<div class="category-section">';
+    html += '<div class="category-header">';
+    html += '<span class="category-icon">' + cat.icon + '</span>';
+    html += '<h3>' + cat.name + '</h3>';
+    html += '<span class="count-badge">' + filteredModels.length + ' 模型</span>';
+    html += '</div>';
+    html += '<div class="os-grid">';
+
+    filteredModels.forEach(function(m) {
+      html += '<div class="os-card">';
+      html += '<div class="os-top">';
+      html += '<span class="os-name">' + m.name + '</span>';
+      html += '<span class="os-params">' + m.params + '</span>';
+      html += '<span class="license-badge license-' + m.lt + '">' + m.license + '</span>';
+      html += '</div>';
+      html += '<div class="os-desc">' + m.desc + '</div>';
+      html += '</div>';
+    });
+
+    html += '</div></div>';
+  });
+
+  if (!html) {
+    html = '<div style="text-align:center;padding:40px;color:var(--text-muted);">没有匹配的模型</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function renderLicenseGuide() {
+  const container = document.getElementById('licenseCards');
+  let html = '';
+
+  LICENSE_DATA.forEach(function(lic) {
+    html += '<div class="license-card" style="border-left:4px solid ' + lic.color + '">';
+    html += '<h4 style="color:' + lic.color + '">' + lic.name + '</h4>';
+    html += '<div class="license-subtitle">' + lic.subtitle + '</div>';
+    html += '<div class="permissions">';
+    lic.permissions.forEach(function(p) {
+      html += '<span class="perm-tag perm-' + p.type + '">' + p.text + '</span>';
+    });
+    html += '</div>';
+    html += '<div class="representatives"><strong>代表:</strong> ' + lic.reps + '</div>';
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+
+  // Spectrum markers
+  const spectrumContainer = document.getElementById('spectrumMarkers');
+  const markers = [
+    { label: 'MIT', sub: 'DeepSeek, Phi-4', pos: 5, color: '#3b82f6', row: 0 },
+    { label: 'Apache 2.0', sub: 'Qwen, Mistral', pos: 12, color: '#22c55e', row: 1 },
+    { label: 'Gemma', sub: 'Google', pos: 38, color: '#eab308', row: 0 },
+    { label: 'Llama', sub: 'Meta (月活<7亿)', pos: 52, color: '#f97316', row: 1 },
+    { label: 'AGPL', sub: '必须开源', pos: 68, color: '#ec4899', row: 0 },
+    { label: 'CC-BY-NC', sub: '禁止商用', pos: 85, color: '#ef4444', row: 1 }
+  ];
+
+  let spectrumHtml = '';
+  markers.forEach(function(m) {
+    const topOffset = m.row * 56;
+    spectrumHtml += '<div class="spectrum-marker" style="left:' + m.pos + '%;top:' + topOffset + 'px">';
+    spectrumHtml += '<div class="marker-dot" style="background:' + m.color + '"></div>';
+    spectrumHtml += '<div class="marker-label" style="color:' + m.color + '">' + m.label + '</div>';
+    spectrumHtml += '<div class="marker-sub">' + m.sub + '</div>';
+    spectrumHtml += '</div>';
+  });
+
+  spectrumContainer.innerHTML = spectrumHtml;
+}
+
+function renderDeploy() {
+  const container = document.getElementById('deployContent');
+  let html = '';
+
+  // Frameworks
+  html += '<div class="deploy-section">';
+  html += '<h3>🔧 推理框架</h3>';
+  html += '<div class="deploy-grid">';
+  DEPLOY_FRAMEWORKS.forEach(function(fw) {
+    html += '<div class="deploy-card">';
+    html += '<div class="dc-name">' + fw.name + '</div>';
+    html += '<div class="dc-desc">' + fw.desc + '</div>';
+    html += '<div class="dc-tags">';
+    fw.tags.forEach(function(t) {
+      html += '<span class="dc-tag">' + t + '</span>';
+    });
+    html += '</div></div>';
+  });
+  html += '</div></div>';
+
+  // Hardware
+  html += '<div class="deploy-section">';
+  html += '<h3>🖥️ 硬件平台</h3>';
+  html += '<div class="deploy-grid">';
+  DEPLOY_HARDWARE.forEach(function(hw) {
+    html += '<div class="deploy-card">';
+    html += '<div class="dc-name">' + hw.name + '</div>';
+    html += '<div class="dc-desc">' + hw.desc + '</div>';
+    html += '<div class="dc-tags">';
+    hw.tags.forEach(function(t) {
+      html += '<span class="dc-tag">' + t + '</span>';
+    });
+    html += '</div></div>';
+  });
+  html += '</div></div>';
+
+  container.innerHTML = html;
+}
+
+function renderGlossary() {
+  const container = document.getElementById('glossaryList');
+  let html = '';
+  GLOSSARY.forEach(function(g) {
+    html += '<div class="glossary-item">';
+    html += '<strong>' + g.term + '</strong>';
+    html += '<span> — ' + g.def + '</span>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
+
+// ===================== EVENTS =====================
+
+// Tab switching
+document.getElementById('tabBar').addEventListener('click', function(e) {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+
+  btn.classList.add('active');
+  var panelId = 'panel-' + btn.dataset.tab;
+  document.getElementById(panelId).classList.add('active');
+});
+
+// Edge search
+document.getElementById('edgeSearch').addEventListener('input', function() {
+  var activeChip = document.querySelector('#edgeFilters .filter-chip.active');
+  var filter = activeChip ? activeChip.dataset.filter : 'all';
+  renderEdgeModels(this.value, filter);
+});
+
+// Edge filter chips
+document.getElementById('edgeFilters').addEventListener('click', function(e) {
+  var chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#edgeFilters .filter-chip').forEach(function(c) { c.classList.remove('active'); });
+  chip.classList.add('active');
+  var search = document.getElementById('edgeSearch').value;
+  renderEdgeModels(search, chip.dataset.filter);
+});
+
+// OS search
+document.getElementById('osSearch').addEventListener('input', function() {
+  var activeChip = document.querySelector('#osFilters .filter-chip.active');
+  var filter = activeChip ? activeChip.dataset.filter : 'all';
+  renderOSModels(this.value, filter);
+});
+
+// OS filter chips
+document.getElementById('osFilters').addEventListener('click', function(e) {
+  var chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  document.querySelectorAll('#osFilters .filter-chip').forEach(function(c) { c.classList.remove('active'); });
+  chip.classList.add('active');
+  var search = document.getElementById('osSearch').value;
+  renderOSModels(search, chip.dataset.filter);
+});
+
+// Glossary
+document.getElementById('glossaryBtn').addEventListener('click', function() {
+  document.getElementById('glossaryOverlay').classList.add('active');
+});
+document.getElementById('glossaryClose').addEventListener('click', function() {
+  document.getElementById('glossaryOverlay').classList.remove('active');
+});
+document.getElementById('glossaryOverlay').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('active');
+});
+
+// Keyboard: Escape closes glossary
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('glossaryOverlay').classList.remove('active');
+  }
+});
+
+
+// ===================== INIT =====================
+renderEdgeModels('', 'all');
+renderOSModels('', 'all');
+renderLicenseGuide();
+renderDeploy();
+renderGlossary();
+</script>
+</body>
+</html>

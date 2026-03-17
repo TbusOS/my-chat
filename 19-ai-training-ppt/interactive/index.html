@@ -139,6 +139,12 @@ main {
 .theme-pink .section-title { color: var(--pink); }
 .theme-pink .section-line  { background: linear-gradient(90deg, var(--pink) 0%, transparent 100%); }
 
+.theme-orange .section-title { color: var(--orange); }
+.theme-orange .section-line  { background: linear-gradient(90deg, var(--orange) 0%, transparent 100%); }
+
+.theme-orange .card:hover { border-color: rgba(251,146,60,.5); }
+.theme-orange .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(251,146,60,.07) 0%, transparent 70%); opacity:1; }
+
 /* ── Card grid ── */
 .grid {
   display: grid;
@@ -236,8 +242,8 @@ footer {
 
 <header>
   <h1>拆开 AI 看看</h1>
-  <p>27 个交互动画，从大模型到工程实践</p>
-  <span class="badge-count">27 个交互动画</span>
+  <p>54 个交互动画，从大模型到工程实践</p>
+  <span class="badge-count">54 个交互动画</span>
 </header>
 
 <main>
@@ -486,10 +492,265 @@ footer {
     </div>
   </div>
 
+  <!-- 第六章：Transformer 深度拆解 -->
+  <div class="section theme-pink">
+    <div class="section-header">
+      <span class="section-icon">🔮</span>
+      <span class="section-title">Transformer 深度拆解</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="28-Transformer架构全景.html">
+        <span class="card-num">28</span>
+        <div class="card-text">
+          <div class="card-title">Transformer 架构全景</div>
+          <div class="card-sub">Attention is All You Need</div>
+        </div>
+      </a>
+      <a class="card" href="29-注意力机制原理.html">
+        <span class="card-num">29</span>
+        <div class="card-text">
+          <div class="card-title">注意力机制原理</div>
+          <div class="card-sub">让每个词都能看到全世界</div>
+        </div>
+      </a>
+      <a class="card" href="30-Transformer优缺点擂台.html">
+        <span class="card-num">30</span>
+        <div class="card-text">
+          <div class="card-title">Transformer 优缺点擂台</div>
+          <div class="card-sub">强大，但不完美</div>
+        </div>
+      </a>
+      <a class="card" href="31-Tokenization分词实验室.html">
+        <span class="card-num">31</span>
+        <div class="card-text">
+          <div class="card-title">Tokenization 分词实验室</div>
+          <div class="card-sub">AI 如何"读"文字</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 第七章：训练与微调 -->
+  <div class="section theme-orange">
+    <div class="section-header">
+      <span class="section-icon">🏭</span>
+      <span class="section-title">训练与微调</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="32-大模型训练全过程.html">
+        <span class="card-num">32</span>
+        <div class="card-text">
+          <div class="card-title">大模型训练全过程</div>
+          <div class="card-sub">从数据到智能的锻造之路</div>
+        </div>
+      </a>
+      <a class="card" href="33-Fine-tuning与RAG对比.html">
+        <span class="card-num">33</span>
+        <div class="card-text">
+          <div class="card-title">Fine-tuning vs RAG</div>
+          <div class="card-sub">给 AI 变聪明的两条路</div>
+        </div>
+      </a>
+      <a class="card" href="34-模型量化与边缘部署.html">
+        <span class="card-num">34</span>
+        <div class="card-text">
+          <div class="card-title">模型量化与边缘部署</div>
+          <div class="card-sub">大模型的瘦身之旅</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 第八章：模型生态全景 -->
+  <div class="section theme-green">
+    <div class="section-header">
+      <span class="section-icon">🌐</span>
+      <span class="section-title">模型生态全景</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="35-大模型家族图谱.html">
+        <span class="card-num">35</span>
+        <div class="card-text">
+          <div class="card-title">大模型家族图谱</div>
+          <div class="card-sub">谁是谁，谁生了谁</div>
+        </div>
+      </a>
+      <a class="card" href="36-多模态AI融合.html">
+        <span class="card-num">36</span>
+        <div class="card-text">
+          <div class="card-title">多模态 AI 融合</div>
+          <div class="card-sub">看、听、读、懂的统一大脑</div>
+        </div>
+      </a>
+      <a class="card" href="37-AI应用生态全景图.html">
+        <span class="card-num">37</span>
+        <div class="card-text">
+          <div class="card-title">AI 应用生态全景图</div>
+          <div class="card-sub">从芯片到应用的五层世界</div>
+        </div>
+      </a>
+      <a class="card" href="46-垂直领域AI模型图谱.html">
+        <span class="card-num">46</span>
+        <div class="card-text">
+          <div class="card-title">垂直领域 AI 模型图谱</div>
+          <div class="card-sub">各行各业的 AI 专家</div>
+        </div>
+      </a>
+      <a class="card" href="49-嵌入式小模型与开源模型全景.html">
+        <span class="card-num">49</span>
+        <div class="card-text">
+          <div class="card-title">嵌入式小模型与开源全景</div>
+          <div class="card-sub">人人都能跑的 AI</div>
+        </div>
+      </a>
+      <a class="card" href="50-多模态实现路线对比.html">
+        <span class="card-num">50</span>
+        <div class="card-text">
+          <div class="card-title">多模态实现路线对比</div>
+          <div class="card-sub">全能选手 vs 专家团队</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 第九章：硬件深度与未来 -->
+  <div class="section theme-cyan">
+    <div class="section-header">
+      <span class="section-icon">💎</span>
+      <span class="section-title">硬件深度与未来</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="38-GPU并行计算原理.html">
+        <span class="card-num">38</span>
+        <div class="card-text">
+          <div class="card-title">GPU 并行计算原理</div>
+          <div class="card-sub">AI 的发动机</div>
+        </div>
+      </a>
+      <a class="card" href="39-AI训练集群架构.html">
+        <span class="card-num">39</span>
+        <div class="card-text">
+          <div class="card-title">AI 训练集群架构</div>
+          <div class="card-sub">万卡炼丹炉</div>
+        </div>
+      </a>
+      <a class="card" href="40-存算一体与光子计算.html">
+        <span class="card-num">40</span>
+        <div class="card-text">
+          <div class="card-title">存算一体与光子计算</div>
+          <div class="card-sub">AI 硬件的三条革新之路</div>
+        </div>
+      </a>
+      <a class="card" href="41-神经形态芯片.html">
+        <span class="card-num">41</span>
+        <div class="card-text">
+          <div class="card-title">神经形态芯片</div>
+          <div class="card-sub">用 20 瓦模拟 860 亿神经元</div>
+        </div>
+      </a>
+      <a class="card" href="47-Apple Silicon vs NVIDIA.html">
+        <span class="card-num">47</span>
+        <div class="card-text">
+          <div class="card-title">Apple Silicon vs NVIDIA</div>
+          <div class="card-sub">统一内存 vs 离散显存的 AI 之争</div>
+        </div>
+      </a>
+      <a class="card" href="48-数字精度与量化原理.html">
+        <span class="card-num">48</span>
+        <div class="card-text">
+          <div class="card-title">数字精度与量化原理</div>
+          <div class="card-sub">AI 如何用更少的 bit 思考</div>
+        </div>
+      </a>
+      <a class="card" href="54-AI硬件选型与部署方案.html">
+        <span class="card-num">54</span>
+        <div class="card-text">
+          <div class="card-title">AI 硬件选型与部署方案</div>
+          <div class="card-sub">从预算到配置的完整指南</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- AI 工程实践 -->
+  <div class="section theme-orange">
+    <div class="section-header">
+      <span class="section-icon">🛠️</span>
+      <span class="section-title">AI 工程实践</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="51-RAG技术全解与替代方案.html">
+        <span class="card-num">51</span>
+        <div class="card-text">
+          <div class="card-title">RAG 技术全解与替代方案</div>
+          <div class="card-sub">检索增强还是上下文够大？</div>
+        </div>
+      </a>
+      <a class="card" href="52-提示词工程与Skills设计.html">
+        <span class="card-num">52</span>
+        <div class="card-text">
+          <div class="card-title">提示词工程与 Skills 设计</div>
+          <div class="card-sub">AI 听得懂的语言</div>
+        </div>
+      </a>
+      <a class="card" href="53-MCP深度剖析与替代方案.html">
+        <span class="card-num">53</span>
+        <div class="card-text">
+          <div class="card-title">MCP 深度剖析与替代方案</div>
+          <div class="card-sub">AI 的 USB 接口标准之争</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 第十章：下一代架构与超越 -->
+  <div class="section theme-blue">
+    <div class="section-header">
+      <span class="section-icon">🚀</span>
+      <span class="section-title">下一代架构与超越</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="grid">
+      <a class="card" href="42-神经网络进化史.html">
+        <span class="card-num">42</span>
+        <div class="card-text">
+          <div class="card-title">神经网络进化史</div>
+          <div class="card-sub">六十年的架构接力赛</div>
+        </div>
+      </a>
+      <a class="card" href="43-Transformer挑战者们.html">
+        <span class="card-num">43</span>
+        <div class="card-text">
+          <div class="card-title">Transformer 挑战者们</div>
+          <div class="card-sub">谁能打破注意力的统治</div>
+        </div>
+      </a>
+      <a class="card" href="44-理想神经网络架构设计.html">
+        <span class="card-num">44</span>
+        <div class="card-text">
+          <div class="card-title">理想神经网络架构</div>
+          <div class="card-sub">如果从零设计 AI 的大脑</div>
+        </div>
+      </a>
+      <a class="card" href="45-理想AI硬件架构设计.html">
+        <span class="card-num">45</span>
+        <div class="card-text">
+          <div class="card-title">理想 AI 硬件架构</div>
+          <div class="card-sub">光电混合神经处理器</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
 </main>
 
 <footer>
-  拆开 AI 看看 · 共 27 个交互动画 · 点击卡片进入动画
+  拆开 AI 看看 · 共 54 个交互动画 · 点击卡片进入动画
 </footer>
 
 </body>

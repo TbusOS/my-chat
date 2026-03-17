@@ -1,0 +1,1990 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apple Silicon vs NVIDIA — 统一内存 vs 离散显存的 AI 之争</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0a0e1a;
+  --bg-card: #111827;
+  --bg-card-hover: #1a2235;
+  --apple-blue: #3b82f6;
+  --apple-silver: #c0c8d8;
+  --apple-glow: rgba(59, 130, 246, 0.25);
+  --nvidia-green: #76b900;
+  --nvidia-glow: rgba(118, 185, 0, 0.25);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #1e293b;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #22c55e;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Noto Sans SC', sans-serif;
+}
+
+html { font-size: 16px; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ═══════ HEADER ═══════ */
+.header {
+  text-align: center;
+  padding: 28px 20px 12px;
+  position: relative;
+}
+
+.header h1 {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  line-height: 1.3;
+}
+
+.header h1 .apple { color: var(--apple-blue); }
+.header h1 .nvidia { color: var(--nvidia-green); }
+.header h1 .vs {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--apple-blue), var(--nvidia-green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0 4px;
+  font-weight: 900;
+}
+
+.header .subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ═══════ GLOSSARY BUTTON ═══════ */
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--apple-blue), var(--nvidia-green));
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+  transition: transform 0.2s;
+}
+.glossary-btn:hover { transform: scale(1.1); }
+
+/* ═══════ GLOSSARY MODAL ═══════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  max-width: 640px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.modal h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, var(--apple-blue), var(--nvidia-green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.modal-close {
+  float: right;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.glossary-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.glossary-item:last-child { border: none; }
+
+.glossary-item .term {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--apple-blue);
+}
+
+.glossary-item .def {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.6;
+}
+
+/* ═══════ TAB BAR ═══════ */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  margin: 8px auto 0;
+  max-width: 900px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-bar::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover { color: var(--text-secondary); background: var(--bg-card); }
+
+.tab-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--apple-blue);
+  border-bottom-color: var(--bg-card);
+  position: relative;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--bg-card);
+}
+
+/* ═══════ TAB CONTENT ═══════ */
+.tab-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 16px 80px;
+  width: 100%;
+}
+
+.tab-panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+.tab-panel.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════ TAB 1: MEMORY ARCHITECTURE ═══════ */
+.arch-stage {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  margin-top: 16px;
+  min-height: 480px;
+}
+
+.arch-side {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.arch-side.apple { border: 1px solid rgba(59,130,246,0.3); }
+.arch-side.nvidia { border: 1px solid rgba(118,185,0,0.3); }
+
+.arch-side .side-title {
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.arch-side.apple .side-title { color: var(--apple-blue); }
+.arch-side.nvidia .side-title { color: var(--nvidia-green); }
+
+/* VS divider */
+.vs-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  position: relative;
+}
+
+.vs-text {
+  font-size: 20px;
+  font-weight: 900;
+  background: linear-gradient(180deg, var(--apple-blue), var(--nvidia-green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  z-index: 2;
+}
+
+.vs-lightning {
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--apple-blue), transparent 30%, transparent 70%, var(--nvidia-green));
+  opacity: 0.3;
+}
+
+/* Architecture canvases */
+.arch-canvas {
+  width: 100%;
+  height: 340px;
+  border-radius: 10px;
+  display: block;
+}
+
+.arch-label {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+}
+
+.arch-label strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+/* Insight box */
+.insight-box {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(118,185,0,0.08));
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+.insight-box .icon { font-size: 18px; margin-right: 6px; }
+
+/* ═══════ TAB 2: SPECS ═══════ */
+.specs-table-wrapper {
+  margin-top: 16px;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.specs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.specs-table th, .specs-table td {
+  padding: 12px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.specs-table th {
+  background: var(--bg-card);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.specs-table th.apple-col { color: var(--apple-blue); }
+.specs-table th.nvidia-col { color: var(--nvidia-green); }
+
+.specs-table td { color: var(--text-secondary); }
+
+.specs-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.spec-bar-container {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.spec-bar-group h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.spec-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.spec-bar-label {
+  width: 90px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.spec-bar-track {
+  flex: 1;
+  height: 22px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.spec-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+  width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+}
+
+.spec-bar-fill.apple-bar {
+  background: linear-gradient(90deg, rgba(59,130,246,0.6), var(--apple-blue));
+}
+
+.spec-bar-fill.nvidia-bar {
+  background: linear-gradient(90deg, rgba(118,185,0,0.6), var(--nvidia-green));
+}
+
+.spec-winner {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.spec-winner.apple-wins { background: rgba(59,130,246,0.15); color: var(--apple-blue); }
+.spec-winner.nvidia-wins { background: rgba(118,185,0,0.15); color: var(--nvidia-green); }
+
+/* ═══════ TAB 3: LLM SCENARIOS ═══════ */
+.scenarios {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.scenario-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.scenario-card:hover { border-color: rgba(255,255,255,0.15); }
+.scenario-card.expanded { border-color: var(--apple-blue); }
+
+.scenario-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+}
+
+.scenario-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.scenario-card:nth-child(1) .scenario-num { background: rgba(59,130,246,0.15); color: var(--apple-blue); }
+.scenario-card:nth-child(2) .scenario-num { background: rgba(118,185,0,0.15); color: var(--nvidia-green); }
+.scenario-card:nth-child(3) .scenario-num { background: rgba(245,158,11,0.15); color: var(--warning); }
+.scenario-card:nth-child(4) .scenario-num { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+.scenario-info { flex: 1; }
+
+.scenario-info .model-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.scenario-info .model-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.scenario-expand {
+  color: var(--text-muted);
+  font-size: 18px;
+  transition: transform 0.3s;
+}
+
+.scenario-card.expanded .scenario-expand { transform: rotate(180deg); }
+
+.scenario-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.scenario-card.expanded .scenario-body {
+  max-height: 600px;
+}
+
+.scenario-content {
+  padding: 0 20px 20px;
+}
+
+.scenario-race {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.race-lane {
+  padding: 14px;
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.race-lane.apple-lane {
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.2);
+}
+
+.race-lane.nvidia-lane {
+  background: rgba(118,185,0,0.06);
+  border: 1px solid rgba(118,185,0,0.2);
+}
+
+.race-lane .lane-chip {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.race-lane.apple-lane .lane-chip { color: var(--apple-blue); }
+.race-lane.nvidia-lane .lane-chip { color: var(--nvidia-green); }
+
+.race-speed {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.race-speed .unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.race-status {
+  font-size: 12px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.race-status.good { color: var(--success); }
+.race-status.slow { color: var(--warning); }
+.race-status.fail { color: var(--danger); }
+
+.race-bar {
+  margin-top: 10px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.05);
+  overflow: hidden;
+}
+
+.race-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  width: 0;
+  transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.race-lane.apple-lane .race-bar-fill { background: var(--apple-blue); }
+.race-lane.nvidia-lane .race-bar-fill { background: var(--nvidia-green); }
+
+.scenario-verdict {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.03);
+  line-height: 1.6;
+}
+
+.verdict-winner {
+  font-weight: 700;
+}
+
+.verdict-winner.apple-w { color: var(--apple-blue); }
+.verdict-winner.nvidia-w { color: var(--nvidia-green); }
+.verdict-winner.draw-w { color: var(--warning); }
+
+/* ═══════ TAB 4: ECOSYSTEM ═══════ */
+.eco-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.eco-col {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+
+.eco-col.apple-eco { border-top: 3px solid var(--apple-blue); }
+.eco-col.nvidia-eco { border-top: 3px solid var(--nvidia-green); }
+
+.eco-col h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.eco-col.apple-eco h3 { color: var(--apple-blue); }
+.eco-col.nvidia-eco h3 { color: var(--nvidia-green); }
+
+.eco-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.eco-item:last-child { border: none; }
+
+.eco-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+
+.apple-eco .eco-icon {
+  background: rgba(59,130,246,0.12);
+  color: var(--apple-blue);
+}
+
+.nvidia-eco .eco-icon {
+  background: rgba(118,185,0,0.12);
+  color: var(--nvidia-green);
+}
+
+.eco-info .eco-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.eco-info .eco-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+.eco-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.eco-tag.strength { background: rgba(34,197,94,0.12); color: var(--success); }
+.eco-tag.weakness { background: rgba(239,68,68,0.12); color: var(--danger); }
+.eco-tag.highlight { background: rgba(245,158,11,0.12); color: var(--warning); }
+
+/* ═══════ TAB 5: DECISION ═══════ */
+.decision-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.decision-card {
+  background: var(--bg-card);
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+
+.decision-card.apple-decide {
+  border-top: 3px solid var(--apple-blue);
+}
+
+.decision-card.nvidia-decide {
+  border-top: 3px solid var(--nvidia-green);
+}
+
+.decision-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.decision-card.apple-decide h3 { color: var(--apple-blue); }
+.decision-card.nvidia-decide h3 { color: var(--nvidia-green); }
+
+.decision-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  align-items: flex-start;
+}
+
+.decision-item:last-child { border: none; }
+
+.decision-emoji {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.decision-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.decision-text strong { color: var(--text-primary); }
+
+.ideal-box {
+  margin-top: 16px;
+  padding: 20px 24px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(118,185,0,0.1));
+  border: 1px solid rgba(255,255,255,0.1);
+  text-align: center;
+}
+
+.ideal-box h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, var(--apple-blue), var(--nvidia-green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.ideal-box p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.ideal-box .ideal-highlight {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+/* ═══════ RESPONSIVE ═══════ */
+@media (max-width: 700px) {
+  .arch-stage { grid-template-columns: 1fr; gap: 12px; }
+  .vs-divider {
+    width: 100%;
+    height: 40px;
+    flex-direction: row;
+  }
+  .vs-lightning {
+    width: 100%;
+    height: 2px;
+  }
+  .eco-grid, .decision-grid { grid-template-columns: 1fr; }
+  .scenario-race { grid-template-columns: 1fr; }
+  .header h1 { font-size: 20px; }
+  .tab-btn { font-size: 12px; padding: 8px 12px; }
+}
+
+/* ═══════ ANIMATIONS ═══════ */
+@keyframes pulse-glow-blue {
+  0%, 100% { box-shadow: 0 0 8px var(--apple-glow); }
+  50% { box-shadow: 0 0 20px var(--apple-glow); }
+}
+
+@keyframes pulse-glow-green {
+  0%, 100% { box-shadow: 0 0 8px var(--nvidia-glow); }
+  50% { box-shadow: 0 0 20px var(--nvidia-glow); }
+}
+
+.arch-side.apple { animation: pulse-glow-blue 3s ease-in-out infinite; }
+.arch-side.nvidia { animation: pulse-glow-green 3s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>
+    <span class="apple">Apple Silicon</span>
+    <span class="vs">VS</span>
+    <span class="nvidia">NVIDIA</span>
+  </h1>
+  <div class="subtitle">统一内存 vs 离散显存的 AI 之争 | 2026.03</div>
+</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-tab="0">1. 内存架构对决</button>
+  <button class="tab-btn" data-tab="1">2. 芯片规格对比</button>
+  <button class="tab-btn" data-tab="2">3. 大模型运行实测</button>
+  <button class="tab-btn" data-tab="3">4. 生态与软件</button>
+  <button class="tab-btn" data-tab="4">5. 谁该选谁</button>
+</div>
+
+<!-- TAB CONTENT -->
+<div class="tab-content" id="tabContent">
+
+  <!-- ════════════ TAB 1: MEMORY ARCHITECTURE ════════════ -->
+  <div class="tab-panel active" data-panel="0">
+    <div class="arch-stage">
+      <!-- Apple Side -->
+      <div class="arch-side apple">
+        <div class="side-title">Apple Silicon — 统一内存架构 (UMA)</div>
+        <canvas class="arch-canvas" id="canvasApple"></canvas>
+        <div class="arch-label">
+          <strong>零拷贝 — 数据原地不动，计算来找数据</strong>
+          LPDDR5X | 最高 512GB (M3 Ultra) | 120-819 GB/s
+        </div>
+      </div>
+
+      <!-- VS Divider -->
+      <div class="vs-divider">
+        <div class="vs-lightning"></div>
+        <div class="vs-text">VS</div>
+      </div>
+
+      <!-- NVIDIA Side -->
+      <div class="arch-side nvidia">
+        <div class="side-title">NVIDIA — 离散 GPU 架构</div>
+        <canvas class="arch-canvas" id="canvasNvidia"></canvas>
+        <div class="arch-label">
+          <strong>数据搬运 — 先把数据搬到GPU，才能开始计算</strong>
+          HBM3e | 最高 192GB (B200) | 3,350-8,000 GB/s
+        </div>
+      </div>
+    </div>
+
+    <div class="insight-box">
+      <span class="icon">&#9889;</span>
+      <strong>核心洞察：</strong>Apple 的带宽低但零拷贝；NVIDIA 带宽高但需要搬运数据。当模型放不进 GPU 显存时，Apple 反而更快 — 因为 NVIDIA 需要在 CPU 内存和 GPU 显存之间反复搬运数据，PCIe 的带宽瓶颈会严重拖慢速度。
+    </div>
+  </div>
+
+  <!-- ════════════ TAB 2: SPECS ════════════ -->
+  <div class="tab-panel" data-panel="1">
+    <div class="specs-table-wrapper">
+      <table class="specs-table">
+        <thead>
+          <tr>
+            <th>规格</th>
+            <th class="apple-col">M4 Max</th>
+            <th class="apple-col">M5 Max</th>
+            <th class="apple-col">M3 Ultra</th>
+            <th class="nvidia-col">RTX 4090</th>
+            <th class="nvidia-col">H100</th>
+            <th class="nvidia-col">B200</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;color:var(--text-primary)">内存</td>
+            <td>128GB UMA</td>
+            <td>128GB UMA</td>
+            <td>512GB UMA</td>
+            <td>24GB GDDR6X</td>
+            <td>80GB HBM3</td>
+            <td>192GB HBM3e</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text-primary)">带宽</td>
+            <td>546 GB/s</td>
+            <td>614 GB/s</td>
+            <td>819 GB/s</td>
+            <td>1,008 GB/s</td>
+            <td>3,350 GB/s</td>
+            <td>8,000 GB/s</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text-primary)">AI 算力</td>
+            <td>38 TOPS</td>
+            <td>~150 TOPS</td>
+            <td>76 TOPS</td>
+            <td>330 TOPS</td>
+            <td>~3,900 TOPS</td>
+            <td>~20,000 TOPS</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text-primary)">功耗</td>
+            <td>40-80W</td>
+            <td>40-80W</td>
+            <td>60-120W</td>
+            <td>450W</td>
+            <td>700W</td>
+            <td>1,000W</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text-primary)">价格</td>
+            <td>~$3,500</td>
+            <td>~$4,000</td>
+            <td>~$7,000</td>
+            <td>~$1,600</td>
+            <td>~$30,000</td>
+            <td>~$40,000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="spec-bar-container" id="specBars">
+      <!-- Memory Capacity -->
+      <div class="spec-bar-group">
+        <h3>内存容量 (GB) <span class="spec-winner apple-wins">Apple 胜</span></h3>
+        <div class="spec-bar-row"><span class="spec-bar-label">M4 Max</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="25" data-val="128GB"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">M5 Max</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="25" data-val="128GB"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">M3 Ultra</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="100" data-val="512GB"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">RTX 4090</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="4.7" data-val="24GB"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">H100</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="15.6" data-val="80GB"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">B200</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="37.5" data-val="192GB"></div></div></div>
+      </div>
+
+      <!-- Bandwidth -->
+      <div class="spec-bar-group">
+        <h3>内存带宽 (GB/s) <span class="spec-winner nvidia-wins">NVIDIA 胜</span></h3>
+        <div class="spec-bar-row"><span class="spec-bar-label">M4 Max</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="6.8" data-val="546"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">M5 Max</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="7.7" data-val="614"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">M3 Ultra</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="10.2" data-val="819"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">RTX 4090</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="12.6" data-val="1,008"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">H100</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="41.9" data-val="3,350"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">B200</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="100" data-val="8,000"></div></div></div>
+      </div>
+
+      <!-- AI TOPS -->
+      <div class="spec-bar-group">
+        <h3>AI 算力 (TOPS) <span class="spec-winner nvidia-wins">NVIDIA 胜</span></h3>
+        <div class="spec-bar-row"><span class="spec-bar-label">M4 Max</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="0.19" data-val="38"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">M5 Max</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="0.75" data-val="~150"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">M3 Ultra</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="0.38" data-val="76"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">RTX 4090</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="1.65" data-val="330"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">H100</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="19.5" data-val="3,900"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">B200</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="100" data-val="20,000"></div></div></div>
+      </div>
+
+      <!-- Power Efficiency (inverted - lower is better) -->
+      <div class="spec-bar-group">
+        <h3>功耗 (W) - 越低越好 <span class="spec-winner apple-wins">Apple 胜</span></h3>
+        <div class="spec-bar-row"><span class="spec-bar-label">M4 Max</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="8" data-val="40-80W"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">M5 Max</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="8" data-val="40-80W"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">M3 Ultra</span><div class="spec-bar-track"><div class="spec-bar-fill apple-bar" data-width="12" data-val="60-120W"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">RTX 4090</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="45" data-val="450W"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">H100</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="70" data-val="700W"></div></div></div>
+        <div class="spec-bar-row"><span class="spec-bar-label">B200</span><div class="spec-bar-track"><div class="spec-bar-fill nvidia-bar" data-width="100" data-val="1,000W"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ TAB 3: LLM SCENARIOS ════════════ -->
+  <div class="tab-panel" data-panel="2">
+    <div class="scenarios" id="scenarios">
+
+      <!-- Scenario 1: 8B -->
+      <div class="scenario-card">
+        <div class="scenario-header">
+          <div class="scenario-num">1</div>
+          <div class="scenario-info">
+            <div class="model-name">8B 模型 (Llama 3.1 8B)</div>
+            <div class="model-desc">~5GB 量化后 | 两边都放得下</div>
+          </div>
+          <div class="scenario-expand">&#9660;</div>
+        </div>
+        <div class="scenario-body">
+          <div class="scenario-content">
+            <div class="scenario-race">
+              <div class="race-lane apple-lane">
+                <div class="lane-chip">M4 Max (128GB)</div>
+                <div class="race-speed">~55 <span class="unit">tok/s</span></div>
+                <div class="race-status good">&#10003; 轻松运行，内存绰绰有余</div>
+                <div class="race-bar"><div class="race-bar-fill" data-width="42"></div></div>
+              </div>
+              <div class="race-lane nvidia-lane">
+                <div class="lane-chip">RTX 4090 (24GB)</div>
+                <div class="race-speed">~130 <span class="unit">tok/s</span></div>
+                <div class="race-status good">&#10003; 完全在显存内运行，极速推理</div>
+                <div class="race-bar"><div class="race-bar-fill" data-width="100"></div></div>
+              </div>
+            </div>
+            <div class="scenario-verdict">
+              <span class="verdict-winner nvidia-w">&#9654; NVIDIA 胜出</span> — 小模型完全放进显存时，NVIDIA 的高带宽和 Tensor Core 大幅领先。RTX 4090 速度接近 M4 Max 的 2.4 倍。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario 2: 70B -->
+      <div class="scenario-card">
+        <div class="scenario-header">
+          <div class="scenario-num">2</div>
+          <div class="scenario-info">
+            <div class="model-name">70B 模型 (Llama 3.1 70B Q4)</div>
+            <div class="model-desc">~40GB 量化后 | Apple 放得下，4090 放不下</div>
+          </div>
+          <div class="scenario-expand">&#9660;</div>
+        </div>
+        <div class="scenario-body">
+          <div class="scenario-content">
+            <div class="scenario-race">
+              <div class="race-lane apple-lane">
+                <div class="lane-chip">M4 Max (128GB)</div>
+                <div class="race-speed">~15 <span class="unit">tok/s</span></div>
+                <div class="race-status good">&#10003; 全部在统一内存中，流畅运行</div>
+                <div class="race-bar"><div class="race-bar-fill" data-width="100"></div></div>
+              </div>
+              <div class="race-lane nvidia-lane">
+                <div class="lane-chip">RTX 4090 (24GB)</div>
+                <div class="race-speed">~2 <span class="unit">tok/s</span></div>
+                <div class="race-status fail">&#10007; 显存不足！被迫卸载到 CPU 内存，PCIe 瓶颈严重</div>
+                <div class="race-bar"><div class="race-bar-fill" data-width="13"></div></div>
+              </div>
+            </div>
+            <div class="scenario-verdict">
+              <span class="verdict-winner apple-w">&#9654; Apple 胜出</span> — 这就是 UMA 的杀手级场景。70B 模型放不进 24GB 显存，RTX 4090 必须在 CPU/GPU 间反复搬运数据，速度暴跌 7.5 倍。M4 Max 的 128GB 统一内存轻松容纳。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario 3: 200B+ -->
+      <div class="scenario-card">
+        <div class="scenario-header">
+          <div class="scenario-num">3</div>
+          <div class="scenario-info">
+            <div class="model-name">200B+ 超大模型</div>
+            <div class="model-desc">~120GB+ | 需要超大内存或多 GPU</div>
+          </div>
+          <div class="scenario-expand">&#9660;</div>
+        </div>
+        <div class="scenario-body">
+          <div class="scenario-content">
+            <div class="scenario-race">
+              <div class="race-lane apple-lane">
+                <div class="lane-chip">M3 Ultra (512GB)</div>
+                <div class="race-speed">~3-5 <span class="unit">tok/s</span></div>
+                <div class="race-status slow">&#9888; 慢但可用 — 一台机器搞定</div>
+                <div class="race-bar"><div class="race-bar-fill" data-width="25"></div></div>
+              </div>
+              <div class="race-lane nvidia-lane">
+                <div class="lane-chip">3x H100 ($90K+)</div>
+                <div class="race-speed">~15-20 <span class="unit">tok/s</span></div>
+                <div class="race-status good">&#10003; 需要整个服务器机架，但极速推理</div>
+                <div class="race-bar"><div class="race-bar-fill" data-width="100"></div></div>
+              </div>
+            </div>
+            <div class="scenario-verdict">
+              <span class="verdict-winner draw-w">&#9654; 各有千秋</span> — Apple: 一台 $7K Mac Studio 就能跑，安静省电；NVIDIA: 需要 $90K+ 的多 GPU 服务器，但速度快 4-6 倍。取决于你是要「跑得了」还是「跑得快」。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario 4: Training -->
+      <div class="scenario-card">
+        <div class="scenario-header">
+          <div class="scenario-num">4</div>
+          <div class="scenario-info">
+            <div class="model-name">模型训练</div>
+            <div class="model-desc">预训练 / 全量微调 | 需要超大算力</div>
+          </div>
+          <div class="scenario-expand">&#9660;</div>
+        </div>
+        <div class="scenario-body">
+          <div class="scenario-content">
+            <div class="scenario-race">
+              <div class="race-lane apple-lane">
+                <div class="lane-chip">Apple Silicon</div>
+                <div class="race-speed" style="font-size:16px;color:var(--text-muted)">Not designed for this</div>
+                <div class="race-status fail">&#10007; 可做小模型微调，预训练不切实际。无分布式训练支持，缺乏 Tensor Core 级矩阵运算能力</div>
+                <div class="race-bar"><div class="race-bar-fill" data-width="3"></div></div>
+              </div>
+              <div class="race-lane nvidia-lane">
+                <div class="lane-chip">NVIDIA GPU 集群</div>
+                <div class="race-speed" style="font-size:16px;color:var(--nvidia-green)">The Only Choice</div>
+                <div class="race-status good">&#10003; CUDA + DeepSpeed + Megatron-LM，可扩展到数千张 GPU 并行训练</div>
+                <div class="race-bar"><div class="race-bar-fill" data-width="100"></div></div>
+              </div>
+            </div>
+            <div class="scenario-verdict">
+              <span class="verdict-winner nvidia-w">&#9654; NVIDIA 完胜</span> — 训练领域没有悬念。所有主流大模型（GPT-4、Claude、Llama）都在 NVIDIA GPU 集群上训练。Apple Silicon 不是为这个场景设计的。
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════ TAB 4: ECOSYSTEM ════════════ -->
+  <div class="tab-panel" data-panel="3">
+    <div class="eco-grid">
+      <!-- Apple Ecosystem -->
+      <div class="eco-col apple-eco">
+        <h3>Apple 生态</h3>
+
+        <div class="eco-item">
+          <div class="eco-icon">ML</div>
+          <div class="eco-info">
+            <div class="eco-name">MLX</div>
+            <div class="eco-desc">Apple 官方 ML 框架，2+ 年历史，社区快速增长。2025 重大更新：新增 CUDA 后端 — 在 Mac 上原型开发，部署到 NVIDIA！</div>
+            <span class="eco-tag highlight">NEW: CUDA 后端</span>
+          </div>
+        </div>
+
+        <div class="eco-item">
+          <div class="eco-icon">Ol</div>
+          <div class="eco-info">
+            <div class="eco-name">Ollama</div>
+            <div class="eco-desc">Mac 原生运行，一键拉取和运行各种开源大模型。体验极佳。</div>
+            <span class="eco-tag strength">即开即用</span>
+          </div>
+        </div>
+
+        <div class="eco-item">
+          <div class="eco-icon">ll</div>
+          <div class="eco-info">
+            <div class="eco-name">llama.cpp</div>
+            <div class="eco-desc">Metal 后端支持，高效 CPU/GPU 混合推理。Apple Silicon 上的推理主力。</div>
+            <span class="eco-tag strength">社区活跃</span>
+          </div>
+        </div>
+
+        <div class="eco-item">
+          <div class="eco-icon">Pt</div>
+          <div class="eco-info">
+            <div class="eco-name">PyTorch MPS</div>
+            <div class="eco-desc">MPS 后端部分支持，但仍有算子缺失。许多训练脚本需要修改才能运行。</div>
+            <span class="eco-tag weakness">部分支持</span>
+          </div>
+        </div>
+
+        <div class="eco-item" style="padding-top:14px;border-top:1px solid rgba(59,130,246,0.15)">
+          <div class="eco-info" style="width:100%">
+            <div class="eco-name" style="color:var(--apple-blue)">核心优势</div>
+            <div class="eco-desc">安静、低功耗、「开箱即用」。适合个人开发者和隐私场景。</div>
+            <div class="eco-name" style="color:var(--danger);margin-top:8px">主要局限</div>
+            <div class="eco-desc">无分布式训练；MPS 后端 PyTorch 支持不完整；生态规模远小于 CUDA。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NVIDIA Ecosystem -->
+      <div class="eco-col nvidia-eco">
+        <h3>NVIDIA 生态</h3>
+
+        <div class="eco-item">
+          <div class="eco-icon">CU</div>
+          <div class="eco-info">
+            <div class="eco-name">CUDA</div>
+            <div class="eco-desc">~17 年历史，庞大的护城河。几乎所有 AI 框架和工具的默认后端。</div>
+            <span class="eco-tag strength">行业标准</span>
+          </div>
+        </div>
+
+        <div class="eco-item">
+          <div class="eco-icon">Pt</div>
+          <div class="eco-info">
+            <div class="eco-name">PyTorch / TensorFlow / JAX</div>
+            <div class="eco-desc">一等公民（first-class）支持。所有新功能、优化都优先适配 NVIDIA。</div>
+            <span class="eco-tag strength">原生支持</span>
+          </div>
+        </div>
+
+        <div class="eco-item">
+          <div class="eco-icon">Tr</div>
+          <div class="eco-info">
+            <div class="eco-name">TensorRT / vLLM / Triton</div>
+            <div class="eco-desc">推理优化三件套：编译加速、批量推理、自定义内核。生产部署必备。</div>
+            <span class="eco-tag strength">生产级</span>
+          </div>
+        </div>
+
+        <div class="eco-item">
+          <div class="eco-icon">DS</div>
+          <div class="eco-info">
+            <div class="eco-name">DeepSpeed / Megatron-LM</div>
+            <div class="eco-desc">分布式训练框架，支持数千张 GPU 并行。训练大模型的基础设施。</div>
+            <span class="eco-tag strength">规模化训练</span>
+          </div>
+        </div>
+
+        <div class="eco-item" style="padding-top:14px;border-top:1px solid rgba(118,185,0,0.15)">
+          <div class="eco-info" style="width:100%">
+            <div class="eco-name" style="color:var(--nvidia-green)">核心优势</div>
+            <div class="eco-desc">成熟、全面、可扩展到数千张 GPU。所有主流工具都「刚好能用」。</div>
+            <div class="eco-name" style="color:var(--danger);margin-top:8px">主要局限</div>
+            <div class="eco-desc">高功耗、噪音大、价格昂贵。CUDA 锁定使迁移困难。消费级显存有限（24GB）。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ TAB 5: DECISION ════════════ -->
+  <div class="tab-panel" data-panel="4">
+    <div class="decision-grid">
+      <!-- Choose Apple -->
+      <div class="decision-card apple-decide">
+        <h3>选择 Apple Silicon</h3>
+        <div class="decision-item">
+          <div class="decision-emoji">&#127968;</div>
+          <div class="decision-text"><strong>本地跑大模型 (70B+)</strong><br>统一内存让你在一台笔记本上运行 4090 根本塞不下的模型</div>
+        </div>
+        <div class="decision-item">
+          <div class="decision-emoji">&#128263;</div>
+          <div class="decision-text"><strong>安静低功耗运行</strong><br>无风扇噪音，40-80W 功耗 vs NVIDIA 的 450-1000W</div>
+        </div>
+        <div class="decision-item">
+          <div class="decision-emoji">&#128274;</div>
+          <div class="decision-text"><strong>隐私敏感场景</strong><br>全部在设备端推理，数据不离开你的电脑</div>
+        </div>
+        <div class="decision-item">
+          <div class="decision-emoji">&#128187;</div>
+          <div class="decision-text"><strong>开发者原型验证</strong><br>随时随地开发和测试 AI 应用，无需服务器</div>
+        </div>
+        <div class="decision-item">
+          <div class="decision-emoji">&#128176;</div>
+          <div class="decision-text"><strong>预算: $4K-$12K</strong><br>一台强大的 AI 工作站</div>
+        </div>
+      </div>
+
+      <!-- Choose NVIDIA -->
+      <div class="decision-card nvidia-decide">
+        <h3>选择 NVIDIA GPU</h3>
+        <div class="decision-item">
+          <div class="decision-emoji">&#127947;</div>
+          <div class="decision-text"><strong>训练任何规模的模型</strong><br>预训练和全量微调只有 NVIDIA 能做</div>
+        </div>
+        <div class="decision-item">
+          <div class="decision-emoji">&#127970;</div>
+          <div class="decision-text"><strong>生产级推理服务</strong><br>服务成千上万用户的并发推理请求</div>
+        </div>
+        <div class="decision-item">
+          <div class="decision-emoji">&#128200;</div>
+          <div class="decision-text"><strong>多 GPU 扩展</strong><br>NVLink + GPU 集群，线性扩展算力</div>
+        </div>
+        <div class="decision-item">
+          <div class="decision-emoji">&#128295;</div>
+          <div class="decision-text"><strong>CUDA 生态依赖</strong><br>现有项目依赖 CUDA，迁移成本高</div>
+        </div>
+        <div class="decision-item">
+          <div class="decision-emoji">&#128176;</div>
+          <div class="decision-text"><strong>预算: $30K-$500K+</strong><br>严肃的 AI 基础设施投入</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ideal-box">
+      <h3>最佳组合方案</h3>
+      <p>
+        MacBook Pro M5 Max 做开发 + NVIDIA 云做训练 = 两全其美。<br>
+        MLX 现已支持 CUDA 后端 — 本地原型开发，一键部署到 NVIDIA。
+      </p>
+      <div class="ideal-highlight">
+        Mac 开发 &#8594; MLX CUDA 后端 &#8594; NVIDIA 云部署
+      </div>
+    </div>
+  </div>
+
+</div><!-- end tab-content -->
+
+<!-- GLOSSARY BUTTON -->
+<button class="glossary-btn" id="glossaryBtn" title="术语表">?</button>
+
+<!-- GLOSSARY MODAL -->
+<div class="modal-overlay" id="glossaryModal">
+  <div class="modal">
+    <button class="modal-close" id="glossaryClose">&times;</button>
+    <h2>术语表 (Glossary)</h2>
+
+    <div class="glossary-item">
+      <div class="term">UMA (Unified Memory Architecture)</div>
+      <div class="def">统一内存架构 — CPU / GPU / NPU 共享同一块内存，无需数据拷贝。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">HBM (High Bandwidth Memory)</div>
+      <div class="def">高带宽内存 — GPU 专用堆叠式高速显存，带宽远超传统 DDR。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">VRAM (Video RAM)</div>
+      <div class="def">显存 — GPU 专属内存，与系统内存物理分离。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">PCIe</div>
+      <div class="def">连接 CPU 和 GPU 的总线，带宽远低于 GPU 内部带宽和 NVLink。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">NVLink</div>
+      <div class="def">NVIDIA GPU 间直连高速通道，带宽远超 PCIe。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">TOPS (Tera Operations Per Second)</div>
+      <div class="def">每秒万亿次运算 — 衡量 AI 加速器算力的核心指标。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">Neural Engine</div>
+      <div class="def">Apple 专用 AI 加速器，集成在 SoC 中，专攻矩阵运算和推理。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">Tensor Core</div>
+      <div class="def">NVIDIA 专用矩阵运算核心，每个 GPU 包含数千个，大幅加速 AI 训练和推理。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">Metal</div>
+      <div class="def">Apple 的 GPU 编程框架，类似 CUDA 但仅限 Apple 平台。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">CUDA</div>
+      <div class="def">NVIDIA 的 GPU 编程框架，AI 领域的事实标准。~17 年历史。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">MLX</div>
+      <div class="def">Apple 的机器学习框架，针对 Apple Silicon 优化。2025 新增 CUDA 后端。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">tok/s (tokens per second)</div>
+      <div class="def">大模型每秒生成的 token 数 — 衡量推理速度的核心指标。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">Quantization (量化)</div>
+      <div class="def">降低模型精度（如 FP16&#8594;INT4）以减小体积和提高速度，通常精度损失很小。</div>
+    </div>
+    <div class="glossary-item">
+      <div class="term">Offloading (卸载)</div>
+      <div class="def">模型超出显存时，将部分权重放到 CPU 内存。速度大幅下降（受 PCIe 带宽限制）。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   TAB SWITCHING
+   ═══════════════════════════════════════════════ */
+(function initTabs() {
+  const buttons = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.tab-panel');
+
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(btn.dataset.tab, 10);
+      buttons.forEach(function(b) { b.classList.remove('active'); });
+      panels.forEach(function(p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      panels[idx].classList.add('active');
+
+      if (idx === 0) { startArchAnimations(); }
+      if (idx === 1) { animateSpecBars(); }
+      if (idx === 2) { resetScenarioRaceBars(); }
+    });
+  });
+})();
+
+/* ═══════════════════════════════════════════════
+   GLOSSARY MODAL
+   ═══════════════════════════════════════════════ */
+(function initGlossary() {
+  var btn = document.getElementById('glossaryBtn');
+  var modal = document.getElementById('glossaryModal');
+  var close = document.getElementById('glossaryClose');
+
+  btn.addEventListener('click', function() { modal.classList.add('active'); });
+  close.addEventListener('click', function() { modal.classList.remove('active'); });
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) { modal.classList.remove('active'); }
+  });
+})();
+
+/* ═══════════════════════════════════════════════
+   SCENARIO CARDS (expand/collapse)
+   ═══════════════════════════════════════════════ */
+(function initScenarios() {
+  document.querySelectorAll('.scenario-card').forEach(function(card) {
+    card.querySelector('.scenario-header').addEventListener('click', function() {
+      var wasExpanded = card.classList.contains('expanded');
+      card.classList.toggle('expanded');
+      if (!wasExpanded) {
+        setTimeout(function() { animateRaceBarsInCard(card); }, 200);
+      }
+    });
+  });
+})();
+
+function animateRaceBarsInCard(card) {
+  card.querySelectorAll('.race-bar-fill').forEach(function(bar) {
+    bar.style.width = bar.dataset.width + '%';
+  });
+}
+
+function resetScenarioRaceBars() {
+  document.querySelectorAll('.scenario-card').forEach(function(card) {
+    if (card.classList.contains('expanded')) {
+      setTimeout(function() { animateRaceBarsInCard(card); }, 300);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   SPEC BAR ANIMATIONS
+   ═══════════════════════════════════════════════ */
+function animateSpecBars() {
+  var bars = document.querySelectorAll('#specBars .spec-bar-fill');
+  bars.forEach(function(bar) { bar.style.width = '0'; });
+  setTimeout(function() {
+    bars.forEach(function(bar) {
+      var w = parseFloat(bar.dataset.width);
+      var minW = Math.max(w, 4);
+      bar.style.width = minW + '%';
+      bar.textContent = bar.dataset.val;
+    });
+  }, 100);
+}
+
+/* ═══════════════════════════════════════════════
+   ARCHITECTURE ANIMATIONS (Canvas)
+   ═══════════════════════════════════════════════ */
+var appleAnimId = null;
+var nvidiaAnimId = null;
+
+function startArchAnimations() {
+  if (appleAnimId) { cancelAnimationFrame(appleAnimId); }
+  if (nvidiaAnimId) { cancelAnimationFrame(nvidiaAnimId); }
+  initAppleCanvas();
+  initNvidiaCanvas();
+}
+
+/* ─── APPLE UMA CANVAS ─── */
+function initAppleCanvas() {
+  var canvas = document.getElementById('canvasApple');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  var W = rect.width;
+  var H = rect.height;
+
+  /* Component positions */
+  var memPool = { x: W * 0.15, y: H * 0.55, w: W * 0.7, h: H * 0.28, r: 14 };
+  var cpuBox =  { x: W * 0.08, y: H * 0.08, w: W * 0.22, h: H * 0.28, r: 10, label: 'CPU', color: '#60a5fa' };
+  var gpuBox =  { x: W * 0.39, y: H * 0.08, w: W * 0.22, h: H * 0.28, r: 10, label: 'GPU', color: '#818cf8' };
+  var npeBox =  { x: W * 0.70, y: H * 0.08, w: W * 0.22, h: H * 0.28, r: 10, label: 'Neural\nEngine', color: '#c084fc' };
+
+  var components = [cpuBox, gpuBox, npeBox];
+
+  /* Particles */
+  var particles = [];
+  var PARTICLE_COUNT = 28;
+
+  function createParticle() {
+    var compIdx = Math.floor(Math.random() * 3);
+    var comp = components[compIdx];
+    var nextIdx = (compIdx + Math.floor(Math.random() * 2) + 1) % 3;
+    var nextComp = components[nextIdx];
+
+    /* Path: component -> memory pool -> next component */
+    var startX = comp.x + comp.w / 2;
+    var startY = comp.y + comp.h;
+    var midX1 = comp.x + comp.w / 2;
+    var midY = memPool.y + memPool.h / 2;
+    var midX2 = nextComp.x + nextComp.w / 2;
+    var endX = nextComp.x + nextComp.w / 2;
+    var endY = nextComp.y + nextComp.h;
+
+    var colors = ['#60a5fa', '#818cf8', '#c084fc', '#38bdf8', '#a78bfa'];
+
+    return {
+      progress: 0,
+      speed: 0.003 + Math.random() * 0.004,
+      points: [
+        { x: startX, y: startY },
+        { x: midX1, y: midY },
+        { x: midX2, y: midY },
+        { x: endX, y: endY }
+      ],
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 3 + Math.random() * 3,
+      trail: []
+    };
+  }
+
+  for (var i = 0; i < PARTICLE_COUNT; i++) {
+    var p = createParticle();
+    p.progress = Math.random();
+    particles.push(p);
+  }
+
+  function lerpPath(points, t) {
+    if (t <= 0) return { x: points[0].x, y: points[0].y };
+    if (t >= 1) return { x: points[points.length - 1].x, y: points[points.length - 1].y };
+    var totalSegments = points.length - 1;
+    var segment = Math.min(Math.floor(t * totalSegments), totalSegments - 1);
+    var segT = (t * totalSegments) - segment;
+    var a = points[segment];
+    var b = points[segment + 1];
+    return { x: a.x + (b.x - a.x) * segT, y: a.y + (b.y - a.y) * segT };
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawApple(timestamp) {
+    ctx.clearRect(0, 0, W, H);
+
+    /* Draw shared memory pool */
+    var memGlow = 0.15 + 0.05 * Math.sin(timestamp * 0.002);
+    ctx.save();
+    ctx.shadowColor = 'rgba(59,130,246,0.4)';
+    ctx.shadowBlur = 20;
+    roundRect(ctx, memPool.x, memPool.y, memPool.w, memPool.h, memPool.r);
+    ctx.fillStyle = 'rgba(59,130,246,' + memGlow + ')';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(59,130,246,0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    /* Memory label */
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '600 13px "Noto Sans SC"';
+    ctx.textAlign = 'center';
+    ctx.fillText('Unified Memory (LPDDR5X)', memPool.x + memPool.w / 2, memPool.y + memPool.h / 2 + 1);
+    ctx.font = '11px "JetBrains Mono"';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('512GB | Zero-Copy', memPool.x + memPool.w / 2, memPool.y + memPool.h / 2 + 18);
+
+    /* Draw component boxes */
+    components.forEach(function(comp) {
+      ctx.save();
+      ctx.shadowColor = comp.color + '40';
+      ctx.shadowBlur = 12;
+      roundRect(ctx, comp.x, comp.y, comp.w, comp.h, comp.r);
+      ctx.fillStyle = comp.color + '18';
+      ctx.fill();
+      ctx.strokeStyle = comp.color + '60';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+
+      /* Label */
+      ctx.fillStyle = comp.color;
+      ctx.font = '700 14px "Noto Sans SC"';
+      ctx.textAlign = 'center';
+      var lines = comp.label.split('\n');
+      lines.forEach(function(line, li) {
+        ctx.fillText(line, comp.x + comp.w / 2, comp.y + comp.h / 2 + (li - (lines.length - 1) / 2) * 18);
+      });
+
+      /* Connection line to memory */
+      ctx.beginPath();
+      ctx.moveTo(comp.x + comp.w / 2, comp.y + comp.h);
+      ctx.lineTo(comp.x + comp.w / 2, memPool.y);
+      ctx.strokeStyle = comp.color + '30';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    /* Draw particles */
+    particles.forEach(function(p) {
+      p.progress += p.speed;
+      if (p.progress >= 1) {
+        var np = createParticle();
+        p.progress = 0;
+        p.points = np.points;
+        p.color = np.color;
+        p.trail = [];
+      }
+
+      var pos = lerpPath(p.points, p.progress);
+      p.trail.push({ x: pos.x, y: pos.y });
+      if (p.trail.length > 12) p.trail.shift();
+
+      /* Trail */
+      for (var t = 0; t < p.trail.length; t++) {
+        var alpha = (t / p.trail.length) * 0.5;
+        var sz = p.size * (t / p.trail.length);
+        ctx.beginPath();
+        ctx.arc(p.trail[t].x, p.trail[t].y, sz, 0, Math.PI * 2);
+        ctx.fillStyle = p.color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+        ctx.fill();
+      }
+
+      /* Head */
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+
+    appleAnimId = requestAnimationFrame(drawApple);
+  }
+
+  appleAnimId = requestAnimationFrame(drawApple);
+}
+
+/* ─── NVIDIA DISCRETE CANVAS ─── */
+function initNvidiaCanvas() {
+  var canvas = document.getElementById('canvasNvidia');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  var W = rect.width;
+  var H = rect.height;
+
+  /* Layout: CPU side (left) | PCIe bus (middle) | GPU side (right) */
+  var cpuBlock = { x: W * 0.04, y: H * 0.08, w: W * 0.32, h: H * 0.84, r: 12 };
+  var gpuBlock = { x: W * 0.64, y: H * 0.08, w: W * 0.32, h: H * 0.84, r: 12 };
+
+  var cpuChip = { x: cpuBlock.x + 12, y: cpuBlock.y + 12, w: cpuBlock.w - 24, h: cpuBlock.h * 0.35, r: 8 };
+  var cpuRam  = { x: cpuBlock.x + 12, y: cpuBlock.y + cpuBlock.h * 0.35 + 24, w: cpuBlock.w - 24, h: cpuBlock.h * 0.5, r: 8 };
+
+  var gpuChip = { x: gpuBlock.x + 12, y: gpuBlock.y + 12, w: gpuBlock.w - 24, h: gpuBlock.h * 0.35, r: 8 };
+  var gpuHbm  = { x: gpuBlock.x + 12, y: gpuBlock.y + gpuBlock.h * 0.35 + 24, w: gpuBlock.w - 24, h: gpuBlock.h * 0.5, r: 8 };
+
+  /* PCIe bus area */
+  var pcieX = cpuBlock.x + cpuBlock.w + 8;
+  var pcieW = gpuBlock.x - pcieX - 8;
+  var pcieY = H * 0.3;
+  var pcieH = H * 0.4;
+
+  /* Particles: data copying from CPU RAM to GPU HBM */
+  var particles = [];
+  var PARTICLE_COUNT = 18;
+  var queueParticles = [];
+  var QUEUE_COUNT = 6;
+
+  function createDataParticle() {
+    var speed = 0.005 + Math.random() * 0.006;
+    var startX = cpuRam.x + cpuRam.w / 2 + (Math.random() - 0.5) * cpuRam.w * 0.4;
+    var startY = cpuRam.y + cpuRam.h / 2;
+    var entryX = pcieX;
+    var midY = pcieY + pcieH / 2 + (Math.random() - 0.5) * pcieH * 0.3;
+    var exitX = pcieX + pcieW;
+    var endX = gpuHbm.x + gpuHbm.w / 2 + (Math.random() - 0.5) * gpuHbm.w * 0.4;
+    var endY = gpuHbm.y + gpuHbm.h / 2;
+
+    return {
+      progress: 0,
+      speed: speed,
+      points: [
+        { x: startX, y: startY },
+        { x: entryX, y: midY },
+        { x: exitX, y: midY },
+        { x: endX, y: endY }
+      ],
+      size: 3 + Math.random() * 2,
+      trail: [],
+      waiting: false,
+      waitTime: 0,
+      maxWait: Math.random() * 60 + 20
+    };
+  }
+
+  function createQueueParticle(idx) {
+    return {
+      x: pcieX - 4 - idx * 8,
+      y: pcieY + pcieH / 2 + (idx % 3 - 1) * 10,
+      size: 3 + Math.random() * 2,
+      pulse: Math.random() * Math.PI * 2,
+      active: true
+    };
+  }
+
+  for (var i = 0; i < PARTICLE_COUNT; i++) {
+    var p = createDataParticle();
+    p.progress = Math.random();
+    particles.push(p);
+  }
+
+  for (var q = 0; q < QUEUE_COUNT; q++) {
+    queueParticles.push(createQueueParticle(q));
+  }
+
+  function lerpPath(points, t) {
+    if (t <= 0) return { x: points[0].x, y: points[0].y };
+    if (t >= 1) return { x: points[points.length - 1].x, y: points[points.length - 1].y };
+    var totalSegments = points.length - 1;
+    var segment = Math.min(Math.floor(t * totalSegments), totalSegments - 1);
+    var segT = (t * totalSegments) - segment;
+    var a = points[segment];
+    var b = points[segment + 1];
+    return { x: a.x + (b.x - a.x) * segT, y: a.y + (b.y - a.y) * segT };
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawNvidia(timestamp) {
+    ctx.clearRect(0, 0, W, H);
+
+    /* CPU block background */
+    roundRect(ctx, cpuBlock.x, cpuBlock.y, cpuBlock.w, cpuBlock.h, cpuBlock.r);
+    ctx.fillStyle = 'rgba(100,116,139,0.08)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(100,116,139,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    /* CPU chip */
+    roundRect(ctx, cpuChip.x, cpuChip.y, cpuChip.w, cpuChip.h, cpuChip.r);
+    ctx.fillStyle = 'rgba(96,165,250,0.12)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(96,165,250,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#60a5fa';
+    ctx.font = '700 12px "Noto Sans SC"';
+    ctx.textAlign = 'center';
+    ctx.fillText('CPU', cpuChip.x + cpuChip.w / 2, cpuChip.y + cpuChip.h / 2 + 4);
+
+    /* CPU RAM */
+    roundRect(ctx, cpuRam.x, cpuRam.y, cpuRam.w, cpuRam.h, cpuRam.r);
+    ctx.fillStyle = 'rgba(148,163,184,0.1)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(148,163,184,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '700 11px "Noto Sans SC"';
+    ctx.fillText('System RAM', cpuRam.x + cpuRam.w / 2, cpuRam.y + cpuRam.h / 2 - 4);
+    ctx.font = '11px "JetBrains Mono"';
+    ctx.fillStyle = 'rgba(148,163,184,0.6)';
+    ctx.fillText('DDR5', cpuRam.x + cpuRam.w / 2, cpuRam.y + cpuRam.h / 2 + 12);
+
+    /* GPU block background */
+    ctx.save();
+    ctx.shadowColor = 'rgba(118,185,0,0.2)';
+    ctx.shadowBlur = 15;
+    roundRect(ctx, gpuBlock.x, gpuBlock.y, gpuBlock.w, gpuBlock.h, gpuBlock.r);
+    ctx.fillStyle = 'rgba(118,185,0,0.06)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(118,185,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    /* GPU chip */
+    roundRect(ctx, gpuChip.x, gpuChip.y, gpuChip.w, gpuChip.h, gpuChip.r);
+    ctx.fillStyle = 'rgba(118,185,0,0.12)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(118,185,0,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#76b900';
+    ctx.font = '700 12px "Noto Sans SC"';
+    ctx.textAlign = 'center';
+    ctx.fillText('GPU', gpuChip.x + gpuChip.w / 2, gpuChip.y + gpuChip.h / 2 + 4);
+
+    /* GPU HBM — wide highway inside */
+    var hbmGlow = 0.12 + 0.04 * Math.sin(timestamp * 0.003);
+    ctx.save();
+    ctx.shadowColor = 'rgba(118,185,0,0.3)';
+    ctx.shadowBlur = 12;
+    roundRect(ctx, gpuHbm.x, gpuHbm.y, gpuHbm.w, gpuHbm.h, gpuHbm.r);
+    ctx.fillStyle = 'rgba(118,185,0,' + hbmGlow + ')';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(118,185,0,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = '#76b900';
+    ctx.font = '700 11px "Noto Sans SC"';
+    ctx.fillText('HBM3e', gpuHbm.x + gpuHbm.w / 2, gpuHbm.y + gpuHbm.h / 2 - 4);
+    ctx.font = '11px "JetBrains Mono"';
+    ctx.fillStyle = 'rgba(118,185,0,0.6)';
+    ctx.fillText('8,000 GB/s', gpuHbm.x + gpuHbm.w / 2, gpuHbm.y + gpuHbm.h / 2 + 12);
+
+    /* Wide highway lines inside GPU (GPU chip <-> HBM) */
+    var hwY1 = gpuChip.y + gpuChip.h;
+    var hwY2 = gpuHbm.y;
+    for (var ln = 0; ln < 5; ln++) {
+      var lnX = gpuBlock.x + 20 + ln * ((gpuBlock.w - 40) / 4);
+      ctx.beginPath();
+      ctx.moveTo(lnX, hwY1 + 4);
+      ctx.lineTo(lnX, hwY2 - 4);
+      var grad = ctx.createLinearGradient(lnX, hwY1, lnX, hwY2);
+      grad.addColorStop(0, 'rgba(118,185,0,0.5)');
+      grad.addColorStop(0.5, 'rgba(118,185,0,0.2)');
+      grad.addColorStop(1, 'rgba(118,185,0,0.5)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    /* PCIe bottleneck — narrow pipe */
+    var pcieGrad = ctx.createLinearGradient(pcieX, 0, pcieX + pcieW, 0);
+    pcieGrad.addColorStop(0, 'rgba(239,68,68,0.3)');
+    pcieGrad.addColorStop(0.5, 'rgba(239,68,68,0.15)');
+    pcieGrad.addColorStop(1, 'rgba(239,68,68,0.3)');
+
+    /* Narrow pipe shape */
+    ctx.beginPath();
+    ctx.moveTo(pcieX, pcieY);
+    ctx.lineTo(pcieX + pcieW * 0.15, pcieY + pcieH * 0.35);
+    ctx.lineTo(pcieX + pcieW * 0.85, pcieY + pcieH * 0.35);
+    ctx.lineTo(pcieX + pcieW, pcieY);
+    ctx.lineTo(pcieX + pcieW, pcieY + pcieH);
+    ctx.lineTo(pcieX + pcieW * 0.85, pcieY + pcieH * 0.65);
+    ctx.lineTo(pcieX + pcieW * 0.15, pcieY + pcieH * 0.65);
+    ctx.lineTo(pcieX, pcieY + pcieH);
+    ctx.closePath();
+    ctx.fillStyle = pcieGrad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(239,68,68,0.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    /* PCIe label */
+    ctx.save();
+    ctx.translate(pcieX + pcieW / 2, pcieY + pcieH / 2);
+    ctx.fillStyle = 'rgba(239,68,68,0.8)';
+    ctx.font = '700 10px "JetBrains Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText('PCIe', 0, -4);
+    ctx.font = '9px "JetBrains Mono"';
+    ctx.fillStyle = 'rgba(239,68,68,0.5)';
+    ctx.fillText('Bottleneck', 0, 8);
+    ctx.restore();
+
+    /* Queue particles waiting at PCIe entry */
+    queueParticles.forEach(function(qp) {
+      qp.pulse += 0.05;
+      var alpha = 0.4 + 0.3 * Math.sin(qp.pulse);
+      ctx.beginPath();
+      ctx.arc(qp.x, qp.y, qp.size, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(245,158,11,' + alpha + ')';
+      ctx.fill();
+    });
+
+    /* Data transfer particles */
+    particles.forEach(function(p) {
+      /* Simulate waiting at bottleneck */
+      if (p.progress > 0.25 && p.progress < 0.32 && !p.waiting && p.waitTime < p.maxWait) {
+        p.waiting = true;
+      }
+      if (p.waiting) {
+        p.waitTime++;
+        if (p.waitTime >= p.maxWait) {
+          p.waiting = false;
+        }
+      } else {
+        p.progress += p.speed;
+      }
+
+      if (p.progress >= 1) {
+        var np = createDataParticle();
+        p.progress = 0;
+        p.points = np.points;
+        p.waitTime = 0;
+        p.maxWait = np.maxWait;
+        p.trail = [];
+      }
+
+      var pos = lerpPath(p.points, p.progress);
+      p.trail.push({ x: pos.x, y: pos.y });
+      if (p.trail.length > 10) p.trail.shift();
+
+      /* Trail */
+      for (var t = 0; t < p.trail.length; t++) {
+        var alpha = (t / p.trail.length) * 0.4;
+        var sz = p.size * (t / p.trail.length);
+        ctx.beginPath();
+        ctx.arc(p.trail[t].x, p.trail[t].y, sz, 0, Math.PI * 2);
+        var clr = p.waiting ? 'rgba(245,158,11,' : 'rgba(118,185,0,';
+        ctx.fillStyle = clr + alpha + ')';
+        ctx.fill();
+      }
+
+      /* Head */
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, p.size, 0, Math.PI * 2);
+      if (p.waiting) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.shadowColor = '#f59e0b';
+      } else {
+        ctx.fillStyle = '#76b900';
+        ctx.shadowColor = '#76b900';
+      }
+      ctx.shadowBlur = 6;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+
+    /* Labels */
+    ctx.fillStyle = 'rgba(148,163,184,0.5)';
+    ctx.font = '10px "Noto Sans SC"';
+    ctx.textAlign = 'center';
+    ctx.fillText('主机端', cpuBlock.x + cpuBlock.w / 2, cpuBlock.y - 4);
+    ctx.fillText('GPU 端', gpuBlock.x + gpuBlock.w / 2, gpuBlock.y - 4);
+
+    nvidiaAnimId = requestAnimationFrame(drawNvidia);
+  }
+
+  nvidiaAnimId = requestAnimationFrame(drawNvidia);
+}
+
+/* ═══════════════════════════════════════════════
+   INIT ON LOAD
+   ═══════════════════════════════════════════════ */
+window.addEventListener('load', function() {
+  startArchAnimations();
+});
+
+/* Handle resize */
+var resizeTimer;
+window.addEventListener('resize', function() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function() {
+    if (document.querySelector('.tab-panel[data-panel="0"]').classList.contains('active')) {
+      startArchAnimations();
+    }
+  }, 250);
+});
+</script>
+</body>
+</html>

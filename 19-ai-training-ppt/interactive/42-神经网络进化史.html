@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神经网络进化史 — 六十年的架构接力赛</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-perceptron: #8a8a9a;
+  --color-mlp: #4a7dff;
+  --color-cnn: #2ecc71;
+  --color-rnn: #f1c40f;
+  --color-lstm: #e67e22;
+  --color-transformer: #9b59b6;
+  --color-mamba: #e74c3c;
+  --bg-dark: #0a0a1a;
+  --bg-card: #12122a;
+  --text-primary: #e8e8f0;
+  --text-secondary: #9a9ab0;
+  --river-glow: rgba(100, 140, 255, 0.3);
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 20px 20px 10px;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #667eea, #764ba2, #f093fb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 2px;
+}
+
+.header .subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 20px 12px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.controls button {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-primary);
+  padding: 6px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  transition: all 0.3s;
+}
+
+.controls button:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.25);
+}
+
+.controls button.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-color: transparent;
+}
+
+.hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-bottom: 6px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* Timeline viewport */
+.timeline-viewport {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+  cursor: grab;
+}
+
+.timeline-viewport:active {
+  cursor: grabbing;
+}
+
+.timeline-viewport::-webkit-scrollbar {
+  height: 6px;
+}
+
+.timeline-viewport::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.03);
+}
+
+.timeline-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+
+/* Timeline container */
+.timeline-container {
+  position: relative;
+  width: 4200px;
+  height: 100%;
+  min-height: 500px;
+}
+
+/* River - the glowing timeline */
+.river {
+  position: absolute;
+  top: 50%;
+  left: 80px;
+  right: 80px;
+  height: 6px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg,
+    var(--color-perceptron),
+    var(--color-mlp),
+    var(--color-cnn),
+    var(--color-rnn),
+    var(--color-lstm),
+    var(--color-transformer),
+    var(--color-mamba)
+  );
+  border-radius: 3px;
+  z-index: 1;
+}
+
+.river::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -8px;
+  right: -8px;
+  bottom: -12px;
+  background: linear-gradient(90deg,
+    rgba(138,138,154,0.25),
+    rgba(74,125,255,0.25),
+    rgba(46,204,113,0.25),
+    rgba(241,196,15,0.25),
+    rgba(230,126,34,0.25),
+    rgba(155,89,182,0.25),
+    rgba(231,76,60,0.25)
+  );
+  border-radius: 15px;
+  filter: blur(12px);
+  z-index: -1;
+}
+
+.river::after {
+  content: '';
+  position: absolute;
+  top: -30px;
+  left: -20px;
+  right: -20px;
+  bottom: -30px;
+  background: linear-gradient(90deg,
+    rgba(138,138,154,0.08),
+    rgba(74,125,255,0.08),
+    rgba(46,204,113,0.08),
+    rgba(241,196,15,0.08),
+    rgba(230,126,34,0.08),
+    rgba(155,89,182,0.08),
+    rgba(231,76,60,0.08)
+  );
+  border-radius: 30px;
+  filter: blur(30px);
+  z-index: -2;
+}
+
+/* Particles floating along the river */
+.particle {
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  opacity: 0;
+  z-index: 2;
+  pointer-events: none;
+  animation: particleFlow 8s linear infinite;
+}
+
+@keyframes particleFlow {
+  0% { transform: translate(0, -50%); opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% { transform: translate(200px, -50%); opacity: 0; }
+}
+
+/* Milestone nodes */
+.milestone {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.milestone:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.milestone.highlighted {
+  transform: translate(-50%, -50%) scale(1.12);
+}
+
+/* Stone pillar */
+.stone {
+  width: 80px;
+  height: 100px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.stone-body {
+  width: 64px;
+  height: 88px;
+  border-radius: 8px 8px 4px 4px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  transition: box-shadow 0.4s;
+  overflow: hidden;
+}
+
+.stone-body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 8px 8px 0 0;
+}
+
+.stone-body::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px 6px 2px 2px;
+  pointer-events: none;
+}
+
+.milestone:hover .stone-body {
+  box-shadow: 0 4px 30px rgba(0,0,0,0.5), 0 0 20px var(--node-color);
+}
+
+.stone-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 4px rgba(255,255,255,0.3));
+}
+
+.stone-year {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+}
+
+.stone-name {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.75);
+  text-align: center;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+/* Connector line from stone to river */
+.connector {
+  position: absolute;
+  left: 50%;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--node-color), transparent);
+  opacity: 0.5;
+  z-index: 3;
+}
+
+/* Info panels above and below */
+.info-above, .info-below {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s, transform 0.5s;
+}
+
+.info-above {
+  bottom: calc(50% + 70px);
+  transform: translateX(-50%) translateY(10px);
+}
+
+.info-below {
+  top: calc(50% + 70px);
+  transform: translateX(-50%) translateY(-10px);
+}
+
+.milestone.revealed .info-above {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.milestone.revealed .info-below {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.info-above .innovation-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+.info-above .innovation-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.info-below .problem-solved,
+.info-below .problem-left {
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.info-below .problem-solved {
+  color: #2ecc71;
+}
+
+.info-below .problem-left {
+  color: #e74c3c;
+}
+
+.info-below .label {
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+
+/* Detail card overlay */
+.detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  animation: fadeIn 0.3s;
+}
+
+.detail-overlay.visible {
+  display: flex;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.detail-card {
+  width: 520px;
+  max-width: 92vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 32px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: cardSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.detail-card::-webkit-scrollbar {
+  width: 4px;
+}
+
+.detail-card::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+
+@keyframes cardSlideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.detail-card .close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.detail-card .close-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: var(--text-primary);
+}
+
+.detail-card .card-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.detail-card .card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.detail-card .card-title {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.detail-card .card-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 2px;
+}
+
+.detail-card .card-section {
+  margin-bottom: 16px;
+}
+
+.detail-card .card-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-card .card-section-title::before {
+  content: '';
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.detail-card .card-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.detail-card .card-text li {
+  margin-bottom: 4px;
+  list-style: none;
+  position: relative;
+  padding-left: 16px;
+}
+
+.detail-card .card-text li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.detail-card .tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.detail-card .tag {
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Architecture diagram in card */
+.arch-diagram {
+  background: rgba(0,0,0,0.3);
+  border-radius: 10px;
+  padding: 16px;
+  margin: 12px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre;
+  overflow-x: auto;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Progress bar for auto mode */
+.auto-progress {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  z-index: 50;
+  transition: width 0.3s linear;
+  border-radius: 0 2px 0 0;
+}
+
+/* Background stars */
+.stars {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 50%;
+  animation: twinkle 3s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.2; }
+  100% { opacity: 0.8; }
+}
+
+/* Node-specific arrow on river */
+.river-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+}
+
+/* Responsive */
+@media (max-height: 600px) {
+  .header h1 { font-size: 22px; }
+  .header { padding: 10px 20px 4px; }
+  .controls { padding: 4px 20px 6px; }
+  .info-above { bottom: calc(50% + 60px); }
+  .info-below { top: calc(50% + 60px); }
+  .stone-body { width: 56px; height: 76px; }
+  .stone-icon { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<header class="header">
+  <h1>神经网络进化史 — 六十年的架构接力赛</h1>
+  <p class="subtitle">From Perceptron to Mamba &middot; 1958 - 2023</p>
+</header>
+
+<div class="controls">
+  <button id="btn-auto" onclick="toggleAutoPlay()">&#9654; 自动演示</button>
+  <button id="btn-all" onclick="revealAll()">&#9733; 全部展示</button>
+  <button id="btn-reset" onclick="resetTimeline()">&#8634; 重置</button>
+</div>
+
+<p class="hint" id="hint">&#8592; 拖拽或滚动浏览时间线 &middot; 点击石碑查看详情 &#8594;</p>
+
+<div class="timeline-viewport" id="viewport">
+  <div class="timeline-container" id="container">
+    <div class="river" id="river"></div>
+  </div>
+</div>
+
+<div class="detail-overlay" id="overlay" onclick="closeDetail(event)">
+  <div class="detail-card" id="detailCard"></div>
+</div>
+
+<div class="auto-progress" id="autoProgress" style="width:0"></div>
+
+<script>
+const DATA = [
+  {
+    id: 'perceptron',
+    name: '感知机',
+    nameEn: 'Perceptron',
+    year: 1958,
+    author: 'Frank Rosenblatt',
+    color: '#8a8a9a',
+    icon: '\u26aa',
+    position: 0,
+    innovation: '单层神经元',
+    innovationDesc: '模拟生物神经元，输入加权求和后激活',
+    solved: '证明机器可以"学习"',
+    left: '无法解决 XOR 问题 \u2192 AI 第一次寒冬',
+    detail: {
+      core: '单层线性分类器：y = sign(w\u00b7x + b)，通过调整权重实现学习',
+      features: [
+        '模仿生物神经元的数学模型',
+        '学习规则：感知机收敛定理',
+        '只能处理线性可分问题',
+        'Minsky 证明无法解决 XOR，导致 AI 第一次寒冬'
+      ],
+      paper: 'Rosenblatt, "The Perceptron: A Probabilistic Model", 1958',
+      models: ['Mark I Perceptron (硬件实现)'],
+      diagram: '  Input        Weight       Output\n  x\u2081 \u2500\u2500\u2500\u2500 w\u2081 \u2500\u2500\u2510\n  x\u2082 \u2500\u2500\u2500\u2500 w\u2082 \u2500\u2500\u2524\u2500\u2500 \u03a3 \u2500\u2500 f(x) \u2500\u2500 y\n  x\u2083 \u2500\u2500\u2500\u2500 w\u2083 \u2500\u2500\u2518\n              + bias'
+    }
+  },
+  {
+    id: 'mlp',
+    name: '多层感知机',
+    nameEn: 'MLP',
+    year: 1986,
+    author: 'Rumelhart et al.',
+    color: '#4a7dff',
+    icon: '\ud83d\udfe6',
+    position: 1,
+    innovation: '多层 + 反向传播',
+    innovationDesc: '隐藏层 + 链式法则自动求梯度',
+    solved: '非线性分类（XOR 终于解决）',
+    left: '参数爆炸，无法处理空间/序列结构',
+    detail: {
+      core: '通过反向传播算法（BP）训练多层网络，每层进行非线性变换',
+      features: [
+        '引入隐藏层，打破线性限制',
+        '反向传播：梯度从输出层逐层传回',
+        '通用近似定理：理论上可逼近任意函数',
+        '全连接结构导致参数量随输入维度爆炸'
+      ],
+      paper: 'Rumelhart, Hinton, Williams, "Learning representations by back-propagating errors", 1986',
+      models: ['多层全连接网络', 'XOR 问题求解器'],
+      diagram: '  Input    Hidden    Hidden    Output\n   \u25cb\u2500\u2500\u2500\u2500\u2500\u25cf\u2500\u2500\u2500\u2500\u2500\u25cf\u2500\u2500\u2500\u2500\u2500\u25cb\n   \u25cb\u2500\u2500\u2500\u2500\u2500\u25cf\u2500\u2500\u2500\u2500\u2500\u25cf\u2500\u2500\u2500\u2500\u2500\u25cb\n   \u25cb\u2500\u2500\u2500\u2500\u2500\u25cf\u2500\u2500\u2500\u2500\u2500\u25cf\n   \u25cb\u2500\u2500\u2500\u2500\u2500\u25cf\n  (Full connections between layers)'
+    }
+  },
+  {
+    id: 'cnn',
+    name: '卷积神经网络',
+    nameEn: 'CNN',
+    year: '1989\u20132012',
+    author: 'LeCun \u2192 Krizhevsky',
+    color: '#2ecc71',
+    icon: '\ud83d\udfe9',
+    position: 2,
+    innovation: '局部连接 + 权重共享',
+    innovationDesc: '卷积核扫描 + 池化降维，大幅减少参数',
+    solved: '图像识别（ImageNet 错误率从 26% 降至 16%）',
+    left: '只看局部，不擅长序列数据',
+    detail: {
+      core: '利用图像的局部相关性，通过卷积核提取特征，池化实现平移不变性',
+      features: [
+        '局部感受野：每个神经元只看一小块区域',
+        '权重共享：同一个卷积核扫描整张图',
+        '池化层：降低空间维度，提取主要特征',
+        '2012 AlexNet 在 ImageNet 上碾压传统方法'
+      ],
+      paper: 'LeCun, "Backpropagation Applied to Handwritten Zip Code Recognition", 1989\nKrizhevsky, "ImageNet Classification with Deep CNNs", 2012',
+      models: ['LeNet-5', 'AlexNet', 'VGG', 'ResNet', 'EfficientNet'],
+      diagram: '  Input     Conv+ReLU   Pool    Conv+ReLU   FC\n  \u250c\u2500\u2500\u2500\u2510    \u250c\u2500\u2500\u2500\u2510     \u250c\u2500\u2510    \u250c\u2500\u2500\u2510     \u250c\u2500\u2510\n  \u2502   \u2502\u2500\u2500\u2500\u25b6\u2502   \u2502\u2500\u2500\u2500\u25b6\u2502 \u2502\u2500\u2500\u2500\u25b6\u2502  \u2502\u2500\u2500\u2500\u25b6\u2502 \u2502\u2500\u25b6 class\n  \u2502   \u2502    \u2502   \u2502     \u2514\u2500\u2518    \u2502  \u2502     \u2514\u2500\u2518\n  \u2514\u2500\u2500\u2500\u2518    \u2514\u2500\u2500\u2500\u2518            \u2514\u2500\u2500\u2518\n  28x28    24x24     12x12   8x8     10'
+    }
+  },
+  {
+    id: 'rnn',
+    name: '循环神经网络',
+    nameEn: 'RNN',
+    year: '1990s',
+    author: 'Elman, Jordan',
+    color: '#f1c40f',
+    icon: '\ud83d\udfe8',
+    position: 3,
+    innovation: '循环连接',
+    innovationDesc: '隐藏状态在时间步之间传递，形成"记忆"',
+    solved: '时间序列、早期 NLP',
+    left: '梯度消失/爆炸，长距离依赖困难',
+    detail: {
+      core: '通过循环连接让网络具有"记忆"，隐藏状态 h(t) = f(h(t-1), x(t))',
+      features: [
+        '共享时间步上的参数',
+        '理论上可处理任意长度序列',
+        '梯度消失：长序列中早期信息丢失',
+        '梯度爆炸：训练不稳定'
+      ],
+      paper: 'Elman, "Finding Structure in Time", 1990',
+      models: ['Elman Network', 'Jordan Network', 'Bidirectional RNN'],
+      diagram: '         h(t-1)    h(t)     h(t+1)\n           \u2502        \u2502         \u2502\n  x(t-1)\u2500\u25b6[\u00a0RNN\u00a0]\u2500\u25b6[\u00a0RNN\u00a0]\u2500\u25b6[\u00a0RNN\u00a0]\u2500\u25b6\n           \u2502        \u2502         \u2502\n         y(t-1)    y(t)     y(t+1)\n\n  \u2500\u2500\u25b6 hidden state flows through time'
+    }
+  },
+  {
+    id: 'lstm',
+    name: 'LSTM / GRU',
+    nameEn: 'LSTM',
+    year: 1997,
+    author: 'Hochreiter & Schmidhuber',
+    color: '#e67e22',
+    icon: '\ud83d\udfe7',
+    position: 4,
+    innovation: '门控机制',
+    innovationDesc: '遗忘门、输入门、输出门控制信息流',
+    solved: '长期记忆（机器翻译、语音识别）',
+    left: '无法并行计算，训练效率低',
+    detail: {
+      core: '三个门控制信息的遗忘、写入和读取，细胞状态像传送带一样传递长期信息',
+      features: [
+        '遗忘门：决定丢弃哪些旧信息',
+        '输入门：决定写入哪些新信息',
+        '输出门：决定输出哪些信息',
+        'GRU (2014) 简化为两个门，效果相近'
+      ],
+      paper: 'Hochreiter & Schmidhuber, "Long Short-Term Memory", 1997\nCho et al., "Learning Phrase Representations using RNN Encoder-Decoder", 2014',
+      models: ['LSTM', 'GRU', 'Seq2Seq', 'Attention Seq2Seq'],
+      diagram: '  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n  \u2502  Cell State  C(t-1) \u2500\u2500\u25b6 C(t)  \u2502\n  \u2502       \u00d7 forget  + input       \u2502\n  \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n  \u2502 [Forget] [Input] [Output]  \u2502\n  \u2502   Gate    Gate     Gate    \u2502\n  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n     h(t-1), x(t) \u2500\u25b6 h(t)'
+    }
+  },
+  {
+    id: 'transformer',
+    name: 'Transformer',
+    nameEn: 'Transformer',
+    year: 2017,
+    author: 'Vaswani et al. (Google)',
+    color: '#9b59b6',
+    icon: '\ud83d\udfe3',
+    position: 5,
+    innovation: '自注意力机制',
+    innovationDesc: '每个 token 直接关注所有其他 token，完全并行',
+    solved: '并行训练 + 全局依赖 + 可扩展性',
+    left: 'O(n\u00b2) 复杂度，缺乏持续学习能力',
+    detail: {
+      core: 'Self-Attention: 每个位置与所有位置计算相关性，加权聚合信息',
+      features: [
+        'Q/K/V 注意力：Attention(Q,K,V) = softmax(QK\u1d40/\u221ad)V',
+        '多头注意力：从多个子空间捕捉不同模式',
+        '位置编码：弥补无序列归纳偏置的不足',
+        '完全并行：训练效率远超 RNN/LSTM'
+      ],
+      paper: 'Vaswani et al., "Attention Is All You Need", 2017',
+      models: ['BERT', 'GPT 系列', 'T5', 'ViT', 'Claude', 'ChatGPT'],
+      diagram: '       Multi-Head Attention\n  Q \u2500\u2510\n  K \u2500\u2524\u2500\u25b6 Scaled Dot-Product \u2500\u25b6 Concat \u2500\u25b6 Linear\n  V \u2500\u2518     Attention\n\n  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n  \u2502  Encoder    \u2502  Decoder   \u2502\n  \u2502  Self-Attn  \u2502  Masked    \u2502\n  \u2502  FFN        \u2502  Cross-Attn \u2502\n  \u2502  \u00d7 N        \u2502  FFN \u00d7 N   \u2502\n  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518'
+    }
+  },
+  {
+    id: 'mamba',
+    name: '状态空间模型',
+    nameEn: 'SSM / Mamba',
+    year: 2023,
+    author: 'Albert Gu & Tri Dao',
+    color: '#e74c3c',
+    icon: '\ud83d\udd34',
+    position: 6,
+    innovation: '选择性状态空间',
+    innovationDesc: '输入依赖的参数化，线性复杂度 O(n)',
+    solved: '长序列处理效率（百万级 token）',
+    left: '仍在发展中，能否取代 Transformer 尚未定论',
+    detail: {
+      core: '将连续状态空间模型离散化，通过选择性机制让参数依赖于输入',
+      features: [
+        '线性复杂度 O(n)，vs Transformer 的 O(n\u00b2)',
+        '选择性机制：B, C, \u0394 参数随输入变化',
+        '硬件感知算法：利用 GPU SRAM 加速',
+        '在语言、基因组、音频任务上匹配 Transformer'
+      ],
+      paper: 'Gu & Dao, "Mamba: Linear-Time Sequence Modeling with Selective State Spaces", 2023',
+      models: ['Mamba', 'Mamba-2', 'Jamba (混合架构)', 'Vision Mamba'],
+      diagram: '  Selective State Space Model\n\n  x(t) \u2500\u25b6 [\u0394,B,C = f(x)] \u2500\u25b6 SSM \u2500\u25b6 y(t)\n                \u2502\n         h(t) = A\u0305h(t-1) + B\u0305x(t)\n         y(t) = Ch(t)\n\n  Complexity: O(n) vs O(n\u00b2)\n  Scan: parallel prefix sum on GPU'
+    }
+  }
+];
+
+const POSITIONS = [340, 880, 1420, 1960, 2500, 3040, 3580];
+
+let autoPlaying = false;
+let autoTimer = null;
+let autoStep = 0;
+let revealedSet = new Set();
+
+// Create stars
+function createStars() {
+  const container = document.getElementById('stars');
+  const count = 80;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const x = Math.random() * 100;
+    const y = Math.random() * 100;
+    const delay = Math.random() * 3;
+    const size = 1 + Math.random() * 2;
+    html += '<div class="star" style="left:' + x + '%;top:' + y + '%;width:' + size + 'px;height:' + size + 'px;animation-delay:' + delay + 's"></div>';
+  }
+  container.innerHTML = html;
+}
+
+// Create particles along the river
+function createParticles() {
+  const river = document.getElementById('river');
+  const count = 30;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const left = Math.random() * 90 + '%';
+    const delay = Math.random() * 8;
+    const colorIdx = Math.floor(Math.random() * 7);
+    const colors = ['#8a8a9a','#4a7dff','#2ecc71','#f1c40f','#e67e22','#9b59b6','#e74c3c'];
+    html += '<div class="particle" style="left:' + left + ';background:' + colors[colorIdx] + ';animation-delay:' + delay + 's"></div>';
+  }
+  river.insertAdjacentHTML('beforeend', html);
+}
+
+// Build milestones
+function buildMilestones() {
+  const container = document.getElementById('container');
+
+  DATA.forEach(function(d, i) {
+    const pos = POSITIONS[i];
+    const el = document.createElement('div');
+    el.className = 'milestone';
+    el.id = 'milestone-' + d.id;
+    el.style.left = pos + 'px';
+    el.style.setProperty('--node-color', d.color);
+
+    // Info above (innovation)
+    const above = document.createElement('div');
+    above.className = 'info-above';
+    above.innerHTML =
+      '<div class="innovation-tag" style="background:' + d.color + '">' + d.innovation + '</div>' +
+      '<div class="innovation-desc">' + d.innovationDesc + '</div>';
+
+    // Stone
+    const stone = document.createElement('div');
+    stone.className = 'stone';
+    stone.innerHTML =
+      '<div class="stone-body" style="background:linear-gradient(180deg,' + hexToRgba(d.color, 0.35) + ',' + hexToRgba(d.color, 0.12) + ');border:1px solid ' + hexToRgba(d.color, 0.4) + '">' +
+        '<div class="stone-body" style="all:unset;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
+          '<div class="stone-icon">' + d.icon + '</div>' +
+          '<div class="stone-year">' + d.year + '</div>' +
+          '<div class="stone-name">' + d.name + '</div>' +
+        '</div>' +
+      '</div>';
+
+    // Info below (problems)
+    const below = document.createElement('div');
+    below.className = 'info-below';
+    below.innerHTML =
+      '<div class="problem-solved"><span class="label" style="color:#2ecc71">\u2714 \u89e3\u51b3</span><br>' + d.solved + '</div>' +
+      '<div class="problem-left"><span class="label" style="color:#e74c3c">\u2718 \u9057\u7559</span><br>' + d.left + '</div>';
+
+    el.appendChild(above);
+    el.appendChild(stone);
+    el.appendChild(below);
+
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
+      openDetail(d);
+    });
+
+    container.appendChild(el);
+  });
+}
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
+
+// Reveal a milestone with animation
+function revealMilestone(index) {
+  if (index < 0 || index >= DATA.length) return;
+  const d = DATA[index];
+  const el = document.getElementById('milestone-' + d.id);
+  if (!el) return;
+  el.classList.add('revealed');
+  revealedSet.add(index);
+}
+
+// Scroll to a milestone
+function scrollToMilestone(index, smooth) {
+  const viewport = document.getElementById('viewport');
+  const pos = POSITIONS[index];
+  const target = pos - viewport.clientWidth / 2;
+  viewport.scrollTo({
+    left: Math.max(0, target),
+    behavior: smooth ? 'smooth' : 'auto'
+  });
+}
+
+// Open detail card
+function openDetail(d) {
+  const overlay = document.getElementById('overlay');
+  const card = document.getElementById('detailCard');
+
+  const modelsHtml = d.detail.models.map(function(m) {
+    return '<span class="tag">' + m + '</span>';
+  }).join('');
+
+  const featuresHtml = d.detail.features.map(function(f) {
+    return '<li style="--bullet-color:' + d.color + '"><span>' + f + '</span></li>';
+  }).join('');
+
+  card.innerHTML =
+    '<button class="close-btn" onclick="closeDetail(event)">\u00d7</button>' +
+    '<div class="card-header">' +
+      '<div class="card-icon" style="background:' + hexToRgba(d.color, 0.2) + ';border:2px solid ' + hexToRgba(d.color, 0.4) + '">' + d.icon + '</div>' +
+      '<div>' +
+        '<div class="card-title" style="color:' + d.color + '">' + d.name + ' <span style="color:var(--text-secondary);font-size:14px">' + d.nameEn + '</span></div>' +
+        '<div class="card-subtitle">' + d.year + ' \u00b7 ' + d.author + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card-section">' +
+      '<div class="card-section-title"><span style="display:inline-block;width:12px;height:2px;background:' + d.color + ';border-radius:1px"></span> \u6838\u5fc3\u601d\u60f3</div>' +
+      '<div class="card-text">' + d.detail.core + '</div>' +
+    '</div>' +
+    '<div class="card-section">' +
+      '<div class="card-section-title"><span style="display:inline-block;width:12px;height:2px;background:' + d.color + ';border-radius:1px"></span> \u67b6\u6784\u793a\u610f</div>' +
+      '<div class="arch-diagram" style="border-color:' + hexToRgba(d.color, 0.2) + '">' + d.detail.diagram + '</div>' +
+    '</div>' +
+    '<div class="card-section">' +
+      '<div class="card-section-title"><span style="display:inline-block;width:12px;height:2px;background:' + d.color + ';border-radius:1px"></span> \u5173\u952e\u7279\u6027</div>' +
+      '<ul class="card-text">' + featuresHtml + '</ul>' +
+    '</div>' +
+    '<div class="card-section">' +
+      '<div class="card-section-title"><span style="display:inline-block;width:12px;height:2px;background:' + d.color + ';border-radius:1px"></span> \u5173\u952e\u8bba\u6587</div>' +
+      '<div class="card-text" style="font-size:12px;color:var(--text-secondary);font-family:JetBrains Mono,monospace;white-space:pre-line">' + d.detail.paper + '</div>' +
+    '</div>' +
+    '<div class="card-section">' +
+      '<div class="card-section-title"><span style="display:inline-block;width:12px;height:2px;background:' + d.color + ';border-radius:1px"></span> \u4ee3\u8868\u6a21\u578b</div>' +
+      '<div class="tag-row">' + modelsHtml + '</div>' +
+    '</div>';
+
+  // Style bullet points
+  card.querySelectorAll('li').forEach(function(li) {
+    const bullet = li.querySelector('::before');
+  });
+
+  overlay.classList.add('visible');
+
+  // Add style for bullets dynamically
+  const style = document.createElement('style');
+  style.textContent = '#detailCard li::before { background: ' + d.color + '; }';
+  style.id = 'card-bullet-style';
+  const oldStyle = document.getElementById('card-bullet-style');
+  if (oldStyle) oldStyle.remove();
+  document.head.appendChild(style);
+}
+
+function closeDetail(e) {
+  if (e.target === document.getElementById('overlay') || e.target.classList.contains('close-btn')) {
+    document.getElementById('overlay').classList.remove('visible');
+  }
+}
+
+// Auto play
+function toggleAutoPlay() {
+  const btn = document.getElementById('btn-auto');
+  if (autoPlaying) {
+    stopAutoPlay();
+  } else {
+    startAutoPlay();
+  }
+}
+
+function startAutoPlay() {
+  autoPlaying = true;
+  const btn = document.getElementById('btn-auto');
+  btn.classList.add('active');
+  btn.innerHTML = '\u23f8 \u6682\u505c';
+
+  // Find first unrevealed
+  autoStep = 0;
+  for (let i = 0; i < DATA.length; i++) {
+    if (!revealedSet.has(i)) {
+      autoStep = i;
+      break;
+    }
+    if (i === DATA.length - 1) {
+      autoStep = 0;
+      revealedSet.clear();
+      DATA.forEach(function(d) {
+        document.getElementById('milestone-' + d.id).classList.remove('revealed', 'highlighted');
+      });
+    }
+  }
+
+  autoNext();
+}
+
+function autoNext() {
+  if (!autoPlaying || autoStep >= DATA.length) {
+    stopAutoPlay();
+    return;
+  }
+
+  const progress = document.getElementById('autoProgress');
+  progress.style.width = ((autoStep + 1) / DATA.length * 100) + '%';
+
+  scrollToMilestone(autoStep, true);
+
+  setTimeout(function() {
+    if (!autoPlaying) return;
+    revealMilestone(autoStep);
+    const el = document.getElementById('milestone-' + DATA[autoStep].id);
+    el.classList.add('highlighted');
+
+    setTimeout(function() {
+      el.classList.remove('highlighted');
+    }, 2500);
+
+    autoStep++;
+    autoTimer = setTimeout(autoNext, 3200);
+  }, 600);
+}
+
+function stopAutoPlay() {
+  autoPlaying = false;
+  clearTimeout(autoTimer);
+  const btn = document.getElementById('btn-auto');
+  btn.classList.remove('active');
+  btn.innerHTML = '\u25b6 \u81ea\u52a8\u6f14\u793a';
+}
+
+function revealAll() {
+  stopAutoPlay();
+  DATA.forEach(function(d, i) {
+    setTimeout(function() {
+      revealMilestone(i);
+    }, i * 150);
+  });
+  document.getElementById('autoProgress').style.width = '100%';
+  setTimeout(function() {
+    scrollToMilestone(3, true);
+  }, 200);
+}
+
+function resetTimeline() {
+  stopAutoPlay();
+  revealedSet.clear();
+  DATA.forEach(function(d) {
+    const el = document.getElementById('milestone-' + d.id);
+    el.classList.remove('revealed', 'highlighted');
+  });
+  document.getElementById('autoProgress').style.width = '0';
+  document.getElementById('viewport').scrollTo({ left: 0, behavior: 'smooth' });
+}
+
+// Drag to scroll
+function setupDrag() {
+  const viewport = document.getElementById('viewport');
+  let isDragging = false;
+  let startX = 0;
+  let scrollLeft = 0;
+
+  viewport.addEventListener('mousedown', function(e) {
+    if (e.target.closest('.milestone')) return;
+    isDragging = true;
+    startX = e.pageX - viewport.offsetLeft;
+    scrollLeft = viewport.scrollLeft;
+    viewport.style.cursor = 'grabbing';
+  });
+
+  viewport.addEventListener('mouseleave', function() {
+    isDragging = false;
+    viewport.style.cursor = 'grab';
+  });
+
+  viewport.addEventListener('mouseup', function() {
+    isDragging = false;
+    viewport.style.cursor = 'grab';
+  });
+
+  viewport.addEventListener('mousemove', function(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - viewport.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    viewport.scrollLeft = scrollLeft - walk;
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  let touchScrollLeft = 0;
+
+  viewport.addEventListener('touchstart', function(e) {
+    touchStartX = e.touches[0].pageX;
+    touchScrollLeft = viewport.scrollLeft;
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', function(e) {
+    const x = e.touches[0].pageX;
+    const walk = (x - touchStartX) * 1.2;
+    viewport.scrollLeft = touchScrollLeft - walk;
+  }, { passive: true });
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('overlay').classList.remove('visible');
+  }
+  if (e.key === 'ArrowRight') {
+    document.getElementById('viewport').scrollBy({ left: 300, behavior: 'smooth' });
+  }
+  if (e.key === 'ArrowLeft') {
+    document.getElementById('viewport').scrollBy({ left: -300, behavior: 'smooth' });
+  }
+  if (e.key === ' ') {
+    e.preventDefault();
+    toggleAutoPlay();
+  }
+});
+
+// Reveal milestones on scroll into view
+function setupScrollReveal() {
+  const viewport = document.getElementById('viewport');
+
+  function checkVisibility() {
+    const viewportRect = viewport.getBoundingClientRect();
+    const viewportScrollLeft = viewport.scrollLeft;
+    const viewportWidth = viewport.clientWidth;
+    const center = viewportScrollLeft + viewportWidth / 2;
+    const revealRange = viewportWidth * 0.55;
+
+    DATA.forEach(function(d, i) {
+      const pos = POSITIONS[i];
+      if (Math.abs(pos - center) < revealRange) {
+        revealMilestone(i);
+      }
+    });
+  }
+
+  viewport.addEventListener('scroll', checkVisibility);
+  // Initial check
+  setTimeout(checkVisibility, 500);
+}
+
+// Init
+createStars();
+createParticles();
+buildMilestones();
+setupDrag();
+setupScrollReveal();
+
+// Scroll to start position
+setTimeout(function() {
+  document.getElementById('viewport').scrollTo({ left: 0, behavior: 'auto' });
+}, 100);
+</script>
+
+<!-- Glossary Panel -->
+<style>
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(20, 20, 40, 0.85);
+  color: #e2e8f0;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: all 0.3s ease;
+}
+.glossary-btn:hover {
+  background: rgba(40, 40, 80, 0.95);
+  border-color: rgba(255,255,255,0.3);
+  transform: scale(1.08);
+}
+.glossary-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 9998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.glossary-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.glossary-panel {
+  position: fixed;
+  top: 50%;
+  right: -420px;
+  transform: translateY(-50%);
+  width: 400px;
+  max-width: 90vw;
+  max-height: 70vh;
+  z-index: 9999;
+  background: rgba(15, 15, 35, 0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  box-shadow: -4px 0 40px rgba(0,0,0,0.5);
+  overflow-y: auto;
+  padding: 24px;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glossary-panel.visible {
+  right: 24px;
+}
+.glossary-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.glossary-panel::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+}
+.glossary-panel h3 {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.glossary-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.glossary-item:last-child {
+  border-bottom: none;
+}
+.glossary-term {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #93c5fd;
+}
+.glossary-cn {
+  font-size: 13px;
+  color: #c4b5fd;
+  margin-left: 4px;
+}
+.glossary-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-top: 3px;
+}
+</style>
+
+<button class="glossary-btn" id="glossaryBtn" onclick="toggleGlossary()" title="术语表">&#10067;</button>
+<div class="glossary-overlay" id="glossaryOverlay" onclick="toggleGlossary()"></div>
+<div class="glossary-panel" id="glossaryPanel">
+  <h3>&#128218; 术语表</h3>
+  <div class="glossary-item"><div><span class="glossary-term">Perceptron</span><span class="glossary-cn">（感知机）</span></div><div class="glossary-desc">最早的神经网络(1958)，只有一层，只能处理线性问题</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">MLP</span><span class="glossary-cn">（Multi-Layer Perceptron, 多层感知机）</span></div><div class="glossary-desc">多层神经网络+反向传播，能处理非线性问题</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">CNN</span><span class="glossary-cn">（Convolutional Neural Network, 卷积神经网络）</span></div><div class="glossary-desc">用卷积核提取局部特征，擅长图像处理</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">RNN</span><span class="glossary-cn">（Recurrent Neural Network, 循环神经网络）</span></div><div class="glossary-desc">有"记忆"的网络，能处理序列数据</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">LSTM</span><span class="glossary-cn">（Long Short-Term Memory, 长短期记忆）</span></div><div class="glossary-desc">改进版RNN，用门控机制解决长期记忆问题</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">GRU</span><span class="glossary-cn">（Gated Recurrent Unit, 门控循环单元）</span></div><div class="glossary-desc">简化版LSTM，效果相近但参数更少</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Transformer</span></div><div class="glossary-desc">基于注意力机制的架构(2017)，支持并行计算，当前主流</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">SSM</span><span class="glossary-cn">（State Space Model, 状态空间模型）</span></div><div class="glossary-desc">用递推公式处理序列，复杂度为线性O(n)</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">Mamba</span></div><div class="glossary-desc">SSM的代表模型(2023)，选择性状态空间，挑战Transformer</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">梯度消失</span><span class="glossary-cn">（Vanishing Gradient）</span></div><div class="glossary-desc">反向传播时梯度越来越小，深层网络无法有效学习</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">反向传播</span><span class="glossary-cn">（Backpropagation）</span></div><div class="glossary-desc">从输出到输入反向计算梯度，用于更新网络参数</div></div>
+  <div class="glossary-item"><div><span class="glossary-term">SOTA</span><span class="glossary-cn">（State of the Art）</span></div><div class="glossary-desc">当前最佳水平/技术</div></div>
+</div>
+
+<script>
+var glossaryVisible = false;
+function toggleGlossary() {
+  glossaryVisible = !glossaryVisible;
+  document.getElementById('glossaryPanel').classList.toggle('visible', glossaryVisible);
+  document.getElementById('glossaryOverlay').classList.toggle('visible', glossaryVisible);
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && glossaryVisible) toggleGlossary();
+});
+</script>
+</body>
+</html>

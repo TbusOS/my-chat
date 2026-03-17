@@ -1,0 +1,2392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG 技术全解与替代方案 — 检索增强还是上下文够大？</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #0a0e1a;
+  color: #e2e8f0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+code, .mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 28px 20px 12px;
+  position: relative;
+}
+
+.header h1 {
+  font-size: 26px;
+  font-weight: 900;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 .rag { color: #34d399; }
+.header h1 .alt { color: #fbbf24; }
+
+.header p {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 14px 0 6px;
+}
+
+.progress-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #334155;
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.progress-dot.active {
+  background: #34d399;
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.2);
+}
+
+.progress-dot.completed {
+  background: #34d399;
+}
+
+.progress-line {
+  width: 18px;
+  height: 2px;
+  background: #334155;
+  transition: background 0.4s ease;
+}
+
+.progress-line.completed {
+  background: #34d399;
+}
+
+.step-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.step-label strong {
+  color: #34d399;
+}
+
+/* Main Container */
+.main-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 20px 30px;
+  position: relative;
+}
+
+/* Stage */
+.stage {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+}
+
+.scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.scene.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  position: relative;
+}
+
+/* Navigation Buttons */
+.nav-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.nav-btn {
+  padding: 10px 28px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: #1a1d2e;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.nav-btn:hover {
+  background: #252a3e;
+  border-color: #34d399;
+  color: #34d399;
+}
+
+.nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.nav-btn:disabled:hover {
+  background: #1a1d2e;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+/* Glossary Button */
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #34d399, #059669);
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(52, 211, 153, 0.3);
+  transition: all 0.3s ease;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glossary-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(52, 211, 153, 0.5);
+}
+
+/* Glossary Modal */
+.glossary-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.glossary-overlay.show {
+  display: flex;
+}
+
+.glossary-modal {
+  background: #141825;
+  border-radius: 20px;
+  border: 1px solid #2d3148;
+  max-width: 720px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px;
+  position: relative;
+}
+
+.glossary-modal h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #34d399;
+  margin-bottom: 20px;
+}
+
+.glossary-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 28px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.glossary-close:hover {
+  color: #e2e8f0;
+}
+
+.glossary-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #1e2235;
+}
+
+.glossary-item:last-child {
+  border-bottom: none;
+}
+
+.glossary-term {
+  font-weight: 700;
+  color: #e2e8f0;
+  font-size: 14px;
+  min-width: 200px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.glossary-def {
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ================ Tab 1: RAG Pipeline ================ */
+.pipeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  padding: 12px 0;
+}
+
+.pipeline-question {
+  text-align: center;
+  margin-bottom: 16px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #1a1d2e, #1e2438);
+  border-radius: 14px;
+  border: 1px solid #334155;
+  position: relative;
+}
+
+.pipeline-question .label {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.pipeline-question .text {
+  font-size: 17px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.pipeline-arrow {
+  text-align: center;
+  font-size: 20px;
+  color: #334155;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.5s ease;
+}
+
+.pipeline-arrow.lit {
+  color: #34d399;
+}
+
+.pipeline-step {
+  background: #141825;
+  border-radius: 14px;
+  border: 1px solid #1e2235;
+  padding: 16px 20px;
+  position: relative;
+  opacity: 0.3;
+  transform: scale(0.97);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pipeline-step.lit {
+  opacity: 1;
+  transform: scale(1);
+  border-color: #2d3148;
+}
+
+.pipeline-step-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pipeline-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.step-embed .pipeline-step-num { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.step-retrieve .pipeline-step-num { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.step-augment .pipeline-step-num { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+.step-generate .pipeline-step-num { background: linear-gradient(135deg, #f59e0b, #d97706); }
+
+.pipeline-step-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.pipeline-step-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.pipeline-step-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.7;
+  padding-left: 38px;
+}
+
+.pipeline-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chip-blue { background: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
+.chip-green { background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
+.chip-purple { background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); }
+.chip-amber { background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+
+.vector-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+.doc-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.doc-chip {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  transform: translateY(0);
+  transition: all 0.4s ease;
+}
+
+.doc-chip.fly {
+  animation: docFly 0.8s ease forwards;
+}
+
+@keyframes docFly {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  50% { transform: translateY(-10px) scale(1.05); opacity: 0.8; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.pipeline-answer {
+  text-align: center;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.04));
+  border-radius: 14px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  opacity: 0.3;
+  transition: all 0.6s ease;
+}
+
+.pipeline-answer.lit {
+  opacity: 1;
+}
+
+.pipeline-answer .label {
+  font-size: 12px;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.pipeline-answer .text {
+  font-size: 14px;
+  color: #e2e8f0;
+  line-height: 1.6;
+}
+
+.pipeline-answer .source {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* Key Components */
+.key-components {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #1e2235;
+}
+
+.key-comp {
+  padding: 10px 12px;
+  background: #1a1d2e;
+  border-radius: 10px;
+  border: 1px solid #2d3148;
+}
+
+.key-comp-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #34d399;
+  margin-bottom: 2px;
+}
+
+.key-comp-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* Play button for pipeline */
+.play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 12px auto 0;
+  padding: 8px 24px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #059669, #34d399);
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.play-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(52, 211, 153, 0.3);
+}
+
+.play-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ================ Tab 2: Pros & Cons ================ */
+.proscons-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.proscons-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.proscons-header {
+  font-size: 18px;
+  font-weight: 800;
+  padding: 12px 16px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.proscons-header.pro-header {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+.proscons-header.con-header {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.proscons-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #141825;
+  border: 1px solid #1e2235;
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.proscons-item.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.con-col .proscons-item {
+  transform: translateX(20px);
+}
+
+.con-col .proscons-item.show {
+  transform: translateX(0);
+}
+
+.proscons-item .icon {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.proscons-item .title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.pro-col .proscons-item .title { color: #4ade80; }
+.con-col .proscons-item .title { color: #f87171; }
+
+.proscons-item .desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* ================ Tab 3: Alternatives Comparison ================ */
+.alt-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.alt-tab {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid #2d3148;
+  background: #141825;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.alt-tab:hover {
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.alt-tab.active {
+  color: #fff;
+}
+
+.alt-tab[data-alt="longctx"].active {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  border-color: #f59e0b;
+}
+
+.alt-tab[data-alt="graphrag"].active {
+  background: linear-gradient(135deg, #c2410c, #ea580c);
+  border-color: #f97316;
+}
+
+.alt-tab[data-alt="cache"].active {
+  background: linear-gradient(135deg, #0e7490, #0891b2);
+  border-color: #22d3ee;
+}
+
+.alt-tab[data-alt="finetune"].active {
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  border-color: #a78bfa;
+}
+
+.alt-tab[data-alt="agentic"].active {
+  background: linear-gradient(135deg, #be123c, #e11d48);
+  border-color: #fb7185;
+}
+
+.alt-tab[data-alt="table"].active {
+  background: linear-gradient(135deg, #059669, #10b981);
+  border-color: #34d399;
+}
+
+.alt-panel {
+  display: none;
+}
+
+.alt-panel.active {
+  display: block;
+  animation: fadeInUp 0.4s ease;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.alt-card {
+  background: #141825;
+  border-radius: 16px;
+  border: 1px solid #2d3148;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.alt-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.alt-card.longctx-card::before { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.alt-card.graphrag-card::before { background: linear-gradient(90deg, #ea580c, #f97316); }
+.alt-card.cache-card::before { background: linear-gradient(90deg, #0891b2, #22d3ee); }
+.alt-card.finetune-card::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+.alt-card.agentic-card::before { background: linear-gradient(90deg, #e11d48, #fb7185); }
+
+.alt-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.alt-card-icon {
+  font-size: 32px;
+}
+
+.alt-card-title {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.longctx-card .alt-card-title { color: #fbbf24; }
+.graphrag-card .alt-card-title { color: #f97316; }
+.cache-card .alt-card-title { color: #22d3ee; }
+.finetune-card .alt-card-title { color: #a78bfa; }
+.agentic-card .alt-card-title { color: #fb7185; }
+
+.alt-card-sub {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.alt-section {
+  margin-bottom: 14px;
+}
+
+.alt-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.alt-section p, .alt-section li {
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.alt-section ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.alt-section li {
+  padding-left: 18px;
+  position: relative;
+  margin-bottom: 3px;
+}
+
+.alt-section li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.longctx-card .alt-section li::before { background: #fbbf24; }
+.graphrag-card .alt-section li::before { background: #f97316; }
+.cache-card .alt-section li::before { background: #22d3ee; }
+.finetune-card .alt-section li::before { background: #a78bfa; }
+.agentic-card .alt-section li::before { background: #fb7185; }
+
+.alt-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.alt-detail-box {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.alt-pro-box {
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.12);
+}
+
+.alt-con-box {
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+}
+
+.alt-box-label {
+  font-weight: 700;
+  font-size: 11px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.alt-pro-box .alt-box-label { color: #22c55e; }
+.alt-con-box .alt-box-label { color: #ef4444; }
+
+.alt-detail-box ul {
+  list-style: none;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.alt-detail-box li {
+  padding-left: 0;
+}
+
+.alt-detail-box li::before {
+  display: none;
+}
+
+.alt-use-case {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.12);
+}
+
+.alt-use-case .alt-box-label {
+  color: #34d399;
+}
+
+.alt-use-case p {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.representative {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.rep-tag {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+/* Comparison Table */
+.compare-table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid #2d3148;
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 750px;
+}
+
+.compare-table th {
+  background: #1a1d2e;
+  padding: 12px 10px;
+  text-align: center;
+  font-weight: 700;
+  color: #e2e8f0;
+  border-bottom: 2px solid #2d3148;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.compare-table th:first-child {
+  text-align: left;
+  padding-left: 16px;
+}
+
+.compare-table td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #1e2235;
+  color: #cbd5e1;
+}
+
+.compare-table td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: #e2e8f0;
+  padding-left: 16px;
+  white-space: nowrap;
+}
+
+.compare-table tbody tr:hover {
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.compare-table .th-rag { color: #34d399; }
+.compare-table .th-longctx { color: #fbbf24; }
+.compare-table .th-graphrag { color: #f97316; }
+.compare-table .th-cache { color: #22d3ee; }
+.compare-table .th-finetune { color: #a78bfa; }
+.compare-table .th-agentic { color: #fb7185; }
+
+.cell-high { color: #4ade80; font-weight: 600; }
+.cell-mid { color: #fbbf24; font-weight: 600; }
+.cell-low { color: #f87171; font-weight: 600; }
+.cell-yes { color: #4ade80; }
+.cell-no { color: #64748b; }
+
+/* ================ Tab 4: Decision Tree ================ */
+.tree-container {
+  padding: 8px 0;
+}
+
+.tree-question {
+  text-align: center;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #1a1d2e, #1e2438);
+  border-radius: 14px;
+  border: 1px solid #334155;
+  margin-bottom: 16px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.tree-question .icon {
+  font-size: 22px;
+  margin-right: 6px;
+}
+
+.tree-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tree-branch {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  background: #141825;
+  border-radius: 14px;
+  border: 1px solid #1e2235;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.tree-branch.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.tree-branch:hover {
+  border-color: #334155;
+  background: #1a1d2e;
+}
+
+.tree-condition {
+  min-width: 140px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tree-arrow-icon {
+  display: flex;
+  align-items: center;
+  color: #334155;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.tree-result {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.tree-result-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.tree-result-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.tree-sub {
+  margin-left: 152px;
+  padding-left: 16px;
+  border-left: 2px solid #2d3148;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+
+.tree-sub .tree-branch {
+  padding: 10px 14px;
+}
+
+.tree-sub .tree-condition {
+  min-width: 120px;
+  font-size: 12px;
+}
+
+.cond-small { background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); }
+.cond-medium { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2); }
+.cond-large { background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
+.cond-huge { background: rgba(168, 85, 247, 0.1); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); }
+.cond-stable { background: rgba(244, 114, 182, 0.1); color: #f472b6; border: 1px solid rgba(244, 114, 182, 0.2); }
+.cond-yes { background: rgba(249, 115, 22, 0.1); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.2); }
+.cond-no { background: rgba(34, 211, 238, 0.1); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.2); }
+
+.result-longctx { color: #fbbf24; }
+.result-cache { color: #22d3ee; }
+.result-rag { color: #34d399; }
+.result-graphrag { color: #f97316; }
+.result-agentic { color: #fb7185; }
+.result-finetune { color: #a78bfa; }
+
+.tree-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #64748b;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  padding-left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ================ Tab 5: Timeline ================ */
+.timeline-container {
+  position: relative;
+  padding: 12px 0;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 40px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #334155, #34d399, #fbbf24, #fb7185);
+  border-radius: 3px;
+}
+
+.timeline-entry {
+  position: relative;
+  padding-left: 80px;
+  margin-bottom: 28px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.timeline-entry.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.timeline-year {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 80px;
+  display: flex;
+  align-items: center;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: 34px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid #0a0e1a;
+}
+
+.timeline-year-text {
+  font-size: 16px;
+  font-weight: 900;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.timeline-content {
+  background: #141825;
+  border-radius: 14px;
+  border: 1px solid #2d3148;
+  padding: 16px 18px;
+  position: relative;
+}
+
+.timeline-content::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 10px;
+  width: 16px;
+  height: 16px;
+  background: #141825;
+  border-left: 1px solid #2d3148;
+  border-bottom: 1px solid #2d3148;
+  transform: rotate(45deg);
+}
+
+.timeline-content h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.timeline-content p, .timeline-content li {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.7;
+}
+
+.timeline-content ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.timeline-content li {
+  padding-left: 16px;
+  position: relative;
+  margin-bottom: 3px;
+}
+
+.timeline-content li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #475569;
+}
+
+.year-2023 .timeline-dot { background: #64748b; }
+.year-2023 .timeline-year-text { color: #94a3b8; }
+.year-2023 .timeline-content h3 { color: #94a3b8; }
+
+.year-2024 .timeline-dot { background: #34d399; }
+.year-2024 .timeline-year-text { color: #34d399; }
+.year-2024 .timeline-content h3 { color: #34d399; }
+
+.year-2025 .timeline-dot { background: #fbbf24; }
+.year-2025 .timeline-year-text { color: #fbbf24; }
+.year-2025 .timeline-content h3 { color: #fbbf24; }
+
+.year-2026 .timeline-dot { background: #fb7185; }
+.year-2026 .timeline-year-text { color: #fb7185; }
+.year-2026 .timeline-content h3 { color: #fb7185; }
+
+/* Trend visualization */
+.trend-bar-container {
+  margin-top: 24px;
+  padding: 20px;
+  background: #141825;
+  border-radius: 14px;
+  border: 1px solid #2d3148;
+}
+
+.trend-bar-container h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.trend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.trend-year-label {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: #94a3b8;
+  min-width: 44px;
+}
+
+.trend-bar {
+  flex: 1;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  overflow: hidden;
+  background: #1a1d2e;
+  border: 1px solid #2d3148;
+}
+
+.trend-segment {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.seg-rag { background: linear-gradient(90deg, #059669, #34d399); }
+.seg-longctx { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.seg-graphrag { background: linear-gradient(90deg, #c2410c, #ea580c); }
+.seg-agentic { background: linear-gradient(90deg, #be123c, #e11d48); }
+.seg-other { background: linear-gradient(90deg, #475569, #64748b); }
+
+.trend-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.quote-box {
+  margin-top: 16px;
+  padding: 14px 18px;
+  background: rgba(251, 113, 133, 0.06);
+  border-radius: 12px;
+  border: 1px solid rgba(251, 113, 133, 0.15);
+  text-align: center;
+}
+
+.quote-box p {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fb7185;
+  font-style: italic;
+}
+
+.quote-box .attr {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+  font-style: normal;
+  margin-top: 4px;
+}
+
+/* ================ Responsive ================ */
+@media (max-width: 768px) {
+  .header h1 { font-size: 20px; }
+  .main-container { padding: 0 12px 20px; }
+  .proscons-layout { grid-template-columns: 1fr; }
+  .alt-detail-grid { grid-template-columns: 1fr; }
+  .tree-branch { flex-direction: column; gap: 8px; }
+  .tree-condition { min-width: auto; }
+  .tree-sub { margin-left: 20px; }
+  .tree-arrow-icon { display: none; }
+  .timeline-line { left: 20px; }
+  .timeline-entry { padding-left: 50px; }
+  .timeline-dot { left: 14px; }
+  .timeline-year-text { font-size: 13px; }
+  .trend-segment { font-size: 8px; }
+  .key-components { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 480px) {
+  .key-components { grid-template-columns: 1fr; }
+  .alt-tabs { gap: 4px; }
+  .alt-tab { padding: 6px 10px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="rag">RAG</span> 技术全解与<span class="alt">替代方案</span></h1>
+  <p>检索增强还是上下文够大？2026年的选择</p>
+  <div class="progress-bar" id="progressBar"></div>
+  <div class="step-label" id="stepLabel"><strong>1</strong> / 5</div>
+</div>
+
+<div class="main-container">
+  <div class="stage" id="stage">
+
+    <!-- ==================== Scene 1: RAG Pipeline ==================== -->
+    <div class="scene active" id="scene1">
+      <div class="pipeline-container" id="pipelineContainer">
+        <div class="pipeline-question">
+          <div class="label">用户提问</div>
+          <div class="text">"公司2024年Q3营收是多少？"</div>
+        </div>
+
+        <div class="pipeline-arrow" id="arrow1">&#x2193;</div>
+        <div class="pipeline-step step-embed" id="pStep1">
+          <div class="pipeline-step-header">
+            <div class="pipeline-step-num">1</div>
+            <div class="pipeline-step-title">向量化查询 <span class="pipeline-step-subtitle">Embed Query</span></div>
+          </div>
+          <div class="pipeline-step-body">
+            <span>用户问题</span>
+            <span class="pipeline-chip chip-blue">Embedding Model</span>
+            <span style="color:#475569">&#x2192;</span>
+            <span class="vector-display">[0.12, -0.34, 0.78, ...]</span>
+          </div>
+        </div>
+
+        <div class="pipeline-arrow" id="arrow2">&#x2193;</div>
+        <div class="pipeline-step step-retrieve" id="pStep2">
+          <div class="pipeline-step-header">
+            <div class="pipeline-step-num">2</div>
+            <div class="pipeline-step-title">检索 <span class="pipeline-step-subtitle">Retrieve Top-K</span></div>
+          </div>
+          <div class="pipeline-step-body">
+            <span>查询向量</span>
+            <span style="color:#475569">&#x2192;</span>
+            <span class="pipeline-chip chip-green">向量数据库</span>
+            <span style="color:#475569">&#x2192;</span>
+            <div class="doc-chips">
+              <span class="doc-chip" id="doc1">Q3营收12.5亿</span>
+              <span class="doc-chip" id="doc2">同比增长15%</span>
+              <span class="doc-chip" id="doc3">毛利率38.2%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-arrow" id="arrow3">&#x2193;</div>
+        <div class="pipeline-step step-augment" id="pStep3">
+          <div class="pipeline-step-header">
+            <div class="pipeline-step-num">3</div>
+            <div class="pipeline-step-title">拼接上下文 <span class="pipeline-step-subtitle">Augment Prompt</span></div>
+          </div>
+          <div class="pipeline-step-body">
+            <span class="pipeline-chip chip-purple">System Prompt</span>
+            <span style="color:#475569">+</span>
+            <span class="pipeline-chip chip-green">检索到的文档片段</span>
+            <span style="color:#475569">+</span>
+            <span class="pipeline-chip chip-blue">用户问题</span>
+            <span style="color:#475569">&#x2192;</span>
+            <span class="pipeline-chip chip-amber">完整 Prompt</span>
+          </div>
+        </div>
+
+        <div class="pipeline-arrow" id="arrow4">&#x2193;</div>
+        <div class="pipeline-step step-generate" id="pStep4">
+          <div class="pipeline-step-header">
+            <div class="pipeline-step-num">4</div>
+            <div class="pipeline-step-title">生成回答 <span class="pipeline-step-subtitle">Generate Answer</span></div>
+          </div>
+          <div class="pipeline-step-body">
+            <span class="pipeline-chip chip-amber">完整 Prompt</span>
+            <span style="color:#475569">&#x2192;</span>
+            <span class="pipeline-chip chip-purple">LLM</span>
+            <span style="color:#475569">&#x2192;</span>
+            <span style="color:#fbbf24;">带来源引用的回答</span>
+          </div>
+        </div>
+
+        <div class="pipeline-arrow" id="arrow5">&#x2193;</div>
+        <div class="pipeline-answer" id="pAnswer">
+          <div class="label">LLM 回答</div>
+          <div class="text">"根据2024年Q3财报，公司营收为12.5亿元，同比增长15%。毛利率为38.2%。"</div>
+          <div class="source">[来源: 2024年Q3财报 第12页, 第15页]</div>
+        </div>
+
+        <button class="play-btn" id="playPipelineBtn" onclick="playPipeline()">&#9654; 播放动画</button>
+
+        <div class="key-components">
+          <div class="key-comp">
+            <div class="key-comp-name">Embedding Model</div>
+            <div class="key-comp-desc">把文字变成数字向量，使计算机能衡量语义相似度</div>
+          </div>
+          <div class="key-comp">
+            <div class="key-comp-name">Vector Database</div>
+            <div class="key-comp-desc">Pinecone / Milvus / ChromaDB / Qdrant 等专用数据库</div>
+          </div>
+          <div class="key-comp">
+            <div class="key-comp-name">Chunk 文档切片</div>
+            <div class="key-comp-desc">长文档切成 500-1000 token 的小段，便于精确检索</div>
+          </div>
+          <div class="key-comp">
+            <div class="key-comp-name">Top-K 检索</div>
+            <div class="key-comp-desc">找到最相关的 K 个片段（通常 3-10 个）</div>
+          </div>
+          <div class="key-comp">
+            <div class="key-comp-name">Reranker 重排序</div>
+            <div class="key-comp-desc">对检索结果二次排序，大幅提高准确率</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Scene 2: Pros & Cons ==================== -->
+    <div class="scene" id="scene2">
+      <div class="proscons-layout">
+        <div class="proscons-col pro-col">
+          <div class="proscons-header pro-header">&#x2714; 优点</div>
+          <div class="proscons-item" data-delay="0">
+            <div class="icon">&#x1F4DA;</div>
+            <div class="title">知识可实时更新</div>
+            <div class="desc">不需要重新训练模型，更新文档库即可让模型"学到"新知识</div>
+          </div>
+          <div class="proscons-item" data-delay="100">
+            <div class="icon">&#x1F50D;</div>
+            <div class="title">可追溯来源</div>
+            <div class="desc">回答可以引用具体文档段落，用户可以验证信息真伪</div>
+          </div>
+          <div class="proscons-item" data-delay="200">
+            <div class="icon">&#x1F4B0;</div>
+            <div class="title">成本相对低</div>
+            <div class="desc">不需要微调模型，只需维护向量数据库和检索管道</div>
+          </div>
+          <div class="proscons-item" data-delay="300">
+            <div class="icon">&#x1F9E0;</div>
+            <div class="title">突破知识边界</div>
+            <div class="desc">让模型"知道"它训练时没见过的私有数据和最新信息</div>
+          </div>
+          <div class="proscons-item" data-delay="400">
+            <div class="icon">&#x1F512;</div>
+            <div class="title">数据安全</div>
+            <div class="desc">私有数据不需要发给模型训练，留在本地数据库中</div>
+          </div>
+          <div class="proscons-item" data-delay="500">
+            <div class="icon">&#x1F4CF;</div>
+            <div class="title">节省上下文</div>
+            <div class="desc">只检索相关片段，不需要把所有文档塞进上下文窗口</div>
+          </div>
+        </div>
+        <div class="proscons-col con-col">
+          <div class="proscons-header con-header">&#x2718; 缺点</div>
+          <div class="proscons-item" data-delay="0">
+            <div class="icon">&#x1F500;</div>
+            <div class="title">检索质量瓶颈</div>
+            <div class="desc">"垃圾进，垃圾出"— 检索不准则回答必然不准</div>
+          </div>
+          <div class="proscons-item" data-delay="100">
+            <div class="icon">&#x2702;&#xFE0F;</div>
+            <div class="title">语义断裂</div>
+            <div class="desc">文档切片可能切断关键信息，破坏跨段落的逻辑关联</div>
+          </div>
+          <div class="proscons-item" data-delay="200">
+            <div class="icon">&#x1F3D7;&#xFE0F;</div>
+            <div class="title">工程复杂度高</div>
+            <div class="desc">需要维护 Embedding pipeline、向量数据库、切片策略、重排序</div>
+          </div>
+          <div class="proscons-item" data-delay="300">
+            <div class="icon">&#x1F4CA;</div>
+            <div class="title">多跳推理弱</div>
+            <div class="desc">"A公司CEO的母校在哪个城市？" 需要多步检索，RAG 很难处理</div>
+          </div>
+          <div class="proscons-item" data-delay="400">
+            <div class="icon">&#x23F1;&#xFE0F;</div>
+            <div class="title">增加延迟</div>
+            <div class="desc">检索 + 重排序增加 200-500ms 延迟</div>
+          </div>
+          <div class="proscons-item" data-delay="500">
+            <div class="icon">&#x1F3AF;</div>
+            <div class="title">Top-K 盲点</div>
+            <div class="desc">如果正确答案不在 Top-K 中，模型永远看不到它</div>
+          </div>
+          <div class="proscons-item" data-delay="600">
+            <div class="icon">&#x1F4DD;</div>
+            <div class="title">结构化数据弱</div>
+            <div class="desc">表格、图表类数据很难有效向量化和检索</div>
+          </div>
+          <div class="proscons-item" data-delay="700">
+            <div class="icon">&#x1F504;</div>
+            <div class="title">维护负担</div>
+            <div class="desc">文档更新后需要重新切片 + 重新向量化，持续的运维工作</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Scene 3: Alternatives ==================== -->
+    <div class="scene" id="scene3">
+      <div class="alt-tabs">
+        <button class="alt-tab active" data-alt="longctx" onclick="switchAlt('longctx')">Long Context</button>
+        <button class="alt-tab" data-alt="graphrag" onclick="switchAlt('graphrag')">GraphRAG</button>
+        <button class="alt-tab" data-alt="cache" onclick="switchAlt('cache')">Cache / KV-Cache</button>
+        <button class="alt-tab" data-alt="finetune" onclick="switchAlt('finetune')">Fine-tuning</button>
+        <button class="alt-tab" data-alt="agentic" onclick="switchAlt('agentic')">Agentic RAG</button>
+        <button class="alt-tab" data-alt="table" onclick="switchAlt('table')">&#x1F4CA; 对比表</button>
+      </div>
+
+      <!-- Long Context -->
+      <div class="alt-panel active" id="alt-longctx">
+        <div class="alt-card longctx-card">
+          <div class="alt-card-header">
+            <div class="alt-card-icon">&#x1F4DC;</div>
+            <div>
+              <div class="alt-card-title">Long Context 长上下文直接塞</div>
+              <div class="alt-card-sub">不检索，直接把所有文档塞进上下文窗口</div>
+            </div>
+          </div>
+          <div class="alt-section">
+            <div class="alt-section-title">代表产品</div>
+            <div class="representative">
+              <span class="rep-tag">Claude Opus 4.6 — 1M tokens</span>
+              <span class="rep-tag">Gemini 3.1 Pro — 2M tokens</span>
+              <span class="rep-tag">GPT-5.4 — 1M tokens</span>
+            </div>
+          </div>
+          <div class="alt-section">
+            <div class="alt-section-title">为什么 Claude "摒弃" RAG</div>
+            <p>1M tokens 约等于 2000 页文档。对于大多数企业内部知识库场景，直接塞入上下文窗口就够了，无需构建复杂的检索管道。完整上下文让模型获得全局理解能力，而不是只看片段。</p>
+          </div>
+          <div class="alt-detail-grid">
+            <div class="alt-detail-box alt-pro-box">
+              <div class="alt-box-label">优点</div>
+              <ul>
+                <li>无需检索 pipeline，架构极简</li>
+                <li>完整上下文理解，无语义断裂</li>
+                <li>多跳推理自然流畅</li>
+                <li>部署和维护成本低</li>
+              </ul>
+            </div>
+            <div class="alt-detail-box alt-con-box">
+              <div class="alt-box-label">缺点</div>
+              <ul>
+                <li>按 token 计费，成本高</li>
+                <li>有上限，塞不下 TB 级数据</li>
+                <li>"大海捞针"问题 — 信息可能被淹没</li>
+                <li>首次请求延迟较高</li>
+              </ul>
+            </div>
+          </div>
+          <div class="alt-use-case">
+            <div class="alt-box-label">适用场景</div>
+            <p>文档量 &lt; 2000 页、需要深度理解全文、多跳推理、不想维护 RAG 基础设施</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- GraphRAG -->
+      <div class="alt-panel" id="alt-graphrag">
+        <div class="alt-card graphrag-card">
+          <div class="alt-card-header">
+            <div class="alt-card-icon">&#x1F578;&#xFE0F;</div>
+            <div>
+              <div class="alt-card-title">GraphRAG 图谱增强检索</div>
+              <div class="alt-card-sub">用知识图谱增强检索，解决多跳推理难题</div>
+            </div>
+          </div>
+          <div class="alt-section">
+            <div class="alt-section-title">代表产品</div>
+            <div class="representative">
+              <span class="rep-tag">Microsoft GraphRAG</span>
+              <span class="rep-tag">Neo4j + LLM</span>
+            </div>
+          </div>
+          <div class="alt-section">
+            <div class="alt-section-title">工作原理</div>
+            <p>先用 LLM 从文档中提取实体和关系，构建知识图谱（如：张三 -[就职于]- A公司 -[总部在]- 北京），然后在图谱上检索，支持沿关系链多步推理。</p>
+          </div>
+          <div class="alt-detail-grid">
+            <div class="alt-detail-box alt-pro-box">
+              <div class="alt-box-label">优点</div>
+              <ul>
+                <li>解决多跳推理问题</li>
+                <li>结构化知识表示</li>
+                <li>全局理解能力强</li>
+                <li>支持因果链推理</li>
+              </ul>
+            </div>
+            <div class="alt-detail-box alt-con-box">
+              <div class="alt-box-label">缺点</div>
+              <ul>
+                <li>构建图谱成本极高</li>
+                <li>维护和更新复杂</li>
+                <li>小数据集不划算</li>
+                <li>图谱抽取可能有误</li>
+              </ul>
+            </div>
+          </div>
+          <div class="alt-use-case">
+            <div class="alt-box-label">适用场景</div>
+            <p>大规模企业知识库、法律/医疗等需要推理链的场景、需要全局摘要的分析任务</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cache -->
+      <div class="alt-panel" id="alt-cache">
+        <div class="alt-card cache-card">
+          <div class="alt-card-header">
+            <div class="alt-card-icon">&#x26A1;</div>
+            <div>
+              <div class="alt-card-title">Cache / KV-Cache 缓存方案</div>
+              <div class="alt-card-sub">缓存长文档的计算结果，后续请求复用</div>
+            </div>
+          </div>
+          <div class="alt-section">
+            <div class="alt-section-title">代表产品</div>
+            <div class="representative">
+              <span class="rep-tag">Claude Prompt Caching</span>
+              <span class="rep-tag">Gemini Context Caching</span>
+            </div>
+          </div>
+          <div class="alt-section">
+            <div class="alt-section-title">工作原理</div>
+            <p>把常用的长文档缓存为 KV-Cache（注意力计算的键值对），后续请求时直接复用缓存结果，不需要重新计算。相当于"预热"模型对文档的理解。</p>
+          </div>
+          <div class="alt-detail-grid">
+            <div class="alt-detail-box alt-pro-box">
+              <div class="alt-box-label">优点</div>
+              <ul>
+                <li>后续请求延迟降低 80-90%</li>
+                <li>成本大幅降低</li>
+                <li>与 Long Context 完美配合</li>
+                <li>无需额外基础设施</li>
+              </ul>
+            </div>
+            <div class="alt-detail-box alt-con-box">
+              <div class="alt-box-label">缺点</div>
+              <ul>
+                <li>首次"塞入"仍需完整成本</li>
+                <li>缓存有时间限制（通常几小时）</li>
+                <li>缓存失效需重建</li>
+                <li>仍受上下文窗口限制</li>
+              </ul>
+            </div>
+          </div>
+          <div class="alt-use-case">
+            <div class="alt-box-label">适用场景</div>
+            <p>反复查询同一组文档、客服/FAQ 场景、文档相对稳定不常变的场景</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fine-tuning -->
+      <div class="alt-panel" id="alt-finetune">
+        <div class="alt-card finetune-card">
+          <div class="alt-card-header">
+            <div class="alt-card-icon">&#x1F9EC;</div>
+            <div>
+              <div class="alt-card-title">Fine-tuning 微调</div>
+              <div class="alt-card-sub">把知识直接训练进模型权重</div>
+            </div>
+          </div>
+          <div class="alt-section">
+            <div class="alt-section-title">工作原理</div>
+            <p>在预训练模型基础上，用特定领域的数据继续训练，将知识"刻"进模型的神经网络权重中。模型内化了知识，不需要外部检索就能回答。</p>
+          </div>
+          <div class="alt-detail-grid">
+            <div class="alt-detail-box alt-pro-box">
+              <div class="alt-box-label">优点</div>
+              <ul>
+                <li>无需检索，响应最快</li>
+                <li>回答风格一致</li>
+                <li>推理时无额外开销</li>
+                <li>适合特定领域术语</li>
+              </ul>
+            </div>
+            <div class="alt-detail-box alt-con-box">
+              <div class="alt-box-label">缺点</div>
+              <ul>
+                <li>训练成本高（GPU 资源）</li>
+                <li>知识过时需要重新训练</li>
+                <li>可能遗忘原有能力</li>
+                <li>不能引用来源</li>
+              </ul>
+            </div>
+          </div>
+          <div class="alt-use-case">
+            <div class="alt-box-label">适用场景</div>
+            <p>知识稳定不常变、需要特定回答风格、对延迟要求极高、对回答格式有严格要求</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agentic RAG -->
+      <div class="alt-panel" id="alt-agentic">
+        <div class="alt-card agentic-card">
+          <div class="alt-card-header">
+            <div class="alt-card-icon">&#x1F916;</div>
+            <div>
+              <div class="alt-card-title">Agentic RAG 智能体检索</div>
+              <div class="alt-card-sub">Agent 自主决定是否检索、检索什么、检索几次</div>
+            </div>
+          </div>
+          <div class="alt-section">
+            <div class="alt-section-title">工作原理</div>
+            <p>不再由固定管道决定检索流程，而是让 Agent 像人类一样思考：先判断是否需要检索，再决定用什么关键词搜索，检索后评估结果质量，不满意就换个角度再搜。可以结合多个数据源和工具。</p>
+          </div>
+          <div class="alt-detail-grid">
+            <div class="alt-detail-box alt-pro-box">
+              <div class="alt-box-label">优点</div>
+              <ul>
+                <li>智能检索策略，按需检索</li>
+                <li>可多轮检索，逐步深入</li>
+                <li>可结合搜索引擎、数据库等多种工具</li>
+                <li>复杂问题处理能力强</li>
+              </ul>
+            </div>
+            <div class="alt-detail-box alt-con-box">
+              <div class="alt-box-label">缺点</div>
+              <ul>
+                <li>Agent 决策可能出错</li>
+                <li>架构更复杂</li>
+                <li>响应更慢（多轮调用）</li>
+                <li>成本更高（多次 LLM 调用）</li>
+              </ul>
+            </div>
+          </div>
+          <div class="alt-use-case">
+            <div class="alt-box-label">适用场景</div>
+            <p>复杂问答需要多步检索和推理、跨多个数据源查询、需要动态调整策略的场景</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparison Table -->
+      <div class="alt-panel" id="alt-table">
+        <div class="compare-table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>维度</th>
+                <th class="th-rag">传统 RAG</th>
+                <th class="th-longctx">Long Context</th>
+                <th class="th-graphrag">GraphRAG</th>
+                <th class="th-cache">Cache</th>
+                <th class="th-finetune">Fine-tuning</th>
+                <th class="th-agentic">Agentic RAG</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>数据量</td>
+                <td class="cell-high">无限</td>
+                <td class="cell-mid">&lt;2000页</td>
+                <td class="cell-high">无限</td>
+                <td class="cell-mid">&lt;2000页</td>
+                <td class="cell-low">有限</td>
+                <td class="cell-high">无限</td>
+              </tr>
+              <tr>
+                <td>实时性</td>
+                <td class="cell-high">高</td>
+                <td class="cell-high">高</td>
+                <td class="cell-mid">中</td>
+                <td class="cell-high">高</td>
+                <td class="cell-low">低</td>
+                <td class="cell-high">高</td>
+              </tr>
+              <tr>
+                <td>推理深度</td>
+                <td class="cell-low">浅</td>
+                <td class="cell-high">深</td>
+                <td class="cell-high">深</td>
+                <td class="cell-high">深</td>
+                <td class="cell-mid">中</td>
+                <td class="cell-high">深</td>
+              </tr>
+              <tr>
+                <td>成本</td>
+                <td class="cell-high">低</td>
+                <td class="cell-low">高</td>
+                <td class="cell-low">高</td>
+                <td class="cell-mid">中</td>
+                <td class="cell-low">高</td>
+                <td class="cell-mid">中-高</td>
+              </tr>
+              <tr>
+                <td>工程复杂度</td>
+                <td class="cell-mid">中</td>
+                <td class="cell-high">低</td>
+                <td class="cell-low">高</td>
+                <td class="cell-high">低</td>
+                <td class="cell-mid">中</td>
+                <td class="cell-low">高</td>
+              </tr>
+              <tr>
+                <td>可追溯来源</td>
+                <td class="cell-yes">&#x2714;</td>
+                <td class="cell-no">&#x2718;</td>
+                <td class="cell-yes">&#x2714;</td>
+                <td class="cell-no">&#x2718;</td>
+                <td class="cell-no">&#x2718;</td>
+                <td class="cell-yes">&#x2714;</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Scene 4: Decision Tree ==================== -->
+    <div class="scene" id="scene4">
+      <div class="tree-container">
+        <div class="tree-question">
+          <span class="icon">&#x1F333;</span> 场景选择决策树
+        </div>
+
+        <div class="tree-section-title">&#x1F4C4; 你的数据量有多大？</div>
+        <div class="tree-branches" id="treeBranches1">
+          <div class="tree-branch" data-delay="0">
+            <div class="tree-condition cond-small">&lt; 100 页</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-longctx">直接 Long Context 塞进去</div>
+              <div class="tree-result-desc">最简单的方案，无需任何检索基础设施</div>
+            </div>
+          </div>
+          <div class="tree-branch" data-delay="100">
+            <div class="tree-condition cond-medium">100 - 2000 页</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-cache">Long Context + Cache</div>
+              <div class="tree-result-desc">性价比最高，缓存长文档降低后续请求成本 80-90%</div>
+            </div>
+          </div>
+          <div class="tree-branch" data-delay="200">
+            <div class="tree-condition cond-large">2000 - 10 万页</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-rag">传统 RAG（必须检索）</div>
+              <div class="tree-result-desc">超出上下文窗口，检索是唯一选择</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tree-sub" id="treeSub1">
+          <div class="tree-branch" data-delay="300">
+            <div class="tree-condition cond-yes">需要多跳推理？</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-graphrag">GraphRAG 或 Agentic RAG</div>
+              <div class="tree-result-desc">图谱推理或智能体多轮检索解决复杂问题</div>
+            </div>
+          </div>
+          <div class="tree-branch" data-delay="400">
+            <div class="tree-condition cond-no">简单问答即可？</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-rag">传统 RAG 足够</div>
+              <div class="tree-result-desc">简单的向量检索 + LLM 即可满足需求</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tree-branches" id="treeBranches2">
+          <div class="tree-branch" data-delay="500">
+            <div class="tree-condition cond-huge">&gt; 10 万页</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-agentic">RAG + 分层索引</div>
+              <div class="tree-result-desc">多层检索架构：粗粒度索引 &#x2192; 细粒度检索 &#x2192; 重排序</div>
+            </div>
+          </div>
+          <div class="tree-branch" data-delay="600">
+            <div class="tree-condition cond-stable">知识稳定 + 需特定风格</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-finetune">Fine-tuning 微调</div>
+              <div class="tree-result-desc">把知识刻进模型权重，无需检索，风格一致</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tree-section-title">&#x1F504; 数据是否需要实时更新？</div>
+        <div class="tree-branches" id="treeBranches3">
+          <div class="tree-branch" data-delay="700">
+            <div class="tree-condition cond-yes">每天变</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-rag">RAG（更新文档库即可）</div>
+              <div class="tree-result-desc">文档更新后重新向量化，模型立即获取最新知识</div>
+            </div>
+          </div>
+          <div class="tree-branch" data-delay="800">
+            <div class="tree-condition cond-medium">每月变</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-cache">Long Context 或 RAG</div>
+              <div class="tree-result-desc">更新频率适中，两种方案都适合</div>
+            </div>
+          </div>
+          <div class="tree-branch" data-delay="900">
+            <div class="tree-condition cond-stable">基本不变</div>
+            <div class="tree-arrow-icon">&#x2192;</div>
+            <div class="tree-result">
+              <div class="tree-result-title result-finetune">Fine-tuning 或 Cache</div>
+              <div class="tree-result-desc">知识稳定，微调一次长期使用，或缓存反复查询</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Scene 5: 2026 Trends ==================== -->
+    <div class="scene" id="scene5">
+      <div class="timeline-container">
+        <div class="timeline-line"></div>
+
+        <div class="timeline-entry year-2023" data-delay="0">
+          <div class="timeline-year">
+            <div class="timeline-dot"></div>
+            <div class="timeline-year-text">2023</div>
+          </div>
+          <div class="timeline-content">
+            <h3>RAG 是唯一选择</h3>
+            <ul>
+              <li>上下文窗口只有 4K-32K tokens</li>
+              <li>GPT-3.5 仅 4K，GPT-4 最大 32K</li>
+              <li>想让模型使用私有数据？必须 RAG</li>
+              <li>LangChain / LlamaIndex 爆发式增长</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="timeline-entry year-2024" data-delay="200">
+          <div class="timeline-year">
+            <div class="timeline-dot"></div>
+            <div class="timeline-year-text">2024</div>
+          </div>
+          <div class="timeline-content">
+            <h3>Long Context 开始挑战 RAG</h3>
+            <ul>
+              <li>Claude 3 突破 200K tokens</li>
+              <li>Gemini 1.5 Pro 达到 1M tokens</li>
+              <li>中小数据场景不再需要 RAG</li>
+              <li>GraphRAG 概念兴起，Microsoft 开源</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="timeline-entry year-2025" data-delay="400">
+          <div class="timeline-year">
+            <div class="timeline-dot"></div>
+            <div class="timeline-year-text">2025</div>
+          </div>
+          <div class="timeline-content">
+            <h3>RAG 不再是必需</h3>
+            <ul>
+              <li>Claude / GPT 达到 1M+ tokens</li>
+              <li>Gemini 达到 2M tokens</li>
+              <li>Prompt Caching 大幅降低 Long Context 成本</li>
+              <li>Agentic RAG 开始替代传统 RAG 管道</li>
+              <li>但大规模数据（10万+页）仍然需要 RAG</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="timeline-entry year-2026" data-delay="600">
+          <div class="timeline-year">
+            <div class="timeline-dot"></div>
+            <div class="timeline-year-text">2026</div>
+          </div>
+          <div class="timeline-content">
+            <h3>混合方案成为主流</h3>
+            <ul>
+              <li>小数据 &#x2192; Long Context + Cache</li>
+              <li>大数据 &#x2192; RAG + Agentic</li>
+              <li>企业级 &#x2192; GraphRAG + Agentic RAG</li>
+              <li>各方案按场景各就各位，不再"一招鲜"</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Trend Bars -->
+        <div class="trend-bar-container" id="trendBars">
+          <h3>方案使用比例演变</h3>
+          <div class="trend-row">
+            <div class="trend-year-label">2023</div>
+            <div class="trend-bar">
+              <div class="trend-segment seg-rag" data-width="85" style="width:0%">RAG 85%</div>
+              <div class="trend-segment seg-other" data-width="15" style="width:0%">其他</div>
+            </div>
+          </div>
+          <div class="trend-row">
+            <div class="trend-year-label">2024</div>
+            <div class="trend-bar">
+              <div class="trend-segment seg-rag" data-width="55" style="width:0%">RAG 55%</div>
+              <div class="trend-segment seg-longctx" data-width="30" style="width:0%">Long Ctx 30%</div>
+              <div class="trend-segment seg-other" data-width="15" style="width:0%">其他</div>
+            </div>
+          </div>
+          <div class="trend-row">
+            <div class="trend-year-label">2025</div>
+            <div class="trend-bar">
+              <div class="trend-segment seg-rag" data-width="35" style="width:0%">RAG 35%</div>
+              <div class="trend-segment seg-longctx" data-width="35" style="width:0%">Long Ctx 35%</div>
+              <div class="trend-segment seg-agentic" data-width="15" style="width:0%">Agentic 15%</div>
+              <div class="trend-segment seg-other" data-width="15" style="width:0%">其他</div>
+            </div>
+          </div>
+          <div class="trend-row">
+            <div class="trend-year-label">2026</div>
+            <div class="trend-bar">
+              <div class="trend-segment seg-rag" data-width="22" style="width:0%">RAG 22%</div>
+              <div class="trend-segment seg-longctx" data-width="32" style="width:0%">Long Ctx 32%</div>
+              <div class="trend-segment seg-agentic" data-width="20" style="width:0%">Agentic 20%</div>
+              <div class="trend-segment seg-graphrag" data-width="12" style="width:0%">Graph 12%</div>
+              <div class="trend-segment seg-other" data-width="14" style="width:0%">其他</div>
+            </div>
+          </div>
+          <div class="trend-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>传统 RAG</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div>Long Context</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#e11d48"></div>Agentic RAG</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ea580c"></div>GraphRAG</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#64748b"></div>Cache / Fine-tune / 其他</div>
+          </div>
+        </div>
+
+        <div class="quote-box">
+          <p>"RAG 没死，但不再是默认选择。"</p>
+          <div class="attr">— 2026 年 AI 工程趋势</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /stage -->
+
+  <div class="nav-buttons">
+    <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" disabled>&#x2190; 上一页</button>
+    <button class="nav-btn" id="nextBtn" onclick="navigate(1)">下一页 &#x2192;</button>
+  </div>
+</div>
+
+<!-- Glossary Button -->
+<button class="glossary-btn" onclick="toggleGlossary()" title="术语表">&#x2753;</button>
+
+<!-- Glossary Modal -->
+<div class="glossary-overlay" id="glossaryOverlay" onclick="closeGlossaryOutside(event)">
+  <div class="glossary-modal">
+    <button class="glossary-close" onclick="toggleGlossary()">&#x2715;</button>
+    <h2>&#x1F4D6; 术语表 Glossary</h2>
+    <div class="glossary-item">
+      <div class="glossary-term">RAG</div>
+      <div class="glossary-def">Retrieval-Augmented Generation — 检索增强生成，先从数据库检索相关文档，再让 LLM 基于检索结果回答</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Embedding</div>
+      <div class="glossary-def">向量嵌入 — 将文本转换为数学向量（一串数字），使计算机能衡量文本之间的语义相似度</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Vector Database</div>
+      <div class="glossary-def">向量数据库 — 专门存储和检索向量的数据库，如 Pinecone、Milvus、ChromaDB、Qdrant</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Chunk</div>
+      <div class="glossary-def">文档切片 — 将长文档切分成 500-1000 token 的小片段，便于精确检索</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Top-K</div>
+      <div class="glossary-def">检索最相关的 K 个文档片段（K 通常为 3-10），送给 LLM 作为上下文</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Reranker</div>
+      <div class="glossary-def">重排序器 — 对初步检索结果用更精确的模型二次排序，显著提高准确率</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Long Context</div>
+      <div class="glossary-def">长上下文 — 直接把大量文本塞进模型的上下文窗口，不经过检索。1M tokens 约等于 2000 页</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">GraphRAG</div>
+      <div class="glossary-def">图谱增强检索 — 先从文档中抽取实体和关系构建知识图谱，然后在图谱上检索，支持多跳推理</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">KV-Cache</div>
+      <div class="glossary-def">缓存 Transformer 注意力计算的键（Key）值（Value）对，后续请求直接复用，避免重复计算</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Prompt Caching</div>
+      <div class="glossary-def">API 层面缓存长 prompt 的计算结果，后续相同前缀的请求可复用，降低成本和延迟 80-90%</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Agentic RAG</div>
+      <div class="glossary-def">Agent 自主决定检索策略的智能 RAG — 是否检索、搜什么、搜几次，都由 Agent 动态决定</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Fine-tuning</div>
+      <div class="glossary-def">微调 — 在预训练模型基础上用特定数据继续训练，将知识直接"刻"进模型权重</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">多跳推理</div>
+      <div class="glossary-def">Multi-hop Reasoning — 需要多步检索和推理才能回答的问题，如"A公司CEO的母校在哪个城市？"</div>
+    </div>
+    <div class="glossary-item">
+      <div class="glossary-term">Cosine Similarity</div>
+      <div class="glossary-def">余弦相似度 — 衡量两个向量方向接近程度的指标，值为 -1 到 1，1 表示方向完全一致</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var currentScene = 0;
+  var totalScenes = 5;
+  var sceneNames = ['RAG 工作原理', '优缺点分析', '替代方案对比', '场景选择指南', '2026年趋势'];
+  var pipelinePlaying = false;
+
+  // Build progress bar
+  function buildProgressBar() {
+    var bar = document.getElementById('progressBar');
+    var html = '';
+    for (var i = 0; i < totalScenes; i++) {
+      if (i > 0) {
+        html += '<div class="progress-line" id="pline' + i + '"></div>';
+      }
+      html += '<div class="progress-dot' + (i === 0 ? ' active' : '') + '" id="pdot' + i + '" onclick="window._goToScene(' + i + ')" title="' + sceneNames[i] + '"></div>';
+    }
+    bar.innerHTML = html;
+  }
+
+  function updateProgress() {
+    for (var i = 0; i < totalScenes; i++) {
+      var dot = document.getElementById('pdot' + i);
+      var line = document.getElementById('pline' + i);
+      dot.className = 'progress-dot';
+      if (i < currentScene) {
+        dot.classList.add('completed');
+      } else if (i === currentScene) {
+        dot.classList.add('active');
+      }
+      if (line) {
+        line.className = 'progress-line';
+        if (i <= currentScene) {
+          line.classList.add('completed');
+        }
+      }
+    }
+    document.getElementById('stepLabel').innerHTML = '<strong>' + (currentScene + 1) + '</strong> / ' + totalScenes + ' — ' + sceneNames[currentScene];
+    document.getElementById('prevBtn').disabled = currentScene === 0;
+    document.getElementById('nextBtn').disabled = currentScene === totalScenes - 1;
+  }
+
+  function showScene(index) {
+    var scenes = document.querySelectorAll('.scene');
+    scenes.forEach(function(s) { s.classList.remove('active'); });
+    scenes[index].classList.add('active');
+    currentScene = index;
+    updateProgress();
+    onSceneEnter(index);
+  }
+
+  window.navigate = function(dir) {
+    var next = currentScene + dir;
+    if (next >= 0 && next < totalScenes) {
+      showScene(next);
+    }
+  };
+
+  window._goToScene = function(i) {
+    showScene(i);
+  };
+
+  // Scene enter animations
+  function onSceneEnter(index) {
+    if (index === 1) {
+      animateProsConsItems();
+    } else if (index === 3) {
+      animateTreeBranches();
+    } else if (index === 4) {
+      animateTimeline();
+      animateTrendBars();
+    }
+  }
+
+  // ============ Tab 1: Pipeline Animation ============
+  window.playPipeline = function() {
+    if (pipelinePlaying) return;
+    pipelinePlaying = true;
+    var btn = document.getElementById('playPipelineBtn');
+    btn.disabled = true;
+    btn.textContent = 'Playing...';
+
+    // Reset
+    var steps = ['pStep1','pStep2','pStep3','pStep4'];
+    var arrows = ['arrow1','arrow2','arrow3','arrow4','arrow5'];
+    steps.forEach(function(id) {
+      document.getElementById(id).classList.remove('lit');
+    });
+    arrows.forEach(function(id) {
+      document.getElementById(id).classList.remove('lit');
+    });
+    document.getElementById('pAnswer').classList.remove('lit');
+    ['doc1','doc2','doc3'].forEach(function(id) {
+      document.getElementById(id).classList.remove('fly');
+    });
+
+    var delay = 0;
+    var stepDelay = 800;
+
+    // Step 1
+    setTimeout(function() {
+      document.getElementById('arrow1').classList.add('lit');
+      document.getElementById('pStep1').classList.add('lit');
+    }, delay += stepDelay);
+
+    // Step 2
+    setTimeout(function() {
+      document.getElementById('arrow2').classList.add('lit');
+      document.getElementById('pStep2').classList.add('lit');
+    }, delay += stepDelay);
+
+    // Doc fly animation
+    setTimeout(function() {
+      document.getElementById('doc1').classList.add('fly');
+    }, delay += 300);
+    setTimeout(function() {
+      document.getElementById('doc2').classList.add('fly');
+    }, delay += 200);
+    setTimeout(function() {
+      document.getElementById('doc3').classList.add('fly');
+    }, delay += 200);
+
+    // Step 3
+    setTimeout(function() {
+      document.getElementById('arrow3').classList.add('lit');
+      document.getElementById('pStep3').classList.add('lit');
+    }, delay += stepDelay);
+
+    // Step 4
+    setTimeout(function() {
+      document.getElementById('arrow4').classList.add('lit');
+      document.getElementById('pStep4').classList.add('lit');
+    }, delay += stepDelay);
+
+    // Answer
+    setTimeout(function() {
+      document.getElementById('arrow5').classList.add('lit');
+      document.getElementById('pAnswer').classList.add('lit');
+      btn.disabled = false;
+      btn.innerHTML = '&#9654; 重新播放';
+      pipelinePlaying = false;
+    }, delay += stepDelay);
+  };
+
+  // ============ Tab 2: Pros & Cons Animation ============
+  function animateProsConsItems() {
+    var items = document.querySelectorAll('#scene2 .proscons-item');
+    items.forEach(function(item) {
+      item.classList.remove('show');
+    });
+    items.forEach(function(item, i) {
+      var d = parseInt(item.getAttribute('data-delay') || '0', 10);
+      setTimeout(function() {
+        item.classList.add('show');
+      }, 100 + d + (i * 50));
+    });
+  }
+
+  // ============ Tab 3: Alternatives ============
+  window.switchAlt = function(key) {
+    document.querySelectorAll('.alt-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.alt-panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelector('.alt-tab[data-alt="' + key + '"]').classList.add('active');
+    document.getElementById('alt-' + key).classList.add('active');
+  };
+
+  // ============ Tab 4: Decision Tree Animation ============
+  function animateTreeBranches() {
+    var branches = document.querySelectorAll('#scene4 .tree-branch');
+    branches.forEach(function(b) { b.classList.remove('show'); });
+    branches.forEach(function(b) {
+      var d = parseInt(b.getAttribute('data-delay') || '0', 10);
+      setTimeout(function() {
+        b.classList.add('show');
+      }, 100 + d);
+    });
+  }
+
+  // ============ Tab 5: Timeline Animation ============
+  function animateTimeline() {
+    var entries = document.querySelectorAll('.timeline-entry');
+    entries.forEach(function(e) { e.classList.remove('show'); });
+    entries.forEach(function(e) {
+      var d = parseInt(e.getAttribute('data-delay') || '0', 10);
+      setTimeout(function() {
+        e.classList.add('show');
+      }, 200 + d);
+    });
+  }
+
+  function animateTrendBars() {
+    var segments = document.querySelectorAll('.trend-segment');
+    segments.forEach(function(seg) {
+      seg.style.width = '0%';
+    });
+    setTimeout(function() {
+      segments.forEach(function(seg) {
+        var w = seg.getAttribute('data-width');
+        seg.style.width = w + '%';
+      });
+    }, 800);
+  }
+
+  // ============ Glossary ============
+  window.toggleGlossary = function() {
+    var overlay = document.getElementById('glossaryOverlay');
+    overlay.classList.toggle('show');
+  };
+
+  window.closeGlossaryOutside = function(e) {
+    if (e.target === document.getElementById('glossaryOverlay')) {
+      window.toggleGlossary();
+    }
+  };
+
+  // ============ Keyboard Navigation ============
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      window.navigate(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      window.navigate(-1);
+    } else if (e.key === 'Escape') {
+      var overlay = document.getElementById('glossaryOverlay');
+      if (overlay.classList.contains('show')) {
+        window.toggleGlossary();
+      }
+    }
+  });
+
+  // Init
+  buildProgressBar();
+  updateProgress();
+
+  // Auto-play pipeline on first visit
+  setTimeout(function() {
+    window.playPipeline();
+  }, 600);
+
+})();
+</script>
+</body>
+</html>

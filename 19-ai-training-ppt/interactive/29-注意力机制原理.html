@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>注意力机制原理 — 让每个词都能看到全世界</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: #050a18;
+  color: #e2e8f0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+.header {
+  text-align: center;
+  padding: 28px 20px 12px;
+  width: 100%;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.header h1 .accent {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 400;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 16px 0 20px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tab {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: #e2e8f0;
+  background: rgba(255,255,255,0.06);
+}
+
+.tab.active {
+  background: linear-gradient(135deg, #f59e0b22, #ef444422);
+  color: #f59e0b;
+  box-shadow: 0 0 20px rgba(245,158,11,0.1);
+}
+
+/* Content area */
+.content {
+  width: 100%;
+  max-width: 960px;
+  padding: 0 20px 40px;
+  min-height: 520px;
+}
+
+.panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+
+.panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Panel 1: Self-Attention Calculation ===== */
+.calc-section {
+  margin-bottom: 24px;
+}
+
+.calc-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calc-title .step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #050a18;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sentence-display {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.word-box {
+  padding: 12px 20px;
+  border-radius: 10px;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  font-size: 20px;
+  font-weight: 700;
+  color: #f59e0b;
+  transition: all 0.4s ease;
+  cursor: default;
+  position: relative;
+}
+
+.word-box.highlight {
+  background: rgba(245,158,11,0.2);
+  border-color: #f59e0b;
+  box-shadow: 0 0 20px rgba(245,158,11,0.3);
+  transform: scale(1.05);
+}
+
+.word-box .eng {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 400;
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* QKV Transform visualization */
+.qkv-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.qkv-block {
+  text-align: center;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.5s ease;
+}
+
+.qkv-block.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.qkv-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  padding: 4px 12px;
+  border-radius: 6px;
+}
+
+.qkv-label.q { background: rgba(239,68,68,0.15); color: #ef4444; }
+.qkv-label.k { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.qkv-label.v { background: rgba(34,197,94,0.15); color: #22c55e; }
+
+.qkv-matrix {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.6;
+  background: rgba(255,255,255,0.03);
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Formula */
+.formula-box {
+  text-align: center;
+  margin: 24px 0;
+  padding: 20px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.formula {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  color: #f1f5f9;
+  letter-spacing: 0.5px;
+}
+
+.formula .fn { color: #f59e0b; font-weight: 700; }
+.formula .q-color { color: #ef4444; }
+.formula .k-color { color: #3b82f6; }
+.formula .v-color { color: #22c55e; }
+.formula .dim { color: #a78bfa; }
+
+/* Attention arcs */
+.arcs-container {
+  position: relative;
+  height: 180px;
+  margin: 20px 0;
+}
+
+.arc-words {
+  display: flex;
+  justify-content: space-around;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 40px;
+}
+
+.arc-word {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f59e0b;
+  text-align: center;
+  z-index: 2;
+  position: relative;
+}
+
+.arcs-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.arc-path {
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.arc-path.visible {
+  opacity: 1;
+}
+
+/* Step button */
+.step-btn {
+  display: block;
+  margin: 20px auto;
+  padding: 12px 32px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #050a18;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.step-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(245,158,11,0.3);
+}
+
+.step-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.step-desc {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  margin-top: 8px;
+  min-height: 20px;
+}
+
+/* ===== Panel 2: Heatmap ===== */
+.heatmap-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: 60px repeat(4, 1fr);
+  grid-template-rows: 40px repeat(4, 1fr);
+  gap: 3px;
+  max-width: 500px;
+  width: 100%;
+}
+
+.heatmap-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.heatmap-row-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  min-height: 70px;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.08);
+  z-index: 2;
+  box-shadow: 0 0 20px rgba(245,158,11,0.4);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.heatmap-corner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #475569;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.legend-bar {
+  width: 200px;
+  height: 14px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #1e3a5f, #2563eb, #f59e0b, #ef4444);
+}
+
+.legend-label {
+  font-size: 11px;
+  color: #64748b;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.heatmap-tooltip {
+  position: fixed;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #f1f5f9;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 100;
+  white-space: nowrap;
+}
+
+.heatmap-tooltip.show {
+  opacity: 1;
+}
+
+.heatmap-desc {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+  max-width: 500px;
+  line-height: 1.8;
+}
+
+/* ===== Panel 3: Multi-Head Attention ===== */
+.mha-section {
+  margin-bottom: 24px;
+}
+
+.mha-heads {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+
+@media (max-width: 700px) {
+  .mha-heads { grid-template-columns: repeat(2, 1fr); }
+}
+
+.head-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  transition: all 0.4s ease;
+  cursor: pointer;
+}
+
+.head-card:hover {
+  border-color: rgba(245,158,11,0.3);
+  background: rgba(245,158,11,0.05);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.head-card.selected {
+  border-color: #f59e0b;
+  background: rgba(245,158,11,0.1);
+  box-shadow: 0 0 24px rgba(245,158,11,0.15);
+}
+
+.head-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.head-icon {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.head-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 2px;
+}
+
+.head-eng {
+  font-size: 10px;
+  color: #64748b;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.head-detail {
+  margin-top: 16px;
+  padding: 20px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  min-height: 120px;
+}
+
+.head-detail-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 10px;
+}
+
+.head-detail-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.8;
+}
+
+.head-detail-desc strong {
+  color: #f1f5f9;
+}
+
+/* Concat visual */
+.concat-visual {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.concat-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.concat-chip {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid;
+}
+
+.concat-arrow {
+  color: #475569;
+  font-size: 18px;
+}
+
+.concat-result {
+  padding: 8px 18px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,68,68,0.15));
+  border: 1px solid rgba(245,158,11,0.3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+/* ===== Panel 4: Why Revolutionary ===== */
+.compare-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 20px 0;
+}
+
+@media (max-width: 700px) {
+  .compare-container { grid-template-columns: 1fr; }
+}
+
+.compare-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.compare-card.rnn {
+  border-color: rgba(239,68,68,0.2);
+}
+
+.compare-card.attn {
+  border-color: rgba(34,197,94,0.2);
+}
+
+.compare-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 12px;
+}
+
+.compare-card.rnn .compare-badge {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+}
+
+.compare-card.attn .compare-badge {
+  background: rgba(34,197,94,0.15);
+  color: #22c55e;
+}
+
+.compare-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.compare-card.rnn .compare-title { color: #ef4444; }
+.compare-card.attn .compare-title { color: #22c55e; }
+
+.compare-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 16px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Signal visualization */
+.signal-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.signal-word {
+  font-size: 13px;
+  font-weight: 700;
+  width: 32px;
+  text-align: center;
+}
+
+.signal-bar {
+  height: 24px;
+  border-radius: 4px;
+  transition: width 1s ease;
+  min-width: 4px;
+}
+
+.signal-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #64748b;
+  width: 36px;
+}
+
+.compare-desc {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.compare-desc li {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 6px 0;
+  list-style: none;
+  padding-left: 16px;
+  position: relative;
+  line-height: 1.6;
+}
+
+.compare-desc li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.compare-card.rnn .compare-desc li::before { background: #ef4444; }
+.compare-card.attn .compare-desc li::before { background: #22c55e; }
+
+/* Insight box */
+.insight-box {
+  margin-top: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.06));
+  border: 1px solid rgba(245,158,11,0.15);
+  border-radius: 14px;
+  text-align: center;
+}
+
+.insight-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 8px;
+}
+
+.insight-text {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.8;
+}
+
+.insight-text strong {
+  color: #f1f5f9;
+}
+
+/* Animate button */
+.anim-btn {
+  display: block;
+  margin: 16px auto;
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1px solid rgba(245,158,11,0.3);
+  background: transparent;
+  color: #f59e0b;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.anim-btn:hover {
+  background: rgba(245,158,11,0.1);
+}
+
+/* Connection line animation */
+.conn-canvas {
+  width: 100%;
+  height: 100px;
+  margin: 12px 0;
+}
+
+/* Utility */
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.section-label {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.section-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 20px 0;
+}
+
+/* Glossary button & panel */
+.glossary-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  background: rgba(10, 14, 26, 0.9);
+  color: #f59e0b;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.glossary-btn:hover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.25);
+  transform: scale(1.08);
+}
+
+.glossary-panel {
+  position: fixed;
+  top: 0;
+  right: -420px;
+  width: 400px;
+  max-width: 90vw;
+  height: 100vh;
+  background: rgba(10, 14, 26, 0.95);
+  border-left: 1.5px solid rgba(245, 158, 11, 0.2);
+  backdrop-filter: blur(16px);
+  z-index: 210;
+  overflow-y: auto;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
+  padding: 28px 24px 40px;
+}
+
+.glossary-panel.open {
+  right: 0;
+}
+
+.glossary-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+.glossary-panel-title {
+  font-size: 18px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glossary-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  background: transparent;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.glossary-close-btn:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.glossary-item {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.25s ease;
+}
+
+.glossary-item:hover {
+  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.glossary-term {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 4px;
+}
+
+.glossary-def {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.glossary-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 10, 24, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 205;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.glossary-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="accent">注意力机制原理</span></h1>
+  <p>Attention Mechanism — 让每个词都能看到全世界</p>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="calc">自注意力计算</button>
+  <button class="tab" data-tab="heatmap">注意力热力图</button>
+  <button class="tab" data-tab="multihead">多头注意力</button>
+  <button class="tab" data-tab="revolution">为什么是革命</button>
+</div>
+
+<div class="content">
+
+  <!-- ===== Panel 1: Self-Attention Calculation ===== -->
+  <div class="panel active" id="panel-calc">
+    <div class="calc-section" id="step-0">
+      <div class="calc-title"><span class="step-num">1</span> 输入词序列 (Input Tokens)</div>
+      <div class="sentence-display" id="sentence-display">
+        <div class="word-box" data-idx="0">我<span class="eng">I</span></div>
+        <div class="word-box" data-idx="1">喜欢<span class="eng">like</span></div>
+        <div class="word-box" data-idx="2">吃<span class="eng">eat</span></div>
+        <div class="word-box" data-idx="3">苹果<span class="eng">apple</span></div>
+      </div>
+      <p class="section-label">每个词被编码为向量 (Word Embedding)，维度 d = 4</p>
+    </div>
+
+    <div class="calc-section" id="step-1" style="opacity:0; transform:translateY(20px); transition:all 0.6s ease;">
+      <div class="calc-title"><span class="step-num">2</span> 线性变换 → Q, K, V</div>
+      <p class="section-label">每个词向量分别乘以权重矩阵 W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub></p>
+      <div class="qkv-container">
+        <div class="qkv-block" id="qkv-q">
+          <div class="qkv-label q">Q (Query)</div>
+          <div class="qkv-matrix">
+            "我"  → [0.8, 0.2, 0.5, 0.1]<br>
+            "喜欢" → [0.3, 0.9, 0.1, 0.6]<br>
+            "吃"  → [0.6, 0.4, 0.8, 0.3]<br>
+            "苹果" → [0.2, 0.7, 0.3, 0.9]
+          </div>
+        </div>
+        <div class="qkv-block" id="qkv-k">
+          <div class="qkv-label k">K (Key)</div>
+          <div class="qkv-matrix">
+            "我"  → [0.5, 0.6, 0.2, 0.4]<br>
+            "喜欢" → [0.7, 0.3, 0.8, 0.2]<br>
+            "吃"  → [0.4, 0.8, 0.5, 0.6]<br>
+            "苹果" → [0.9, 0.1, 0.7, 0.3]
+          </div>
+        </div>
+        <div class="qkv-block" id="qkv-v">
+          <div class="qkv-label v">V (Value)</div>
+          <div class="qkv-matrix">
+            "我"  → [0.3, 0.7, 0.4, 0.8]<br>
+            "喜欢" → [0.6, 0.2, 0.9, 0.1]<br>
+            "吃"  → [0.8, 0.5, 0.2, 0.7]<br>
+            "苹果" → [0.1, 0.9, 0.6, 0.4]
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="calc-section" id="step-2" style="opacity:0; transform:translateY(20px); transition:all 0.6s ease;">
+      <div class="calc-title"><span class="step-num">3</span> 计算注意力分数 (Attention Score)</div>
+      <div class="formula-box">
+        <div class="formula">
+          <span class="fn">Attention</span>(<span class="q-color">Q</span>, <span class="k-color">K</span>, <span class="v-color">V</span>) = <span class="fn">softmax</span>(<span class="q-color">Q</span><span class="k-color">K</span><sup>T</sup> / <span class="dim">√d<sub>k</sub></span>) &times; <span class="v-color">V</span>
+        </div>
+      </div>
+      <p class="section-label">其中 <span class="mono dim" style="color:#a78bfa;">√d<sub>k</sub></span> = √4 = 2，用于缩放防止梯度消失</p>
+    </div>
+
+    <div class="calc-section" id="step-3" style="opacity:0; transform:translateY(20px); transition:all 0.6s ease;">
+      <div class="calc-title"><span class="step-num">4</span> 注意力分布 — "苹果" 关注谁？</div>
+      <p class="section-label">"苹果" 的 Query 与所有词的 Key 点积 → softmax → 权重</p>
+      <div class="arcs-container" id="arcs-container">
+        <svg class="arcs-svg" id="arcs-svg" viewBox="0 0 800 180" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="arc-grad-0" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#ef4444" stop-opacity="0.6"/>
+            </linearGradient>
+          </defs>
+          <!-- arcs drawn by JS -->
+        </svg>
+        <div class="arc-words">
+          <div class="arc-word">我</div>
+          <div class="arc-word">喜欢</div>
+          <div class="arc-word">吃</div>
+          <div class="arc-word" style="color:#ef4444;">苹果</div>
+        </div>
+      </div>
+      <p class="section-label" id="arc-desc"></p>
+    </div>
+
+    <button class="step-btn" id="step-btn">逐步演示</button>
+    <p class="step-desc" id="step-desc">点击按钮，逐步查看自注意力计算过程</p>
+  </div>
+
+  <!-- ===== Panel 2: Heatmap ===== -->
+  <div class="panel" id="panel-heatmap">
+    <p class="section-label">注意力权重矩阵 — 颜色越暖 / 越深，注意力越高</p>
+    <div class="heatmap-wrapper">
+      <div class="heatmap-grid" id="heatmap-grid">
+        <!-- Built by JS -->
+      </div>
+      <div class="heatmap-legend">
+        <span class="legend-label">0.0</span>
+        <div class="legend-bar"></div>
+        <span class="legend-label">1.0</span>
+      </div>
+      <p class="heatmap-desc">
+        每一行代表一个词作为 <span class="mono" style="color:#ef4444;">Query</span>，每一列代表被关注的 <span class="mono" style="color:#3b82f6;">Key</span>。<br>
+        例如 "吃" → "苹果" 权重高，因为动宾关系在语义上紧密关联。<br>
+        <strong style="color:#f59e0b;">鼠标悬停可查看具体权重值。</strong>
+      </p>
+    </div>
+    <div class="heatmap-tooltip" id="heatmap-tooltip"></div>
+  </div>
+
+  <!-- ===== Panel 3: Multi-Head Attention ===== -->
+  <div class="panel" id="panel-multihead">
+    <p class="section-label">8 个注意力头各自学到不同的"关注模式"</p>
+
+    <div class="mha-heads" id="mha-heads">
+      <!-- Built by JS -->
+    </div>
+
+    <div class="head-detail" id="head-detail">
+      <div class="head-detail-title" id="head-detail-title">点击上方卡片查看详情</div>
+      <div class="head-detail-desc" id="head-detail-desc">每个注意力头有独立的 W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub> 权重矩阵，学到不同的语义关系。</div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div class="concat-visual">
+      <p class="section-label">最终合并：Concat + Linear</p>
+      <div class="concat-flow">
+        <span class="concat-chip" style="border-color:#ef4444;color:#ef4444;">Head 1</span>
+        <span class="concat-chip" style="border-color:#3b82f6;color:#3b82f6;">Head 2</span>
+        <span class="concat-chip" style="border-color:#22c55e;color:#22c55e;">Head 3</span>
+        <span class="concat-chip" style="border-color:#a78bfa;color:#a78bfa;">...</span>
+        <span class="concat-chip" style="border-color:#f59e0b;color:#f59e0b;">Head 8</span>
+        <span class="concat-arrow">→</span>
+        <span class="concat-result">Concat → W<sub>O</sub> → Output</span>
+      </div>
+      <p class="section-label" style="margin-top:12px;">
+        <span class="mono" style="color:#f59e0b;">MultiHead(Q,K,V) = Concat(head₁,...,head₈) × W<sup>O</sup></span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ===== Panel 4: Why Revolutionary ===== -->
+  <div class="panel" id="panel-revolution">
+    <div class="compare-container">
+      <div class="compare-card rnn">
+        <span class="compare-badge">OLD</span>
+        <div class="compare-title">RNN / LSTM</div>
+        <div class="compare-subtitle">Sequential Processing</div>
+        <p class="section-label" style="text-align:left;color:#94a3b8;font-size:12px;">
+          从 "苹果" 回看 "我" 时，信息经过 3 步传递，逐步衰减：
+        </p>
+        <div id="rnn-signals">
+          <!-- Built by JS -->
+        </div>
+        <ul class="compare-desc">
+          <li>必须按顺序处理，无法并行</li>
+          <li>长距离依赖信息衰减严重</li>
+          <li>第 100 个词几乎看不到第 1 个词</li>
+        </ul>
+      </div>
+      <div class="compare-card attn">
+        <span class="compare-badge">NEW</span>
+        <div class="compare-title">Self-Attention</div>
+        <div class="compare-subtitle">Global Direct Access</div>
+        <p class="section-label" style="text-align:left;color:#94a3b8;font-size:12px;">
+          "苹果" 直接与每个词建立连接，信息无损传递：
+        </p>
+        <div id="attn-signals">
+          <!-- Built by JS -->
+        </div>
+        <ul class="compare-desc">
+          <li>所有位置并行计算，速度快</li>
+          <li>任意两个词之间一步直达</li>
+          <li>第 1000 个词也能清晰看到第 1 个</li>
+        </ul>
+      </div>
+    </div>
+
+    <button class="anim-btn" id="compare-anim-btn">播放对比动画</button>
+
+    <div class="insight-box">
+      <div class="insight-title">核心洞察 (Key Insight)</div>
+      <div class="insight-text">
+        <strong>Attention 消除了序列距离的概念。</strong><br>
+        在 RNN 中，第 1 个词到第 100 个词需要传递 99 步，信息不断衰减。<br>
+        在 Attention 中，<strong style="color:#f59e0b;">任意两个词之间的距离永远是 1</strong>。<br>
+        这就是 2017 年 Google "Attention Is All You Need" 论文的革命性所在。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Glossary Button -->
+<button class="glossary-btn" id="glossaryBtn" title="术语表" onclick="toggleGlossary()">&#10067;</button>
+
+<!-- Glossary Backdrop -->
+<div class="glossary-backdrop" id="glossaryBackdrop" onclick="toggleGlossary()"></div>
+
+<!-- Glossary Panel -->
+<div class="glossary-panel" id="glossaryPanel">
+  <div class="glossary-panel-header">
+    <div class="glossary-panel-title">术语表 Glossary</div>
+    <button class="glossary-close-btn" onclick="toggleGlossary()">&times;</button>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Self-Attention（自注意力）</div>
+    <div class="glossary-def">每个词计算与句子中所有其他词的关联度</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Attention Score（注意力分数）</div>
+    <div class="glossary-def">两个词之间的相关性数值</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Attention Weight（注意力权重）</div>
+    <div class="glossary-def">归一化后的注意力分数（总和为1）</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Q (Query, 查询)</div>
+    <div class="glossary-def">"我想找什么？"，表示当前词的查询向量</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">K (Key, 键)</div>
+    <div class="glossary-def">"我是什么？"，表示候选词的特征向量</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">V (Value, 值)</div>
+    <div class="glossary-def">"我的具体内容"，实际被加权求和的信息</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">&#8730;d<sub>k</sub>（缩放因子）</div>
+    <div class="glossary-def">除以维度的平方根，防止数值过大导致梯度消失</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Multi-Head（多头）</div>
+    <div class="glossary-def">多组独立的注意力计算，各关注不同语义关系</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Concat（拼接）</div>
+    <div class="glossary-def">将多个头的输出拼接在一起</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">Linear Projection（线性投影）</div>
+    <div class="glossary-def">用矩阵乘法变换向量维度</div>
+  </div>
+  <div class="glossary-item">
+    <div class="glossary-term">RNN (Recurrent Neural Network)</div>
+    <div class="glossary-def">循环神经网络，按顺序逐词处理的旧架构</div>
+  </div>
+</div>
+
+<script>
+// ===================== GLOSSARY =====================
+function toggleGlossary() {
+  var panel = document.getElementById('glossaryPanel');
+  var backdrop = document.getElementById('glossaryBackdrop');
+  var isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+    backdrop.classList.remove('open');
+  } else {
+    panel.classList.add('open');
+    backdrop.classList.add('open');
+  }
+}
+</script>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== Tab switching =====
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var target = tab.dataset.tab;
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      panels.forEach(function(p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      document.getElementById('panel-' + target).classList.add('active');
+
+      if (target === 'heatmap') {
+        buildHeatmap();
+      }
+      if (target === 'revolution') {
+        resetCompareAnim();
+      }
+    });
+  });
+
+  // ===== Panel 1: Step-by-step animation =====
+  var currentStep = -1;
+  var maxStep = 3;
+  var stepBtn = document.getElementById('step-btn');
+  var stepDesc = document.getElementById('step-desc');
+
+  var stepDescriptions = [
+    '步骤 1/4：输入词序列已准备好，每个词有对应的词向量。',
+    '步骤 2/4：通过线性变换，每个词得到 Q(查询)、K(键)、V(值) 三个向量。',
+    '步骤 3/4：核心公式 — Q 和 K 的点积经 softmax 归一化后，加权求和 V。',
+    '步骤 4/4："苹果" 对每个词的注意力分布：吃(0.42) > 喜欢(0.28) > 苹果(0.18) > 我(0.12)。'
+  ];
+
+  stepBtn.addEventListener('click', function() {
+    currentStep++;
+    if (currentStep > maxStep) {
+      currentStep = -1;
+      resetCalcSteps();
+      stepBtn.textContent = '逐步演示';
+      stepDesc.textContent = '点击按钮，逐步查看自注意力计算过程';
+      return;
+    }
+
+    showCalcStep(currentStep);
+    stepDesc.textContent = stepDescriptions[currentStep];
+
+    if (currentStep === maxStep) {
+      stepBtn.textContent = '重新开始';
+    } else {
+      stepBtn.textContent = '下一步 (' + (currentStep + 2) + '/' + (maxStep + 1) + ')';
+    }
+  });
+
+  function resetCalcSteps() {
+    ['step-1', 'step-2', 'step-3'].forEach(function(id) {
+      var el = document.getElementById(id);
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(20px)';
+    });
+    ['qkv-q', 'qkv-k', 'qkv-v'].forEach(function(id) {
+      document.getElementById(id).classList.remove('visible');
+    });
+    document.querySelectorAll('.word-box').forEach(function(w) {
+      w.classList.remove('highlight');
+    });
+    document.querySelectorAll('.arc-path').forEach(function(a) {
+      a.classList.remove('visible');
+    });
+    document.getElementById('arc-desc').textContent = '';
+  }
+
+  function showCalcStep(step) {
+    if (step === 0) {
+      document.querySelectorAll('.word-box').forEach(function(w, i) {
+        setTimeout(function() { w.classList.add('highlight'); }, i * 150);
+      });
+    }
+
+    if (step >= 1) {
+      var s1 = document.getElementById('step-1');
+      s1.style.opacity = '1';
+      s1.style.transform = 'translateY(0)';
+      setTimeout(function() { document.getElementById('qkv-q').classList.add('visible'); }, 200);
+      setTimeout(function() { document.getElementById('qkv-k').classList.add('visible'); }, 500);
+      setTimeout(function() { document.getElementById('qkv-v').classList.add('visible'); }, 800);
+    }
+
+    if (step >= 2) {
+      var s2 = document.getElementById('step-2');
+      s2.style.opacity = '1';
+      s2.style.transform = 'translateY(0)';
+    }
+
+    if (step >= 3) {
+      var s3 = document.getElementById('step-3');
+      s3.style.opacity = '1';
+      s3.style.transform = 'translateY(0)';
+      drawArcs();
+    }
+  }
+
+  // Draw attention arcs for "苹果"
+  function drawArcs() {
+    var svg = document.getElementById('arcs-svg');
+    // Clear existing arcs
+    var existing = svg.querySelectorAll('.arc-path');
+    existing.forEach(function(e) { e.remove(); });
+
+    var words = ['我', '喜欢', '吃', '苹果'];
+    var weights = [0.12, 0.28, 0.42, 0.18]; // attention weights from 苹果
+    var positions = [100, 300, 500, 700]; // x positions in viewBox
+
+    var desc = document.getElementById('arc-desc');
+
+    weights.forEach(function(w, i) {
+      if (i === 3) return; // skip self for visual clarity (still show arc)
+
+      var fromX = 700; // 苹果 position
+      var toX = positions[i];
+      var midX = (fromX + toX) / 2;
+      var height = 160 - (Math.abs(fromX - toX) / 800) * 100;
+      var strokeWidth = 1 + w * 10;
+
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      var d = 'M ' + fromX + ' 155 Q ' + midX + ' ' + (height - 40) + ' ' + toX + ' 155';
+      path.setAttribute('d', d);
+      path.setAttribute('stroke', w > 0.3 ? '#ef4444' : '#f59e0b');
+      path.setAttribute('stroke-width', strokeWidth);
+      path.setAttribute('class', 'arc-path');
+      path.setAttribute('stroke-opacity', 0.3 + w);
+
+      svg.appendChild(path);
+
+      // Label
+      var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', midX);
+      text.setAttribute('y', height - 20);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('fill', w > 0.3 ? '#ef4444' : '#f59e0b');
+      text.setAttribute('font-size', '14');
+      text.setAttribute('font-family', 'JetBrains Mono, monospace');
+      text.setAttribute('font-weight', '700');
+      text.setAttribute('class', 'arc-path');
+      text.textContent = w.toFixed(2);
+      svg.appendChild(text);
+
+      setTimeout(function() {
+        path.classList.add('visible');
+        text.classList.add('visible');
+      }, i * 300);
+    });
+
+    // Self arc for 苹果
+    setTimeout(function() {
+      var selfPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      selfPath.setAttribute('d', 'M 700 155 Q 700 120 720 105 Q 740 90 740 120 Q 740 140 720 155');
+      selfPath.setAttribute('stroke', '#f59e0b');
+      selfPath.setAttribute('stroke-width', '2.8');
+      selfPath.setAttribute('class', 'arc-path');
+      selfPath.setAttribute('stroke-opacity', '0.5');
+      selfPath.setAttribute('fill', 'none');
+      svg.appendChild(selfPath);
+
+      var selfText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      selfText.setAttribute('x', '755');
+      selfText.setAttribute('y', '105');
+      selfText.setAttribute('fill', '#f59e0b');
+      selfText.setAttribute('font-size', '12');
+      selfText.setAttribute('font-family', 'JetBrains Mono, monospace');
+      selfText.setAttribute('class', 'arc-path');
+      selfText.textContent = '0.18';
+      svg.appendChild(selfText);
+
+      setTimeout(function() {
+        selfPath.classList.add('visible');
+        selfText.classList.add('visible');
+      }, 100);
+    }, 900);
+
+    desc.textContent = '"苹果" 最关注 "吃"(0.42)，因为动宾关系语义最强；其次是 "喜欢"(0.28)。';
+  }
+
+  // ===== Panel 2: Heatmap =====
+  var heatmapWords = ['我', '喜欢', '吃', '苹果'];
+  var heatmapData = [
+    [0.35, 0.20, 0.15, 0.30],  // 我 → 各词
+    [0.25, 0.22, 0.33, 0.20],  // 喜欢 → 各词
+    [0.10, 0.30, 0.18, 0.42],  // 吃 → 各词
+    [0.12, 0.28, 0.42, 0.18],  // 苹果 → 各词
+  ];
+  var heatmapBuilt = false;
+
+  function buildHeatmap() {
+    if (heatmapBuilt) return;
+    heatmapBuilt = true;
+
+    var grid = document.getElementById('heatmap-grid');
+    grid.innerHTML = '';
+    var tooltip = document.getElementById('heatmap-tooltip');
+
+    // Corner cell
+    var corner = document.createElement('div');
+    corner.className = 'heatmap-corner';
+    corner.innerHTML = '<span class="mono" style="font-size:9px;">Q \\ K</span>';
+    grid.appendChild(corner);
+
+    // Column headers
+    heatmapWords.forEach(function(w) {
+      var h = document.createElement('div');
+      h.className = 'heatmap-header';
+      h.textContent = w;
+      grid.appendChild(h);
+    });
+
+    // Rows
+    heatmapData.forEach(function(row, ri) {
+      var label = document.createElement('div');
+      label.className = 'heatmap-row-label';
+      label.textContent = heatmapWords[ri];
+      grid.appendChild(label);
+
+      row.forEach(function(val, ci) {
+        var cell = document.createElement('div');
+        cell.className = 'heatmap-cell';
+        cell.textContent = val.toFixed(2);
+        cell.style.background = getHeatColor(val);
+        cell.style.animationDelay = (ri * 4 + ci) * 60 + 'ms';
+
+        cell.addEventListener('mouseenter', function(e) {
+          tooltip.className = 'heatmap-tooltip show';
+          tooltip.innerHTML = '<strong>' + heatmapWords[ri] + '</strong> → <strong>' + heatmapWords[ci] + '</strong>: ' +
+            '<span style="color:#f59e0b;font-weight:700;">' + val.toFixed(4) + '</span>';
+        });
+
+        cell.addEventListener('mousemove', function(e) {
+          tooltip.style.left = (e.clientX + 14) + 'px';
+          tooltip.style.top = (e.clientY - 40) + 'px';
+        });
+
+        cell.addEventListener('mouseleave', function() {
+          tooltip.className = 'heatmap-tooltip';
+        });
+
+        grid.appendChild(cell);
+      });
+    });
+  }
+
+  function getHeatColor(val) {
+    // 0 → deep blue (#1e3a5f), 0.25 → blue (#2563eb), 0.5 → amber (#f59e0b), 1.0 → red (#ef4444)
+    var r, g, b;
+    if (val < 0.25) {
+      var t = val / 0.25;
+      r = lerp(30, 37, t);
+      g = lerp(58, 99, t);
+      b = lerp(95, 235, t);
+    } else if (val < 0.5) {
+      var t2 = (val - 0.25) / 0.25;
+      r = lerp(37, 245, t2);
+      g = lerp(99, 158, t2);
+      b = lerp(235, 11, t2);
+    } else {
+      var t3 = (val - 0.5) / 0.5;
+      r = lerp(245, 239, t3);
+      g = lerp(158, 68, t3);
+      b = lerp(11, 68, t3);
+    }
+    return 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ')';
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  // ===== Panel 3: Multi-Head Attention =====
+  var headsData = [
+    { num: 1, icon: '📝', name: '语法结构', eng: 'Syntax', color: '#ef4444',
+      detail: '关注主谓宾语法关系。<br><strong>"我"(主语) → "喜欢"(谓语)</strong> 权重最高，<strong>"吃" → "苹果"</strong> 动宾关系紧密。<br>这个头学会了句法树的局部结构。' },
+    { num: 2, icon: '🔗', name: '语义关联', eng: 'Semantics', color: '#3b82f6',
+      detail: '关注语义相关性。<br><strong>"吃" → "苹果"</strong> 权重极高（食物+动作），<strong>"喜欢" → "吃"</strong> 也较高（情感+动作）。<br>这个头理解词义之间的搭配关系。' },
+    { num: 3, icon: '📏', name: '位置距离', eng: 'Positional', color: '#22c55e',
+      detail: '关注相邻位置的词。<br>每个词最关注前后相邻的词：<strong>"喜欢" ↔ "吃"</strong>，<strong>"吃" ↔ "苹果"</strong>。<br>类似于 N-gram 模型的局部窗口。' },
+    { num: 4, icon: '🎯', name: '指代消解', eng: 'Coreference', color: '#a78bfa',
+      detail: '关注代词和指代关系。<br>在更复杂的句子中（如"小明说他喜欢苹果"），<strong>"他" → "小明"</strong> 权重最高。<br>这个头学到了跨距离的指代链。' },
+    { num: 5, icon: '⚡', name: '动词论元', eng: 'Verb Args', color: '#f59e0b',
+      detail: '关注动词和它的论元（施事/受事）。<br><strong>"吃"</strong> 同时强关注 <strong>"我"(施事)</strong> 和 <strong>"苹果"(受事)</strong>。<br>"谁吃什么"的结构被这个头捕获。' },
+    { num: 6, icon: '🌐', name: '全局上下文', eng: 'Global', color: '#06b6d4',
+      detail: '近似均匀地关注所有词。<br>每个词对其他词的注意力权重接近 <strong>0.25</strong>。<br>这个头起到类似 "全局平均池化" 的作用，提供整体语境。' },
+    { num: 7, icon: '📦', name: '名词短语', eng: 'Noun Phrase', color: '#ec4899',
+      detail: '关注名词和修饰成分。<br>如果句子是 "红色的苹果"，<strong>"苹果" → "红色的"</strong> 权重最高。<br>在本例中 <strong>"苹果"</strong> 作为核心名词获得较高自注意力。' },
+    { num: 8, icon: '🔄', name: '稀有模式', eng: 'Sparse', color: '#84cc16',
+      detail: '学到人类难以命名的抽象模式。<br>注意力分布呈现 <strong>稀疏+不规则</strong> 模式。<br>研究表明约 30% 的头学到的模式无法用语言学概念解释，但对最终性能有贡献。' }
+  ];
+
+  (function buildHeads() {
+    var container = document.getElementById('mha-heads');
+    headsData.forEach(function(h, i) {
+      var card = document.createElement('div');
+      card.className = 'head-card';
+      card.dataset.idx = i;
+      card.innerHTML = '<div class="head-num" style="color:' + h.color + ';">Head ' + h.num + '</div>' +
+        '<div class="head-icon">' + h.icon + '</div>' +
+        '<div class="head-name">' + h.name + '</div>' +
+        '<div class="head-eng">' + h.eng + '</div>';
+
+      card.addEventListener('click', function() {
+        document.querySelectorAll('.head-card').forEach(function(c) { c.classList.remove('selected'); });
+        card.classList.add('selected');
+        showHeadDetail(i);
+      });
+
+      container.appendChild(card);
+    });
+  })();
+
+  function showHeadDetail(idx) {
+    var h = headsData[idx];
+    var title = document.getElementById('head-detail-title');
+    var desc = document.getElementById('head-detail-desc');
+    title.style.color = h.color;
+    title.textContent = 'Head ' + h.num + ': ' + h.name + ' (' + h.eng + ')';
+    desc.innerHTML = h.detail;
+  }
+
+  // ===== Panel 4: Revolution comparison =====
+  var rnnWords = ['我', '喜欢', '吃', '苹果'];
+  var rnnWeights = [0.15, 0.35, 0.65, 1.0]; // decaying from 苹果 perspective
+  var attnWeights = [0.88, 0.92, 0.95, 1.0]; // direct access, all high
+
+  function buildSignals() {
+    var rnnContainer = document.getElementById('rnn-signals');
+    var attnContainer = document.getElementById('attn-signals');
+    rnnContainer.innerHTML = '';
+    attnContainer.innerHTML = '';
+
+    rnnWords.forEach(function(w, i) {
+      rnnContainer.innerHTML += '<div class="signal-row">' +
+        '<span class="signal-word" style="color:#ef4444;">' + w + '</span>' +
+        '<div class="signal-bar" id="rnn-bar-' + i + '" style="width:0%;background:linear-gradient(90deg,#ef444480,#ef4444);"></div>' +
+        '<span class="signal-value" id="rnn-val-' + i + '">—</span></div>';
+
+      attnContainer.innerHTML += '<div class="signal-row">' +
+        '<span class="signal-word" style="color:#22c55e;">' + w + '</span>' +
+        '<div class="signal-bar" id="attn-bar-' + i + '" style="width:0%;background:linear-gradient(90deg,#22c55e80,#22c55e);"></div>' +
+        '<span class="signal-value" id="attn-val-' + i + '">—</span></div>';
+    });
+  }
+
+  buildSignals();
+
+  function resetCompareAnim() {
+    buildSignals();
+  }
+
+  function playCompareAnim() {
+    buildSignals();
+
+    rnnWords.forEach(function(w, i) {
+      var rIdx = rnnWords.length - 1 - i; // reverse: 苹果 first for RNN
+      setTimeout(function() {
+        var rBar = document.getElementById('rnn-bar-' + i);
+        var rVal = document.getElementById('rnn-val-' + i);
+        var rw = rnnWeights[i];
+        rBar.style.width = (rw * 100) + '%';
+        rVal.textContent = (rw * 100).toFixed(0) + '%';
+        rVal.style.color = rw < 0.3 ? '#ef4444' : '#94a3b8';
+      }, (3 - i) * 400 + 200);
+
+      setTimeout(function() {
+        var aBar = document.getElementById('attn-bar-' + i);
+        var aVal = document.getElementById('attn-val-' + i);
+        var aw = attnWeights[i];
+        aBar.style.width = (aw * 100) + '%';
+        aVal.textContent = (aw * 100).toFixed(0) + '%';
+        aVal.style.color = '#22c55e';
+      }, i * 200 + 200);
+    });
+  }
+
+  document.getElementById('compare-anim-btn').addEventListener('click', playCompareAnim);
+
+  // Initial heatmap build if tab is already active (unlikely but safe)
+  if (document.getElementById('panel-heatmap').classList.contains('active')) {
+    buildHeatmap();
+  }
+
+})();
+</script>
+</body>
+</html>
