@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer 直觉之旅</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #050a18;
+  --blue: #4a9eff;
+  --green: #4ade80;
+  --purple: #a78bfa;
+  --gold: #ffd666;
+  --cyan: #22d3ee;
+  --pink: #f472b6;
+  --orange: #fb923c;
+  --text: #e2e8f0;
+  --muted: #64748b;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans SC', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* 星空 */
+#stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+/* 页头 */
+.header {
+  position: relative; z-index: 10;
+  text-align: center;
+  padding: 40px 20px 20px;
+}
+.header h1 {
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--blue), var(--purple), var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+.header p {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+/* 进度条 */
+.progress-bar {
+  position: relative; z-index: 10;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+}
+.step-dot {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: 'JetBrains Mono', monospace;
+}
+.step-dot.active {
+  border-color: var(--blue);
+  color: var(--blue);
+  box-shadow: 0 0 12px var(--blue);
+}
+.step-dot.done {
+  border-color: var(--green);
+  background: var(--green);
+  color: #050a18;
+}
+.step-line {
+  width: 24px; height: 2px;
+  background: var(--muted);
+  align-self: center;
+  transition: background 0.3s;
+}
+.step-line.done { background: var(--green); }
+
+/* 主容器 */
+.main {
+  position: relative; z-index: 10;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px 120px;
+}
+
+/* 卡片 */
+.card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 24px;
+  backdrop-filter: blur(8px);
+}
+
+.step-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(74,158,255,0.2);
+  border: 1px solid var(--blue);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--blue);
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+.step-subtitle {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+/* 通用可视区 */
+.viz { margin: 24px 0; }
+
+/* ===== STEP 1: 词是数字编号 ===== */
+.token-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.token {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 12px 18px;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: default;
+}
+.token .char {
+  font-size: 1.6rem;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6px;
+}
+.token .idx {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.token.highlight-t {
+  border-color: var(--blue);
+  box-shadow: 0 0 16px rgba(74,158,255,0.3);
+}
+.token .idx.show { color: var(--gold); }
+
+.arrow-down {
+  text-align: center;
+  font-size: 1.5rem;
+  color: var(--muted);
+  margin: 8px 0;
+}
+
+.problem-box {
+  background: rgba(244,114,182,0.08);
+  border: 1px solid rgba(244,114,182,0.3);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-top: 16px;
+  color: var(--pink);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.problem-box .label {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* ===== STEP 2: 上下文问题 ===== */
+.sentence-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 20px 0;
+}
+.sent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.word-chip {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 1rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  transition: all 0.4s;
+}
+.word-chip.focus-word {
+  border-color: var(--gold);
+  background: rgba(255,214,102,0.15);
+  color: var(--gold);
+  box-shadow: 0 0 12px rgba(255,214,102,0.25);
+  font-weight: 700;
+}
+.word-chip.context-word {
+  border-color: var(--blue);
+  background: rgba(74,158,255,0.1);
+  color: var(--blue);
+}
+.meaning-tag {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  margin-left: 8px;
+}
+.meaning-tag.food { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+.meaning-tag.tech { background: rgba(167,139,250,0.15); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
+
+/* ===== STEP 3: 平均不行 ===== */
+.avg-demo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+}
+.avg-words {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.avg-word {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.12);
+  font-size: 0.95rem;
+  transition: all 0.4s;
+  text-align: center;
+}
+.avg-word .w-weight {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.avg-result {
+  background: rgba(255,255,255,0.05);
+  border: 1px dashed rgba(255,255,255,0.2);
+  border-radius: 10px;
+  padding: 16px 28px;
+  text-align: center;
+}
+.avg-result .label { color: var(--muted); font-size: 0.85rem; margin-bottom: 4px; }
+.avg-result .value { font-size: 1.1rem; font-family: 'JetBrains Mono', monospace; }
+
+/* ===== STEP 4: 权重想法 ===== */
+.weight-demo {
+  margin: 20px 0;
+}
+.weight-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.w-word {
+  min-width: 60px;
+  text-align: right;
+  font-size: 1rem;
+}
+.w-bar-wrap {
+  flex: 1;
+  min-width: 120px;
+  height: 28px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+.w-bar {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: #000;
+}
+.w-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-width: 80px;
+}
+
+/* ===== STEP 5: 相似度 ===== */
+.sim-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+#simCanvas { width: 100%; display: block; }
+
+.sim-explain {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.sim-chip {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* ===== STEP 6: QKV 推导 ===== */
+.qkv-story {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 20px 0;
+}
+.qkv-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.4s;
+}
+.qkv-step.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.qkv-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.qkv-content .title { font-weight: 600; margin-bottom: 4px; }
+.qkv-content .desc { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+.qkv-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+.qkv-badge.q { background: rgba(74,158,255,0.2); color: var(--blue); }
+.qkv-badge.k { background: rgba(74,222,128,0.2); color: var(--green); }
+.qkv-badge.v { background: rgba(255,214,102,0.2); color: var(--gold); }
+
+/* ===== STEP 7: 完整流程 3D ===== */
+#flowCanvas {
+  width: 100%;
+  max-width: 700px;
+  display: block;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+
+/* ===== STEP 8: 多头 ===== */
+.heads-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.head-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+.head-card:hover, .head-card.active {
+  border-color: var(--purple);
+  box-shadow: 0 0 16px rgba(167,139,250,0.2);
+}
+.head-card .head-icon { font-size: 1.6rem; margin-bottom: 8px; }
+.head-card .head-name { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+.head-card .head-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+
+.head-example {
+  background: rgba(167,139,250,0.08);
+  border: 1px solid rgba(167,139,250,0.2);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 16px;
+  min-height: 80px;
+  transition: all 0.3s;
+}
+.head-example .ex-title { font-size: 0.85rem; color: var(--purple); margin-bottom: 8px; font-weight: 600; }
+.head-example .ex-content { font-size: 0.95rem; line-height: 1.6; }
+
+/* ===== STEP 9: 堆叠层 ===== */
+.layers-viz {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 20px 0;
+  align-items: center;
+}
+.layer-block {
+  width: 100%;
+  max-width: 480px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  text-align: center;
+  transition: all 0.4s;
+  cursor: pointer;
+}
+.layer-block:hover { transform: scale(1.02); }
+.layer-block .l-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+.layer-block .l-content { font-size: 0.95rem; font-weight: 500; }
+.layer-arrow { color: var(--muted); font-size: 1.2rem; text-align: center; }
+
+/* ===== STEP 10: 总结 ===== */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.summary-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+.summary-card .s-icon { font-size: 2rem; margin-bottom: 8px; }
+.summary-card .s-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+.summary-card .s-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
+
+/* 导航按钮 */
+.nav-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: rgba(5,10,24,0.9);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.nav-btn {
+  padding: 10px 28px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.95rem;
+  font-family: 'Noto Sans SC', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+.nav-btn.prev {
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.nav-btn.prev:hover { background: rgba(255,255,255,0.1); }
+.nav-btn.next {
+  background: var(--blue);
+  color: #000;
+  font-weight: 700;
+}
+.nav-btn.next:hover { background: #6ab4ff; box-shadow: 0 0 20px rgba(74,158,255,0.5); }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.step-counter {
+  align-self: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-width: 60px;
+  text-align: center;
+}
+
+/* 动画 */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeInUp 0.4s ease forwards; }
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(74,158,255,0.2); }
+  50% { box-shadow: 0 0 20px rgba(74,158,255,0.5); }
+}
+
+/* 术语表 */
+#glossary-btn {
+  position: fixed; bottom: 80px; right: 24px;
+  z-index: 999;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(74,158,255,0.15);
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+#glossary-btn:hover { background: rgba(74,158,255,0.3); box-shadow: 0 0 16px rgba(74,158,255,0.4); }
+
+#glossary-panel {
+  position: fixed; top: 0; right: -360px; bottom: 0;
+  width: 340px;
+  background: rgba(10,15,30,0.97);
+  border-left: 1px solid rgba(255,255,255,0.1);
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 24px;
+  transition: right 0.3s ease;
+  backdrop-filter: blur(16px);
+}
+#glossary-panel.open { right: 0; }
+#glossary-panel h3 { font-size: 1.1rem; margin-bottom: 20px; color: var(--blue); }
+.g-item { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.g-item:last-child { border-bottom: none; }
+.g-item .g-en { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--gold); font-size: 0.9rem; }
+.g-item .g-zh { font-weight: 500; margin: 4px 0; }
+.g-item .g-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+#glossary-close {
+  position: absolute; top: 16px; right: 16px;
+  background: none; border: none;
+  color: var(--muted); font-size: 1.2rem;
+  cursor: pointer;
+}
+
+/* 隐藏未激活步骤 */
+.step-section { display: none; }
+.step-section.active { display: block; animation: fadeInUp 0.35s ease; }
+
+/* 注意力热力图 */
+.attn-grid {
+  margin: 20px auto;
+  max-width: 420px;
+}
+.attn-grid table {
+  width: 100%; border-collapse: separate; border-spacing: 4px;
+}
+.attn-grid th, .attn-grid td {
+  padding: 8px;
+  text-align: center;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+.attn-grid th { color: var(--muted); background: transparent; }
+.attn-grid td.query-label {
+  color: var(--text);
+  background: rgba(255,255,255,0.05);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div class="header">
+  <h1>Transformer 直觉之旅</h1>
+  <p>从最简单的问题出发，一步步推导出 Transformer 的核心原理</p>
+</div>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<div class="main" id="mainContent"></div>
+
+<div class="nav-bar">
+  <button class="nav-btn prev" id="prevBtn" onclick="navigate(-1)" disabled>← 上一步</button>
+  <span class="step-counter" id="stepCounter">1 / 10</span>
+  <button class="nav-btn next" id="nextBtn" onclick="navigate(1)">下一步 →</button>
+</div>
+
+<button id="glossary-btn" onclick="toggleGlossary()">❓</button>
+<div id="glossary-panel">
+  <button id="glossary-close" onclick="toggleGlossary()">✕</button>
+  <h3>术语表</h3>
+  <div class="g-item">
+    <div class="g-en">Token</div>
+    <div class="g-zh">词元 / 标记</div>
+    <div class="g-desc">模型处理文本的最小单位，中文通常每个字是一个 token，英文按子词切分。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">Embedding</div>
+    <div class="g-zh">词向量 / 嵌入</div>
+    <div class="g-desc">把一个词（编号）映射到高维空间中的一个向量，让相似的词在空间中距离更近。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">Self-Attention</div>
+    <div class="g-zh">自注意力机制</div>
+    <div class="g-desc">让句子中每个词去"关注"同句所有词，根据相关性加权融合信息，是 Transformer 的核心。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">Q (Query)</div>
+    <div class="g-zh">查询向量</div>
+    <div class="g-desc">代表"我在找什么"。每个词生成一个 Q，用来与其他词的 K 计算相关性。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">K (Key)</div>
+    <div class="g-zh">键向量</div>
+    <div class="g-desc">代表"我是什么"。每个词生成一个 K，被其他词的 Q 来匹配查询。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">V (Value)</div>
+    <div class="g-zh">值向量</div>
+    <div class="g-desc">代表"我的内容"。匹配成功后，按权重取出的实际信息就是 V 的加权组合。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">Dot Product</div>
+    <div class="g-zh">点积</div>
+    <div class="g-desc">两个向量相似度的计算方式。两向量越"同向"，点积越大，表示越相关。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">Softmax</div>
+    <div class="g-zh">归一化指数函数</div>
+    <div class="g-desc">把一组数值转成"概率分布"（加和为1），让注意力权重变得更集中、突出。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">Multi-Head Attention</div>
+    <div class="g-zh">多头注意力</div>
+    <div class="g-desc">同时用多组 Q/K/V 从不同角度观察句子（语法、语义、位置等），再拼接结果。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">Positional Encoding</div>
+    <div class="g-zh">位置编码</div>
+    <div class="g-desc">由于注意力本身没有顺序感，需要额外给每个词加入位置信息向量。</div>
+  </div>
+  <div class="g-item">
+    <div class="g-en">Feed Forward</div>
+    <div class="g-zh">前馈网络</div>
+    <div class="g-desc">注意力之后的全连接层，对每个词独立做非线性变换，增强模型表达能力。</div>
+  </div>
+</div>
+
+<script>
+// ============ 星空 ============
+(function() {
+  const c = document.getElementById('stars');
+  const ctx = c.getContext('2d');
+  let stars = [];
+  function resize() {
+    c.width = window.innerWidth;
+    c.height = window.innerHeight;
+  }
+  function init() {
+    resize();
+    stars = Array.from({length: 160}, () => ({
+      x: Math.random() * c.width,
+      y: Math.random() * c.height,
+      r: Math.random() * 1.2 + 0.3,
+      a: Math.random(),
+      da: (Math.random() - 0.5) * 0.008
+    }));
+  }
+  function draw() {
+    ctx.clearRect(0, 0, c.width, c.height);
+    for (const s of stars) {
+      s.a = Math.max(0.1, Math.min(1, s.a + s.da));
+      if (s.a <= 0.1 || s.a >= 1) s.da *= -1;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(200,220,255,${s.a})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', init);
+  init(); draw();
+})();
+
+// ============ 步骤数据 ============
+const STEPS = [
+  {
+    id: 1,
+    title: '机器怎么「看」文字？',
+    subtitle: '最开始，机器完全不懂文字的含义。它只能把每个字变成一个编号——就像图书馆里每本书都有一个索引号一样。',
+    render: renderStep1
+  },
+  {
+    id: 2,
+    title: '同一个词，不同含义',
+    subtitle: '光有编号够吗？不够。「苹果」在不同语境里意思完全不同。机器需要根据上下文来理解每个词的真实含义。',
+    render: renderStep2
+  },
+  {
+    id: 3,
+    title: '最朴素的想法：看所有邻居',
+    subtitle: '直觉来了：让每个词去「看」句子里的所有其他词，然后把信息混合在一起，这样不就有上下文了吗？',
+    render: renderStep3
+  },
+  {
+    id: 4,
+    title: '问题：直接平均不行',
+    subtitle: '把所有词的信息等权平均？不对。「吃」这个词，「苹果」对它的意义远比「的」重要得多。需要不同的权重。',
+    render: renderStep4
+  },
+  {
+    id: 5,
+    title: '权重从哪来？看相似度！',
+    subtitle: '两个词越「相关」，权重就越大。相关性怎么度量？——把词变成空间里的向量，越相似的词方向越接近。',
+    render: renderStep5
+  },
+  {
+    id: 6,
+    title: '发现新问题：一个词两件事',
+    subtitle: '用词本身的向量去计算相似度，有个问题：「吃」问「苹果」时，它想知道的是苹果的属性，而不是苹果本身的内容。一个词需要同时扮演两个角色——「我在找什么」和「我能提供什么」。',
+    render: renderStep6
+  },
+  {
+    id: 7,
+    title: 'QKV 自然出现了',
+    subtitle: '把一个词拆成三个向量：Q（我在找什么）、K（我的标签）、V（我的内容）。这不是凭空发明，而是被问题逼出来的！',
+    render: renderStep7
+  },
+  {
+    id: 8,
+    title: '注意力分数：热力图',
+    subtitle: '用 Q 和每个 K 算相似度，得到注意力分数，归一化后对 V 加权求和。这就是完整的一次自注意力计算。',
+    render: renderStep8
+  },
+  {
+    id: 9,
+    title: '多个视角：多头注意力',
+    subtitle: '一组 QKV 只能关注一种关系。同时用多组（多个「头」）从不同角度看，就能捕捉语法、语义、位置等多种关系。',
+    render: renderStep9
+  },
+  {
+    id: 10,
+    title: '层层叠加：从词义到句义',
+    subtitle: '把注意力层一层层堆叠起来，底层理解局部词关系，高层理解全局语义。这就是完整的 Transformer！',
+    render: renderStep10
+  }
+];
+
+let currentStep = 0;
+
+// ============ 渲染函数 ============
+
+function renderStep1(container) {
+  const sentence = ['我', '爱', '吃', '苹', '果'];
+  let revealed = false;
+  container.innerHTML = `
+    <div class="viz">
+      <div class="token-row" id="tokenRow">
+        ${sentence.map((c, i) => `
+          <div class="token" id="tok${i}">
+            <span class="char">${c}</span>
+            <span class="idx" id="idx${i}">字 #${i}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="arrow-down">↓</div>
+      <div style="text-align:center; color: var(--muted); font-size:0.9rem; margin-bottom:12px;">机器眼中的"文字"</div>
+      <div class="token-row" id="numRow" style="opacity:0; transition:opacity 0.5s;">
+        ${sentence.map((c, i) => `
+          <div class="token" style="border-color:rgba(255,214,102,0.3);">
+            <span class="char" style="font-family:'JetBrains Mono',monospace; font-size:1.2rem; color:var(--gold);">${1024 + i * 317}</span>
+            <span class="idx">${c}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <button onclick="revealNumbers()" id="revealBtn" style="
+      display:block; margin:0 auto; padding:10px 24px;
+      background:rgba(74,158,255,0.1); border:1px solid var(--blue);
+      color:var(--blue); border-radius:8px; cursor:pointer; font-size:0.95rem;
+      font-family:'Noto Sans SC',sans-serif; transition:all 0.2s;
+    ">👁 看看机器眼中的文字</button>
+    <div class="problem-box" style="margin-top:20px; display:none;" id="prob1">
+      <div class="label">⚠ 问题来了</div>
+      仅仅是编号，机器完全不知道"苹"和"果"合在一起是水果，也不知道"爱"和"吃"有什么关系。
+      需要让这些编号"有意义"——这就是词向量（Embedding）要做的事。
+    </div>
+  `;
+  window.revealNumbers = function() {
+    document.getElementById('numRow').style.opacity = '1';
+    document.getElementById('prob1').style.display = 'block';
+    document.getElementById('revealBtn').style.display = 'none';
+  };
+}
+
+function renderStep2(container) {
+  container.innerHTML = `
+    <div class="viz">
+      <div style="margin-bottom:16px; color:var(--muted); font-size:0.9rem;">点击"苹果"，看看上下文如何改变它的含义：</div>
+      <div class="sentence-compare" id="sentCompare">
+        <div class="sent-row" id="sent1">
+          ${['我', '爱', '吃', '苹果'].map(w => `<div class="word-chip" data-sent="1" data-word="${w}">${w}</div>`).join('')}
+          <span id="tag1" style="display:none;"><span class="meaning-tag food">🍎 水果</span></span>
+        </div>
+        <div style="color:var(--muted); padding:4px 0; font-size:0.9rem;">另一句话：</div>
+        <div class="sent-row" id="sent2">
+          ${['苹果', '手机', '真好用'].map(w => `<div class="word-chip" data-sent="2" data-word="${w}">${w}</div>`).join('')}
+          <span id="tag2" style="display:none;"><span class="meaning-tag tech">📱 科技公司</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="problem-box" style="display:none; margin-top:16px;" id="insight2">
+      <div class="label">💡 关键洞察</div>
+      同一个词"苹果"，编号完全一样，但含义截然不同。
+      一个词的意义必须由它的<strong style="color:var(--blue)">周围的词</strong>来共同决定。
+      这就是为什么不能只靠编号——我们需要让每个词"看到"它的上下文。
+    </div>
+  `;
+  const chips = container.querySelectorAll('.word-chip');
+  chips.forEach(chip => {
+    chip.addEventListener('click', function() {
+      const sent = this.dataset.sent;
+      const word = this.dataset.word;
+      if (word !== '苹果' && word !== '苹果') return;
+      chips.forEach(c => {
+        if (c.dataset.sent === sent) c.classList.add('context-word');
+      });
+      this.classList.remove('context-word');
+      this.classList.add('focus-word');
+      document.getElementById('tag' + sent).style.display = 'inline';
+      document.getElementById('insight2').style.display = 'block';
+    });
+  });
+  // 也让其他词可点击
+  chips.forEach(chip => {
+    chip.addEventListener('click', function() {
+      const sent = this.dataset.sent;
+      chips.forEach(c => { c.classList.remove('context-word', 'focus-word'); });
+      const sameSent = Array.from(chips).filter(c => c.dataset.sent === sent);
+      sameSent.forEach(c => c.classList.add('context-word'));
+      this.classList.remove('context-word');
+      this.classList.add('focus-word');
+      if (this.dataset.word === '苹果') {
+        document.getElementById('tag' + sent).style.display = 'inline';
+        document.getElementById('insight2').style.display = 'block';
+      }
+    });
+  });
+}
+
+function renderStep3(container) {
+  container.innerHTML = `
+    <div class="viz">
+      <div style="text-align:center; margin-bottom:20px; color:var(--muted); font-size:0.9rem;">
+        目标词："<strong style="color:var(--gold)">吃</strong>"——让它去"看"句子里的所有词
+      </div>
+      <div class="token-row" id="step3tokens">
+        ${['我', '爱', '吃', '苹果'].map((w, i) => `
+          <div class="token" id="s3tok${i}" style="${w==='吃'?'border-color:var(--gold);box-shadow:0 0 12px rgba(255,214,102,0.3);':''}">
+            <span class="char" style="${w==='吃'?'color:var(--gold);':''}">${w}</span>
+            <span class="idx" id="s3line${i}" style="color:transparent; font-size:0.7rem;">—</span>
+          </div>
+        `).join('')}
+      </div>
+      <div style="text-align:center; margin:20px 0;">
+        <button onclick="showLines3()" id="btn3" style="
+          padding:10px 24px; background:rgba(74,158,255,0.1); border:1px solid var(--blue);
+          color:var(--blue); border-radius:8px; cursor:pointer; font-size:0.95rem;
+          font-family:'Noto Sans SC',sans-serif;
+        ">🔗 让"吃"去看所有词</button>
+      </div>
+      <div id="avg3" style="display:none; text-align:center; margin-top:8px;">
+        <div style="color:var(--muted); font-size:0.85rem; margin-bottom:8px;">把所有词的信息<strong>等权平均</strong>混合给"吃"</div>
+        <div style="
+          display:inline-block; padding:14px 28px;
+          background:rgba(74,158,255,0.1); border:1px solid var(--blue);
+          border-radius:10px; font-size:1rem;
+          ">
+          新的"吃" = (我 + 爱 + 吃 + 苹果) ÷ 4
+        </div>
+      </div>
+    </div>
+    <div class="problem-box" style="display:none; margin-top:16px;" id="insight3">
+      <div class="label">🤔 但等等……</div>
+      这样混合有意义吗？"我"和"吃"的关联很小，但我们给了它和"苹果"一样的权重。
+      这就像做菜时，盐和糖放一样多——结果肯定不对。下一步我们来解决这个问题。
+    </div>
+  `;
+  window.showLines3 = function() {
+    const labels = ['我在看你', '我在看你', '（我自己）', '我在看你'];
+    labels.forEach((l, i) => {
+      setTimeout(() => {
+        const el = document.getElementById('s3line' + i);
+        el.style.color = i === 2 ? 'var(--purple)' : 'var(--cyan)';
+        el.textContent = l;
+        document.getElementById('s3tok' + i).style.borderColor = i === 2 ? 'var(--purple)' : 'var(--cyan)';
+        if (i === 3) {
+          document.getElementById('avg3').style.display = 'block';
+          setTimeout(() => document.getElementById('insight3').style.display = 'block', 500);
+        }
+      }, i * 200);
+    });
+    document.getElementById('btn3').style.display = 'none';
+  };
+}
+
+function renderStep4(container) {
+  const words = ['我', '爱', '吃', '苹果'];
+  const uniformW = [25, 25, 25, 25];
+  const smartW = [8, 15, 20, 57];
+  const colors = ['var(--cyan)', 'var(--blue)', 'var(--purple)', 'var(--green)'];
+  let isSmart = false;
+
+  function renderBars(weights) {
+    return words.map((w, i) => `
+      <div class="weight-row">
+        <div class="w-word">${w}</div>
+        <div class="w-bar-wrap">
+          <div class="w-bar" id="bar4_${i}" style="width:${weights[i]}%; background:${colors[i]};">
+            ${weights[i]}%
+          </div>
+        </div>
+        <div class="w-desc" id="desc4_${i}" style="color:${colors[i]}; font-size:0.8rem;">
+          ${weights === uniformW ? '' : (i===3?'✦ 最相关':i===2?'（自身）':i===1?'动作相关':'较不相关')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  container.innerHTML = `
+    <div class="viz">
+      <div style="margin-bottom:8px; color:var(--muted); font-size:0.9rem;">
+        目标词：<strong style="color:var(--gold)">"吃"</strong> 在理解自己时，应该给其他词多少权重？
+      </div>
+      <div class="weight-demo" id="wdemo4">${renderBars(uniformW)}</div>
+      <div style="text-align:center; margin-top:16px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+        <button onclick="setMode4(false)" id="btn4a" style="
+          padding:9px 20px; border-radius:8px; border:1px solid var(--pink);
+          background:rgba(244,114,182,0.1); color:var(--pink); cursor:pointer;
+          font-family:'Noto Sans SC',sans-serif; font-size:0.9rem;
+        ">❌ 等权平均（当前）</button>
+        <button onclick="setMode4(true)" id="btn4b" style="
+          padding:9px 20px; border-radius:8px; border:1px solid var(--green);
+          background:rgba(74,222,128,0.1); color:var(--green); cursor:pointer;
+          font-family:'Noto Sans SC',sans-serif; font-size:0.9rem;
+        ">✅ 按相关性加权</button>
+      </div>
+    </div>
+    <div id="insight4" class="problem-box" style="display:none; margin-top:16px;">
+      <div class="label" style="color:var(--green);">💡 对了！</div>
+      "吃"最应该关注"苹果"（动作的对象），其次是"吃"自身，再次是"爱"，最少关注"我"。
+      但问题来了——<strong style="color:var(--gold)">这些权重怎么计算？</strong>靠什么来判断两个词的"相关性"？
+    </div>
+  `;
+  window.setMode4 = function(smart) {
+    isSmart = smart;
+    const w = smart ? smartW : uniformW;
+    words.forEach((_, i) => {
+      const bar = document.getElementById('bar4_' + i);
+      bar.style.width = w[i] + '%';
+      bar.textContent = w[i] + '%';
+      document.getElementById('desc4_' + i).textContent =
+        !smart ? '' : (i===3?'✦ 最相关':i===2?'（自身）':i===1?'动作相关':'较不相关');
+    });
+    if (smart) document.getElementById('insight4').style.display = 'block';
+  };
+}
+
+function renderStep5(container) {
+  container.innerHTML = `
+    <div class="viz">
+      <div style="text-align:center; margin-bottom:8px; color:var(--muted); font-size:0.9rem;">
+        把词变成向量（箭头），在 3D 空间中方向越接近 → 越相关
+      </div>
+      <div style="text-align:center; margin-bottom:8px;">
+        <span style="font-size:0.75rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:4px 10px; border-radius:4px;">
+          🖱 拖动旋转 · 滚轮缩放
+        </span>
+      </div>
+      <div class="sim-canvas-wrap" style="position:relative;">
+        <canvas id="simCanvas3D" style="width:100%; cursor:grab; border-radius:12px; background:rgba(0,0,0,0.3);"></canvas>
+      </div>
+      <div style="text-align:center; margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+        <button onclick="autoRotate3D()" id="btn5auto" style="
+          padding:8px 18px; background:rgba(74,158,255,0.1); border:1px solid var(--blue);
+          color:var(--blue); border-radius:8px; cursor:pointer; font-family:'Noto Sans SC',sans-serif; font-size:0.9rem;
+        ">🔄 自动旋转</button>
+        <button onclick="showSim3D()" id="btn5sim" style="
+          padding:8px 18px; background:rgba(74,222,128,0.1); border:1px solid var(--green);
+          color:var(--green); border-radius:8px; cursor:pointer; font-family:'Noto Sans SC',sans-serif; font-size:0.9rem;
+        ">📐 显示相似度</button>
+      </div>
+    </div>
+    <div style="margin-top:20px;" class="sim-explain">
+      <div class="sim-chip" style="background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.2); flex:1; min-width:160px;">
+        <span style="color:var(--green); font-weight:600;">高相似度</span><br>
+        <span style="font-size:0.85rem; color:var(--muted);">"吃" ↔ "苹果"<br>方向接近，点积大，权重大</span>
+      </div>
+      <div class="sim-chip" style="background:rgba(244,114,182,0.08); border:1px solid rgba(244,114,182,0.2); flex:1; min-width:160px;">
+        <span style="color:var(--pink); font-weight:600;">低相似度</span><br>
+        <span style="font-size:0.85rem; color:var(--muted);">"吃" ↔ "我"<br>方向差异大，点积小，权重小</span>
+      </div>
+    </div>
+    <div class="problem-box" style="margin-top:16px; display:none;" id="insight5">
+      <div class="label">🔍 数学本质</div>
+      两个向量的<strong style="color:var(--blue)">点积</strong> = 它们方向的余弦相似度 × 长度。
+      方向越接近，点积越大，说明两个词越相关，权重就越高。
+      <br><br>但很快我们会发现——直接用词向量算点积还是有问题…
+    </div>
+  `;
+
+  setTimeout(() => {
+    const canvas = document.getElementById('simCanvas3D');
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = Math.min(canvas.parentElement.offsetWidth, 600);
+    const H = 400;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    // 3D 向量定义（x, y, z）
+    const vectors3D = [
+      { label: '吃',   x: 0.7, y: 0.5, z: 0.3,  color: '#ffd666', lw: 3 },
+      { label: '苹果', x: 0.65, y: 0.55, z: 0.4, color: '#4ade80', lw: 2.5 },
+      { label: '爱',   x: 0.4, y: 0.7, z: -0.2,  color: '#4a9eff', lw: 2 },
+      { label: '我',   x: -0.3, y: 0.6, z: 0.5,  color: '#a78bfa', lw: 2 }
+    ];
+    // normalize
+    vectors3D.forEach(v => {
+      const len = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+      v.x /= len; v.y /= len; v.z /= len;
+    });
+
+    let rotX = -0.4, rotY = 0.6;
+    let scale = 120;
+    let dragging = false, lastMX = 0, lastMY = 0;
+    let autoRot = false;
+    let showSimLines = false;
+    let animId = null;
+
+    function project(x, y, z) {
+      // rotate Y
+      const cy1 = Math.cos(rotY), sy1 = Math.sin(rotY);
+      const rx = x * cy1 + z * sy1;
+      const rz = -x * sy1 + z * cy1;
+      // rotate X
+      const cx1 = Math.cos(rotX), sx1 = Math.sin(rotX);
+      const ry = y * cx1 - rz * sx1;
+      const rz2 = y * sx1 + rz * cx1;
+      // perspective
+      const persp = 1 + rz2 * 0.15;
+      return {
+        sx: W / 2 + rx * scale * persp,
+        sy: H / 2 - ry * scale * persp,
+        depth: rz2,
+        persp: persp
+      };
+    }
+
+    function drawArrow(ctx, ox, oy, ex, ey, color, lw, alpha) {
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      // arrowhead
+      const dx = ex - ox, dy = ey - oy;
+      const len = Math.sqrt(dx*dx + dy*dy);
+      if (len < 10) return;
+      const ux = dx/len, uy = dy/len;
+      const aSize = 8;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - ux*aSize + uy*aSize*0.4, ey - uy*aSize - ux*aSize*0.4);
+      ctx.lineTo(ex - ux*aSize - uy*aSize*0.4, ey - uy*aSize + ux*aSize*0.4);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function cosSim(a, b) {
+      return a.x*b.x + a.y*b.y + a.z*b.z;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // grid floor
+      const gridN = 6;
+      ctx.globalAlpha = 0.06;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 0.5;
+      for (let i = -gridN; i <= gridN; i++) {
+        const p1 = project(i/gridN * 1.5, 0, -1.5);
+        const p2 = project(i/gridN * 1.5, 0, 1.5);
+        ctx.beginPath(); ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.stroke();
+        const p3 = project(-1.5, 0, i/gridN * 1.5);
+        const p4 = project(1.5, 0, i/gridN * 1.5);
+        ctx.beginPath(); ctx.moveTo(p3.sx, p3.sy); ctx.lineTo(p4.sx, p4.sy); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // axes
+      const axes = [
+        { x:1.3, y:0, z:0, label:'X', color:'rgba(255,255,255,0.15)' },
+        { x:0, y:1.3, z:0, label:'Y', color:'rgba(255,255,255,0.15)' },
+        { x:0, y:0, z:1.3, label:'Z', color:'rgba(255,255,255,0.15)' }
+      ];
+      const orig = project(0,0,0);
+      axes.forEach(a => {
+        const p = project(a.x, a.y, a.z);
+        ctx.strokeStyle = a.color;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(orig.sx, orig.sy); ctx.lineTo(p.sx, p.sy); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.font = '11px JetBrains Mono';
+        ctx.fillText(a.label, p.sx + 4, p.sy - 4);
+      });
+
+      // similarity arcs
+      if (showSimLines) {
+        for (let i = 1; i < vectors3D.length; i++) {
+          const v0 = vectors3D[0];
+          const vi = vectors3D[i];
+          const sim = cosSim(v0, vi);
+          const midX = (v0.x + vi.x) * 0.35;
+          const midY = (v0.y + vi.y) * 0.35;
+          const midZ = (v0.z + vi.z) * 0.35;
+          const pMid = project(midX, midY, midZ);
+          const p0 = project(v0.x * 0.5, v0.y * 0.5, v0.z * 0.5);
+          const pi = project(vi.x * 0.5, vi.y * 0.5, vi.z * 0.5);
+
+          ctx.globalAlpha = 0.3;
+          ctx.strokeStyle = sim > 0.7 ? '#4ade80' : sim > 0.4 ? '#4a9eff' : '#f472b6';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4,4]);
+          ctx.beginPath();
+          ctx.moveTo(p0.sx, p0.sy);
+          ctx.quadraticCurveTo(pMid.sx, pMid.sy - 15, pi.sx, pi.sy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+
+          ctx.fillStyle = sim > 0.7 ? '#4ade80' : sim > 0.4 ? '#4a9eff' : '#f472b6';
+          ctx.font = 'bold 12px JetBrains Mono';
+          ctx.fillText(sim.toFixed(2), pMid.sx + 6, pMid.sy - 6);
+        }
+      }
+
+      // sort by depth for proper overlap
+      const sorted = vectors3D.map((v, i) => ({...v, i}))
+        .sort((a, b) => {
+          const pa = project(a.x, a.y, a.z);
+          const pb = project(b.x, b.y, b.z);
+          return pa.depth - pb.depth;
+        });
+
+      sorted.forEach(v => {
+        const p = project(v.x, v.y, v.z);
+        const alpha = 0.5 + p.persp * 0.3;
+
+        // glow on origin
+        const grad = ctx.createRadialGradient(orig.sx, orig.sy, 0, orig.sx, orig.sy, 20);
+        grad.addColorStop(0, v.color + '22');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(orig.sx - 20, orig.sy - 20, 40, 40);
+
+        drawArrow(ctx, orig.sx, orig.sy, p.sx, p.sy, v.color, v.lw * p.persp, alpha);
+
+        // label with depth-based size
+        const fs = Math.round(13 * p.persp);
+        ctx.fillStyle = v.color;
+        ctx.font = 'bold ' + fs + 'px "Noto Sans SC"';
+        ctx.globalAlpha = alpha;
+        ctx.fillText(v.label, p.sx + 10, p.sy - 8);
+
+        // dot at tip
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, 3.5 * p.persp, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+
+      // legend
+      ctx.font = '11px "Noto Sans SC"';
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillText('3D 词向量空间', 12, 20);
+
+      if (autoRot) {
+        rotY += 0.008;
+        animId = requestAnimationFrame(draw);
+      }
+    }
+
+    draw();
+
+    // mouse drag
+    canvas.addEventListener('mousedown', e => {
+      dragging = true;
+      lastMX = e.clientX;
+      lastMY = e.clientY;
+      canvas.style.cursor = 'grabbing';
+      autoRot = false;
+      if (animId) cancelAnimationFrame(animId);
+    });
+    window.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      rotY += (e.clientX - lastMX) * 0.008;
+      rotX += (e.clientY - lastMY) * 0.008;
+      rotX = Math.max(-1.2, Math.min(1.2, rotX));
+      lastMX = e.clientX;
+      lastMY = e.clientY;
+      draw();
+    });
+    window.addEventListener('mouseup', () => {
+      dragging = false;
+      canvas.style.cursor = 'grab';
+    });
+
+    // touch drag
+    canvas.addEventListener('touchstart', e => {
+      dragging = true;
+      lastMX = e.touches[0].clientX;
+      lastMY = e.touches[0].clientY;
+      autoRot = false;
+      if (animId) cancelAnimationFrame(animId);
+    }, {passive: true});
+    canvas.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      rotY += (e.touches[0].clientX - lastMX) * 0.008;
+      rotX += (e.touches[0].clientY - lastMY) * 0.008;
+      rotX = Math.max(-1.2, Math.min(1.2, rotX));
+      lastMX = e.touches[0].clientX;
+      lastMY = e.touches[0].clientY;
+      draw();
+    }, {passive: true});
+    canvas.addEventListener('touchend', () => { dragging = false; });
+
+    // scroll zoom
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      scale = Math.max(50, Math.min(250, scale - e.deltaY * 0.3));
+      draw();
+    }, {passive: false});
+
+    window.autoRotate3D = function() {
+      autoRot = !autoRot;
+      document.getElementById('btn5auto').textContent = autoRot ? '⏸ 停止旋转' : '🔄 自动旋转';
+      if (autoRot) draw();
+    };
+
+    window.showSim3D = function() {
+      showSimLines = !showSimLines;
+      document.getElementById('btn5sim').textContent = showSimLines ? '📐 隐藏相似度' : '📐 显示相似度';
+      draw();
+      if (showSimLines) {
+        document.getElementById('insight5').style.display = 'block';
+      }
+    };
+  }, 100);
+}
+
+function renderStep6(container) {
+  container.innerHTML = `
+    <div class="viz">
+      <div style="margin-bottom:20px; color:var(--muted); font-size:0.9rem;">
+        让我们仔细看一个具体的例子，理解为什么一个词向量不够用：
+      </div>
+      <div style="
+        background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+        border-radius:12px; padding:20px; margin-bottom:16px;
+      ">
+        <div style="font-size:1rem; margin-bottom:16px; line-height:1.8;">
+          句子：<strong style="color:var(--gold)">银行</strong>
+          <span style="color:var(--muted)">旁边有一条</span>
+          <strong style="color:var(--cyan)">河</strong>
+        </div>
+        <div style="font-size:0.9rem; color:var(--muted); margin-bottom:16px;">
+          "银行"要找相关词时，需要问：<em>"我的意思是金融机构还是河岸？"</em><br>
+          当它看到"河"时，应该说：<em>"哦，我应该被理解为河岸含义"</em>
+        </div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:180px; padding:14px; background:rgba(74,158,255,0.08); border:1px solid rgba(74,158,255,0.2); border-radius:8px;">
+            <div style="color:var(--blue); font-weight:600; margin-bottom:6px;">🔍 查询角色</div>
+            <div style="font-size:0.85rem; color:var(--muted);">
+              "银行"在问：<br>
+              <em>"附近有没有关于自然地理的词？"</em><br>
+              → 这是它的 <strong style="color:var(--blue)">Q（Query）</strong>
+            </div>
+          </div>
+          <div style="flex:1; min-width:180px; padding:14px; background:rgba(74,222,128,0.08); border:1px solid rgba(74,222,128,0.2); border-radius:8px;">
+            <div style="color:var(--green); font-weight:600; margin-bottom:6px;">🏷 被查角色</div>
+            <div style="font-size:0.85rem; color:var(--muted);">
+              "河"在说：<br>
+              <em>"我是一个自然地理词汇"</em><br>
+              → 这是它的 <strong style="color:var(--green)">K（Key）</strong>
+            </div>
+          </div>
+          <div style="flex:1; min-width:180px; padding:14px; background:rgba(255,214,102,0.08); border:1px solid rgba(255,214,102,0.2); border-radius:8px;">
+            <div style="color:var(--gold); font-weight:600; margin-bottom:6px;">📦 内容角色</div>
+            <div style="font-size:0.85rem; color:var(--muted);">
+              匹配成功后，"河"实际传递的信息<br>
+              → 这是它的 <strong style="color:var(--gold)">V（Value）</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="
+        background:rgba(255,214,102,0.08); border:1px solid rgba(255,214,102,0.25);
+        border-radius:10px; padding:16px; font-size:0.95rem; line-height:1.7;
+      ">
+        💡 <strong style="color:var(--gold)">关键洞察：</strong>
+        一个词同时要做两件不同的事——<em>"提问"</em>和<em>"被问"</em>。
+        用同一个向量既当 Q 又当 K，这两件事会互相干扰。
+        所以必须把它们分开！
+      </div>
+    </div>
+  `;
+}
+
+function renderStep7(container) {
+  const steps = [
+    {
+      icon: '🧩',
+      title: '每个词生成三个向量',
+      desc: `原始词向量 × 三个学习到的矩阵 W<sup>Q</sup>、W<sup>K</sup>、W<sup>V</sup> → 得到 <span class="qkv-badge q">Q</span><span class="qkv-badge k">K</span><span class="qkv-badge v">V</span>`,
+      color: 'var(--blue)'
+    },
+    {
+      icon: '🔍',
+      title: 'Q 与所有 K 做点积',
+      desc: `"吃"的 <span class="qkv-badge q">Q</span> × 每个词的 <span class="qkv-badge k">K</span> → 得到一组相关性分数<br>
+             <span style="font-family:'JetBrains Mono'; font-size:0.85rem; color:var(--muted);">score(吃, 苹果) = Q_吃 · K_苹果 = 0.82</span>`,
+      color: 'var(--green)'
+    },
+    {
+      icon: '📊',
+      title: 'Softmax 归一化',
+      desc: `分数太大或太小不好用。Softmax 把所有分数转成<strong style="color:var(--cyan)">概率分布</strong>（加和=1），让大的更大，小的更小。`,
+      color: 'var(--cyan)'
+    },
+    {
+      icon: '⚗️',
+      title: '按权重混合 V',
+      desc: `用归一化后的权重，对每个词的 <span class="qkv-badge v">V</span> 加权求和 → 得到"吃"融合了上下文后的新表示`,
+      color: 'var(--gold)'
+    }
+  ];
+
+  container.innerHTML = `
+    <div class="viz">
+      <div class="qkv-story" id="qkvStory">
+        ${steps.map((s, i) => `
+          <div class="qkv-step" id="qkvs${i}">
+            <div class="qkv-icon">${s.icon}</div>
+            <div class="qkv-content">
+              <div class="title" style="color:${s.color};">步骤 ${i+1}：${s.title}</div>
+              <div class="desc">${s.desc}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top:20px; padding:16px; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.25); border-radius:10px;">
+        <div style="color:var(--purple); font-weight:600; margin-bottom:8px;">完整公式（现在你能理解它了）</div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; color:var(--text); padding:12px; background:rgba(0,0,0,0.3); border-radius:6px; overflow-x:auto;">
+          Attention(Q, K, V) = softmax( Q·Kᵀ / √d<sub style="font-size:0.75rem">k</sub> ) · V
+        </div>
+        <div style="margin-top:10px; font-size:0.85rem; color:var(--muted); line-height:1.6;">
+          其中 √d<sub>k</sub> 是防止点积值太大导致梯度消失的缩放因子，是个工程小技巧。
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 依次显示步骤
+  steps.forEach((_, i) => {
+    setTimeout(() => {
+      const el = document.getElementById('qkvs' + i);
+      if (el) el.classList.add('visible');
+    }, i * 300);
+  });
+}
+
+function renderStep8(container) {
+  const words = ['我', '爱', '吃', '苹果'];
+  // 注意力矩阵（行=query词，列=key词）
+  const attnMatrix = [
+    [0.55, 0.20, 0.15, 0.10],
+    [0.12, 0.45, 0.28, 0.15],
+    [0.08, 0.12, 0.22, 0.58],
+    [0.10, 0.08, 0.35, 0.47]
+  ];
+
+  function attnColor(v) {
+    const r = Math.round(74 + (255-74)*v);
+    const g = Math.round(158 + (255-158)*v*0.3);
+    const b = Math.round(255 * (1-v));
+    return `rgba(${r},${g},${b},${0.2 + v*0.7})`;
+  }
+
+  container.innerHTML = `
+    <div class="viz">
+      <div style="margin-bottom:12px; color:var(--muted); font-size:0.85rem; text-align:center;">
+        注意力热力图（行=正在处理的词，列=被关注的词）<br>颜色越亮 → 权重越高 → 越"关注"
+      </div>
+      <div class="attn-grid">
+        <table>
+          <tr>
+            <th></th>
+            ${words.map(w => `<th style="color:var(--gold);">${w}</th>`).join('')}
+          </tr>
+          ${attnMatrix.map((row, i) => `
+            <tr>
+              <td class="query-label">${words[i]}</td>
+              ${row.map(v => `
+                <td style="background:${attnColor(v)}; color:${v>0.4?'#fff':'rgba(255,255,255,0.7)'}; font-weight:${v>0.4?'700':'400'};">
+                  ${v.toFixed(2)}
+                </td>
+              `).join('')}
+            </tr>
+          `).join('')}
+        </table>
+      </div>
+      <div style="margin-top:16px; padding:14px; background:rgba(74,158,255,0.06); border:1px solid rgba(74,158,255,0.15); border-radius:10px; font-size:0.9rem; line-height:1.7; color:var(--muted);">
+        读法：第3行（"吃"）→ 最关注"苹果"（0.58），其次自身（0.22），较少关注"爱"（0.12），很少关注"我"（0.08）<br>
+        这完全符合直觉：动词"吃"最应该关注它的宾语"苹果"！
+      </div>
+    </div>
+  `;
+}
+
+function renderStep9(container) {
+  const heads = [
+    { icon: '📏', name: '位置关系头', desc: '关注距离相近的词', example: '"苹"→关注"果"（相邻字）', color: 'var(--blue)' },
+    { icon: '🔤', name: '语法结构头', desc: '关注主谓宾关系', example: '"吃"→关注"我"（主语）+"苹果"（宾语）', color: 'var(--green)' },
+    { icon: '💭', name: '语义相关头', desc: '关注语义相关词汇', example: '"苹果"→关注"吃"（动作）', color: 'var(--purple)' },
+    { icon: '🔄', name: '指代消解头', desc: '追踪代词指向', example: '"它"→找到对应的名词', color: 'var(--gold)' },
+    { icon: '📖', name: '词义消歧头', desc: '根据上下文确定词义', example: '"苹果"→区分水果/品牌', color: 'var(--cyan)' },
+    { icon: '🌐', name: '长程依赖头', desc: '关注句子远端词汇', example: '从句末动词→关联句首主语', color: 'var(--orange)' }
+  ];
+  let selectedHead = 0;
+
+  container.innerHTML = `
+    <div class="viz">
+      <div style="margin-bottom:12px; color:var(--muted); font-size:0.9rem;">
+        多个注意力头（Head）同时工作，每个负责一种关系，最后把结果拼接起来：
+      </div>
+      <div class="heads-grid" id="headsGrid">
+        ${heads.map((h, i) => `
+          <div class="head-card ${i===0?'active':''}" onclick="selectHead9(${i})" style="border-color:${i===0?h.color:'rgba(255,255,255,0.1)'};">
+            <div class="head-icon">${h.icon}</div>
+            <div class="head-name" style="color:${h.color};">${h.name}</div>
+            <div class="head-desc">${h.desc}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="head-example" id="headExample">
+        <div class="ex-title">示例（${heads[0].name}）</div>
+        <div class="ex-content">${heads[0].example}</div>
+      </div>
+    </div>
+    <div style="margin-top:16px; padding:14px; background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.2); border-radius:10px; font-size:0.9rem; color:var(--muted); line-height:1.7;">
+      实际 Transformer 中通常有 <strong style="color:var(--purple)">8～96 个头</strong>（取决于模型大小）。
+      每个头学到什么关系是自动学出来的，人类事后才去分析它们"大概"在做什么。
+    </div>
+  `;
+
+  window.selectHead9 = function(i) {
+    const cards = document.querySelectorAll('.head-card');
+    cards.forEach((c, j) => {
+      c.classList.toggle('active', j===i);
+      c.style.borderColor = j===i ? heads[j].color : 'rgba(255,255,255,0.1)';
+    });
+    const ex = document.getElementById('headExample');
+    ex.innerHTML = `<div class="ex-title">示例（${heads[i].name}）</div><div class="ex-content">${heads[i].example}</div>`;
+    ex.style.borderColor = heads[i].color;
+  };
+}
+
+function renderStep10(container) {
+  const layers = [
+    { label: '输入', content: '我 爱 吃 苹果', color: 'rgba(74,158,255,0.15)', border: 'rgba(74,158,255,0.3)', info: '原始词向量 + 位置编码' },
+    { label: '第1层', content: '词法：主谓宾关系', color: 'rgba(74,222,128,0.1)', border: 'rgba(74,222,128,0.25)', info: '理解局部词语搭配关系' },
+    { label: '第2层', content: '语义：动作与对象', color: 'rgba(167,139,250,0.1)', border: 'rgba(167,139,250,0.25)', info: '"吃"与"苹果"建立关联' },
+    { label: '第3层', content: '篇章：情感与意图', color: 'rgba(255,214,102,0.1)', border: 'rgba(255,214,102,0.25)', info: '"爱吃苹果"作为整体意图' },
+    { label: '输出', content: '完整语义表示', color: 'rgba(34,211,238,0.15)', border: 'rgba(34,211,238,0.3)', info: '每个词都融合了全句语境' }
+  ];
+
+  container.innerHTML = `
+    <div class="viz">
+      <div style="margin-bottom:12px; color:var(--muted); font-size:0.9rem; text-align:center;">
+        注意力层一层层堆叠，点击每层查看它"理解"了什么：
+      </div>
+      <div class="layers-viz" id="layersViz">
+        ${layers.map((l, i) => `
+          ${i>0?'<div class="layer-arrow">↓ 自注意力 + 前馈网络</div>':''}
+          <div class="layer-block" onclick="selectLayer10(${i})" id="lb${i}"
+            style="background:${l.color}; border-color:${l.border};">
+            <div class="l-label">${l.label}</div>
+            <div class="l-content">${l.content}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div id="layerInfo" style="
+        margin-top:16px; padding:14px;
+        background:rgba(74,158,255,0.08); border:1px solid rgba(74,158,255,0.2);
+        border-radius:10px; font-size:0.9rem; color:var(--muted);
+        display:none;
+      "></div>
+    </div>
+    <div class="summary-grid" style="margin-top:24px;">
+      <div class="summary-card">
+        <div class="s-icon">🎯</div>
+        <div class="s-title" style="color:var(--blue);">核心思想</div>
+        <div class="s-desc">让每个词"关注"所有其他词，根据相关性加权融合</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-icon">🔑</div>
+        <div class="s-title" style="color:var(--green);">QKV 本质</div>
+        <div class="s-desc">Q=找什么，K=标签，V=内容。一个词拆三个角色，互不干扰</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-icon">👁</div>
+        <div class="s-title" style="color:var(--purple);">多头</div>
+        <div class="s-desc">多组 QKV 同时观察，捕捉语法、语义、位置等多维关系</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-icon">🏗</div>
+        <div class="s-title" style="color:var(--gold);">堆叠</div>
+        <div class="s-desc">多层叠加，从局部词关系逐层抽象到全局语义</div>
+      </div>
+    </div>
+    <div style="margin-top:16px; padding:20px; background:rgba(74,158,255,0.06); border:1px solid rgba(74,158,255,0.15); border-radius:12px; text-align:center;">
+      <div style="font-size:1rem; font-weight:600; color:var(--blue); margin-bottom:8px;">🎉 你已经理解了 Transformer 的核心！</div>
+      <div style="font-size:0.9rem; color:var(--muted); line-height:1.7;">
+        从"词是编号"→"需要上下文"→"加权平均"→"相似度"→"QKV分离"→"多头"→"堆叠"<br>
+        每一步都是被前一步的问题逼出来的——这才是真正理解一个技术的方式。
+      </div>
+    </div>
+  `;
+
+  window.selectLayer10 = function(i) {
+    document.querySelectorAll('.layer-block').forEach((b, j) => {
+      b.style.transform = j===i ? 'scale(1.03)' : '';
+    });
+    const info = document.getElementById('layerInfo');
+    info.style.display = 'block';
+    info.textContent = `${layers[i].label}：${layers[i].info}`;
+  };
+}
+
+// ============ 导航 ============
+function navigate(dir) {
+  const newStep = currentStep + dir;
+  if (newStep < 0 || newStep >= STEPS.length) return;
+  currentStep = newStep;
+  render();
+}
+
+function render() {
+  // 更新进度条
+  const pb = document.getElementById('progressBar');
+  pb.innerHTML = STEPS.map((s, i) => {
+    const cls = i < currentStep ? 'done' : i === currentStep ? 'active' : '';
+    return (i > 0 ? `<div class="step-line ${i <= currentStep?'done':''}"></div>` : '') +
+      `<div class="step-dot ${cls}" onclick="goTo(${i})">${i < currentStep ? '✓' : i+1}</div>`;
+  }).join('');
+
+  // 更新内容
+  const main = document.getElementById('mainContent');
+  const step = STEPS[currentStep];
+  main.innerHTML = `
+    <div class="card step-section active">
+      <div class="step-title">
+        <div class="step-badge">${step.id}</div>
+        ${step.title}
+      </div>
+      <div class="step-subtitle">${step.subtitle}</div>
+      <div id="stepViz"></div>
+    </div>
+  `;
+  step.render(document.getElementById('stepViz'));
+
+  // 更新导航
+  document.getElementById('prevBtn').disabled = currentStep === 0;
+  document.getElementById('nextBtn').textContent = currentStep === STEPS.length - 1 ? '完成 ✓' : '下一步 →';
+  document.getElementById('nextBtn').disabled = false;
+  document.getElementById('stepCounter').textContent = `${currentStep + 1} / ${STEPS.length}`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window.goTo = function(i) { currentStep = i; render(); };
+
+function toggleGlossary() {
+  document.getElementById('glossary-panel').classList.toggle('open');
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', render);
+</script>
+</body>
+</html>
