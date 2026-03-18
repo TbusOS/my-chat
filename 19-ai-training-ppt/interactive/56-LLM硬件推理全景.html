@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM 硬件推理全景</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #050a18;
+  --blue: #4a9eff;
+  --green: #4ade80;
+  --purple: #a78bfa;
+  --gold: #ffd666;
+  --cyan: #22d3ee;
+  --pink: #f472b6;
+  --orange: #fb923c;
+  --text: #e2e8f0;
+  --muted: #64748b;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans SC', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+/* Header */
+.header {
+  position: relative; z-index: 10;
+  text-align: center;
+  padding: 24px 20px 8px;
+}
+.header h1 {
+  font-size: clamp(1.5rem, 3.5vw, 2.4rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--cyan), var(--blue), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+}
+.header p {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Progress dots */
+.progress-bar {
+  position: relative; z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 20px;
+  flex-wrap: wrap;
+}
+.step-dot {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: 'JetBrains Mono', monospace;
+  background: transparent;
+}
+.step-dot:hover { border-color: rgba(74,158,255,0.5); }
+.step-dot.active {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 14px rgba(34,211,238,0.5);
+  background: rgba(34,211,238,0.08);
+}
+.step-dot.done {
+  border-color: var(--green);
+  background: var(--green);
+  color: #050a18;
+}
+.step-line {
+  width: 18px; height: 2px;
+  background: var(--muted);
+  transition: background 0.3s;
+}
+.step-line.done { background: var(--green); }
+
+/* Main layout */
+.main-container {
+  position: relative; z-index: 10;
+  display: flex;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 12px 90px;
+  gap: 12px;
+  height: calc(100vh - 140px);
+  min-height: 480px;
+}
+
+/* Left info panel */
+.info-panel {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.info-panel::-webkit-scrollbar { width: 3px; }
+.info-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+.info-card {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+}
+.info-card h2 {
+  font-size: 1.05rem; font-weight: 700;
+  margin-bottom: 2px;
+  display: flex; align-items: center; gap: 8px;
+}
+.info-card h2 .badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(34,211,238,0.12);
+  border: 1px solid var(--cyan);
+  font-size: 0.65rem; color: var(--cyan);
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+.info-card .sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 8px;
+}
+.info-card .desc {
+  color: rgba(226,232,240,0.75);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+.info-card .desc strong { color: var(--text); }
+.hl-blue { color: var(--blue) !important; }
+.hl-cyan { color: var(--cyan) !important; }
+.hl-orange { color: var(--orange) !important; }
+.hl-pink { color: var(--pink) !important; }
+.hl-green { color: var(--green) !important; }
+.hl-gold { color: var(--gold) !important; }
+.hl-purple { color: var(--purple) !important; }
+
+/* Metric bars */
+.metrics-card h3 {
+  font-size: 0.85rem; font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+.metric-row {
+  display: flex; align-items: center; gap: 6px;
+  margin: 8px 0;
+}
+.metric-label {
+  width: 72px; flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.metric-bar-bg {
+  flex: 1; height: 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.metric-bar-fill {
+  height: 100%; border-radius: 6px;
+  transition: width 0.6s ease;
+}
+.metric-val {
+  width: 38px; text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--gold);
+}
+
+/* Legend card */
+.legend-row {
+  display: flex; align-items: center; gap: 6px;
+  margin: 4px 0; font-size: 0.75rem;
+}
+.legend-dot {
+  width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+}
+
+/* Canvas area */
+.canvas-wrap {
+  flex: 1;
+  position: relative;
+  background: rgba(255,255,255,0.015);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px;
+  overflow: hidden;
+}
+#scene {
+  width: 100%; height: 100%;
+  display: block;
+  cursor: grab;
+}
+#scene:active { cursor: grabbing; }
+.canvas-hint {
+  position: absolute;
+  bottom: 6px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.18);
+  pointer-events: none;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Nav buttons */
+.nav-buttons {
+  position: fixed;
+  bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex; gap: 10px;
+}
+.nav-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 24px;
+  font-size: 0.85rem;
+  font-family: 'Noto Sans SC', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s;
+  backdrop-filter: blur(6px);
+}
+.nav-btn:hover {
+  background: rgba(74,158,255,0.12);
+  border-color: var(--blue);
+}
+.nav-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+.nav-btn:disabled:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+}
+
+/* Glossary */
+.glossary-btn {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 9999;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: rgba(74,158,255,0.12);
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.3s;
+  backdrop-filter: blur(6px);
+}
+.glossary-btn:hover {
+  background: rgba(74,158,255,0.25);
+  box-shadow: 0 0 18px rgba(74,158,255,0.4);
+}
+.glossary-overlay {
+  position: fixed; inset: 0;
+  z-index: 9998;
+  background: rgba(0,0,0,0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.glossary-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.glossary-panel {
+  position: fixed;
+  top: 0; right: -420px;
+  width: 380px; max-width: 88vw;
+  height: 100vh;
+  z-index: 9999;
+  background: rgba(8,12,24,0.96);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  padding: 28px 20px;
+  overflow-y: auto;
+  transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+.glossary-panel.open { right: 0; }
+.glossary-panel h3 {
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+  color: var(--blue);
+}
+.glossary-panel .close-btn {
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none;
+  color: var(--muted); font-size: 1.3rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.glossary-panel .close-btn:hover { color: var(--text); }
+.glossary-item {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.glossary-item:last-child { border-bottom: none; }
+.glossary-item .term {
+  font-weight: 700;
+  color: var(--cyan);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+}
+.glossary-item .zh {
+  color: var(--text);
+  font-size: 0.8rem;
+  margin-left: 6px;
+}
+.glossary-item .def {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  margin-top: 3px;
+}
+
+/* Responsive */
+@media (max-width: 960px) {
+  .main-container {
+    flex-direction: column;
+    height: auto;
+  }
+  .info-panel { width: 100%; max-height: 220px; }
+  .canvas-wrap { min-height: 400px; }
+}
+@media (max-width: 600px) {
+  .header { padding: 16px 12px 4px; }
+  .info-panel { max-height: 180px; }
+  .canvas-wrap { min-height: 320px; }
+  .nav-btn { padding: 6px 16px; font-size: 0.8rem; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div class="header">
+  <h1>LLM 硬件推理全景</h1>
+  <p>从磁盘到显存 &mdash; 大模型推理时数据在硬件间的完整旅程</p>
+</div>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<div class="main-container">
+  <div class="info-panel" id="infoPanel"></div>
+  <div class="canvas-wrap">
+    <canvas id="scene"></canvas>
+    <div class="canvas-hint">drag to rotate &middot; scroll to zoom</div>
+  </div>
+</div>
+
+<div class="nav-buttons">
+  <button class="nav-btn" id="btnPrev" onclick="window.prevStep()">&#9664; &nbsp;上一步</button>
+  <button class="nav-btn" id="btnNext" onclick="window.nextStep()">下一步&nbsp; &#9654;</button>
+</div>
+
+<button class="glossary-btn" id="glossaryBtn" onclick="window.toggleGlossary()">&#10067;</button>
+<div class="glossary-overlay" id="glossaryOverlay" onclick="window.toggleGlossary()"></div>
+<div class="glossary-panel" id="glossaryPanel">
+  <button class="close-btn" onclick="window.toggleGlossary()">&times;</button>
+  <h3>术语表 Glossary</h3>
+  <div id="glossaryContent"></div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================
+   56 - LLM 硬件推理全景
+   Single-file interactive 3D hardware animation
+   ===================================================== */
+
+/* ---------- Star field ---------- */
+(function () {
+  var c = document.getElementById('stars');
+  var sctx = c.getContext('2d');
+  var pts = [];
+  function sizeStars() {
+    c.width = window.innerWidth;
+    c.height = window.innerHeight;
+    pts = [];
+    var count = Math.min(200, Math.floor(c.width * c.height / 6000));
+    for (var i = 0; i < count; i++) {
+      pts.push({
+        x: Math.random() * c.width,
+        y: Math.random() * c.height,
+        r: Math.random() * 1.1 + 0.3,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.008 + 0.002
+      });
+    }
+  }
+  window.addEventListener('resize', sizeStars);
+  sizeStars();
+  (function tick() {
+    sctx.clearRect(0, 0, c.width, c.height);
+    for (var i = 0; i < pts.length; i++) {
+      var s = pts[i];
+      s.phase += s.speed;
+      var a = 0.25 + Math.abs(Math.sin(s.phase)) * 0.75;
+      sctx.beginPath();
+      sctx.arc(s.x, s.y, s.r, 0, 6.283);
+      sctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
+      sctx.fill();
+    }
+    requestAnimationFrame(tick);
+  })();
+})();
+
+/* ---------- Color palette ---------- */
+var C = {
+  blue: '#4a9eff', green: '#4ade80', purple: '#a78bfa',
+  gold: '#ffd666', cyan: '#22d3ee', pink: '#f472b6',
+  orange: '#fb923c', text: '#e2e8f0', muted: '#64748b',
+  bg: '#050a18'
+};
+
+/* ---------- Hex color helpers ---------- */
+function hexRGB(hex) {
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+}
+function rgba(hex, a) {
+  var c = hexRGB(hex);
+  return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
+}
+
+/* ---------- Step definitions ---------- */
+var STEPS = [
+  {
+    title: '模型加载',
+    sub: 'Model Loading',
+    desc: '推理第一步：将<strong>模型权重</strong>从存储设备加载到 GPU 显存。<br><br>' +
+      '数据路径：<span class="hl-green">SSD</span> \u2192 <span class="hl-blue">DDR 内存</span> \u2192 <span class="hl-gold">PCIe 总线</span> \u2192 <span class="hl-cyan">GPU HBM</span><br><br>' +
+      '传输速率：SSD\u2192DDR <span class="hl-green">~3.5 GB/s</span>，PCIe 4.0 x16 \u2192 GPU <span class="hl-gold">~32 GB/s</span><br><br>' +
+      '70B 模型 (FP16) 约 <span class="hl-orange">140 GB</span>，需要多卡或量化才能放入单 GPU。',
+    metrics: [
+      { label: 'SSD\u2192DDR', value: 18, color: C.green },
+      { label: 'PCIe\u2192GPU', value: 65, color: C.gold },
+      { label: 'HBM \u5360\u7528', value: 10, color: C.cyan }
+    ],
+    legend: [
+      { color: C.green, name: 'SSD \u56FA\u6001\u786C\u76D8' },
+      { color: C.blue, name: 'DDR \u5185\u5B58' },
+      { color: C.gold, name: 'PCIe \u603B\u7EBF' },
+      { color: C.purple, name: 'GPU \u82AF\u7247' },
+      { color: C.cyan, name: 'HBM \u663E\u5B58' }
+    ]
+  },
+  {
+    title: 'Prefill 预填充',
+    sub: 'Parallel Prompt Processing',
+    desc: '所有 <strong>Prompt Token</strong> 一次性并行送入 GPU 的 Tensor Core。<br><br>' +
+      '<span class="hl-orange">Tensor Core</span> 全速运转执行大规模矩阵乘法 (GEMM)。<br><br>' +
+      '此阶段为 <strong><span class="hl-orange">Compute-bound</span></strong>：计算利用率 ~80%，带宽利用率仅 ~30%。<br><br>' +
+      '处理 1000 个 token 与 10 个 token 耗时差距不大——并行的力量。',
+    metrics: [
+      { label: '\u7B97\u529B\u5229\u7528', value: 80, color: C.orange },
+      { label: '\u5E26\u5BBD\u5229\u7528', value: 30, color: C.cyan },
+      { label: 'SM \u5360\u7528', value: 85, color: C.purple }
+    ],
+    legend: [
+      { color: C.cyan, name: 'HBM \u663E\u5B58' },
+      { color: C.orange, name: 'Tensor Core' },
+      { color: C.blue, name: 'Prompt Tokens' }
+    ]
+  },
+  {
+    title: 'Decode 逐Token生成',
+    sub: 'Auto-regressive Generation',
+    desc: '生成阶段每次只产出 <strong>1 个 token</strong>，却必须读取<strong>全部模型权重</strong>。<br><br>' +
+      '数据在 <span class="hl-cyan">HBM</span> 和 <span class="hl-orange">Tensor Core</span> 之间反复搬运。<br><br>' +
+      '此阶段为 <strong><span class="hl-cyan">Memory-bound</span></strong>：HBM 带宽利用率 ~95%，算力仅用 ~5%。<br><br>' +
+      '这就是大模型「一个字一个字蹦」的根本原因。',
+    metrics: [
+      { label: '\u7B97\u529B\u5229\u7528', value: 5, color: C.orange },
+      { label: '\u5E26\u5BBD\u5229\u7528', value: 95, color: C.cyan },
+      { label: 'SM \u5360\u7528', value: 8, color: C.purple }
+    ],
+    legend: [
+      { color: C.cyan, name: 'HBM (\u5168\u90E8\u6743\u91CD)' },
+      { color: C.orange, name: 'Tensor Core (\u95F2\u7F6E)' },
+      { color: C.gold, name: '\u8F93\u51FA Token' }
+    ]
+  },
+  {
+    title: 'KV Cache 增长',
+    sub: 'Key-Value Cache Growth',
+    desc: '为避免重复计算，每个 token 的 <span class="hl-pink">Key/Value</span> 向量缓存在显存中。<br><br>' +
+      'KV Cache 随序列长度 <strong>线性增长</strong>。<br><br>' +
+      'LLaMA-70B：4K 上下文 KV Cache ~<span class="hl-pink">2.5 GB</span>；128K 上下文 ~<span class="hl-pink">80 GB</span>，占满整张卡。<br><br>' +
+      '这是长上下文推理的核心挑战。',
+    metrics: [
+      { label: 'Weights', value: 50, color: C.cyan },
+      { label: 'KV Cache', value: 35, color: C.pink },
+      { label: 'VRAM \u4F59\u91CF', value: 15, color: C.green }
+    ],
+    legend: [
+      { color: C.cyan, name: '\u6A21\u578B\u6743\u91CD' },
+      { color: C.pink, name: 'KV Cache' },
+      { color: C.green, name: '\u53EF\u7528\u663E\u5B58' }
+    ]
+  },
+  {
+    title: '带宽瓶颈可视化',
+    sub: 'Why Decode is Slow',
+    desc: 'GPU 算力如同<strong>8车道高速</strong>——Decode 只有 <span class="hl-orange">1 辆车</span>在跑。<br><br>' +
+      'HBM 带宽如同<strong>2车道乡间路</strong>——已被 <span class="hl-cyan">完全堵死</span>。<br><br>' +
+      '<strong>Arithmetic Intensity</strong> = FLOPs / Bytes \u2248 1，远低于 GPU 计算-带宽比 (~200)。<br><br>' +
+      '优化：<span class="hl-green">量化</span>（减少搬运量）、<span class="hl-gold">Speculative Decoding</span>（增加计算量）。',
+    metrics: [
+      { label: '\u7B97\u529B\u5229\u7528', value: 8, color: C.orange },
+      { label: '\u5E26\u5BBD\u5229\u7528', value: 100, color: C.cyan }
+    ],
+    legend: [
+      { color: C.orange, name: '\u7B97\u529B\u8F66\u9053' },
+      { color: C.cyan, name: '\u5E26\u5BBD\u8F66\u9053' }
+    ]
+  },
+  {
+    title: '多GPU并行',
+    sub: 'Tensor Parallelism',
+    desc: '模型太大时，用 <span class="hl-purple">Tensor Parallelism</span> 将矩阵切分到多张 GPU。<br><br>' +
+      '每张 GPU 计算自己的部分，通过 <span class="hl-green">NVLink</span> (900 GB/s) 执行 <strong>All-Reduce</strong> 汇总。<br><br>' +
+      'NVLink 带宽远超 PCIe，是多卡通信首选。<br><br>' +
+      '4 卡并行 Decode 延迟降低近 <span class="hl-gold">4 倍</span>——每卡只读 1/4 权重。',
+    metrics: [
+      { label: 'NVLink BW', value: 90, color: C.green },
+      { label: '\u5410\u51FA\u63D0\u5347', value: 78, color: C.purple },
+      { label: '\u901A\u4FE1\u5F00\u9500', value: 12, color: C.gold }
+    ],
+    legend: [
+      { color: C.blue, name: 'GPU 0' },
+      { color: C.green, name: 'GPU 1' },
+      { color: C.purple, name: 'GPU 2' },
+      { color: C.pink, name: 'GPU 3' }
+    ]
+  }
+];
+
+var GLOSSARY = [
+  { term: 'HBM', zh: '\u9AD8\u5E26\u5BBD\u663E\u5B58', def: 'High Bandwidth Memory\uFF0CGPU \u4E13\u7528\u5806\u53E0\u5F0F\u663E\u5B58\uFF0CA100 \u5E26\u5BBD\u53EF\u8FBE 2 TB/s\u3002' },
+  { term: 'Prefill', zh: '\u9884\u586B\u5145\u9636\u6BB5', def: '\u4E00\u6B21\u6027\u5E76\u884C\u5904\u7406\u6240\u6709\u8F93\u5165 Prompt Token \u7684\u63A8\u7406\u9636\u6BB5\uFF0C\u5C5E\u4E8E\u8BA1\u7B97\u5BC6\u96C6\u578B\u3002' },
+  { term: 'Decode', zh: '\u89E3\u7801\u9636\u6BB5', def: '\u9010\u4E2A\u81EA\u56DE\u5F52\u751F\u6210\u8F93\u51FA Token \u7684\u9636\u6BB5\uFF0C\u5C5E\u4E8E\u5185\u5B58\u5E26\u5BBD\u5BC6\u96C6\u578B\u3002' },
+  { term: 'KV Cache', zh: '\u952E\u503C\u7F13\u5B58', def: '\u7F13\u5B58 Attention \u4E2D\u7684 Key/Value \u5411\u91CF\uFF0C\u907F\u514D\u5BF9\u5DF2\u751F\u6210 token \u91CD\u590D\u8BA1\u7B97\u3002' },
+  { term: 'Tensor Core', zh: '\u5F20\u91CF\u6838\u5FC3', def: 'NVIDIA GPU \u4E2D\u4E13\u95E8\u6267\u884C\u77E9\u9635\u4E58\u6CD5\u7684\u786C\u4EF6\u5355\u5143\uFF0CFP16 \u7B97\u529B\u8FDC\u8D85 CUDA Core\u3002' },
+  { term: 'PCIe', zh: '\u5916\u8BBE\u4E92\u8054\u603B\u7EBF', def: 'CPU \u4E0E GPU \u4E4B\u95F4\u7684\u6807\u51C6\u6570\u636E\u901A\u9053\uFF0CGen4 x16 \u5E26\u5BBD\u7EA6 32 GB/s\u3002' },
+  { term: 'NVLink', zh: 'GPU \u9AD8\u901F\u4E92\u8054', def: 'NVIDIA \u81EA\u7814 GPU \u95F4\u76F4\u8FDE\u901A\u9053\uFF0C\u7B2C\u56DB\u4EE3\u53CC\u5411\u5E26\u5BBD 900 GB/s\u3002' },
+  { term: 'Memory-bound', zh: '\u5185\u5B58\u74F6\u9888', def: '\u7A0B\u5E8F\u6027\u80FD\u53D7\u9650\u4E8E\u6570\u636E\u642C\u8FD0\u901F\u5EA6\uFF0C\u7B97\u529B\u7A7A\u95F2\u7B49\u5F85\u6570\u636E\uFF0CDecode \u5C5E\u4E8E\u6B64\u7C7B\u3002' },
+  { term: 'Compute-bound', zh: '\u8BA1\u7B97\u74F6\u9888', def: '\u7A0B\u5E8F\u6027\u80FD\u53D7\u9650\u4E8E\u7B97\u529B\u4E0D\u8DB3\uFF0C\u6570\u636E\u4F9B\u7ED9\u5145\u8DB3\uFF0CPrefill \u5C5E\u4E8E\u6B64\u7C7B\u3002' },
+  { term: 'Tensor Parallelism', zh: '\u5F20\u91CF\u5E76\u884C', def: '\u5C06\u6A21\u578B\u5C42\u5185\u7684\u77E9\u9635\u6309\u7EF4\u5EA6\u5207\u5206\u5230\u591A\u5F20 GPU\uFF0C\u5404\u81EA\u5E76\u884C\u8BA1\u7B97\u540E\u901A\u4FE1\u6C47\u603B\u3002' }
+];
+
+/* ---------- State ---------- */
+window.currentStep = 0;
+var isoAngle = 0.42;
+var isoTilt = 0.55;
+var zoom = 2.0;
+var dragging = false;
+var dragX0 = 0, dragY0 = 0, angle0 = 0, tilt0 = 0;
+var autoRot = true;
+var autoTimer = null;
+var tick = 0;
+var particles = [];
+var canvas, ctx, W, H;
+
+/* ---------- Glossary toggle ---------- */
+window.toggleGlossary = function() {
+  var p = document.getElementById('glossaryPanel');
+  var o = document.getElementById('glossaryOverlay');
+  if (p.classList.contains('open')) {
+    p.classList.remove('open');
+    o.classList.remove('open');
+  } else {
+    p.classList.add('open');
+    o.classList.add('open');
+  }
+};
+
+function buildGlossary() {
+  var h = '';
+  for (var i = 0; i < GLOSSARY.length; i++) {
+    var g = GLOSSARY[i];
+    h += '<div class="glossary-item">' +
+      '<span class="term">' + g.term + '</span>' +
+      '<span class="zh">' + g.zh + '</span>' +
+      '<div class="def">' + g.def + '</div></div>';
+  }
+  document.getElementById('glossaryContent').innerHTML = h;
+}
+
+/* ---------- Navigation ---------- */
+window.nextStep = function() { window.goStep(window.currentStep + 1); };
+window.prevStep = function() { window.goStep(window.currentStep - 1); };
+window.goStep = function(idx) {
+  if (idx < 0 || idx >= STEPS.length) return;
+  window.currentStep = idx;
+  particles = [];
+  updateUI();
+};
+
+function updateUI() {
+  var step = window.currentStep;
+  /* Progress dots */
+  var h = '';
+  for (var i = 0; i < STEPS.length; i++) {
+    if (i > 0) h += '<div class="step-line' + (i <= step ? ' done' : '') + '"></div>';
+    var cls = 'step-dot';
+    if (i < step) cls += ' done';
+    else if (i === step) cls += ' active';
+    h += '<div class="' + cls + '" onclick="window.goStep(' + i + ')">' + (i+1) + '</div>';
+  }
+  document.getElementById('progressBar').innerHTML = h;
+
+  /* Info panel */
+  var s = STEPS[step];
+  var ih = '<div class="info-card">' +
+    '<h2><span class="badge">' + (step+1) + '</span>' + s.title + '</h2>' +
+    '<div class="sub">' + s.sub + '</div>' +
+    '<div class="desc">' + s.desc + '</div></div>';
+
+  /* Metrics */
+  if (s.metrics && s.metrics.length) {
+    ih += '<div class="info-card metrics-card"><h3>\u5B9E\u65F6\u6307\u6807</h3>';
+    for (var m = 0; m < s.metrics.length; m++) {
+      var mt = s.metrics[m];
+      ih += '<div class="metric-row">' +
+        '<div class="metric-label">' + mt.label + '</div>' +
+        '<div class="metric-bar-bg"><div class="metric-bar-fill" style="width:' + mt.value +
+        '%;background:' + mt.color + ';box-shadow:0 0 6px ' + mt.color + ';"></div></div>' +
+        '<div class="metric-val">' + mt.value + '%</div></div>';
+    }
+    ih += '</div>';
+  }
+
+  /* Legend */
+  if (s.legend && s.legend.length) {
+    ih += '<div class="info-card"><h3 style="font-size:0.85rem;font-weight:600;margin-bottom:8px;">\u56FE\u4F8B</h3>';
+    for (var l = 0; l < s.legend.length; l++) {
+      ih += '<div class="legend-row">' +
+        '<div class="legend-dot" style="background:' + s.legend[l].color + ';"></div>' +
+        '<span>' + s.legend[l].name + '</span></div>';
+    }
+    ih += '</div>';
+  }
+
+  document.getElementById('infoPanel').innerHTML = ih;
+
+  /* Buttons */
+  document.getElementById('btnPrev').disabled = (step === 0);
+  document.getElementById('btnNext').disabled = (step === STEPS.length - 1);
+}
+
+/* ---------- Keyboard ---------- */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); window.nextStep(); }
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); window.prevStep(); }
+});
+
+/* ---------- Canvas ---------- */
+function initCanvas() {
+  canvas = document.getElementById('scene');
+  ctx = canvas.getContext('2d');
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+
+  /* Mouse drag */
+  canvas.addEventListener('mousedown', function(e) {
+    dragging = true; dragX0 = e.clientX; dragY0 = e.clientY;
+    angle0 = isoAngle; tilt0 = isoTilt;
+    autoRot = false; clearTimeout(autoTimer);
+  });
+  window.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    isoAngle = angle0 + (e.clientX - dragX0) * 0.005;
+    isoTilt = Math.max(0.15, Math.min(1.3, tilt0 + (e.clientY - dragY0) * 0.005));
+  });
+  window.addEventListener('mouseup', function() {
+    if (dragging) { dragging = false; autoTimer = setTimeout(function(){ autoRot = true; }, 4000); }
+  });
+
+  /* Scroll zoom */
+  canvas.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    zoom = Math.max(0.4, Math.min(2.2, zoom - e.deltaY * 0.001));
+  }, { passive: false });
+
+  /* Touch */
+  canvas.addEventListener('touchstart', function(e) {
+    if (e.touches.length !== 1) return;
+    dragging = true; dragX0 = e.touches[0].clientX; dragY0 = e.touches[0].clientY;
+    angle0 = isoAngle; tilt0 = isoTilt;
+    autoRot = false; clearTimeout(autoTimer);
+  }, { passive: true });
+  canvas.addEventListener('touchmove', function(e) {
+    if (!dragging || e.touches.length !== 1) return;
+    isoAngle = angle0 + (e.touches[0].clientX - dragX0) * 0.005;
+    isoTilt = Math.max(0.15, Math.min(1.3, tilt0 + (e.touches[0].clientY - dragY0) * 0.005));
+  }, { passive: true });
+  canvas.addEventListener('touchend', function() {
+    dragging = false; autoTimer = setTimeout(function(){ autoRot = true; }, 4000);
+  }, { passive: true });
+}
+
+function fitCanvas() {
+  var wrap = canvas.parentElement;
+  var r = wrap.getBoundingClientRect();
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = r.width * dpr;
+  canvas.height = r.height * dpr;
+  canvas.style.width = r.width + 'px';
+  canvas.style.height = r.height + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = r.width;
+  H = r.height;
+}
+
+/* ---------- Isometric projection ---------- */
+function iso(x, y, z) {
+  var ca = Math.cos(isoAngle), sa = Math.sin(isoAngle);
+  var ct = Math.cos(isoTilt), st = Math.sin(isoTilt);
+  return {
+    x: W/2 + (x*ca - y*sa) * zoom,
+    y: H/2 + (x*sa*st + y*ca*st - z*ct) * zoom
+  };
+}
+
+/* ---------- roundRect polyfill ---------- */
+function roundRectPath(x, y, w, h, r) {
+  if (typeof r === 'undefined') r = 0;
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+/* ---------- Draw isometric box ---------- */
+function drawBox(cx, cy, cz, w, h, d, color, alpha, label, labelSz) {
+  if (!alpha) alpha = 1;
+  var hw = w/2, hd = d/2;
+  var rgb = hexRGB(color);
+  var r = rgb[0], g = rgb[1], b = rgb[2];
+
+  // 8 corners: front=cy-hd, back=cy+hd, bottom=cz, top=cz+h
+  var ftl = iso(cx-hw, cy-hd, cz+h);
+  var ftr = iso(cx+hw, cy-hd, cz+h);
+  var fbr = iso(cx+hw, cy-hd, cz);
+  var fbl = iso(cx-hw, cy-hd, cz);
+  var btl = iso(cx-hw, cy+hd, cz+h);
+  var btr = iso(cx+hw, cy+hd, cz+h);
+  var bbr = iso(cx+hw, cy+hd, cz);
+  var bbl = iso(cx-hw, cy+hd, cz);
+
+  // Top face (brightest)
+  ctx.beginPath();
+  ctx.moveTo(ftl.x,ftl.y); ctx.lineTo(ftr.x,ftr.y);
+  ctx.lineTo(btr.x,btr.y); ctx.lineTo(btl.x,btl.y);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba('+r+','+g+','+b+','+(0.45*alpha)+')';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba('+r+','+g+','+b+','+(0.85*alpha)+')';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Right face
+  ctx.beginPath();
+  ctx.moveTo(ftr.x,ftr.y); ctx.lineTo(btr.x,btr.y);
+  ctx.lineTo(bbr.x,bbr.y); ctx.lineTo(fbr.x,fbr.y);
+  ctx.closePath();
+  var dr = Math.floor(r*0.55), dg = Math.floor(g*0.55), db = Math.floor(b*0.55);
+  ctx.fillStyle = 'rgba('+dr+','+dg+','+db+','+(0.38*alpha)+')';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba('+r+','+g+','+b+','+(0.6*alpha)+')';
+  ctx.stroke();
+
+  // Front face
+  ctx.beginPath();
+  ctx.moveTo(fbl.x,fbl.y); ctx.lineTo(fbr.x,fbr.y);
+  ctx.lineTo(ftr.x,ftr.y); ctx.lineTo(ftl.x,ftl.y);
+  ctx.closePath();
+  var fr = Math.floor(r*0.45), fg = Math.floor(g*0.45), fb = Math.floor(b*0.45);
+  ctx.fillStyle = 'rgba('+fr+','+fg+','+fb+','+(0.3*alpha)+')';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba('+r+','+g+','+b+','+(0.5*alpha)+')';
+  ctx.stroke();
+
+  // Left face
+  ctx.beginPath();
+  ctx.moveTo(ftl.x,ftl.y); ctx.lineTo(btl.x,btl.y);
+  ctx.lineTo(bbl.x,bbl.y); ctx.lineTo(fbl.x,fbl.y);
+  ctx.closePath();
+  var lr = Math.floor(r*0.35), lg = Math.floor(g*0.35), lb = Math.floor(b*0.35);
+  ctx.fillStyle = 'rgba('+lr+','+lg+','+lb+','+(0.28*alpha)+')';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba('+r+','+g+','+b+','+(0.45*alpha)+')';
+  ctx.stroke();
+
+  // Subtle glow
+  var center = iso(cx, cy, cz + h*0.5);
+  var grad = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, Math.max(w,d)*zoom*0.7);
+  grad.addColorStop(0, 'rgba('+r+','+g+','+b+','+(0.06*alpha)+')');
+  grad.addColorStop(1, 'rgba('+r+','+g+','+b+',0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(center.x - 100*zoom, center.y - 80*zoom, 200*zoom, 160*zoom);
+
+  // Label
+  if (label) {
+    var lp = iso(cx, cy, cz + h + 3);
+    ctx.font = 'bold ' + (labelSz||11) + 'px "JetBrains Mono", monospace';
+    ctx.fillStyle = 'rgba('+r+','+g+','+b+','+alpha+')';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+    ctx.fillText(label, lp.x, lp.y);
+    ctx.shadowBlur = 0;
+  }
+}
+
+/* ---------- Connection line ---------- */
+function drawConn(a, b, color, dashed) {
+  var p1 = iso(a[0],a[1],a[2]), p2 = iso(b[0],b[1],b[2]);
+  ctx.beginPath();
+  if (dashed) ctx.setLineDash([5,3]);
+  ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y);
+  ctx.strokeStyle = rgba(color, 0.35);
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ---------- Rate / label along connection ---------- */
+function drawRate(a, b, text, color) {
+  var p1 = iso(a[0],a[1],a[2]), p2 = iso(b[0],b[1],b[2]);
+  var mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2 - 14;
+  ctx.font = '10px "JetBrains Mono", monospace';
+  var tw = ctx.measureText(text).width + 14;
+  roundRectPath(mx-tw/2, my-9, tw, 18, 4);
+  ctx.fillStyle = 'rgba(5,10,24,0.85)';
+  ctx.fill();
+  ctx.strokeStyle = rgba(color, 0.4);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, mx, my);
+}
+
+/* ---------- 3D label ---------- */
+function label3D(x, y, z, text, color, size) {
+  var p = iso(x,y,z);
+  ctx.font = (size||10) + 'px "JetBrains Mono", monospace';
+  ctx.fillStyle = color || C.text;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, p.x, p.y);
+}
+
+/* ---------- Particle system ---------- */
+function spawn(path, color, n, speed, loop) {
+  for (var i = 0; i < n; i++) {
+    particles.push({
+      path: path, color: color,
+      t: loop ? (i/n) : (i/n)*0.7,
+      speed: speed || 0.004,
+      loop: !!loop,
+      life: 1,
+      size: 2 + Math.random()*1.5
+    });
+  }
+}
+
+function drawParticles() {
+  var next = [];
+  for (var i = 0; i < particles.length; i++) {
+    var p = particles[i];
+    p.t += p.speed;
+    if (p.loop) { if (p.t > 1) p.t -= 1; }
+    else { if (p.t > 1) p.life -= 0.04; if (p.life <= 0) continue; }
+    next.push(p);
+
+    var tt = Math.max(0, Math.min(1, p.t));
+    var segs = p.path.length - 1;
+    var seg = tt * segs;
+    var si = Math.min(Math.floor(seg), segs-1);
+    var sf = seg - si;
+    var a = p.path[si], b = p.path[si+1] || a;
+    var px = a[0]+(b[0]-a[0])*sf;
+    var py = a[1]+(b[1]-a[1])*sf;
+    var pz = a[2]+(b[2]-a[2])*sf;
+    var sp = iso(px,py,pz);
+    var al = p.life;
+    var rgb = hexRGB(p.color);
+
+    // Trail
+    for (var tr = 1; tr <= 5; tr++) {
+      var tt2 = tt - tr * p.speed * 2.5;
+      if (tt2 < 0) { if (p.loop) tt2 += 1; else continue; }
+      var s2 = tt2 * segs;
+      var si2 = Math.min(Math.floor(s2), segs-1);
+      if (si2 < 0) continue;
+      var sf2 = s2 - si2;
+      var a2 = p.path[si2], b2 = p.path[si2+1] || a2;
+      var tp = iso(
+        a2[0]+(b2[0]-a2[0])*sf2,
+        a2[1]+(b2[1]-a2[1])*sf2,
+        a2[2]+(b2[2]-a2[2])*sf2
+      );
+      ctx.beginPath();
+      ctx.arc(tp.x, tp.y, p.size * (1-tr*0.16), 0, 6.283);
+      ctx.fillStyle = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+(al*(1-tr*0.18)).toFixed(3)+')';
+      ctx.fill();
+    }
+
+    // Main dot
+    ctx.beginPath();
+    ctx.arc(sp.x, sp.y, p.size, 0, 6.283);
+    ctx.fillStyle = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+al.toFixed(3)+')';
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  particles = next;
+}
+
+/* ========== STEP SCENE RENDERERS ========== */
+
+/* ----- Step 1: Model Loading ----- */
+function scene1() {
+  // SSD
+  drawBox(-240, 0, 0, 75, 26, 55, C.green, 1, 'SSD');
+  // DDR
+  drawBox(-100, 0, 0, 82, 46, 40, C.blue, 1, 'DDR');
+  // CPU chip (small, between DDR and PCIe)
+  drawBox(-100, 0, 48, 34, 12, 34, C.blue, 0.5, 'CPU');
+  // PCIe bus (flat wide)
+  drawBox(35, 0, 0, 55, 9, 100, C.gold, 1, 'PCIe');
+  // GPU enclosure
+  drawBox(190, 0, 0, 115, 72, 95, C.purple, 0.35, 'GPU');
+  // HBM stacks inside GPU
+  drawBox(170, -17, 7, 34, 46, 28, C.cyan, 1, '');
+  drawBox(210, -17, 7, 34, 46, 28, C.cyan, 1, '');
+  drawBox(170, 17, 7, 34, 46, 28, C.cyan, 0.8, '');
+  drawBox(210, 17, 7, 34, 46, 28, C.cyan, 0.8, '');
+  label3D(190, 0, 64, 'HBM', C.cyan, 14);
+
+  // Connections
+  drawConn([-202,0,13], [-141,0,13], C.green, false);
+  drawConn([-59,0,13], [8,0,4], C.blue, false);
+  drawConn([63,0,4], [133,0,13], C.gold, false);
+
+  // Rate labels
+  drawRate([-202,0,13], [-141,0,13], '3.5 GB/s', C.green);
+  drawRate([63,0,4], [133,0,13], '32 GB/s', C.gold);
+
+  // Particles along the full path
+  var path = [
+    [-240,0,13], [-202,0,13], [-141,0,22], [-100,0,22],
+    [-59,0,13], [8,0,4], [35,0,4], [63,0,4],
+    [133,0,21], [170,0,28], [190,0,32]
+  ];
+  if (particles.length < 30) {
+    spawn(path, C.green, 6, 0.0025, true);
+    spawn(path, C.gold, 8, 0.004, true);
+    spawn(path, C.cyan, 5, 0.0035, true);
+  }
+
+  // Data size annotations
+  label3D(-240, 42, 0, '~140 GB (FP16)', C.muted, 11);
+  label3D(190, 42, -7, '80 GB HBM', C.muted, 11);
+}
+
+/* ----- Step 2: Prefill ----- */
+function scene2() {
+  // GPU
+  drawBox(0, 0, 0, 220, 90, 180, C.purple, 0.25, '');
+  label3D(0, 0, 105, 'GPU', C.purple, 16);
+
+  // HBM
+  drawBox(-62, 0, 8, 70, 60, 70, C.cyan, 0.7, 'HBM');
+
+  // Tensor Core array (bright - fully utilized)
+  var pulse = 0.55 + Math.sin(tick * 0.07) * 0.45;
+  for (var row = 0; row < 3; row++) {
+    for (var col = 0; col < 4; col++) {
+      drawBox(26+col*22, -22+row*22, 20, 18, 14, 18, C.orange, pulse, '');
+    }
+  }
+  label3D(60, 0, 72, 'Tensor Cores', C.orange, 13);
+
+  // Prompt tokens arriving in parallel (multiple beams)
+  var tokenCount = 10;
+  for (var i = 0; i < tokenCount; i++) {
+    var phase = (tick * 0.025 + i * 0.1) % 1;
+    var tx = -190 + phase * 120;
+    var tz = 36 + Math.sin(i * 1.3) * 18;
+    var ty = -34 + i * 7.5;
+    var pt = iso(tx, ty, tz);
+    var a2 = 0.6 + Math.sin(tick*0.05+i)*0.4;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 6, 0, 6.283);
+    ctx.fillStyle = rgba(C.blue, a2);
+    ctx.shadowColor = C.blue;
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  label3D(-175, -18, 72, 'Prompt Tokens', C.blue, 12);
+  label3D(-175, 0, 64, '(\u5E76\u884C\u8F93\u5165)', C.muted, 10);
+
+  // Arrow
+  drawConn([-115, 0, 44], [-70, 0, 36], C.blue, true);
+
+  // Status label
+  label3D(0, -8, 112, 'Compute-bound', C.orange, 15);
+
+  // Internal data flow
+  var path = [[-55,0,38], [-14,0,28], [26,0,26], [60,0,28], [72,0,40], [44,0,38], [0,0,34], [-28,0,38]];
+  if (particles.length < 22) {
+    spawn(path, C.orange, 14, 0.009, true);
+  }
+}
+
+/* ----- Step 3: Decode ----- */
+function scene3() {
+  // GPU
+  drawBox(0, 0, 0, 220, 90, 180, C.purple, 0.25, '');
+  label3D(0, 0, 105, 'GPU', C.purple, 16);
+
+  // HBM (large, all weights)
+  drawBox(-62, 0, 8, 76, 68, 72, C.cyan, 0.9, 'HBM');
+  label3D(-62, 0, 86, '~140GB Weights', C.cyan, 11);
+
+  // Tensor Cores (dim - underutilized)
+  var dim = 0.15 + Math.sin(tick*0.03)*0.08;
+  for (var row = 0; row < 3; row++) {
+    for (var col = 0; col < 4; col++) {
+      drawBox(28+col*22, -22+row*22, 20, 18, 14, 18, C.orange, dim, '');
+    }
+  }
+  label3D(64, 0, 72, 'Tensor Cores', C.orange, 13);
+  label3D(64, 14, 64, '(\u95F2\u7F6E ~95%)', C.muted, 10);
+
+  // Single output token
+  var outPhase = (tick * 0.02) % 1;
+  var outX = 110 + outPhase * 80;
+  var outP = iso(outX, 0, 50);
+  ctx.beginPath();
+  ctx.arc(outP.x, outP.y, 9, 0, 6.283);
+  ctx.fillStyle = C.gold;
+  ctx.shadowColor = C.gold;
+  ctx.shadowBlur = 20;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  label3D(200, 0, 56, '1 Token', C.gold, 14);
+
+  // HBM <-> TC shuttle
+  var shuttle = [
+    [-52,0,40], [-22,0,32], [7,0,27], [36,0,26],
+    [64,0,28], [64,0,40], [36,0,38], [7,0,38],
+    [-22,0,40], [-52,0,40]
+  ];
+  if (particles.length < 30) {
+    spawn(shuttle, C.cyan, 22, 0.007, true);
+  }
+
+  // Status
+  label3D(0, -8, 112, 'Memory-bound', C.cyan, 15);
+}
+
+/* ----- Step 4: KV Cache Growth ----- */
+function scene4() {
+  // GPU
+  drawBox(0, 0, 0, 230, 90, 180, C.purple, 0.25, '');
+  label3D(0, 0, 105, 'GPU VRAM', C.purple, 14);
+
+  // Model weights region
+  drawBox(-65, 0, 8, 65, 60, 68, C.cyan, 0.7, 'Weights');
+
+  // KV Cache region - animated growth
+  var growth = 0.25 + (Math.sin(tick * 0.012) + 1) * 0.375; // 0.25 to 1.0
+  var kvH = 60 * growth;
+  var kvW = 58 * growth;
+  var kvD = 68 * Math.max(0.5, growth);
+
+  // Color: green -> yellow -> orange -> pink -> red
+  var t = growth;
+  var cr, cg, cb;
+  if (t < 0.5) {
+    var f = t / 0.5;
+    cr = Math.floor(74 + (255-74)*f);
+    cg = Math.floor(222 + (214-222)*f);
+    cb = Math.floor(128 + (102-128)*f);
+  } else {
+    var f2 = (t - 0.5) / 0.5;
+    cr = Math.floor(255 + (244-255)*f2);
+    cg = Math.floor(214 + (114-214)*f2);
+    cb = Math.floor(102 + (182-102)*f2);
+  }
+  var kvColor = '#' +
+    (cr<16?'0':'') + cr.toString(16) +
+    (cg<16?'0':'') + cg.toString(16) +
+    (cb<16?'0':'') + cb.toString(16);
+
+  drawBox(40, 0, 8, kvW, kvH, kvD, kvColor, 0.85, 'KV Cache');
+
+  // Sequence length
+  var seqLen = Math.floor(256 + growth * 3800);
+  label3D(40, 0, 8 + kvH + 8, 'Seq: ' + seqLen, C.pink, 12);
+
+  // VRAM usage bar (2D overlay at bottom of canvas)
+  var barX = 16, barY = H - 50, barW = W * 0.55, barH = 16;
+  roundRectPath(barX, barY, barW, barH, 4);
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Weights portion (~50%)
+  var wPct = 0.50;
+  roundRectPath(barX+1, barY+1, (barW-2)*wPct, barH-2, 3);
+  ctx.fillStyle = rgba(C.cyan, 0.45);
+  ctx.fill();
+
+  // KV Cache portion
+  var kvPct = 0.4 * growth;
+  roundRectPath(barX+1+(barW-2)*wPct, barY+1, (barW-2)*kvPct, barH-2, 0);
+  ctx.fillStyle = rgba(kvColor, 0.55);
+  ctx.fill();
+
+  // Labels
+  ctx.font = '9px "JetBrains Mono", monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = C.cyan;
+  ctx.fillText('Weights 50%', barX + 4, barY - 3);
+  ctx.fillStyle = kvColor;
+  ctx.fillText('KV ' + Math.floor(kvPct*100) + '%', barX + barW*wPct + 4, barY - 3);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = C.muted;
+  ctx.fillText('VRAM ' + Math.floor((wPct + kvPct)*100) + '%', barX + barW, barY - 3);
+
+  // Particles: new KV entries being written
+  var pathKV = [[95,0,50],[72,0,42],[50,0,36],[40,7,28],[40,-7,36],[40,0,42],[50,0,46]];
+  if (particles.length < 16) {
+    spawn(pathKV, C.pink, 10, 0.006, true);
+  }
+}
+
+/* ----- Step 5: Bandwidth Bottleneck ----- */
+function scene5() {
+  // This step uses a mixed 2D+3D view
+
+  // Left: Bar chart
+  var cX = 18, cY = 20, cW = W*0.38, cH = H*0.48;
+
+  // Title
+  ctx.font = '12px "Noto Sans SC", sans-serif';
+  ctx.fillStyle = C.text;
+  ctx.textAlign = 'center';
+  ctx.fillText('Decode \u9636\u6BB5\u8D44\u6E90\u5229\u7528\u7387', cX+cW/2, cY - 6);
+
+  // Chart background
+  roundRectPath(cX, cY, cW, cH, 8);
+  ctx.fillStyle = 'rgba(255,255,255,0.025)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Bars
+  var compVal = 8 + Math.sin(tick*0.04)*3;
+  var bwVal = 95 + Math.sin(tick*0.06)*5;
+  var bars = [
+    { label: '\u7B97\u529B\u5229\u7528', value: compVal, color: C.orange },
+    { label: '\u5E26\u5BBD\u5229\u7528', value: bwVal, color: C.cyan }
+  ];
+
+  var barW = 48, gap = 40;
+  var totalBW = bars.length * barW + (bars.length-1) * gap;
+  var startBX = cX + (cW - totalBW) / 2;
+  var barArea = cH - 56;
+  var baseY = cY + cH - 20;
+
+  for (var i = 0; i < bars.length; i++) {
+    var bx = startBX + i * (barW + gap);
+    var bh = barArea * (bars[i].value / 100);
+    var by = baseY - bh;
+    var rgb = hexRGB(bars[i].color);
+
+    ctx.shadowColor = bars[i].color;
+    ctx.shadowBlur = 10;
+    roundRectPath(bx, by, barW, bh, 4);
+    ctx.fillStyle = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.55)';
+    ctx.fill();
+    ctx.strokeStyle = bars[i].color;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.font = '13px "JetBrains Mono", monospace';
+    ctx.fillStyle = bars[i].color;
+    ctx.textAlign = 'center';
+    ctx.fillText(Math.floor(bars[i].value) + '%', bx + barW/2, by - 8);
+
+    ctx.font = '10px "Noto Sans SC", sans-serif';
+    ctx.fillStyle = C.muted;
+    ctx.fillText(bars[i].label, bx + barW/2, baseY + 14);
+  }
+
+  // Right: Highway metaphor
+  var hwX = cX + cW + 16;
+  var hwW = W - hwX - 16;
+
+  // Highway 1: Compute (8 lanes, 1 car)
+  var hw1Y = 20, hw1H = H*0.2;
+  roundRectPath(hwX, hw1Y, hwW, hw1H, 6);
+  ctx.fillStyle = 'rgba(255,255,255,0.02)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.font = '10px "Noto Sans SC", sans-serif';
+  ctx.fillStyle = C.orange;
+  ctx.textAlign = 'center';
+  ctx.fillText('\u7B97\u529B\uFF1A8\u8F66\u9053\u9AD8\u901F \u2192 \u53EA\u67091\u8F86\u8F66', hwX+hwW/2, hw1Y+13);
+
+  var lanes1 = 8, laneH1 = (hw1H-22)/lanes1;
+  for (var l = 0; l < lanes1; l++) {
+    var ly = hw1Y + 18 + l * laneH1;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(hwX+8, ly+laneH1); ctx.lineTo(hwX+hwW-8, ly+laneH1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // 1 car
+  var carPhase1 = (tick * 0.015) % 1;
+  var carX1 = hwX + 12 + carPhase1 * (hwW - 24);
+  var carY1 = hw1Y + 18 + 3*laneH1 + laneH1/2;
+  ctx.shadowColor = C.orange; ctx.shadowBlur = 6;
+  roundRectPath(carX1-10, carY1-4, 20, 8, 3);
+  ctx.fillStyle = rgba(C.orange, 0.85);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Highway 2: Bandwidth (2 lanes, jammed)
+  var hw2Y = hw1Y + hw1H + 16, hw2H = H*0.2;
+  roundRectPath(hwX, hw2Y, hwW, hw2H, 6);
+  ctx.fillStyle = 'rgba(255,255,255,0.02)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.font = '10px "Noto Sans SC", sans-serif';
+  ctx.fillStyle = C.cyan;
+  ctx.textAlign = 'center';
+  ctx.fillText('\u5E26\u5BBD\uFF1A2\u8F66\u9053\u4E61\u95F4\u8DEF \u2192 \u5835\u6B7B\uFF01', hwX+hwW/2, hw2Y+13);
+
+  var lanes2 = 2, laneH2 = (hw2H-22)/lanes2;
+  for (var l2 = 0; l2 < lanes2; l2++) {
+    var ly2 = hw2Y + 18 + l2 * laneH2;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(hwX+8, ly2+laneH2); ctx.lineTo(hwX+hwW-8, ly2+laneH2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // Many cars
+  for (var c2 = 0; c2 < 14; c2++) {
+    var carLane = c2 % 2;
+    var carY2 = hw2Y + 18 + carLane*laneH2 + laneH2/2;
+    var carP = (tick * 0.008 + c2 * 0.07) % 1;
+    var carX2 = hwX + 12 + carP * (hwW - 24);
+    ctx.shadowColor = C.cyan; ctx.shadowBlur = 5;
+    roundRectPath(carX2-8, carY2-3, 16, 6, 2);
+    ctx.fillStyle = rgba(C.cyan, 0.8);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Formula area
+  var fmY = hw2Y + hw2H + 24;
+  ctx.font = '11px "JetBrains Mono", monospace';
+  ctx.fillStyle = C.gold;
+  ctx.textAlign = 'center';
+  ctx.fillText('Arithmetic Intensity = FLOPs / Bytes \u2248 1', W*0.62, fmY);
+  ctx.font = '10px "Noto Sans SC", sans-serif';
+  ctx.fillStyle = C.muted;
+  ctx.fillText('\u8FDC\u4F4E\u4E8E GPU \u8BA1\u7B97-\u5E26\u5BBD\u6BD4 (~200)', W*0.62, fmY+18);
+
+  // Bottom: optimization paths
+  var optY = Math.min(fmY + 42, H - 20);
+  ctx.font = '10px "Noto Sans SC", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = C.green;
+  ctx.fillText('\u2192 \u4F18\u5316\u65B9\u5411\uFF1A', hwX, optY);
+  ctx.fillStyle = rgba(C.text, 0.8);
+  ctx.fillText('\u91CF\u5316 (INT8/INT4) \u00B7 Speculative Decoding \u00B7 FlashAttention', hwX + 76, optY);
+}
+
+/* ----- Step 6: Multi-GPU Tensor Parallelism ----- */
+function scene6() {
+  var gpuN = 4;
+  var gpuC = [C.blue, C.green, C.purple, C.pink];
+  var gpuL = ['GPU 0', 'GPU 1', 'GPU 2', 'GPU 3'];
+  var sp = 130;
+  var sx = -(gpuN-1)*sp/2;
+
+  // Draw GPUs
+  for (var i = 0; i < gpuN; i++) {
+    var gx = sx + i * sp;
+    drawBox(gx, 0, 0, 90, 65, 75, gpuC[i], 0.75, gpuL[i]);
+    // Weight slice
+    drawBox(gx, 0, 6, 56, 38, 48, gpuC[i], 0.5, '');
+    label3D(gx, 0, 52, '1/4', gpuC[i], 13);
+  }
+
+  // NVLink connections
+  for (var j = 0; j < gpuN-1; j++) {
+    var x1 = sx + j*sp + 48;
+    var x2 = sx + (j+1)*sp - 48;
+    drawConn([x1,0,68], [x2,0,68], C.green, false);
+    drawConn([x1,0,60], [x2,0,60], C.green, false);
+  }
+  // Cross links
+  drawConn([sx+48,0,32], [sx+2*sp-48,0,32], C.green, true);
+  drawConn([sx+sp+48,0,32], [sx+3*sp-48,0,32], C.green, true);
+  drawConn([sx+48,0,-8], [sx+3*sp-48,0,-8], C.green, true);
+
+  // NVLink label
+  drawRate([sx+sp+48,0,68], [sx+2*sp-48,0,68], 'NVLink 900GB/s', C.green);
+
+  // All-Reduce label
+  label3D(0, 0, 95, 'All-Reduce \u901A\u4FE1', C.green, 15);
+
+  // Particles through NVLink
+  for (var k = 0; k < gpuN-1; k++) {
+    var kx1 = sx+k*sp+48, kx2 = sx+(k+1)*sp-48;
+    if (particles.length < 50) {
+      spawn([[kx1,0,68],[kx2,0,68]], gpuC[k], 4, 0.012, true);
+      spawn([[kx2,0,60],[kx1,0,60]], gpuC[k+1], 4, 0.014, true);
+    }
+  }
+
+  // Output token emerging
+  var outPhase2 = (tick * 0.015) % 1;
+  var outY2 = -45 - outPhase2 * 45;
+  var outP2 = iso(0, outY2, 85);
+  ctx.beginPath();
+  ctx.arc(outP2.x, outP2.y, 8, 0, 6.283);
+  ctx.fillStyle = C.gold;
+  ctx.shadowColor = C.gold;
+  ctx.shadowBlur = 18;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  label3D(0, outY2, 98, 'Token', C.gold, 13);
+}
+
+/* ========== Render loop ========== */
+var sceneFns = [scene1, scene2, scene3, scene4, scene5, scene6];
+
+function render() {
+  tick++;
+  if (autoRot && !dragging) isoAngle += 0.0008;
+
+  ctx.clearRect(0, 0, W, H);
+  sceneFns[window.currentStep]();
+  drawParticles();
+
+  requestAnimationFrame(render);
+}
+
+/* ========== Boot ========== */
+document.addEventListener('DOMContentLoaded', function() {
+  buildGlossary();
+  initCanvas();
+  updateUI();
+  render();
+});
+</script>
+</body>
+</html>
