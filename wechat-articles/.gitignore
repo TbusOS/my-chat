@@ -1,0 +1,29 @@
+# Python venv (可通过 pip install edge-tts 重建)
+.venv/
+
+# Node modules
+node_modules/
+package.json
+package-lock.json
+
+# 逐帧截图 (可通过 record.mjs 重新生成，每个视频上万张 PNG)
+frames/
+
+# 中间音频文件 (可通过 gen-narration.py 重新生成)
+work/
+
+# 成品视频 (可通过 record.mjs 重新生成，二进制大文件不适合 git)
+output/
+
+# 旧的中间产物
+videos/
+*.webm
+
+# macOS
+.DS_Store
+
+# 临时文件
+_tts.py
+_tts_tmp.py
+_concat_list.txt
+_concat.txt

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拆开 AI 看看：大模型推理时，数据在硬件间经历了什么？</title>
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  background: #fff;
+  color: #333;
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.intro {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 32px;
+  font-size: 15px;
+  line-height: 1.9;
+  border-left: 4px solid #22d3ee;
+}
+.intro strong { color: #22d3ee; }
+
+/* 视频区 */
+.video-section {
+  background: #0a0e1a;
+  border-radius: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+}
+.video-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 40%, rgba(34,211,238,0.08) 0%, transparent 60%),
+              radial-gradient(circle at 70% 60%, rgba(167,139,250,0.08) 0%, transparent 60%);
+}
+.video-section .play-icon {
+  position: relative;
+  width: 64px; height: 64px;
+  background: rgba(34,211,238,0.85);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  margin-bottom: 12px;
+}
+.video-section .play-icon::after {
+  content: '';
+  border-left: 22px solid #fff;
+  border-top: 13px solid transparent;
+  border-bottom: 13px solid transparent;
+  margin-left: 4px;
+}
+.video-section .title { position: relative; color: #e8ecf4; font-size: 16px; font-weight: 600; }
+.video-section .hint { position: relative; color: #64748b; font-size: 13px; margin-top: 6px; }
+.video-section .duration { position: relative; color: #4a9eff; font-size: 13px; margin-top: 4px; }
+
+/* 截图占位 */
+.screenshot {
+  background: #0a0e1a;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+  border: 1px dashed #334155;
+}
+.screenshot img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.screenshot .caption {
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 28px 0 12px;
+  padding-left: 14px;
+  border-left: 4px solid #22d3ee;
+}
+h2 .step-badge {
+  display: inline-block;
+  background: #22d3ee;
+  color: #050a18;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+h2 .en {
+  font-size: 13px;
+  color: #888;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 20px 0 10px;
+}
+
+p { margin-bottom: 14px; font-size: 15px; color: #444; }
+
+.metric {
+  display: inline-block;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0284c7;
+  font-family: 'Menlo', 'Consolas', monospace;
+}
+.metric-warn {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #b45309;
+}
+.metric-danger {
+  background: #fce7f3;
+  border-color: #fbcfe8;
+  color: #be185d;
+}
+.metric-green {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.analogy {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.key-point {
+  background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.key-point strong { color: #1d4ed8; }
+
+.cpu-role {
+  background: linear-gradient(135deg, #eff6ff, #e0f2fe);
+  border-left: 4px solid #3b82f6;
+  border-radius: 0 10px 10px 0;
+  padding: 14px 18px;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.cpu-role::before {
+  content: 'CPU ';
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 16px 0;
+  font-size: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.compare-table th {
+  padding: 10px 14px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-weight: 600;
+  text-align: left;
+}
+.compare-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table tr:nth-child(even) td { background: #f8fafc; }
+
+.divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #ddd, transparent);
+  margin: 28px 0;
+}
+
+.cta {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  margin-top: 32px;
+}
+.cta h3 { font-size: 18px; margin-bottom: 10px; color: #22d3ee; }
+.cta p { font-size: 14px; color: #94a3b8; line-height: 1.8; }
+.cta .link {
+  display: inline-block;
+  margin-top: 14px;
+  background: linear-gradient(135deg, #22d3ee, #4a9eff);
+  color: #fff;
+  padding: 10px 28px;
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  justify-content: center;
+}
+.tag {
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+</style>
+</head>
+<body>
+
+<h1>大模型推理时，数据在硬件间经历了什么？</h1>
+<p class="subtitle">CPU 与 GPU 的分工协作 · 从磁盘到显存的 6 步全拆解</p>
+
+<div class="intro">
+  你有没有想过，当你向 AI 助手提一个问题的时候，背后的大模型到底在硬件层面经历了什么？CPU 和 GPU 各自在干什么？数据是怎么在芯片之间流动的？
+  <br><br>
+  数据从 SSD 出发，经过 CPU 的协调，穿越 DDR 内存和 PCIe 总线，最终进入 GPU 的 HBM 显存。Tensor Core 完成矩阵运算后，CPU 再接手做采样和调度——每一步都是<strong>计算与带宽的精密博弈</strong>。
+  <br><br>
+  今天我们用一个可交互的 3D 动画，把这个过程从头到尾拆给你看。文末有完整的交互版本，可以自己拖拽旋转、逐步探索。
+</div>
+
+<!-- 视频区 -->
+<div class="video-section">
+  <div class="play-icon"></div>
+  <div class="title">LLM 硬件推理全景（配音讲解版）</div>
+  <div class="hint">（视频需在公众号编辑器中插入 56-LLM硬件推理全景.mp4）</div>
+  <div class="duration">时长约 6 分钟 · 女声讲解 · 3D 旋转视角</div>
+</div>
+
+<p>看完视频意犹未尽？以下是每个步骤的深度拆解，配合动画截图，让你彻底搞懂大模型推理的硬件全貌。</p>
+
+<div class="divider"></div>
+
+<!-- ═══════ Step 1 ═══════ -->
+<h2><span class="step-badge">1</span>模型加载<span class="en">Model Loading</span></h2>
+
+<div class="screenshot">
+  <img src="images/step1-模型加载.png" alt="Step 1 模型加载">
+  <div class="caption">Step 1: 模型权重从 SSD 经 CPU/DDR、PCIe 总线加载到 GPU HBM 显存</div>
+</div>
+
+<p>推理的第一步，是把模型权重从磁盘搬到 GPU 的显存里。这个过程完全由 <strong>CPU 发起和协调</strong>。</p>
+
+<h3>数据流向</h3>
+
+<p><span class="metric">SSD</span> → <span class="metric">CPU / DDR 内存</span> → <span class="metric">PCIe 总线</span> → <span class="metric">GPU HBM</span></p>
+
+<p>CPU 的内存控制器首先将模型文件从 NVMe SSD 读入 DDR 内存。现代 PCIe Gen4 NVMe SSD 的顺序读取速度约 <span class="metric">7 GB/s</span>。然后 CPU 通过 DMA（直接内存访问）将数据经 PCIe 总线送入 GPU，PCIe 4.0 x16 的单向带宽约 <span class="metric">32 GB/s</span>。</p>
+
+<div class="cpu-role">
+  在模型加载阶段是总指挥。它负责读取模型文件、管理 DDR 内存分配、发起 DMA 传输。GPU 在这个阶段只是被动接收数据。
+</div>
+
+<h3>核心挑战：模型太大装不下</h3>
+
+<p>以当前主流的 70B 参数模型为例：</p>
+
+<table class="compare-table">
+  <tr><th>精度</th><th>每参数字节</th><th>70B 模型总大小</th></tr>
+  <tr><td>FP32</td><td>4 bytes</td><td><span class="metric-danger">280 GB</span></td></tr>
+  <tr><td>FP16 / BF16</td><td>2 bytes</td><td><span class="metric-warn">140 GB</span></td></tr>
+  <tr><td>INT8 量化</td><td>1 byte</td><td><span class="metric">70 GB</span></td></tr>
+  <tr><td>INT4 量化</td><td>0.5 bytes</td><td><span class="metric-green">35 GB</span></td></tr>
+</table>
+
+<p>一张 NVIDIA A100 的 HBM 显存为 <span class="metric">80 GB</span>（HBM2e 版本，带宽约 2 TB/s）。FP16 的 70B 模型需要 140GB，一张卡根本装不下。解决办法有两种：<strong>量化压缩</strong>（INT8/INT4 降低精度）或<strong>多卡分担</strong>（Tensor Parallelism）。</p>
+
+<div class="divider"></div>
+
+<!-- ═══════ Step 2 ═══════ -->
+<h2><span class="step-badge">2</span>Prefill 预填充<span class="en">Parallel Prompt Processing</span></h2>
+
+<div class="screenshot">
+  <img src="images/step2-Prefill预填充.png" alt="Step 2 Prefill">
+  <div class="caption">Step 2: CPU 完成 Tokenization 后，GPU Tensor Core 并行处理所有 Prompt Token</div>
+</div>
+
+<p>模型加载完成后，用户输入一段提示词（Prompt）。这一步 CPU 和 GPU 有明确的分工。</p>
+
+<h3>CPU 的任务：Tokenization</h3>
+
+<p>CPU 首先执行 <strong>Tokenization</strong>（分词）：把用户输入的自然语言文本切分成一个个 Token ID 序列。比如「今天天气怎么样」可能被切成 [1234, 567, 89, 234, 56] 这样的数字序列。这些 Token ID 通过 PCIe 发送给 GPU。</p>
+
+<div class="cpu-role">
+  负责将文本转为 Token ID 后发给 GPU。之后进入空闲等待状态，直到 GPU 完成 Prefill 计算。
+</div>
+
+<h3>GPU 的任务：并行矩阵运算</h3>
+
+<p>GPU 的 Tensor Core 接收到所有 Token ID 后，<strong>一次性并行处理</strong>，执行大规模矩阵乘法（GEMM）。这是推理过程中 GPU 利用率最高的阶段。</p>
+
+<table class="compare-table">
+  <tr><th>指标</th><th>Prefill 阶段</th><th>说明</th></tr>
+  <tr><td>算力利用率</td><td><span class="metric">~80%</span></td><td>Tensor Core 接近满载</td></tr>
+  <tr><td>带宽利用率</td><td><span class="metric">~30%</span></td><td>HBM 绰绰有余</td></tr>
+  <tr><td>瓶颈类型</td><td><strong>Compute-bound</strong></td><td>计算是瓶颈，带宽够用</td></tr>
+</table>
+
+<div class="key-point">
+  <strong>反直觉的事实：</strong>处理 1000 个 Token 和处理 10 个 Token 耗时几乎一样。因为 Tensor Core 是高度并行的硬件单元，它可以同时处理大量数据。Token 越多，GPU 的性价比越高。这也是为什么长 Prompt 并不会显著增加首字延迟。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ Step 3 ═══════ -->
+<h2><span class="step-badge">3</span>Decode 逐 Token 生成<span class="en">Auto-regressive Generation</span></h2>
+
+<div class="screenshot">
+  <img src="images/step3-Decode生成.png" alt="Step 3 Decode">
+  <div class="caption">Step 3: GPU 产出 logits → CPU 采样选 Token → Token ID 返回 GPU 继续生成</div>
+</div>
+
+<p>到了生成阶段，情况彻底反转。CPU 和 GPU 的协作变得更加紧密，每生成一个 Token 都需要两者配合。</p>
+
+<h3>每一步的完整循环</h3>
+
+<p>1. <strong>GPU</strong> 读取全部 140GB 模型权重，计算出下一个 Token 的概率分布（logits）<br>
+2. logits 通过 PCIe 传回 <strong>CPU</strong><br>
+3. <strong>CPU</strong> 执行采样策略（Temperature、Top-P 等），选出最终的 Token<br>
+4. <strong>CPU</strong> 将 Token ID 送回 GPU，开始下一轮计算</p>
+
+<div class="cpu-role">
+  在 Decode 阶段扮演「调度员 + 裁判」的角色。除了采样，CPU 还负责请求调度（批处理多个用户请求）、KV Cache 内存管理、以及决定何时停止生成（遇到 EOS token）。在 vLLM 等推理框架中，CPU 运行的调度器是整个系统的核心控制器。
+</div>
+
+<h3>为什么这么慢？</h3>
+
+<p>每生成 1 个 Token，GPU 必须把<strong>全部模型权重</strong>从 HBM 读一遍。对于 70B FP16 模型，这意味着每步搬运 140GB 数据，但只做了极少量的计算。</p>
+
+<table class="compare-table">
+  <tr><th>指标</th><th>Decode 阶段</th><th>说明</th></tr>
+  <tr><td>算力利用率</td><td><span class="metric-danger">~5%</span></td><td>Tensor Core 严重闲置</td></tr>
+  <tr><td>带宽利用率</td><td><span class="metric-danger">~95%</span></td><td>HBM 几乎被打满</td></tr>
+  <tr><td>瓶颈类型</td><td><strong>Memory-bound</strong></td><td>数据搬运是瓶颈，计算够用</td></tr>
+</table>
+
+<div class="analogy">
+  大模型为什么是一个字一个字蹦出来的？不是因为 GPU 算得不够快，而是因为数据搬运太慢了。Tensor Core 大部分时间都在干等 HBM 把数据送过来。这就像一个打字速度极快的打字员，但每打一个字之前都要等快递把键盘送来一次。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ Step 4 ═══════ -->
+<h2><span class="step-badge">4</span>KV Cache 增长<span class="en">Key-Value Cache</span></h2>
+
+<div class="screenshot">
+  <img src="images/step4-KVCache增长.png" alt="Step 4 KV Cache">
+  <div class="caption">Step 4: KV Cache 随序列长度线性增长，颜色从绿到红代表显存压力</div>
+</div>
+
+<p>在 Transformer 的 Attention 计算中，每个 Token 都会生成一组 Key 和 Value 向量。为了避免重复计算已经生成的 Token，这些 K/V 向量会被缓存在 GPU 显存中。这就是 <strong>KV Cache</strong>。</p>
+
+<h3>KV Cache 有多大？</h3>
+
+<p>KV Cache 的大小随序列长度<strong>线性增长</strong>。以 70B 模型为例（80 层，head_dim=128）：</p>
+
+<table class="compare-table">
+  <tr><th>架构</th><th>KV 头数</th><th>4K 上下文</th><th>32K 上下文</th><th>128K 上下文</th></tr>
+  <tr>
+    <td>无 GQA（64 头）</td>
+    <td>64</td>
+    <td><span class="metric-warn">~10 GB</span></td>
+    <td><span class="metric-danger">~80 GB</span></td>
+    <td><span class="metric-danger">~320 GB</span></td>
+  </tr>
+  <tr>
+    <td>GQA 优化（8 头）</td>
+    <td>8</td>
+    <td><span class="metric">~1.3 GB</span></td>
+    <td><span class="metric">~10 GB</span></td>
+    <td><span class="metric-warn">~40 GB</span></td>
+  </tr>
+</table>
+
+<p>LLaMA-2 70B 使用了 <strong>GQA（分组查询注意力）</strong>，将 KV 头数从 64 减少到 8，KV Cache 直接压缩到原来的 <strong>1/8</strong>。这是长上下文模型的关键优化。</p>
+
+<p>即便如此，128K 上下文时 GQA 版本的 KV Cache 仍需 40GB，加上模型权重 140GB，总计 180GB——至少需要 3 张 A100 才能跑。</p>
+
+<div class="cpu-role">
+  在 vLLM 等框架中负责 KV Cache 的内存管理。PagedAttention 技术将 KV Cache 按页管理（类似操作系统的虚拟内存），由 CPU 决定哪些页保留、哪些淘汰。这让多个请求可以共享 GPU 显存，大幅提升吞吐量。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ Step 5 ═══════ -->
+<h2><span class="step-badge">5</span>带宽瓶颈可视化<span class="en">Why Decode is Slow</span></h2>
+
+<div class="screenshot">
+  <img src="images/step5-带宽瓶颈.png" alt="Step 5 带宽瓶颈">
+  <div class="caption">Step 5: 高速公路比喻 — 算力 8 车道空跑 vs 带宽 2 车道堵死</div>
+</div>
+
+<p>为什么 Decode 阶段 GPU 的算力利用率只有 5%？用一个高速公路的比喻就能理解。</p>
+
+<div class="analogy">
+  <strong>GPU 算力</strong>是一条 8 车道的高速公路，非常宽敞。但在 Decode 阶段，只有 1 辆车在上面跑（每步只算 1 个 Token），其余 7 条车道全部空着。
+  <br><br>
+  <strong>HBM 带宽</strong>是一条 2 车道的乡间小路。每步都要把全部模型权重（140GB）搬一遍，这条小路已经堵得水泄不通。
+</div>
+
+<h3>量化指标</h3>
+
+<p><strong>Arithmetic Intensity</strong>（算术强度）= FLOPs / Bytes。Decode 阶段这个比值约为 1，意味着搬运 1 字节数据只做 1 次浮点运算。而 A100 GPU 的计算-带宽比约为 200——也就是说，GPU 有能力对每字节数据做 200 次运算，但实际只做了 1 次。<strong>算力浪费了 99.5%</strong>。</p>
+
+<h3>怎么优化？</h3>
+
+<table class="compare-table">
+  <tr><th>方法</th><th>原理</th><th>效果</th></tr>
+  <tr>
+    <td><strong>量化</strong>（INT8/INT4）</td>
+    <td>减少模型权重的位宽，降低每步搬运的数据量</td>
+    <td>INT4 量化可减少 75% 搬运量，Decode 速度提升 2-4x</td>
+  </tr>
+  <tr>
+    <td><strong>推测解码</strong><br>(Speculative Decoding)</td>
+    <td>用小模型先猜多个 Token，大模型一次性验证</td>
+    <td>将多步 Decode 合并为一次类似 Prefill 的操作，提升算力利用率</td>
+  </tr>
+  <tr>
+    <td><strong>FlashAttention</strong></td>
+    <td>优化 Attention 的显存访问模式，减少 HBM 读写次数</td>
+    <td>Attention 计算加速 2-4x，同时节省显存</td>
+  </tr>
+  <tr>
+    <td><strong>GQA / MQA</strong></td>
+    <td>减少 KV 头数，降低 KV Cache 的带宽需求</td>
+    <td>KV Cache 带宽需求降至 1/8（GQA）或 1/64（MQA）</td>
+  </tr>
+</table>
+
+<div class="divider"></div>
+
+<!-- ═══════ Step 6 ═══════ -->
+<h2><span class="step-badge">6</span>多 GPU 张量并行<span class="en">Tensor Parallelism</span></h2>
+
+<div class="screenshot">
+  <img src="images/step6-多GPU并行.png" alt="Step 6 多GPU并行">
+  <div class="caption">Step 6: 4 张 GPU 通过 NVLink 互联，粒子展示 All-Reduce 数据流</div>
+</div>
+
+<p>当一张 GPU 的显存装不下整个模型时，就需要把模型切分到多张卡上。<strong>Tensor Parallelism</strong> 是最常用的方式：将每一层的权重矩阵按列（或行）切分，每张 GPU 只计算自己负责的部分。</p>
+
+<h3>GPU 间通信：NVLink vs PCIe</h3>
+
+<p>切分后的 GPU 需要在每层计算完成后做 <strong>All-Reduce</strong> 操作来汇总结果。这对 GPU 间的通信带宽要求极高。</p>
+
+<table class="compare-table">
+  <tr><th>互联方式</th><th>双向带宽</th><th>适用 GPU</th><th>对比</th></tr>
+  <tr>
+    <td>PCIe 4.0 x16</td>
+    <td><span class="metric">~64 GB/s</span></td>
+    <td>所有 GPU</td>
+    <td>基准</td>
+  </tr>
+  <tr>
+    <td>NVLink 3.0</td>
+    <td><span class="metric-green">600 GB/s</span></td>
+    <td>A100</td>
+    <td>PCIe 的 <strong>9 倍</strong></td>
+  </tr>
+  <tr>
+    <td>NVLink 4.0</td>
+    <td><span class="metric-green">900 GB/s</span></td>
+    <td>H100</td>
+    <td>PCIe 的 <strong>14 倍</strong></td>
+  </tr>
+</table>
+
+<h3>多卡带来的加速</h3>
+
+<p>4 卡 Tensor Parallel 时，每张卡只需要读取 <strong>1/4</strong> 的模型权重。由于 Decode 阶段是 Memory-bound，权重读取量减半意味着延迟也接近减半。4 卡并行的 Decode 延迟可降低近 <strong>4 倍</strong>。</p>
+
+<div class="cpu-role">
+  负责多 GPU 环境的初始化：分配模型分片、建立 NCCL 通信组、管理跨卡的请求调度。在推理过程中，CPU 协调各 GPU 的计算进度，确保 All-Reduce 同步。
+</div>
+
+<div class="key-point">
+  <strong>为什么高端推理服务器都标配 NVLink？</strong>因为 Tensor Parallel 的 All-Reduce 通信量与模型大小成正比。用 PCIe 做 All-Reduce 会成为新的瓶颈，而 NVLink 的带宽高出一个数量级，可以把通信开销降到可忽略的水平。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 总结 ═══════ -->
+<h2>总结：CPU 和 GPU 的分工全景</h2>
+
+<table class="compare-table">
+  <tr><th>阶段</th><th>CPU 干什么</th><th>GPU 干什么</th><th>瓶颈</th></tr>
+  <tr>
+    <td>模型加载</td>
+    <td>读 SSD、发起 DMA 传输</td>
+    <td>被动接收权重</td>
+    <td>PCIe / SSD 带宽</td>
+  </tr>
+  <tr>
+    <td>Prefill</td>
+    <td>Tokenization → 空闲等待</td>
+    <td>并行矩阵乘法</td>
+    <td>GPU 算力</td>
+  </tr>
+  <tr>
+    <td>Decode</td>
+    <td>采样、调度、KV 管理</td>
+    <td>逐步读权重算 logits</td>
+    <td>HBM 带宽</td>
+  </tr>
+  <tr>
+    <td>多卡并行</td>
+    <td>NCCL 初始化、跨卡调度</td>
+    <td>分片计算 + All-Reduce</td>
+    <td>NVLink 带宽</td>
+  </tr>
+</table>
+
+<div class="divider"></div>
+
+<!-- CTA -->
+<div class="cta">
+  <h3>57 个交互动画，持续更新，免费在线体验</h3>
+  <p>
+    覆盖 AI 全栈知识：基础概念 → Agent 工具链 → Prompt 工程 → 模型架构 → 硬件芯片 → 前沿架构
+    <br>
+    纯前端实现，无需注册，手机/电脑均可访问
+    <br>
+    本文的 3D 交互动画支持鼠标拖拽旋转、滚轮缩放，可以从任意角度观察硬件架构
+  </p>
+  <a class="link" href="https://tbusos.github.io/my-chat/">点击「阅读原文」立即体验</a>
+</div>
+
+<div class="tags">
+  <span class="tag">LLM推理</span>
+  <span class="tag">GPU</span>
+  <span class="tag">CPU</span>
+  <span class="tag">HBM</span>
+  <span class="tag">KV Cache</span>
+  <span class="tag">Tensor Core</span>
+  <span class="tag">NVLink</span>
+  <span class="tag">A100</span>
+  <span class="tag">量化</span>
+  <span class="tag">硬件架构</span>
+</div>
+
+</body>
+</html>

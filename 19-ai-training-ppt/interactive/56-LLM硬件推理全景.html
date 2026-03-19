@@ -458,7 +458,7 @@ var STEPS = [
     sub: 'Model Loading',
     desc: '推理第一步：将<strong>模型权重</strong>从存储设备加载到 GPU 显存。<br><br>' +
       '数据路径：<span class="hl-green">SSD</span> \u2192 <span class="hl-blue">DDR 内存</span> \u2192 <span class="hl-gold">PCIe 总线</span> \u2192 <span class="hl-cyan">GPU HBM</span><br><br>' +
-      '传输速率：SSD\u2192DDR <span class="hl-green">~3.5 GB/s</span>，PCIe 4.0 x16 \u2192 GPU <span class="hl-gold">~32 GB/s</span><br><br>' +
+      '传输速率：SSD\u2192DDR <span class="hl-green">~7 GB/s</span> (Gen4)，PCIe 4.0 x16 \u2192 GPU <span class="hl-gold">~32 GB/s</span><br><br>' +
       '70B 模型 (FP16) 约 <span class="hl-orange">140 GB</span>，需要多卡或量化才能放入单 GPU。',
     metrics: [
       { label: 'SSD\u2192DDR', value: 18, color: C.green },
@@ -547,7 +547,8 @@ var STEPS = [
     title: '多GPU并行',
     sub: 'Tensor Parallelism',
     desc: '模型太大时，用 <span class="hl-purple">Tensor Parallelism</span> 将矩阵切分到多张 GPU。<br><br>' +
-      '每张 GPU 计算自己的部分，通过 <span class="hl-green">NVLink</span> (900 GB/s) 执行 <strong>All-Reduce</strong> 汇总。<br><br>' +
+      '每张 GPU 计算自己的部分，通过 <span class="hl-green">NVLink</span> 执行 <strong>All-Reduce</strong> 汇总。<br><br>' +
+      'A100 NVLink 3.0: <span class="hl-green">600 GB/s</span>，H100 NVLink 4.0: <span class="hl-green">900 GB/s</span>，远超 PCIe。<br><br>' +
       'NVLink 带宽远超 PCIe，是多卡通信首选。<br><br>' +
       '4 卡并行 Decode 延迟降低近 <span class="hl-gold">4 倍</span>——每卡只读 1/4 权重。',
     metrics: [
@@ -571,7 +572,7 @@ var GLOSSARY = [
   { term: 'KV Cache', zh: '\u952E\u503C\u7F13\u5B58', def: '\u7F13\u5B58 Attention \u4E2D\u7684 Key/Value \u5411\u91CF\uFF0C\u907F\u514D\u5BF9\u5DF2\u751F\u6210 token \u91CD\u590D\u8BA1\u7B97\u3002' },
   { term: 'Tensor Core', zh: '\u5F20\u91CF\u6838\u5FC3', def: 'NVIDIA GPU \u4E2D\u4E13\u95E8\u6267\u884C\u77E9\u9635\u4E58\u6CD5\u7684\u786C\u4EF6\u5355\u5143\uFF0CFP16 \u7B97\u529B\u8FDC\u8D85 CUDA Core\u3002' },
   { term: 'PCIe', zh: '\u5916\u8BBE\u4E92\u8054\u603B\u7EBF', def: 'CPU \u4E0E GPU \u4E4B\u95F4\u7684\u6807\u51C6\u6570\u636E\u901A\u9053\uFF0CGen4 x16 \u5E26\u5BBD\u7EA6 32 GB/s\u3002' },
-  { term: 'NVLink', zh: 'GPU \u9AD8\u901F\u4E92\u8054', def: 'NVIDIA \u81EA\u7814 GPU \u95F4\u76F4\u8FDE\u901A\u9053\uFF0C\u7B2C\u56DB\u4EE3\u53CC\u5411\u5E26\u5BBD 900 GB/s\u3002' },
+  { term: 'NVLink', zh: 'GPU \u9AD8\u901F\u4E92\u8054', def: 'NVIDIA \u81EA\u7814 GPU \u95F4\u76F4\u8FDE\u901A\u9053\u3002A100 NVLink 3.0 \u53CC\u5411 600 GB/s\uFF0CH100 NVLink 4.0 \u53CC\u5411 900 GB/s\u3002' },
   { term: 'Memory-bound', zh: '\u5185\u5B58\u74F6\u9888', def: '\u7A0B\u5E8F\u6027\u80FD\u53D7\u9650\u4E8E\u6570\u636E\u642C\u8FD0\u901F\u5EA6\uFF0C\u7B97\u529B\u7A7A\u95F2\u7B49\u5F85\u6570\u636E\uFF0CDecode \u5C5E\u4E8E\u6B64\u7C7B\u3002' },
   { term: 'Compute-bound', zh: '\u8BA1\u7B97\u74F6\u9888', def: '\u7A0B\u5E8F\u6027\u80FD\u53D7\u9650\u4E8E\u7B97\u529B\u4E0D\u8DB3\uFF0C\u6570\u636E\u4F9B\u7ED9\u5145\u8DB3\uFF0CPrefill \u5C5E\u4E8E\u6B64\u7C7B\u3002' },
   { term: 'Tensor Parallelism', zh: '\u5F20\u91CF\u5E76\u884C', def: '\u5C06\u6A21\u578B\u5C42\u5185\u7684\u77E9\u9635\u6309\u7EF4\u5EA6\u5207\u5206\u5230\u591A\u5F20 GPU\uFF0C\u5404\u81EA\u5E76\u884C\u8BA1\u7B97\u540E\u901A\u4FE1\u6C47\u603B\u3002' }
@@ -983,7 +984,7 @@ function scene1() {
   drawConn([63,0,4], [133,0,13], C.gold, false);
 
   // Rate labels
-  drawRate([-202,0,13], [-141,0,13], '3.5 GB/s', C.green);
+  drawRate([-202,0,13], [-141,0,13], '~7 GB/s', C.green);
   drawRate([63,0,4], [133,0,13], '32 GB/s', C.gold);
 
   // Particles along the full path
@@ -1364,7 +1365,7 @@ function scene6() {
   drawConn([sx+48,0,-8], [sx+3*sp-48,0,-8], C.green, true);
 
   // NVLink label
-  drawRate([sx+sp+48,0,68], [sx+2*sp-48,0,68], 'NVLink 900GB/s', C.green);
+  drawRate([sx+sp+48,0,68], [sx+2*sp-48,0,68], 'NVLink 600-900GB/s', C.green);
 
   // All-Reduce label
   label3D(0, 0, 95, 'All-Reduce \u901A\u4FE1', C.green, 15);

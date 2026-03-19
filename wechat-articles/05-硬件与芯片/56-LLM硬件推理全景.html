@@ -456,8 +456,9 @@ var STEPS = [
   {
     title: '模型加载',
     sub: 'Model Loading',
-    desc: '推理第一步：将<strong>模型权重</strong>从存储设备加载到 GPU 显存。<br><br>' +
-      '数据路径：<span class="hl-green">SSD</span> \u2192 <span class="hl-blue">DDR 内存</span> \u2192 <span class="hl-gold">PCIe 总线</span> \u2192 <span class="hl-cyan">GPU HBM</span><br><br>' +
+    desc: '<span class="hl-blue">CPU</span> 发起并协调整个加载流程。<br><br>' +
+      '数据路径：<span class="hl-green">SSD</span> \u2192 <span class="hl-blue">CPU/DDR 内存</span> \u2192 <span class="hl-gold">PCIe 总线</span> \u2192 <span class="hl-cyan">GPU HBM</span><br><br>' +
+      'CPU 的内存控制器将模型文件从 SSD 读入 DDR，再通过 DMA 传输经 PCIe 送入 GPU。<br><br>' +
       '传输速率：SSD\u2192DDR <span class="hl-green">~7 GB/s</span> (Gen4)，PCIe 4.0 x16 \u2192 GPU <span class="hl-gold">~32 GB/s</span><br><br>' +
       '70B 模型 (FP16) 约 <span class="hl-orange">140 GB</span>，需要多卡或量化才能放入单 GPU。',
     metrics: [
@@ -467,7 +468,7 @@ var STEPS = [
     ],
     legend: [
       { color: C.green, name: 'SSD \u56FA\u6001\u786C\u76D8' },
-      { color: C.blue, name: 'DDR \u5185\u5B58' },
+      { color: C.blue, name: 'CPU / DDR \u5185\u5B58' },
       { color: C.gold, name: 'PCIe \u603B\u7EBF' },
       { color: C.purple, name: 'GPU \u82AF\u7247' },
       { color: C.cyan, name: 'HBM \u663E\u5B58' }
@@ -476,9 +477,9 @@ var STEPS = [
   {
     title: 'Prefill 预填充',
     sub: 'Parallel Prompt Processing',
-    desc: '所有 <strong>Prompt Token</strong> 一次性并行送入 GPU 的 Tensor Core。<br><br>' +
-      '<span class="hl-orange">Tensor Core</span> 全速运转执行大规模矩阵乘法 (GEMM)。<br><br>' +
-      '此阶段为 <strong><span class="hl-orange">Compute-bound</span></strong>：计算利用率 ~80%，带宽利用率仅 ~30%。<br><br>' +
+    desc: '<span class="hl-blue">CPU</span> 负责 Tokenization：将用户输入的文本切分成 Token ID 序列，通过 PCIe 发送给 GPU。<br><br>' +
+      'GPU 的 <span class="hl-orange">Tensor Core</span> 接收后，一次性并行处理所有 Prompt Token，执行大规模矩阵乘法 (GEMM)。<br><br>' +
+      '此阶段 CPU 基本空闲等待，GPU 为 <strong><span class="hl-orange">Compute-bound</span></strong>：计算利用率 ~80%，带宽利用率仅 ~30%。<br><br>' +
       '处理 1000 个 token 与 10 个 token 耗时差距不大——并行的力量。',
     metrics: [
       { label: '\u7B97\u529B\u5229\u7528', value: 80, color: C.orange },
@@ -486,24 +487,25 @@ var STEPS = [
       { label: 'SM \u5360\u7528', value: 85, color: C.purple }
     ],
     legend: [
+      { color: C.blue, name: 'CPU (Tokenization)' },
       { color: C.cyan, name: 'HBM \u663E\u5B58' },
-      { color: C.orange, name: 'Tensor Core' },
-      { color: C.blue, name: 'Prompt Tokens' }
+      { color: C.orange, name: 'Tensor Core' }
     ]
   },
   {
     title: 'Decode 逐Token生成',
     sub: 'Auto-regressive Generation',
     desc: '生成阶段每次只产出 <strong>1 个 token</strong>，却必须读取<strong>全部模型权重</strong>。<br><br>' +
-      '数据在 <span class="hl-cyan">HBM</span> 和 <span class="hl-orange">Tensor Core</span> 之间反复搬运。<br><br>' +
-      '此阶段为 <strong><span class="hl-cyan">Memory-bound</span></strong>：HBM 带宽利用率 ~95%，算力仅用 ~5%。<br><br>' +
-      '这就是大模型「一个字一个字蹦」的根本原因。',
+      'GPU 计算出 logits 后，<span class="hl-blue">CPU</span> 执行采样（Sampling）选出下一个 token，再将 token ID 送回 GPU 继续生成。<br><br>' +
+      '在 vLLM 等推理框架中，<span class="hl-blue">CPU</span> 还负责请求调度和 KV Cache 内存管理。<br><br>' +
+      '此阶段为 <strong><span class="hl-cyan">Memory-bound</span></strong>：HBM 带宽利用率 ~95%，算力仅用 ~5%。',
     metrics: [
       { label: '\u7B97\u529B\u5229\u7528', value: 5, color: C.orange },
       { label: '\u5E26\u5BBD\u5229\u7528', value: 95, color: C.cyan },
       { label: 'SM \u5360\u7528', value: 8, color: C.purple }
     ],
     legend: [
+      { color: C.blue, name: 'CPU (Sampling/\u8C03\u5EA6)' },
       { color: C.cyan, name: 'HBM (\u5168\u90E8\u6743\u91CD)' },
       { color: C.orange, name: 'Tensor Core (\u95F2\u7F6E)' },
       { color: C.gold, name: '\u8F93\u51FA Token' }
@@ -514,8 +516,9 @@ var STEPS = [
     sub: 'Key-Value Cache Growth',
     desc: '为避免重复计算，每个 token 的 <span class="hl-pink">Key/Value</span> 向量缓存在显存中。<br><br>' +
       'KV Cache 随序列长度 <strong>线性增长</strong>。<br><br>' +
-      'LLaMA-70B：4K 上下文 KV Cache ~<span class="hl-pink">2.5 GB</span>；128K 上下文 ~<span class="hl-pink">80 GB</span>，占满整张卡。<br><br>' +
-      '这是长上下文推理的核心挑战。',
+      '70B 模型（无 GQA）：4K 上下文 KV Cache ~<span class="hl-pink">10 GB</span>；128K 上下文可达 <span class="hl-pink">320 GB</span>。<br>' +
+      '使用 <span class="hl-green">GQA 优化</span>后可降至约 1/8。<br><br>' +
+      '<span class="hl-blue">CPU</span> 在 vLLM 中负责 PagedAttention 调度，管理 KV Cache 的分配与淘汰。',
     metrics: [
       { label: 'Weights', value: 50, color: C.cyan },
       { label: 'KV Cache', value: 35, color: C.pink },
@@ -548,8 +551,7 @@ var STEPS = [
     sub: 'Tensor Parallelism',
     desc: '模型太大时，用 <span class="hl-purple">Tensor Parallelism</span> 将矩阵切分到多张 GPU。<br><br>' +
       '每张 GPU 计算自己的部分，通过 <span class="hl-green">NVLink</span> 执行 <strong>All-Reduce</strong> 汇总。<br><br>' +
-      'A100 NVLink 3.0: <span class="hl-green">600 GB/s</span>，H100 NVLink 4.0: <span class="hl-green">900 GB/s</span>，远超 PCIe。<br><br>' +
-      'NVLink 带宽远超 PCIe，是多卡通信首选。<br><br>' +
+      'H100 NVLink 4.0: <span class="hl-green">900 GB/s</span>，A100 NVLink 3.0: <span class="hl-green">600 GB/s</span>，远超 PCIe。<br><br>' +
       '4 卡并行 Decode 延迟降低近 <span class="hl-gold">4 倍</span>——每卡只读 1/4 权重。',
     metrics: [
       { label: 'NVLink BW', value: 90, color: C.green },
@@ -572,7 +574,7 @@ var GLOSSARY = [
   { term: 'KV Cache', zh: '\u952E\u503C\u7F13\u5B58', def: '\u7F13\u5B58 Attention \u4E2D\u7684 Key/Value \u5411\u91CF\uFF0C\u907F\u514D\u5BF9\u5DF2\u751F\u6210 token \u91CD\u590D\u8BA1\u7B97\u3002' },
   { term: 'Tensor Core', zh: '\u5F20\u91CF\u6838\u5FC3', def: 'NVIDIA GPU \u4E2D\u4E13\u95E8\u6267\u884C\u77E9\u9635\u4E58\u6CD5\u7684\u786C\u4EF6\u5355\u5143\uFF0CFP16 \u7B97\u529B\u8FDC\u8D85 CUDA Core\u3002' },
   { term: 'PCIe', zh: '\u5916\u8BBE\u4E92\u8054\u603B\u7EBF', def: 'CPU \u4E0E GPU \u4E4B\u95F4\u7684\u6807\u51C6\u6570\u636E\u901A\u9053\uFF0CGen4 x16 \u5E26\u5BBD\u7EA6 32 GB/s\u3002' },
-  { term: 'NVLink', zh: 'GPU \u9AD8\u901F\u4E92\u8054', def: 'NVIDIA \u81EA\u7814 GPU \u95F4\u76F4\u8FDE\u901A\u9053\u3002A100 NVLink 3.0 \u53CC\u5411 600 GB/s\uFF0CH100 NVLink 4.0 \u53CC\u5411 900 GB/s\u3002' },
+  { term: 'NVLink', zh: 'GPU \u9AD8\u901F\u4E92\u8054', def: 'NVIDIA \u81EA\u7814 GPU \u95F4\u76F4\u8FDE\u901A\u9053\uFF0C\u7B2C\u56DB\u4EE3\u53CC\u5411\u5E26\u5BBD 900 GB/s\u3002' },
   { term: 'Memory-bound', zh: '\u5185\u5B58\u74F6\u9888', def: '\u7A0B\u5E8F\u6027\u80FD\u53D7\u9650\u4E8E\u6570\u636E\u642C\u8FD0\u901F\u5EA6\uFF0C\u7B97\u529B\u7A7A\u95F2\u7B49\u5F85\u6570\u636E\uFF0CDecode \u5C5E\u4E8E\u6B64\u7C7B\u3002' },
   { term: 'Compute-bound', zh: '\u8BA1\u7B97\u74F6\u9888', def: '\u7A0B\u5E8F\u6027\u80FD\u53D7\u9650\u4E8E\u7B97\u529B\u4E0D\u8DB3\uFF0C\u6570\u636E\u4F9B\u7ED9\u5145\u8DB3\uFF0CPrefill \u5C5E\u4E8E\u6B64\u7C7B\u3002' },
   { term: 'Tensor Parallelism', zh: '\u5F20\u91CF\u5E76\u884C', def: '\u5C06\u6A21\u578B\u5C42\u5185\u7684\u77E9\u9635\u6309\u7EF4\u5EA6\u5207\u5206\u5230\u591A\u5F20 GPU\uFF0C\u5404\u81EA\u5E76\u884C\u8BA1\u7B97\u540E\u901A\u4FE1\u6C47\u603B\u3002' }
@@ -965,8 +967,9 @@ function scene1() {
   drawBox(-240, 0, 0, 75, 26, 55, C.green, 1, 'SSD');
   // DDR
   drawBox(-100, 0, 0, 82, 46, 40, C.blue, 1, 'DDR');
-  // CPU chip (small, between DDR and PCIe)
-  drawBox(-100, 0, 48, 34, 12, 34, C.blue, 0.5, 'CPU');
+  // CPU chip (orchestrator, between DDR and PCIe)
+  drawBox(-100, 0, 48, 48, 18, 44, C.blue, 0.7, 'CPU');
+  label3D(-100, 0, 72, '\u534F\u8C03\u52A0\u8F7D', C.blue, 9);
   // PCIe bus (flat wide)
   drawBox(35, 0, 0, 55, 9, 100, C.gold, 1, 'PCIe');
   // GPU enclosure
@@ -1006,6 +1009,14 @@ function scene1() {
 
 /* ----- Step 2: Prefill ----- */
 function scene2() {
+  // CPU (left side - does tokenization)
+  drawBox(-210, 0, 0, 70, 40, 60, C.blue, 0.6, 'CPU');
+  label3D(-210, 0, 50, 'Tokenizer', C.blue, 10);
+
+  // PCIe connection CPU -> GPU
+  drawConn([-175, 0, 20], [-115, 0, 20], C.gold, false);
+  drawRate([-175, 0, 20], [-115, 0, 20], 'PCIe', C.gold);
+
   // GPU
   drawBox(0, 0, 0, 220, 90, 180, C.purple, 0.25, '');
   label3D(0, 0, 105, 'GPU', C.purple, 16);
@@ -1022,7 +1033,7 @@ function scene2() {
   }
   label3D(60, 0, 72, 'Tensor Cores', C.orange, 13);
 
-  // Prompt tokens arriving in parallel (multiple beams)
+  // Prompt tokens from CPU to GPU
   var tokenCount = 10;
   for (var i = 0; i < tokenCount; i++) {
     var phase = (tick * 0.025 + i * 0.1) % 1;
@@ -1039,14 +1050,17 @@ function scene2() {
     ctx.fill();
     ctx.shadowBlur = 0;
   }
-  label3D(-175, -18, 72, 'Prompt Tokens', C.blue, 12);
-  label3D(-175, 0, 64, '(\u5E76\u884C\u8F93\u5165)', C.muted, 10);
+  label3D(-175, -18, 72, 'Token IDs', C.blue, 12);
+  label3D(-175, 0, 64, '(CPU\u2192GPU)', C.muted, 10);
 
   // Arrow
   drawConn([-115, 0, 44], [-70, 0, 36], C.blue, true);
 
   // Status label
   label3D(0, -8, 112, 'Compute-bound', C.orange, 15);
+
+  // CPU idle indicator
+  label3D(-210, 0, -16, 'CPU \u7A7A\u95F2\u7B49\u5F85', C.muted, 9);
 
   // Internal data flow
   var path = [[-55,0,38], [-14,0,28], [26,0,26], [60,0,28], [72,0,40], [44,0,38], [0,0,34], [-28,0,38]];
@@ -1057,6 +1071,15 @@ function scene2() {
 
 /* ----- Step 3: Decode ----- */
 function scene3() {
+  // CPU (right side - receives tokens, does sampling & scheduling)
+  drawBox(220, 0, 0, 70, 40, 60, C.blue, 0.6, 'CPU');
+  label3D(220, 0, 50, 'Sampling', C.blue, 10);
+  label3D(220, 0, -16, '\u8C03\u5EA6 / \u91C7\u6837', C.muted, 9);
+
+  // PCIe connection GPU -> CPU
+  drawConn([115, 0, 20], [185, 0, 20], C.gold, false);
+  drawRate([115, 0, 20], [185, 0, 20], 'logits', C.gold);
+
   // GPU
   drawBox(0, 0, 0, 220, 90, 180, C.purple, 0.25, '');
   label3D(0, 0, 105, 'GPU', C.purple, 16);
@@ -1075,9 +1098,9 @@ function scene3() {
   label3D(64, 0, 72, 'Tensor Cores', C.orange, 13);
   label3D(64, 14, 64, '(\u95F2\u7F6E ~95%)', C.muted, 10);
 
-  // Single output token
+  // Single output token: GPU -> CPU -> back
   var outPhase = (tick * 0.02) % 1;
-  var outX = 110 + outPhase * 80;
+  var outX = 110 + outPhase * 100;
   var outP = iso(outX, 0, 50);
   ctx.beginPath();
   ctx.arc(outP.x, outP.y, 9, 0, 6.283);
@@ -1086,7 +1109,19 @@ function scene3() {
   ctx.shadowBlur = 20;
   ctx.fill();
   ctx.shadowBlur = 0;
-  label3D(200, 0, 56, '1 Token', C.gold, 14);
+  label3D(160, 18, 56, '1 Token \u2192 CPU', C.gold, 11);
+
+  // Token ID returning from CPU to GPU
+  var retPhase = ((tick * 0.02) + 0.5) % 1;
+  var retX = 185 - retPhase * 75;
+  var retP = iso(retX, -14, 35);
+  ctx.beginPath();
+  ctx.arc(retP.x, retP.y, 5, 0, 6.283);
+  ctx.fillStyle = rgba(C.blue, 0.7);
+  ctx.shadowColor = C.blue;
+  ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.shadowBlur = 0;
 
   // HBM <-> TC shuttle
   var shuttle = [
@@ -1396,9 +1431,23 @@ function scene6() {
 /* ========== Render loop ========== */
 var sceneFns = [scene1, scene2, scene3, scene4, scene5, scene6];
 
-function render() {
+/* --- 录制模式：逐帧渲染，由外部 Playwright 脚本调用 --- */
+window.__RECORDING_MODE = false;
+
+/* 单帧渲染（录制模式用） */
+window.renderOneFrame = function() {
   tick++;
-  if (autoRot && !dragging) isoAngle += 0.0008;
+  if (autoRot && !dragging) isoAngle += 0.003;
+  ctx.clearRect(0, 0, W, H);
+  sceneFns[window.currentStep]();
+  drawParticles();
+};
+
+/* 正常模式的 render loop */
+function render() {
+  if (window.__RECORDING_MODE) return; // 录制模式下停止自动循环
+  tick++;
+  if (autoRot && !dragging) isoAngle += 0.003;
 
   ctx.clearRect(0, 0, W, H);
   sceneFns[window.currentStep]();
@@ -1406,6 +1455,27 @@ function render() {
 
   requestAnimationFrame(render);
 }
+
+/* 进入录制模式：禁用交互，停止自动渲染 */
+window.enterRecordingMode = function() {
+  window.__RECORDING_MODE = true;
+  autoRot = true;   // 保持3D自动旋转，视频更生动
+  dragging = false;
+  // 移除所有鼠标/触摸事件监听（防止干扰）
+  canvas.style.pointerEvents = 'none';
+  // 隐藏底部导航按钮和术语表按钮
+  document.querySelector('.nav-buttons').style.display = 'none';
+  document.querySelector('.glossary-btn').style.display = 'none';
+  document.querySelector('.canvas-hint').style.display = 'none';
+};
+
+/* 切换步骤（录制模式用，带平滑过渡） */
+window.goStepSmooth = function(idx) {
+  if (idx < 0 || idx >= STEPS.length) return;
+  window.currentStep = idx;
+  particles = [];
+  updateUI();
+};
 
 /* ========== Boot ========== */
 document.addEventListener('DOMContentLoaded', function() {

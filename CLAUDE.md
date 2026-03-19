@@ -89,3 +89,73 @@
 - [ ] 深色背景下对比度足够
 - [ ] 两个目录文件完全同步
 - [ ] index.html 数量和卡片已更新
+
+---
+
+## 微信公众号视频制作 (Video Production Skill)
+
+本项目支持将交互动画制作成带配音的讲解视频，用于微信公众号发布。使用 `/make-video` 命令即可启动。
+
+### 核心方案：逐帧截图渲染 + 配音时长驱动
+
+```
+配音文稿 → edge-tts 生成音频 → 获取每段精确时长(timing.json)
+    ↓
+修改 HTML 添加 renderOneFrame() → 按 timing.json 的时长切换步骤
+    ↓
+Playwright 逐帧调用 renderOneFrame() + screenshot (30fps, 2x Retina)
+    ↓
+ffmpeg 合成帧序列 + 完整配音 → MP4 (天然同步，零偏移)
+```
+
+### 为什么这样做
+
+- **完美同步**：视频帧数和音频时长基于同一组 timing 数据，不存在漂移
+- **高画质**：逐帧截图 30fps 零丢帧，2560×1600 Retina 分辨率
+- **3D 旋转**：Canvas 动画保持自动旋转，视频有立体感
+- **全免费**：edge-tts(微软晓晓) + Playwright + ffmpeg，零成本
+
+### 目录结构
+
+```
+wechat-articles/
+├── .venv/                      ← Python venv (edge-tts)
+├── 01-AI基础入门/              ← 第1期
+├── 05-硬件与芯片/              ← 第5期
+│   ├── output/*.mp4            ← 成品视频
+│   ├── article.html            ← 公众号文章
+│   ├── images/                 ← 文章配图
+│   ├── gen-narration.py        ← 配音生成
+│   ├── record.mjs              ← 逐帧录制
+│   └── take-screenshots.mjs    ← 步骤截图
+└── ...
+```
+
+### 发布流程
+
+1. 运行 `/make-video {动画编号}` 生成视频 + 文章 + 截图
+2. 在微信公众号后台「素材管理」上传视频和图片
+3. 新建图文 → 复制粘贴 article.html 内容 → 插入视频和图片
+4. 设置「阅读原文」链接为 `https://tbusos.github.io/my-chat/`
+5. 发布
+
+### 依赖安装
+
+```bash
+# Python venv + edge-tts（如 .venv 不存在）
+python3 -m venv wechat-articles/.venv
+wechat-articles/.venv/bin/pip install edge-tts
+
+# Node.js + Playwright
+npm install playwright  # 在 wechat-articles 目录下
+
+# ffmpeg（macOS）
+brew install ffmpeg
+```
+
+### 注意事项
+
+- **不修改 docs/ 原文件**：复制到 wechat-articles/ 后再修改 HTML
+- **技术数据要准确**：硬件规格等数据必须搜索确认后再写入
+- **不打广告**：不要在配音/文章中特指某个产品（如用"AI助手"代替"ChatGPT"）
+- **配音语速**：edge-tts rate="+0%" 正常语速，内容要详细充实
