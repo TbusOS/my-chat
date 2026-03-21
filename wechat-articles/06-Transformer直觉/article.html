@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer 注意力机制：一场3D直觉之旅</title>
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  background: #fff;
+  color: #333;
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.intro {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 32px;
+  font-size: 15px;
+  line-height: 1.9;
+  border-left: 4px solid #a78bfa;
+}
+.intro strong { color: #a78bfa; }
+.intro em { color: #22d3ee; font-style: normal; }
+
+/* 视频区 */
+.video-section {
+  background: #0a0e1a;
+  border-radius: 12px;
+  padding: 28px 20px;
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.video-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 40%, rgba(167,139,250,0.08) 0%, transparent 60%),
+              radial-gradient(circle at 70% 60%, rgba(74,158,255,0.08) 0%, transparent 60%);
+}
+.video-section .play-icon {
+  position: relative;
+  width: 56px; height: 56px;
+  background: rgba(167,139,250,0.85);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  margin-bottom: 10px;
+}
+.video-section .play-icon::after {
+  content: '';
+  border-left: 18px solid #fff;
+  border-top: 11px solid transparent;
+  border-bottom: 11px solid transparent;
+  margin-left: 4px;
+}
+.video-section .title { position: relative; color: #e8ecf4; font-size: 15px; font-weight: 600; }
+.video-section .hint { position: relative; color: #64748b; font-size: 12px; margin-top: 6px; }
+.video-section .duration { position: relative; color: #a78bfa; font-size: 12px; margin-top: 4px; }
+
+/* 截图占位 */
+.screenshot {
+  background: #0a0e1a;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+  border: 1px dashed #334155;
+}
+.screenshot img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.screenshot .caption {
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 28px 0 12px;
+  padding-left: 14px;
+  border-left: 4px solid #a78bfa;
+}
+h2 .step-badge {
+  display: inline-block;
+  background: #a78bfa;
+  color: #fff;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+h2.blue-border { border-left-color: #4a9eff; }
+h2.blue-border .step-badge { background: #4a9eff; }
+h2.cyan-border { border-left-color: #22d3ee; }
+h2.cyan-border .step-badge { background: #22d3ee; }
+h2.green-border { border-left-color: #4ade80; }
+h2.green-border .step-badge { background: #4ade80; }
+h2.gold-border { border-left-color: #ffd666; }
+h2.gold-border .step-badge { background: #ffd666; color: #1a1a1a; }
+h2.orange-border { border-left-color: #fb923c; }
+h2.orange-border .step-badge { background: #fb923c; }
+h2.pink-border { border-left-color: #f472b6; }
+h2.pink-border .step-badge { background: #f472b6; }
+h2 .en {
+  font-size: 13px;
+  color: #888;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 20px 0 10px;
+}
+
+p { margin-bottom: 14px; font-size: 15px; color: #444; }
+
+.term {
+  display: inline;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.term-purple { color: #7c3aed; background: #f3f0ff; }
+.term-blue { color: #2563eb; background: #eff6ff; }
+.term-red { color: #dc2626; background: #fef2f2; }
+.term-green { color: #16a34a; background: #f0fdf4; }
+.term-gold { color: #b45309; background: #fffbeb; }
+.term-cyan { color: #0891b2; background: #ecfeff; }
+.term-orange { color: #c2410c; background: #fff7ed; }
+.term-pink { color: #be185d; background: #fdf2f8; }
+
+.formula-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 20px;
+  margin: 14px 0;
+  text-align: center;
+}
+.formula-box .formula {
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 15px;
+  color: #1e293b;
+  font-weight: 600;
+}
+.formula-box .note {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+.analogy {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.key-point {
+  background: linear-gradient(135deg, #f5f3ff, #eff6ff);
+  border: 1px solid #c4b5fd;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.key-point strong { color: #6d28d9; }
+
+.warning-box {
+  background: #fdf2f8;
+  border: 1px solid #fbcfe8;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.9;
+}
+.warning-box strong { color: #be185d; }
+
+.compare-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 16px 0;
+  font-size: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.compare-table th {
+  padding: 10px 14px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-weight: 600;
+  text-align: left;
+}
+.compare-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table tr:nth-child(even) td { background: #f8fafc; }
+
+.flow-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+}
+.flow-step {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.flow-arrow {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #ddd, transparent);
+  margin: 28px 0;
+}
+
+.cta {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  margin-top: 32px;
+}
+.cta h3 { font-size: 18px; margin-bottom: 10px; color: #a78bfa; }
+.cta p { font-size: 14px; color: #94a3b8; line-height: 1.8; }
+.cta .link {
+  display: inline-block;
+  margin-top: 14px;
+  background: linear-gradient(135deg, #a78bfa, #4a9eff);
+  color: #fff;
+  padding: 10px 28px;
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  justify-content: center;
+}
+.tag {
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+</style>
+</head>
+<body>
+
+<h1>Transformer 注意力机制：一场3D直觉之旅</h1>
+<p class="subtitle">从零推导 Self-Attention 为什么要存在 · 9 幕空间想象</p>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 引言 -->
+<!-- ═══════════════════════════════════════ -->
+
+<div class="intro">
+  ChatGPT、GPT-4、Claude、Gemini、DeepSeek——这些改变世界的大模型，内核都是同一个架构：<strong>Transformer</strong>。
+  <br><br>
+  但大多数科普文章只讲概念不讲「为什么」，看完还是「知其然不知其所以然」。
+  <br><br>
+  今天我们用<em>空间直觉</em>，从一个最基本的问题出发——<strong>机器是怎么理解一句话的？</strong>——一步步推导出 Transformer 自注意力（Self-Attention）的全部结构。
+  <br><br>
+  每一步都是在解决上一步留下的问题，你会发现整个架构的出现几乎是<strong>必然</strong>的。
+  <br><br>
+  文末有完整的 3D 交互动画和配音讲解视频，可以自己拖拽旋转、动手体验。
+</div>
+
+<!-- 视频区 -->
+<div class="video-section">
+  <div class="play-icon"></div>
+  <div class="title">Transformer 原理 3D 直觉（配音讲解版）</div>
+  <div class="hint">（视频需在公众号编辑器中插入 58-Transformer原理3D直觉.mp4）</div>
+  <div class="duration">3D 可旋转视角 · 9 幕推演</div>
+</div>
+
+<p>让我们从一个最基本的问题出发：<strong>机器是怎么理解一句话的？</strong></p>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 1 ═══════ -->
+<h2><span class="step-badge">1</span>词的困境<span class="en">Token Isolation</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step1-词的困境-全景.png" alt="场景1 词的困境 全景">
+  <div class="caption">场景1全景：四个词孤零零地漂浮在黑暗中，灰暗而没有色彩</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step1-词的困境-放大.png" alt="场景1 词的困境 3D放大">
+  <div class="caption">3D粒子放大：灰色粒子在虚空中互不相识</div>
+</div>
+
+<p>我们来看一句简单的中文：「<strong>我 爱 吃 苹果</strong>」。</p>
+
+<p>在计算机的世界里，文字只是一串冰冷的编号。「我」可能是编号 3456，「爱」是 1289，「吃」是 892，「苹果」是 5671。这些数字之间<strong>没有任何关系</strong>——计算机不知道「吃」和「苹果」经常一起出现，更不知道「苹果」到底是水果还是一家科技公司。</p>
+
+<p>想象一下，四个词就像四个孤独的灰色粒子，漂浮在一片漆黑的虚空中。它们彼此隔绝，互不相识。这就是<span class="term term-purple">Tokenization</span>（分词）之后的初始状态——纯粹的编号，没有意义。</p>
+
+<div class="key-point">
+  <strong>核心问题：</strong>如何让这些冰冷的编号变成有意义的「理解」？Transformer 的自注意力机制就是为了解决这个问题而诞生的。接下来的 8 个场景，我们将一步步推导出它的全部结构。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 2 ═══════ -->
+<h2 class="blue-border"><span class="step-badge">2</span>向量空间 — 给词一个「家」<span class="en">Embedding Space</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step2-向量空间-全景.png" alt="场景2 向量空间 全景">
+  <div class="caption">场景2全景：词从灰色变成彩色，在3D网格中聚集到各自的位置</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step2-向量空间-放大.png" alt="场景2 向量空间 3D放大">
+  <div class="caption">3D粒子放大：彩色粒子在向量空间中各就各位</div>
+</div>
+
+<p>第一步是给每个词一个更丰富的「身份」。我们不再用一个编号来代表一个词，而是用一组数字——也就是<span class="term term-blue">向量（Embedding）</span>。</p>
+
+<p>你可以把每个词想象成空间中的一个点。一个词的向量就是它在这个空间中的坐标。在实际的大模型中，这个坐标可能有数千个维度（GPT-3 是 12288 维），但原理是一样的。</p>
+
+<h3>为什么向量比编号好？</h3>
+
+<p>因为向量可以表达<strong>相似性</strong>。在向量空间中，含义相近的词会被放在彼此靠近的位置：</p>
+
+<ul style="font-size: 15px; color: #444; padding-left: 24px; margin-bottom: 14px;">
+  <li>「吃」和「苹果」靠得很近——它们经常一起出现</li>
+  <li>「吃」和「喝」也靠得很近——它们都是饮食动作</li>
+  <li>「我」和「苹果」距离较远——它们没有直接的语义关联</li>
+</ul>
+
+<div class="analogy">
+  <strong>类比：</strong>如果词是人，那编号就像身份证号——完全随机，无法体现人与人之间的关系。而向量就像住址——住在同一个小区的人更可能有相似的生活方式。<span class="term term-blue">词向量</span>就是让相似的词「住在」相似的位置。
+</div>
+
+<p>在动画中你可以看到，四个词从灰色变成了彩色，各自有了鲜明的个性，并在 3D 空间中找到了属于自己的位置。这就是<span class="term term-blue">Embedding</span>做的事情。</p>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 3 ═══════ -->
+<h2 class="gold-border"><span class="step-badge">3</span>一词多义 — 「苹果」是水果还是手机？<span class="en">Ambiguity Problem</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step3-一词多义-全景.png" alt="场景3 一词多义 全景">
+  <div class="caption">场景3全景：「苹果」在两种语境下切换——水果 vs 科技公司</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step3-一词多义-放大.png" alt="场景3 一词多义 3D放大">
+  <div class="caption">3D粒子放大：同一个词在不同语境中的位置变化</div>
+</div>
+
+<p>向量空间虽然比编号好了很多，但还有一个致命的问题：<strong>一词多义</strong>。</p>
+
+<p>「苹果」这个词在不同的句子里含义完全不同：</p>
+
+<ul style="font-size: 15px; color: #444; padding-left: 24px; margin-bottom: 14px;">
+  <li>「我 爱 吃 <strong style="color:#16a34a;">苹果</strong>」—— 这里是水果</li>
+  <li>「我 爱 用 <strong style="color:#7c3aed;">苹果</strong>」—— 这里是手机/电脑</li>
+</ul>
+
+<p>但在词向量空间中，不管上下文怎么变，「苹果」始终是同一个点、同一个向量。它没有能力根据上下文改变自己的含义。</p>
+
+<div class="warning-box">
+  <strong>问题的本质：</strong>静态的词向量是「一刀切」的——每个词永远只有一个固定的表示。但语言是动态的、依赖上下文的。要让「苹果」在「吃苹果」和「用苹果」中有不同的理解，必须让词向量<strong>看到周围的词</strong>。
+</div>
+
+<p>这就引出了一个关键需求：我们需要一种机制，让每个词能够<strong>参考上下文</strong>来调整自己的表示。这个需求，正是注意力机制诞生的根本原因。</p>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 4 ═══════ -->
+<h2 class="pink-border"><span class="step-badge">4</span>暴力平均 — 为什么不能等权混合？<span class="en">Naive Averaging</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step4-暴力平均-全景.png" alt="场景4 暴力平均 全景">
+  <div class="caption">场景4全景：「吃」向所有词发出等权连线（粉色），信息混合为模糊一团</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step4-暴力平均-放大.png" alt="场景4 暴力平均 3D放大">
+  <div class="caption">3D粒子放大：等权连线让信息变得模糊</div>
+</div>
+
+<p>最直觉的想法：让每个词去「看」句子中的所有其他词，然后把所有词的信息混合在一起。</p>
+
+<p>比如，让「吃」去看「我」「爱」「苹果」，把它们的向量做一个平均：</p>
+
+<div class="formula-box">
+  <div class="formula">新的「吃」= (「我」+ 「爱」+ 「苹果」) / 3</div>
+  <div class="note">等权平均：每个词贡献 33.3%</div>
+</div>
+
+<p>在动画中，你可以看到「吃」向所有词发出粉色的连线，每条线粗细相同——代表等权重。</p>
+
+<p>但这样做的结果非常糟糕。「吃」对于理解「苹果」的帮助远大于「我」——「我」只是主语，告诉不了「吃」太多有用的信息。而在等权平均中，「我」和「苹果」的贡献被迫相同，相当于把有价值的信号<strong>稀释</strong>在无关的噪音里。</p>
+
+<div class="analogy">
+  <strong>类比：</strong>你参加一个考试，需要向班上同学请教。等权平均相当于把每个同学的答案都算进来——包括那些根本不懂题目的同学。最终的答案只能是一团糊涂。你真正需要的是：<strong>找到最懂这个题的同学，重点听他的意见</strong>。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 5 ═══════ -->
+<h2 class="green-border"><span class="step-badge">5</span>注意力诞生 — 按需分配权重<span class="en">Attention Mechanism</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step5-注意力诞生-全景.png" alt="场景5 注意力诞生 全景">
+  <div class="caption">场景5全景：连线粗细不再相同——指向「苹果」的线最粗，代表最高关注度</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step5-注意力诞生-放大.png" alt="场景5 注意力诞生 3D放大">
+  <div class="caption">3D粒子放大：注意力权重通过连线粗细直观呈现</div>
+</div>
+
+<p>关键洞察来了：<strong>不同的词对当前词的重要性是不一样的</strong>！</p>
+
+<p>与其等权平均，不如让每个词有一个「权重」，重要的词权重大、不重要的词权重小：</p>
+
+<div class="formula-box">
+  <div class="formula">新的「吃」= 0.05 × 「我」+ 0.07 × 「爱」+ 0.71 × 「苹果」+ ...</div>
+  <div class="note">注意力权重：「苹果」占 71%，远超其他词</div>
+</div>
+
+<p>在动画中，当你点击「释放注意力」按钮，连线粗细瞬间发生变化——指向「苹果」的线变得非常粗，而指向「我」的线变得极细。这就是<span class="term term-green">注意力机制</span>的可视化：<strong>让相关性决定权重</strong>。</p>
+
+<p>但这又引出一个新问题：<strong>权重从哪来？</strong>怎么算出「吃」该给「苹果」0.71、给「我」0.05？</p>
+
+<p>答案就是接下来的 Q 和 K。</p>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 6 ═══════ -->
+<h2 class="pink-border"><span class="step-badge">6</span>QK 的诞生 — 一人分饰三角<span class="en">Query & Key</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step6-QK分裂-全景.png" alt="场景6 QK分裂 全景">
+  <div class="caption">场景6全景：每个词分裂出红色的 Q 和绿色的 K 两个角色</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step6-QK分裂-放大.png" alt="场景6 QK分裂 3D放大">
+  <div class="caption">3D粒子放大：Q 和 K 从原始粒子中分裂而出</div>
+</div>
+
+<p>为了计算注意力权重，每个词需要同时回答两个问题：</p>
+
+<ul style="font-size: 15px; color: #444; padding-left: 24px; margin-bottom: 14px;">
+  <li><span class="term term-red">Query（Q）「我在找什么？」</span>—— 代表这个词需要什么样的信息</li>
+  <li><span class="term term-green">Key（K）「我是什么？」</span>—— 代表这个词能提供什么样的信息</li>
+</ul>
+
+<p>权重的计算就是<strong>Q 和 K 的匹配程度</strong>：「吃」的 Q（我在找什么？→ 我在找食物）和「苹果」的 K（我是什么？→ 我是一种食物）高度匹配，所以注意力权重大。而「吃」的 Q 和「我」的 K 不太匹配，所以权重小。</p>
+
+<div class="analogy">
+  <strong>类比：</strong>把注意力想象成一个搜索引擎。<span class="term term-red">Q</span> 是你输入的搜索词，<span class="term term-green">K</span> 是每个网页的标题/摘要。搜索引擎通过匹配 Q 和 K 的相关性来排序结果——最相关的排在最前面。在 Self-Attention 中，每个词既是搜索者（发出 Q），也是被搜索者（提供 K）。
+</div>
+
+<p>在动画中，点击「Q/K 分裂」按钮，每个词会分裂出两个小球：红色的 Q 在上方，绿色的 K 在旁边。一个词，两个角色，这就是 Self-Attention 的核心设计。</p>
+
+<div class="key-point">
+  <strong>Q 和 K 怎么来的？</strong>它们不是凭空出现的——而是原始词向量分别乘以两个不同的<strong>权重矩阵</strong>（W_Q 和 W_K）变换得到的。这些矩阵是模型训练出来的，它们学到了「什么样的搜索词」和「什么样的标签」能最有效地匹配。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 7 ═══════ -->
+<h2 class="gold-border"><span class="step-badge">7</span>V 登场 + 信息传递<span class="en">Value & Information Flow</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step7-V登场-全景.png" alt="场景7 V登场 全景">
+  <div class="caption">场景7全景：金色的 V（Value）沿注意力通道流向「吃」，线条越粗传递越多</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step7-V登场-放大.png" alt="场景7 V登场 3D放大">
+  <div class="caption">3D粒子放大：V 值沿通道流动的细节</div>
+</div>
+
+<p>Q 和 K 解决了「谁应该关注谁」的问题。但关注之后，<strong>到底传递什么信息</strong>？</p>
+
+<p>这就是第三个角色——<span class="term term-gold">Value（V）</span>——的职责。V 承载的是词的<strong>实际内容</strong>。</p>
+
+<div class="flow-diagram">
+  <span class="flow-step" style="background:#fef2f2; border:1px solid #fecaca; color:#dc2626;">Q 找目标</span>
+  <span class="flow-arrow">&rarr;</span>
+  <span class="flow-step" style="background:#f0fdf4; border:1px solid #bbf7d0; color:#16a34a;">K 确认身份</span>
+  <span class="flow-arrow">&rarr;</span>
+  <span class="flow-step" style="background:#fffbeb; border:1px solid #fde68a; color:#b45309;">V 交付内容</span>
+</div>
+
+<p>完整的过程是这样的：</p>
+<ol style="font-size: 15px; color: #444; padding-left: 24px; margin-bottom: 14px; line-height: 2;">
+  <li>「吃」发出自己的 <span class="term term-red">Q</span>：「我在找食物类的信息」</li>
+  <li>所有词的 <span class="term term-green">K</span> 被逐一匹配——「苹果」的 K 匹配度最高</li>
+  <li>匹配度变成权重（通过 Softmax 归一化）</li>
+  <li>按权重从所有词的 <span class="term term-gold">V</span> 中提取信息——71% 来自「苹果」的 V</li>
+</ol>
+
+<p>在动画中，你可以看到金色的粒子沿着连线流动，从「苹果」大量涌向「吃」，从其他词只有少量流过。这就是信息传递的可视化。</p>
+
+<div class="analogy">
+  <strong>为什么要把 K 和 V 分开？</strong>因为「用来匹配的信息」和「要传递的信息」不一定相同。就像在图书馆，书的标题（K）帮你找到这本书，但你真正要读的是书的内容（V）。标题和内容可以是完全不同的东西。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 8 ═══════ -->
+<h2 class="blue-border"><span class="step-badge">8</span>多头注意力 — 平行世界<span class="en">Multi-Head Attention</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step8-多头注意力-全景.png" alt="场景8 多头注意力 全景">
+  <div class="caption">场景8全景：四组独立的 Q/K/V 系统在不同层面同时运转</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step8-多头注意力-放大.png" alt="场景8 多头注意力 3D放大">
+  <div class="caption">3D粒子放大：多个注意力头并行运作的细节</div>
+</div>
+
+<p>一组 Q/K/V 只能关注<strong>一种关系</strong>。但语言中的关系是多维度的：</p>
+
+<ul style="font-size: 15px; color: #444; padding-left: 24px; margin-bottom: 14px;">
+  <li><strong>语法关系</strong>：「吃」的宾语是「苹果」</li>
+  <li><strong>语义关系</strong>：「爱」修饰「吃」的程度</li>
+  <li><strong>位置关系</strong>：「我」在句首，是主语</li>
+  <li><strong>情感关系</strong>：整句话表达积极情感</li>
+</ul>
+
+<p>解决方案是<span class="term term-blue">多头注意力（Multi-Head Attention）</span>：同时运行<strong>多组独立的 Q/K/V</strong>，每一组（称为一个「头」）学习关注一种关系，最后把所有头的结果合并。</p>
+
+<div class="formula-box">
+  <div class="formula">MultiHead = Concat(头1, 头2, ..., 头h) × W_O</div>
+  <div class="note">每个头独立计算注意力，拼接后做线性变换</div>
+</div>
+
+<p>实际的大模型中，头的数量非常多：</p>
+
+<table class="compare-table">
+  <tr><th>模型</th><th>头数</th><th>每头维度</th><th>总维度</th></tr>
+  <tr><td>GPT-2</td><td>12</td><td>64</td><td>768</td></tr>
+  <tr><td>GPT-3</td><td>96</td><td>128</td><td>12288</td></tr>
+  <tr><td>GPT-4（推测）</td><td>128+</td><td>128</td><td>16384+</td></tr>
+</table>
+
+<p>在动画中，点击「展开多头」按钮，你会看到原来的单层粒子分裂成多层——每一层是一个独立的注意力「头」，用不同颜色区分，各自有不同的连线模式。</p>
+
+<div class="divider"></div>
+
+<!-- ═══════ 场景 9 ═══════ -->
+<h2><span class="step-badge">9</span>融合 — 词焕然一新<span class="en">Contextualized Representation</span></h2>
+
+<div class="screenshot">
+  <img src="images/58-step9-融合-全景.png" alt="场景9 融合 全景">
+  <div class="caption">场景9全景：所有词变大变亮，彼此之间有丰富的流动连线</div>
+</div>
+<div class="screenshot">
+  <img src="images/58-step9-融合-放大.png" alt="场景9 融合 3D放大">
+  <div class="caption">3D粒子放大：融合后的词粒子焕然一新</div>
+</div>
+
+<p>经过自注意力的洗礼，每个词都发生了根本性的变化：</p>
+
+<ul style="font-size: 15px; color: #444; padding-left: 24px; margin-bottom: 14px;">
+  <li>「苹果」终于知道自己是<strong>水果</strong>——因为「吃」给了它决定性的上下文</li>
+  <li>「吃」知道自己吃的是苹果——从「苹果」的 V 中获取了食物语义</li>
+  <li>「爱」知道爱的是「吃」——和动词产生了修饰关系</li>
+  <li>「我」作为主语，和整句话的动作链产生了关联</li>
+</ul>
+
+<p>在动画中，这一幕是最美的一幕：所有的词粒子都变大、变亮，彼此之间有丰富的发光连线在流动。每个词都不再是孤立的——它们吸收了上下文，变成了<span class="term term-purple">上下文化的表示（Contextualized Representation）</span>。</p>
+
+<div class="key-point">
+  <strong>Transformer 的核心就是这么自然地被推导出来的：</strong>
+  <br>词是编号 → 给词一个向量 → 向量需要看上下文 → 不能等权看 → 需要权重 → 权重来自 Q/K 匹配 → 传递内容靠 V → 多组同时运行 → 合并输出。
+  <br><br>
+  每一步都是解决上一步留下的问题，整个架构的出现几乎是<strong>必然</strong>的。
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 核心概念速查表 -->
+<!-- ═══════════════════════════════════════ -->
+
+<h2 style="border-left-color: #0f172a;">Self-Attention 核心概念速查表</h2>
+
+<table class="compare-table">
+  <tr><th>概念</th><th>一句话解释</th><th>场景</th></tr>
+  <tr>
+    <td><span class="term term-purple">Tokenization</span></td>
+    <td>文字 → 编号序列，机器能处理的最小单元</td>
+    <td>场景 1</td>
+  </tr>
+  <tr>
+    <td><span class="term term-blue">Embedding</span></td>
+    <td>编号 → 高维向量，相似词距离近</td>
+    <td>场景 2</td>
+  </tr>
+  <tr>
+    <td><span class="term term-gold">一词多义</span></td>
+    <td>静态向量无法区分不同语境下的含义</td>
+    <td>场景 3</td>
+  </tr>
+  <tr>
+    <td><span class="term term-pink">暴力平均</span></td>
+    <td>等权混合丢失重点，信号被噪音稀释</td>
+    <td>场景 4</td>
+  </tr>
+  <tr>
+    <td><span class="term term-green">Attention</span></td>
+    <td>按相关性分配权重，重要的词权重大</td>
+    <td>场景 5</td>
+  </tr>
+  <tr>
+    <td><span class="term term-red">Query (Q)</span></td>
+    <td>「我在找什么？」——搜索关键词</td>
+    <td>场景 6</td>
+  </tr>
+  <tr>
+    <td><span class="term term-green">Key (K)</span></td>
+    <td>「我是什么？」——身份标签</td>
+    <td>场景 6</td>
+  </tr>
+  <tr>
+    <td><span class="term term-gold">Value (V)</span></td>
+    <td>匹配成功后传递的实际内容</td>
+    <td>场景 7</td>
+  </tr>
+  <tr>
+    <td><span class="term term-blue">Multi-Head</span></td>
+    <td>多组 Q/K/V 同时算，捕捉不同关系</td>
+    <td>场景 8</td>
+  </tr>
+  <tr>
+    <td><span class="term term-purple">Contextualized</span></td>
+    <td>融合上下文后的新向量，一词一意</td>
+    <td>场景 9</td>
+  </tr>
+</table>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- 完整公式 -->
+<!-- ═══════════════════════════════════════ -->
+
+<h2 style="border-left-color: #0f172a;">Self-Attention 完整公式</h2>
+
+<p>把上面 9 个场景的直觉压缩成一行数学：</p>
+
+<div class="formula-box" style="background: #0f172a; border-color: #334155;">
+  <div class="formula" style="color: #22d3ee; font-size: 16px;">Attention(Q, K, V) = Softmax(Q × K^T / √d_k) × V</div>
+  <div class="note" style="color: #64748b; margin-top: 8px;">这就是 Transformer 论文中最核心的那一行公式</div>
+</div>
+
+<p>Q 是查询（场景 6）、K 是键（场景 6）、V 是值（场景 7）、Q·K^T 是相似度匹配（场景 5）、÷√d_k 是缩放防止数字爆炸、Softmax 是把分数变成概率（场景 5）、最后乘 V 是按权重提取信息（场景 7）。</p>
+
+<p>想看每一步的<strong>真实数字计算</strong>？请阅读下一篇「手算一遍 Transformer」——用 4 维向量把这个公式从头到尾算一遍。</p>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- CTA -->
+<!-- ═══════════════════════════════════════ -->
+
+<div class="video-section">
+  <div class="play-icon"></div>
+  <div class="title">58 号：Transformer 原理 3D 直觉</div>
+  <div class="hint">（视频需在公众号编辑器中插入 58-Transformer原理3D直觉.mp4）</div>
+  <div class="duration">3D 空间 · 可拖拽旋转 · 9 幕直觉推演</div>
+</div>
+
+<div class="cta">
+  <h3>59 个交互动画，持续更新，免费在线体验</h3>
+  <p>
+    覆盖 AI 全栈知识：基础概念 &rarr; Agent 工具链 &rarr; Prompt 工程 &rarr; 模型架构 &rarr; 硬件芯片 &rarr; 前沿架构
+    <br>
+    纯前端实现，无需注册，手机/电脑均可访问
+    <br>
+    3D 动画支持鼠标拖拽旋转、滚轮缩放
+  </p>
+  <a class="link" href="https://tbusos.github.io/my-chat/">点击「阅读原文」立即体验</a>
+</div>
+
+<div class="tags">
+  <span class="tag">Transformer</span>
+  <span class="tag">Self-Attention</span>
+  <span class="tag">Q/K/V</span>
+  <span class="tag">Embedding</span>
+  <span class="tag">Multi-Head</span>
+  <span class="tag">3D直觉</span>
+  <span class="tag">大模型</span>
+  <span class="tag">深度学习</span>
+  <span class="tag">注意力机制</span>
+</div>
+
+</body>
+</html>

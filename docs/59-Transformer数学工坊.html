@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer 数学工坊</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#050a18;--blue:#4a9eff;--green:#4ade80;--purple:#a78bfa;--gold:#ffd666;--cyan:#22d3ee;--pink:#f472b6;--orange:#fb923c;--red:#ef4444;--text:#e2e8f0;--muted:#64748b;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans SC',sans-serif;min-height:100vh;overflow-x:hidden;}
+#stars{position:fixed;inset:0;z-index:0;pointer-events:none;}
+.header{position:relative;z-index:10;text-align:center;padding:36px 20px 16px;}
+.header h1{font-size:clamp(1.6rem,3.5vw,2.6rem);font-weight:700;background:linear-gradient(135deg,var(--cyan),var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;}
+.header p{color:var(--muted);font-size:0.95rem;}
+.progress-bar{position:relative;z-index:10;display:flex;justify-content:center;gap:6px;padding:12px 20px;flex-wrap:wrap;}
+.step-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--muted);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all 0.3s;font-family:'JetBrains Mono',monospace;}
+.step-dot.active{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 10px var(--cyan);}
+.step-dot.done{border-color:var(--green);background:var(--green);color:#050a18;}
+.step-line{width:16px;height:2px;background:var(--muted);align-self:center;transition:background 0.3s;}
+.step-line.done{background:var(--green);}
+.main{position:relative;z-index:10;max-width:880px;margin:0 auto;padding:0 20px 120px;}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 32px;margin-bottom:20px;backdrop-filter:blur(8px);}
+.s-title{font-size:1.3rem;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:10px;}
+.s-badge{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(34,211,238,0.2);border:1px solid var(--cyan);font-size:0.8rem;font-weight:600;color:var(--cyan);font-family:'JetBrains Mono',monospace;flex-shrink:0;}
+.s-sub{color:var(--muted);font-size:0.9rem;margin-bottom:20px;line-height:1.7;}.s-sub strong{color:var(--text);}
+.vec-row{display:flex;align-items:center;gap:6px;margin:8px 0;flex-wrap:wrap;}
+.vec-label{min-width:48px;text-align:right;font-weight:600;font-size:0.95rem;flex-shrink:0;}
+.vec-eq{color:var(--muted);font-size:0.9rem;margin:0 4px;}
+.vec-bracket{color:var(--muted);font-size:1.3rem;font-weight:300;}
+.num-cell{display:inline-flex;align-items:center;justify-content:center;min-width:50px;height:34px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;font-weight:600;transition:all 0.4s;border:1px solid transparent;opacity:0;transform:translateY(8px) scale(0.8);}
+.num-cell.show{opacity:1;transform:translateY(0) scale(1);}
+.num-cell.hl{border-color:var(--gold);box-shadow:0 0 10px rgba(255,214,102,0.4);transform:scale(1.1);}
+/* 维度条形图 */
+.dim-bars{margin:12px 0;}
+.dim-row{display:flex;align-items:center;gap:8px;margin:5px 0;height:22px;opacity:0;transform:translateX(-10px);transition:all 0.4s;}
+.dim-row.show{opacity:1;transform:translateX(0);}
+.dim-lbl{font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--muted);min-width:20px;text-align:right;}
+.dim-track{flex:1;height:18px;position:relative;background:rgba(255,255,255,0.03);border-radius:4px;overflow:hidden;}
+.dim-center{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.1);}
+.dim-fill{position:absolute;top:1px;height:16px;border-radius:3px;transition:width 0.8s cubic-bezier(0.34,1.56,0.64,1);width:0%;}
+.dim-fill.pos{left:50%;background:rgba(74,158,255,0.5);border-right:2px solid var(--blue);}
+.dim-fill.neg{right:50%;background:rgba(244,114,182,0.5);border-left:2px solid var(--pink);}
+.dim-val{font-family:'JetBrains Mono',monospace;font-size:0.75rem;min-width:36px;color:var(--muted);}
+/* 可视化Canvas */
+.viz-canvas{display:block;margin:12px auto;border-radius:12px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);}
+/* 饼图 */
+.pie-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:center;margin:16px 0;}
+.pie{width:180px;height:180px;border-radius:50%;transition:background 1s;position:relative;}
+.pie-legend{font-size:0.82rem;line-height:2;}
+.pie-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+/* 颜色混合 */
+.mix-wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;margin:16px 0;}
+.mix-circle{border-radius:50%;transition:all 0.8s;opacity:0;transform:scale(0);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:#000;}
+.mix-circle.show{opacity:0.85;transform:scale(1);}
+.mix-arrow{font-size:1.2rem;color:var(--muted);opacity:0;transition:opacity 0.5s;}
+.mix-arrow.show{opacity:1;}
+.mix-result{border-radius:50%;border:2px solid var(--gold);opacity:0;transform:scale(0);transition:all 0.6s;}
+.mix-result.show{opacity:1;transform:scale(1);}
+
+.bar-group{margin:16px 0;}
+.bar-item{display:flex;align-items:center;gap:10px;margin:6px 0;opacity:0;transform:translateX(-20px);transition:all 0.5s;}
+.bar-item.show{opacity:1;transform:translateX(0);}
+.bar-label{min-width:48px;text-align:right;font-size:0.85rem;font-weight:600;}
+.bar-track{flex:1;height:28px;background:rgba(255,255,255,0.05);border-radius:6px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:600;color:#000;width:0%;transition:width 1s cubic-bezier(0.34,1.56,0.64,1);}
+.bar-val{font-family:'JetBrains Mono',monospace;font-size:0.8rem;min-width:50px;color:var(--muted);}
+
+.op-box{background:rgba(34,211,238,0.06);border:1px solid rgba(34,211,238,0.2);border-radius:10px;padding:16px 20px;margin:16px 0;text-align:center;}
+.op-box .formula{font-family:'JetBrains Mono',monospace;font-size:0.95rem;color:var(--cyan);margin:8px 0;}
+.op-box .note{font-size:0.82rem;color:var(--muted);margin-top:8px;line-height:1.5;}
+.calc-step{opacity:0;transform:translateY(12px);transition:all 0.4s;margin:10px 0;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;}
+.calc-step.show{opacity:1;transform:translateY(0);}
+.calc-step .pair{display:inline-block;transition:all 0.3s;opacity:0.4;}
+.calc-step .pair.active{opacity:1;color:var(--gold);transform:scale(1.05);}
+.calc-step .result-num{font-weight:700;font-size:1.05rem;opacity:0;transition:all 0.5s;}
+.calc-step .result-num.show{opacity:1;}
+.action-btn{padding:9px 22px;border-radius:8px;border:1px solid;font-size:0.9rem;font-family:'Noto Sans SC',sans-serif;cursor:pointer;transition:all 0.2s;background:transparent;margin:4px;}
+.action-btn:hover{filter:brightness(1.3);}
+.action-btn.cyan{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,0.1);}
+.action-btn.gold{border-color:var(--gold);color:var(--gold);background:rgba(255,214,102,0.1);}
+.action-btn.green{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.1);}
+.action-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.arrow-down{text-align:center;font-size:1.4rem;color:var(--muted);margin:10px 0;opacity:0;transition:opacity 0.5s;}
+.arrow-down.show{opacity:1;}
+.insight{background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:10px;padding:14px 18px;margin-top:16px;font-size:0.88rem;line-height:1.6;color:var(--green);opacity:0;transform:translateY(10px);transition:all 0.6s;}
+.insight.show{opacity:1;transform:translateY(0);}
+.insight .label{font-weight:700;margin-bottom:4px;}
+.warn{background:rgba(244,114,182,0.08);border:1px solid rgba(244,114,182,0.25);border-radius:10px;padding:14px 18px;margin-top:16px;font-size:0.88rem;line-height:1.6;color:var(--pink);}
+.pipeline{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:12px 0;flex-wrap:wrap;justify-content:center;}
+.pipe-block{padding:10px 14px;border-radius:8px;font-size:0.78rem;font-weight:600;text-align:center;min-width:76px;opacity:0;transform:scale(0.8);transition:all 0.4s;}
+.pipe-block.show{opacity:1;transform:scale(1);}
+.pipe-arrow{color:var(--muted);font-size:1.1rem;opacity:0;transition:opacity 0.3s;}
+.pipe-arrow.show{opacity:1;}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;display:flex;justify-content:center;gap:16px;padding:14px 20px;background:rgba(5,10,24,0.92);backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,0.08);}
+.nav-btn{padding:10px 28px;border-radius:8px;border:none;font-size:0.95rem;font-family:'Noto Sans SC',sans-serif;cursor:pointer;transition:all 0.2s;font-weight:500;}
+.nav-btn.prev{background:rgba(255,255,255,0.06);color:var(--text);border:1px solid rgba(255,255,255,0.12);}
+.nav-btn.prev:hover{background:rgba(255,255,255,0.1);}
+.nav-btn.next{background:var(--cyan);color:#000;font-weight:700;}
+.nav-btn.next:hover{box-shadow:0 0 20px rgba(34,211,238,0.5);}
+.nav-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.step-counter{align-self:center;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:var(--muted);min-width:55px;text-align:center;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+#glossary-btn{position:fixed;bottom:80px;right:24px;z-index:999;width:44px;height:44px;border-radius:50%;background:rgba(34,211,238,0.15);border:1px solid var(--cyan);color:var(--cyan);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+#glossary-btn:hover{background:rgba(34,211,238,0.3);}
+#glossary-panel{position:fixed;top:0;right:-360px;bottom:0;width:340px;z-index:1000;background:rgba(10,15,30,0.97);border-left:1px solid rgba(255,255,255,0.1);overflow-y:auto;padding:24px;transition:right 0.3s;backdrop-filter:blur(16px);}
+#glossary-panel.open{right:0;}
+#glossary-panel h3{font-size:1.1rem;margin-bottom:20px;color:var(--cyan);}
+.g-item{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.g-item:last-child{border-bottom:none;}
+.g-item .g-en{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--gold);font-size:0.85rem;}
+.g-item .g-zh{font-weight:500;margin:2px 0;font-size:0.88rem;}
+.g-item .g-desc{font-size:0.78rem;color:var(--muted);line-height:1.5;}
+#glossary-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;}
+@media(max-width:640px){.card{padding:18px 16px;}.num-cell{min-width:42px;height:30px;font-size:0.75rem;}.vec-label{min-width:36px;font-size:0.85rem;}.pie{width:140px;height:140px;}}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="header"><h1>Transformer 数学工坊</h1><p>数字 + 图形，一步步拆解 Self-Attention</p></div>
+<div class="progress-bar" id="progressBar"></div>
+<div class="main" id="mainContent"></div>
+<div class="nav-bar">
+  <button class="nav-btn prev" id="prevBtn" onclick="nav(-1)" disabled>← 上一步</button>
+  <span class="step-counter" id="stepCounter">1 / 10</span>
+  <button class="nav-btn next" id="nextBtn" onclick="nav(1)">下一步 →</button>
+</div>
+<button id="glossary-btn" onclick="toggleGlossary()">❓</button>
+<div id="glossary-panel">
+  <button id="glossary-close" onclick="toggleGlossary()">✕</button>
+  <h3>术语表</h3>
+  <div class="g-item"><div class="g-en">Embedding</div><div class="g-zh">词嵌入</div><div class="g-desc">词编号 → 高维向量。这里简化为 4 维。</div></div>
+  <div class="g-item"><div class="g-en">Positional Encoding</div><div class="g-zh">位置编码</div><div class="g-desc">sin/cos 生成位置信号加到向量上。</div></div>
+  <div class="g-item"><div class="g-en">Dot Product</div><div class="g-zh">点积</div><div class="g-desc">逐位相乘再求和 = 方向相似度。</div></div>
+  <div class="g-item"><div class="g-en">Softmax</div><div class="g-zh">归一化指数</div><div class="g-desc">e^x / Σe^x → 概率分布（和为1）。</div></div>
+  <div class="g-item"><div class="g-en">Multi-Head</div><div class="g-zh">多头注意力</div><div class="g-desc">切成h份独立算再拼接。</div></div>
+  <div class="g-item"><div class="g-en">FFN</div><div class="g-zh">前馈网络</div><div class="g-desc">升维→激活→降维，独立处理。</div></div>
+  <div class="g-item"><div class="g-en">Residual</div><div class="g-zh">残差连接</div><div class="g-desc">输出=f(x)+x，保险通道。</div></div>
+</div>
+<script>
+// Stars
+(function(){const c=document.getElementById('stars'),x=c.getContext('2d');let ss=[];
+function rs(){c.width=innerWidth;c.height=innerHeight;}
+function init(){rs();ss=Array.from({length:140},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.1+0.3,a:Math.random(),da:(Math.random()-0.5)*0.008}));}
+function draw(){x.clearRect(0,0,c.width,c.height);for(const s of ss){s.a=Math.max(0.08,Math.min(0.7,s.a+s.da));if(s.a<=0.08||s.a>=0.7)s.da*=-1;x.fillStyle=`rgba(180,210,255,${s.a})`;x.beginPath();x.arc(s.x,s.y,s.r,0,Math.PI*2);x.fill();}requestAnimationFrame(draw);}
+addEventListener('resize',init);init();draw();})();
+
+// Data
+const WD=['我','爱','吃','苹果'],WC=['#a78bfa','#4a9eff','#ffd666','#4ade80'];
+const EMB=[[1.0,0.5,-0.3,0.8],[0.4,-0.6,0.9,0.2],[0.7,0.3,0.5,-0.4],[-0.2,0.8,0.1,0.6]];
+const POS=[[0.00,1.00,0.00,1.00],[0.84,0.54,0.01,1.00],[0.91,-0.42,0.02,1.00],[0.14,-0.99,0.03,1.00]];
+const QV=[[0.5,0.2,-0.1,0.6],[0.3,-0.4,0.8,0.1],[0.4,0.6,0.2,-0.2],[-0.1,0.7,0.3,0.4]];
+const KV=[[0.3,0.1,0.4,-0.2],[0.1,-0.3,0.5,0.2],[0.6,0.2,-0.1,0.3],[0.2,0.8,0.3,0.5]];
+const VV=[[0.6,-0.1,0.2,0.4],[0.1,0.5,-0.3,0.3],[0.4,0.2,0.6,-0.1],[-0.2,0.7,0.1,0.5]];
+const WQ=[[0.5,0.1,-0.2,0.3],[0.2,0.8,0.1,-0.1],[-0.1,0.3,0.6,0.2],[0.4,-0.2,0.1,0.7]];
+const RAW=[0.5,-0.1,0.8,3.2],SCALED=[0.25,-0.05,0.40,1.60],ATTN=[0.10,0.07,0.12,0.71],OUT2=[0.02,0.54,0.07,0.42];
+
+// Helpers
+function nc(v){const a=Math.min(Math.abs(v)*0.5,0.35);return v>=0?`rgba(74,158,255,${a+0.08})`:`rgba(244,114,182,${a+0.08})`;}
+function nf(v){return v.toFixed(1);}function nf2(v){return v.toFixed(2);}
+let timers=[],animIds=[];
+function T(fn,ms){timers.push(setTimeout(fn,ms));}
+function clearAll(){timers.forEach(t=>clearTimeout(t));timers=[];animIds.forEach(id=>cancelAnimationFrame(id));animIds=[];}
+function revealCells(el,d){el.querySelectorAll('.num-cell').forEach((c,i)=>T(()=>c.classList.add('show'),(d||0)+i*80));}
+function staggerShow(el,sel,d,g){el.querySelectorAll(sel).forEach((c,i)=>T(()=>c.classList.add('show'),(d||0)+i*(g||150)));}
+function vecHTML(label,vals,color){return`<div class="vec-row"><span class="vec-label" style="color:${color}">${label}</span><span class="vec-eq">=</span><span class="vec-bracket">[</span>${vals.map(v=>`<span class="num-cell" style="background:${nc(v)}">${nf(v)}</span>`).join('')}<span class="vec-bracket">]</span></div>`;}
+
+// 📊 Dimension bar chart
+function dimBarsHTML(vals,color,id){
+  return`<div class="dim-bars" id="${id}">${vals.map((v,i)=>{
+    const pct=Math.min(Math.abs(v)/1.5*50,50);
+    return`<div class="dim-row"><span class="dim-lbl">d${i}</span><div class="dim-track"><div class="dim-center"></div><div class="dim-fill ${v>=0?'pos':'neg'}" data-w="${pct}" style="border-color:${color}"></div></div><span class="dim-val" style="color:${v>=0?'var(--blue)':'var(--pink)'}">${nf(v)}</span></div>`;
+  }).join('')}</div>`;
+}
+function animDimBars(id,delay){
+  T(()=>{const el=document.getElementById(id);if(!el)return;
+    el.querySelectorAll('.dim-row').forEach((r,i)=>T(()=>{r.classList.add('show');
+      const fill=r.querySelector('.dim-fill');if(fill)T(()=>{fill.style.width=fill.dataset.w+'%';},50);
+    },(delay||0)+i*120));
+  },100);
+}
+
+// 🎯 2D Angle canvas for dot product
+function drawAngleCanvas(canvasId){
+  const c=document.getElementById(canvasId);if(!c)return;
+  const dpr=window.devicePixelRatio||1;
+  const W=Math.min(c.parentElement.offsetWidth,400),H=280;
+  c.width=W*dpr;c.height=H*dpr;c.style.width=W+'px';c.style.height=H+'px';
+  const ctx=c.getContext('2d');ctx.scale(dpr,dpr);
+  const ox=W/2,oy=H-40,sc=100;
+  // Draw Q_吃 as reference (use first 2 dims as x,y)
+  const qx=QV[2][0],qy=QV[2][1];
+  // Draw axes
+  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(20,oy);ctx.lineTo(W-20,oy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ox,H-10);ctx.lineTo(ox,10);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,0.15)';ctx.font='11px "JetBrains Mono"';
+  ctx.fillText('x',W-16,oy-4);ctx.fillText('y',ox+4,18);
+  // Function to draw arrow
+  function arrow(x1,y1,x2,y2,color,lw){
+    ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy),ux=dx/len,uy=dy/len,a=8;
+    ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-ux*a+uy*a*0.4,y2-uy*a-ux*a*0.4);ctx.lineTo(x2-ux*a-uy*a*0.4,y2-uy*a+ux*a*0.4);ctx.fill();
+  }
+  // Q_吃 (thick gold)
+  arrow(ox,oy,ox+qx*sc,oy-qy*sc,'#ffd666',3);
+  ctx.fillStyle='#ffd666';ctx.font='bold 12px "Noto Sans SC"';ctx.fillText('Q_吃',ox+qx*sc+8,oy-qy*sc-4);
+  // Each K with angle
+  const ks=[[KV[0],'K_我','#a78bfa'],[KV[1],'K_爱','#4a9eff'],[KV[2],'K_吃','#ffd666'],[KV[3],'K_苹果','#4ade80']];
+  ks.forEach(([k,label,color])=>{
+    arrow(ox,oy,ox+k[0]*sc,oy-k[1]*sc,color,1.5);
+    ctx.fillStyle=color;ctx.font='11px "Noto Sans SC"';ctx.fillText(label,ox+k[0]*sc+8,oy-k[1]*sc+12);
+    // Arc showing angle
+    const aq=Math.atan2(qy,qx),ak=Math.atan2(k[1],k[0]);
+    ctx.strokeStyle=color+'66';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.arc(ox,oy,30,-(Math.min(aq,ak)),-(Math.max(aq,ak)),true);ctx.stroke();ctx.setLineDash([]);
+  });
+  ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='11px "Noto Sans SC"';
+  ctx.fillText('角度越小 = 点积越大 = 越相关',10,16);
+}
+
+// 🥧 Pie chart
+function drawPie(vals,colors,labels){
+  let conic='conic-gradient(';let acc=0;
+  vals.forEach((v,i)=>{const end=acc+v*100;conic+=`${colors[i]} ${acc.toFixed(1)}% ${end.toFixed(1)}%${i<vals.length-1?',':''}`;acc=end;});
+  conic+=')';
+  return`<div class="pie-wrap"><div class="pie" style="background:${conic};box-shadow:0 0 30px rgba(74,222,128,0.15);"></div>
+    <div class="pie-legend">${vals.map((v,i)=>`<div><span class="pie-dot" style="background:${colors[i]}"></span><strong>${labels[i]}</strong> ${(v*100).toFixed(0)}%</div>`).join('')}</div></div>`;
+}
+
+// 🎨 Color mix circles
+function colorMixHTML(){
+  return`<div class="mix-wrap" id="mixArea">${WD.map((w,i)=>{
+    const size=30+ATTN[i]*120;
+    return`<div class="mix-circle" id="mc${i}" style="width:${size}px;height:${size}px;background:${WC[i]};font-size:${Math.max(size*0.15,9)}px;">${(ATTN[i]*100).toFixed(0)}%</div>`;
+  }).join('')}<div class="mix-arrow" id="mxa">→</div>
+  <div class="mix-result" id="mxr" style="width:80px;height:80px;background:linear-gradient(135deg,${WC[3]}bb,${WC[2]}66,${WC[0]}33);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--gold);">吃'</div></div>`;
+}
+
+// Steps
+const STEPS=[
+  {id:1,title:'词变数字：嵌入向量',render:renderS1},
+  {id:2,title:'位置编码：告诉模型顺序',render:renderS2},
+  {id:3,title:'生成 Q：你在找什么？',render:renderS3},
+  {id:4,title:'生成 K 和 V：身份与内容',render:renderS4},
+  {id:5,title:'Q · K 点积：计算相似度',render:renderS5},
+  {id:6,title:'缩放 ÷√d：防止数字爆炸',render:renderS6},
+  {id:7,title:'Softmax：分数变概率',render:renderS7},
+  {id:8,title:'加权求和 V：融合信息',render:renderS8},
+  {id:9,title:'多头注意力：多个视角',render:renderS9},
+  {id:10,title:'FFN + 残差：最后加工',render:renderS10}
+];
+let cur=0;
+
+function renderS1(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">1</span> 词变数字：嵌入向量</div>
+    <div class="s-sub">每个词通过<strong>嵌入矩阵</strong>查表变成 <strong>4 维向量</strong>。正值用蓝色条向右，负值用粉色条向左——一眼看出每个词的「数字指纹」。</div>
+    <div style="color:var(--muted);font-size:0.85rem;margin-bottom:10px;">👆 点击词卡，看数字 + 图形同时浮现：</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+      ${WD.map((w,i)=>`<div class="wcard" data-i="${i}" style="padding:14px 24px;border-radius:10px;border:1px solid ${WC[i]}44;background:${WC[i]}11;cursor:pointer;text-align:center;transition:all 0.3s;min-width:70px;">
+        <div style="font-size:1.4rem;font-weight:700;color:${WC[i]}">${w}</div></div>`).join('')}
+    </div>
+    <div id="vecArea"></div>
+    <div class="insight" id="ins1"><div class="label">💡 直觉</div>蓝色长条 = 这个维度值大且为正；粉色长条 = 为负。相似词的条形图「长得像」。</div>
+  </div>`;
+  document.querySelectorAll('.wcard').forEach(c=>c.onclick=function(){
+    const i=+this.dataset.i;
+    this.style.transform='scale(1.08)';this.style.boxShadow=`0 0 20px ${WC[i]}55`;
+    T(()=>{this.style.transform='';this.style.boxShadow='';},300);
+    document.getElementById('vecArea').innerHTML=vecHTML(WD[i],EMB[i],WC[i])+dimBarsHTML(EMB[i],WC[i],'db1');
+    revealCells(document.getElementById('vecArea'),50);
+    animDimBars('db1',300);
+    T(()=>document.getElementById('ins1').classList.add('show'),800);
+  });
+}
+
+function renderS2(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">2</span> 位置编码：告诉模型顺序</div>
+    <div class="s-sub">用 <strong>sin/cos 波形</strong>给每个位置生成独特信号，加到词向量上。下面的动态波形就是位置编码的来源。</div>
+    <canvas class="viz-canvas" id="waveCanvas" style="width:100%;height:140px;"></canvas>
+    <div style="text-align:center;margin:12px 0;"><button class="action-btn cyan" onclick="animPos()">🌊 叠加到词向量</button></div>
+    <div id="posArea"></div>
+  </div>`;
+  // Animate wave
+  const c=document.getElementById('waveCanvas');const dpr=window.devicePixelRatio||1;
+  const W2=c.parentElement.offsetWidth-64,H2=140;c.width=W2*dpr;c.height=H2*dpr;c.style.width=W2+'px';c.style.height=H2+'px';
+  const ctx2=c.getContext('2d');ctx2.scale(dpr,dpr);let t=0;
+  function drawWave(){ctx2.clearRect(0,0,W2,H2);
+    [[Math.sin,'sin','#22d3ee',1],[Math.cos,'cos','#a78bfa',2]].forEach(([fn,lbl,col,freq])=>{
+      ctx2.strokeStyle=col;ctx2.lineWidth=2;ctx2.beginPath();
+      for(let x=0;x<W2;x++){const v=fn(x/W2*Math.PI*freq*3+t);ctx2.lineTo(x,H2/2-v*45);}
+      ctx2.stroke();ctx2.fillStyle=col;ctx2.font='11px "JetBrains Mono"';ctx2.fillText(lbl,W2-30,fn===Math.sin?30:H2-20);
+    });
+    // Position markers
+    [0,1,2,3].forEach(i=>{const x=40+i*(W2-80)/3;
+      ctx2.fillStyle=WC[i];ctx2.font='bold 13px "Noto Sans SC"';ctx2.textAlign='center';ctx2.fillText(WD[i],x,H2-5);
+      ctx2.strokeStyle=WC[i]+'44';ctx2.setLineDash([3,3]);ctx2.beginPath();ctx2.moveTo(x,15);ctx2.lineTo(x,H2-15);ctx2.stroke();ctx2.setLineDash([]);
+    });ctx2.textAlign='left';
+    t+=0.03;animIds.push(requestAnimationFrame(drawWave));}
+  drawWave();
+  window.animPos=function(){
+    const area=document.getElementById('posArea');
+    const res=EMB.map((e,i)=>e.map((v,j)=>+(v+POS[i][j]).toFixed(2)));
+    area.innerHTML=`<div class="arrow-down show" style="opacity:1">↓ 词向量 + 位置编码</div>`+
+      res.map((r,i)=>vecHTML(WD[i]+"'",r,WC[i])+dimBarsHTML(r,WC[i],'db2_'+i)).join('')+
+      `<div class="insight" id="ins2"><div class="label">💡 为什么用 sin/cos？</div>不同频率的波形组合出每个位置的「指纹」，相邻位置变化平滑。</div>`;
+    revealCells(area,0);
+    res.forEach((_,i)=>animDimBars('db2_'+i,i*400));
+    T(()=>document.getElementById('ins2').classList.add('show'),res.length*400+500);
+  };
+}
+
+function renderS3(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">3</span> 生成 Q：你在找什么？</div>
+    <div class="s-sub">词向量 × 权重矩阵 <strong style="color:var(--red)">W_Q</strong> = <strong style="color:var(--red)">Query</strong>。看「<strong style="color:var(--gold)">吃</strong>」的 Q 是怎么算出来的：</div>
+    <div>${vecHTML('X_吃',EMB[2],'#ffd666')}</div>
+    <div style="text-align:center;margin:14px 0;"><button class="action-btn gold" id="btn3" onclick="animQ()">🔮 逐步计算</button></div>
+    <div id="qArea"></div>
+  </div>`;revealCells(el,200);
+  window.animQ=function(){
+    document.getElementById('btn3').disabled=true;
+    const area=document.getElementById('qArea');area.innerHTML='';const x=EMB[2];
+    QV[2].forEach((qval,j)=>{
+      const div=document.createElement('div');div.className='calc-step';
+      div.innerHTML=`<span style="color:var(--red);font-weight:600;font-family:'JetBrains Mono',monospace;">Q[${j}]</span> =
+        ${x.map((v,k)=>`<span class="pair" id="p${j}_${k}"><span style="color:#ffd666">${nf(v)}</span>×<span style="color:#ef4444">${nf(WQ[k][j])}</span></span>`).join(' + ')}
+        = <span class="result-num" style="color:var(--red);" id="r${j}">${nf(qval)}</span>`;
+      area.appendChild(div);
+      T(()=>div.classList.add('show'),j*700);
+      x.forEach((_,k)=>T(()=>{const p=document.getElementById(`p${j}_${k}`);if(p){p.classList.add('active');T(()=>p.classList.remove('active'),200);}},j*700+150+k*120));
+      T(()=>{const r=document.getElementById(`r${j}`);if(r)r.classList.add('show');},j*700+150+x.length*120);
+    });
+    T(()=>{const res=document.createElement('div');
+      res.innerHTML=`<div class="arrow-down show" style="opacity:1">↓ 结果 + 图形</div>`+vecHTML('Q_吃',QV[2],'#ef4444')+dimBarsHTML(QV[2],'#ef4444','db3')+
+        `<div class="insight" id="ins3"><div class="label">💡 矩阵乘法 = 按权重混合</div>每个 Q 分量 = 原始向量全维度的加权混合。W_Q 由训练学到。</div>`;
+      area.appendChild(res);revealCells(res,100);animDimBars('db3',400);
+      T(()=>document.getElementById('ins3').classList.add('show'),800);
+    },QV[2].length*700+300);
+  };
+}
+
+function renderS4(el){
+  let h=`<div class="card">
+    <div class="s-title"><span class="s-badge">4</span> 生成 K 和 V：身份与内容</div>
+    <div class="s-sub">每个词通过不同矩阵生成 <strong style="color:var(--green)">Key</strong> 和 <strong style="color:var(--gold)">Value</strong>。对比条形图，可以看到同一个词的 Q/K/V 方向各不同。</div>`;
+  WD.forEach((w,i)=>{h+=`<div class="calc-step" style="padding:14px;"><div style="font-weight:600;color:${WC[i]};margin-bottom:6px;">${w}</div>
+    ${vecHTML('Q',QV[i],'#ef4444')}${dimBarsHTML(QV[i],'#ef4444','s4q'+i)}
+    ${vecHTML('K',KV[i],'#4ade80')}${dimBarsHTML(KV[i],'#4ade80','s4k'+i)}
+    ${vecHTML('V',VV[i],'#fbbf24')}${dimBarsHTML(VV[i],'#fbbf24','s4v'+i)}</div>`;});
+  h+=`<div class="insight" id="ins4"><div class="label">💡 三个角色各不同</div><strong style="color:var(--red)">Q</strong>「问什么」→ <strong style="color:var(--green)">K</strong>「是什么」→ 匹配后取 <strong style="color:var(--gold)">V</strong>「内容」</div></div>`;
+  el.innerHTML=h;
+  staggerShow(el,'.calc-step',100,250);
+  WD.forEach((_,i)=>{revealCells(el,300+i*250);['s4q','s4k','s4v'].forEach(p=>animDimBars(p+i,400+i*250));});
+  T(()=>document.getElementById('ins4').classList.add('show'),1300);
+}
+
+function renderS5(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">5</span> Q · K 点积：计算相似度</div>
+    <div class="s-sub">「吃」的 Q 和每个词的 K 做点积。<strong>在图中看：角度越小 = 方向越近 = 点积越大 = 越相关。</strong></div>
+    <canvas class="viz-canvas" id="angleCanvas" style="width:100%;max-width:400px;height:280px;"></canvas>
+    <div style="text-align:center;margin:12px 0;"><button class="action-btn green" id="btn5" onclick="animDot()">📐 逐步算点积</button></div>
+    <div id="dotArea"></div>
+  </div>`;
+  T(()=>drawAngleCanvas('angleCanvas'),100);
+  window.animDot=function(){
+    document.getElementById('btn5').disabled=true;const area=document.getElementById('dotArea');area.innerHTML='';const q=QV[2];
+    WD.forEach((w,wi)=>{const k=KV[wi];const div=document.createElement('div');div.className='calc-step';
+      div.innerHTML=`<div style="margin-bottom:4px;"><span style="color:#ef4444;font-weight:600;">Q_吃</span> · <span style="color:${WC[wi]};font-weight:600;">K_${w}</span></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;">
+          ${q.map((v,j)=>`<span class="pair" id="d${wi}_${j}"><span style="color:#ef4444">${nf(v)}</span>×<span style="color:#4ade80">${nf(k[j])}</span></span>`).join(' + ')}
+          = <span class="result-num" style="color:${WC[wi]};font-size:1.1rem;" id="dr${wi}">${nf(RAW[wi])}</span></div>`;
+      area.appendChild(div);
+      T(()=>div.classList.add('show'),wi*600);
+      q.forEach((_,j)=>T(()=>{const p=document.getElementById(`d${wi}_${j}`);if(p){p.classList.add('active');T(()=>p.classList.remove('active'),180);}},wi*600+100+j*100));
+      T(()=>{const r=document.getElementById(`dr${wi}`);if(r)r.classList.add('show');},wi*600+100+q.length*100+100);
+    });
+    T(()=>{const bd=document.createElement('div');
+      bd.innerHTML=`<div class="arrow-down show" style="opacity:1">↓ 分数柱状图</div>`+
+        WD.map((w,i)=>`<div class="bar-item" id="bi5_${i}"><span class="bar-label" style="color:${WC[i]}">${w}</span><div class="bar-track"><div class="bar-fill" id="bf5_${i}" style="background:${WC[i]}">${nf(RAW[i])}</div></div><span class="bar-val">${nf(RAW[i])}</span></div>`).join('')+
+        `<div class="insight" id="ins5"><div class="label">💡 图中可以看到</div>Q_吃 和 K_苹果 的箭头角度最小 → 点积最大 <strong style="color:var(--green)">3.2</strong>！这就是注意力的数学本质。</div>`;
+      area.appendChild(bd);
+      WD.forEach((_,i)=>T(()=>{document.getElementById(`bi5_${i}`).classList.add('show');T(()=>document.getElementById(`bf5_${i}`).style.width=Math.min(Math.abs(RAW[i])/3.5*100,100)+'%',50);},i*180));
+      T(()=>document.getElementById('ins5').classList.add('show'),WD.length*180+800);
+    },WD.length*600+400);
+  };
+}
+
+function renderS6(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">6</span> 缩放 ÷√d：防止数字爆炸</div>
+    <div class="s-sub">维度越高点积越大，除以 <strong>√d</strong> 「冷却」数值。看条形图如何缩短：</div>
+    <div class="op-box"><div class="formula">缩放分数 = 原始分数 ÷ √4 = ÷ <strong>2</strong></div></div>
+    <div style="color:var(--muted);font-size:0.85rem;margin-bottom:6px;">原始分数（过大⚠️）：</div>
+    ${WD.map((w,i)=>`<div class="bar-item show"><span class="bar-label" style="color:${WC[i]}">${w}</span><div class="bar-track"><div class="bar-fill" id="s6r_${i}" style="background:${WC[i]};width:${Math.abs(RAW[i])/3.5*100}%">${nf(RAW[i])}</div></div></div>`).join('')}
+    <div class="arrow-down show" style="opacity:0.6;margin:8px 0;">÷2 冷却 ↓</div>
+    <div style="color:var(--muted);font-size:0.85rem;margin-bottom:6px;">缩放后（回到合理范围✅）：</div>
+    ${WD.map((w,i)=>`<div class="bar-item" id="s6s_${i}"><span class="bar-label" style="color:${WC[i]}">${w}</span><div class="bar-track"><div class="bar-fill" id="s6sf_${i}" style="background:${WC[i]}">${nf2(SCALED[i])}</div></div><span class="bar-val">${nf2(SCALED[i])}</span></div>`).join('')}
+    <div class="warn"><div class="label" style="color:var(--pink);">⚠ 不缩放？</div>维度=512 时点积可达几百。Softmax(100)≈1.0 → 非0即1的硬选择 → 梯度为零 → 学不动。</div>
+  </div>`;
+  WD.forEach((_,i)=>T(()=>{document.getElementById(`s6s_${i}`).classList.add('show');
+    T(()=>document.getElementById(`s6sf_${i}`).style.width=Math.min(Math.abs(SCALED[i])/1.8*100,100)+'%',50);
+  },400+i*200));
+}
+
+function renderS7(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">7</span> Softmax：分数变概率</div>
+    <div class="s-sub">Softmax 把分数变成<strong>和为1的概率</strong>。看饼图——「苹果」独占 71%！</div>
+    <div class="op-box"><div class="formula">Softmax(xᵢ) = e<sup>xᵢ</sup> / Σ e<sup>xⱼ</sup></div></div>
+    <div style="text-align:center;margin:12px 0;"><button class="action-btn gold" id="btn7" onclick="animSM()">📊 计算 + 看饼图</button></div>
+    <div id="smArea"></div>
+  </div>`;
+  window.animSM=function(){
+    document.getElementById('btn7').disabled=true;const area=document.getElementById('smArea');
+    const exps=SCALED.map(v=>Math.exp(v)),sum=exps.reduce((a,b)=>a+b,0);
+    area.innerHTML=`<div style="color:var(--muted);font-size:0.85rem;margin-bottom:6px;">取 e 指数 → 归一化：</div>
+      ${WD.map((w,i)=>`<div class="calc-step" id="sm_${i}"><span style="color:${WC[i]};font-weight:600;">${w}：</span>
+        e<sup>${nf2(SCALED[i])}</sup> = ${exps[i].toFixed(2)} → <span class="result-num" id="smr_${i}" style="color:${WC[i]}">${(ATTN[i]*100).toFixed(0)}%</span></div>`).join('')}
+      <div class="arrow-down" id="smArr">↓ 概率分布（饼图）</div>
+      <div id="pieArea"></div>
+      <div class="insight" id="ins7"><div class="label">💡 一目了然</div>「苹果」占了整个饼的 <strong>71%</strong>！「吃」最关心的就是它吃的是什么。</div>`;
+    WD.forEach((_,i)=>T(()=>{document.getElementById(`sm_${i}`).classList.add('show');T(()=>document.getElementById(`smr_${i}`).classList.add('show'),200);},i*300));
+    T(()=>{document.getElementById('smArr').classList.add('show');
+      document.getElementById('pieArea').innerHTML=drawPie(ATTN,WC,WD);
+    },WD.length*300+200);
+    T(()=>document.getElementById('ins7').classList.add('show'),WD.length*300+800);
+  };
+}
+
+function renderS8(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">8</span> 加权求和 V：融合信息</div>
+    <div class="s-sub">用概率对 V 做加权求和。看下面的「色彩混合」——<strong>圆圈越大 = 贡献越多</strong>。</div>
+    <div style="text-align:center;margin:12px 0;"><button class="action-btn gold" id="btn8" onclick="animMix()">🎨 色彩融合动画</button></div>
+    <div id="mixViz"></div>
+    <div id="wArea"></div>
+  </div>`;
+  window.animMix=function(){
+    document.getElementById('btn8').disabled=true;
+    // Color mix visualization
+    document.getElementById('mixViz').innerHTML=colorMixHTML();
+    WD.forEach((_,i)=>T(()=>document.getElementById('mc'+i).classList.add('show'),i*200));
+    T(()=>document.getElementById('mxa').classList.add('show'),WD.length*200);
+    T(()=>document.getElementById('mxr').classList.add('show'),WD.length*200+300);
+    // Math detail
+    const area=document.getElementById('wArea');
+    T(()=>{
+      let h='<div style="color:var(--muted);font-size:0.85rem;margin:16px 0 8px;">数学细节：概率 × V → 加权求和</div>';
+      WD.forEach((w,i)=>{
+        const wt=VV[i].map(v=>+(v*ATTN[i]).toFixed(3));
+        h+=`<div class="calc-step" id="w8_${i}"><span style="color:${WC[i]};font-weight:700;">${(ATTN[i]*100).toFixed(0)}%</span> × V_${w} → [${wt.map(v=>v.toFixed(2)).join(', ')}]</div>`;
+      });
+      h+=`<div class="arrow-down" id="w8arr">↓ 全部相加</div>`+vecHTML("吃'(新向量)",OUT2,'#ffd666')+dimBarsHTML(OUT2,'#ffd666','db8')+
+        `<div class="insight" id="ins8"><div class="label">💡 完成！</div>新向量 71% 来自「苹果」—— 「吃」现在「知道」自己吃的是苹果。<strong>这就是一次完整的 Self-Attention！</strong></div>`;
+      area.innerHTML=h;
+      WD.forEach((_,i)=>T(()=>document.getElementById(`w8_${i}`).classList.add('show'),i*200));
+      T(()=>{document.getElementById('w8arr').classList.add('show');revealCells(area,100);animDimBars('db8',300);},WD.length*200+200);
+      T(()=>document.getElementById('ins8').classList.add('show'),WD.length*200+1000);
+    },WD.length*200+600);
+  };
+}
+
+function renderS9(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">9</span> 多头注意力：多个视角</div>
+    <div class="s-sub">向量<strong>切成多份</strong>，每份独立做注意力。就像多个侦探从不同角度查案。</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin:16px 0;">
+      <div class="calc-step" style="flex:1;min-width:200px;padding:16px;border:1px solid rgba(239,68,68,0.25);background:rgba(239,68,68,0.06);border-radius:10px;">
+        <div style="font-weight:600;color:#ef4444;margin-bottom:8px;">🔍 头1：语法</div>
+        <div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">前2维独立算注意力<br>→ 学到「<strong style="color:var(--text)">吃什么</strong>」</div>
+        ${dimBarsHTML([0.4,0.6],'#ef4444','h1d')}
+      </div>
+      <div class="calc-step" style="flex:1;min-width:200px;padding:16px;border:1px solid rgba(74,158,255,0.25);background:rgba(74,158,255,0.06);border-radius:10px;">
+        <div style="font-weight:600;color:#4a9eff;margin-bottom:8px;">🔗 头2：语义</div>
+        <div style="font-size:0.82rem;color:var(--muted);line-height:1.8;">后2维独立算注意力<br>→ 学到「<strong style="color:var(--text)">谁爱吃</strong>」</div>
+        ${dimBarsHTML([0.2,-0.2],'#4a9eff','h2d')}
+      </div>
+    </div>
+    <div class="op-box"><div class="formula">MultiHead = Concat(头1, 头2) × W_O</div><div class="note">拼接后线性变换 → 合并多角度信息</div></div>
+    <div class="insight" id="ins9"><div class="label">💡 多角度</div>GPT-3 = 96 个头 × 128 维/头 = 12288 维总宽度。每个头学一种模式。</div>
+  </div>`;
+  staggerShow(el,'.calc-step',200,300);animDimBars('h1d',500);animDimBars('h2d',800);
+  T(()=>document.getElementById('ins9').classList.add('show'),1200);
+}
+
+function renderS10(el){
+  el.innerHTML=`<div class="card">
+    <div class="s-title"><span class="s-badge">10</span> FFN + 残差：最后加工</div>
+    <div class="s-sub">注意力输出还要过两道关。</div>
+    <div style="margin:16px 0;">
+      <div style="font-weight:600;color:var(--cyan);margin-bottom:8px;">🔄 残差连接</div>
+      <div class="op-box"><div class="formula">输出 = Attention(x) + x</div><div class="note">「保险通道」——原始信息永远不会丢。</div></div>
+    </div>
+    <div style="margin:16px 0;">
+      <div style="font-weight:600;color:var(--orange);margin-bottom:8px;">⚙️ 前馈网络 FFN</div>
+      <div class="op-box" style="border-color:rgba(251,146,60,0.2);background:rgba(251,146,60,0.06);">
+        <div class="formula" style="color:var(--orange);">4维 →<strong>16维</strong>→ ReLU → <strong>4维</strong></div>
+        <div class="note">升维给更大思考空间 → 激活引入非线性 → 降维压缩回来</div></div>
+    </div>
+    <div style="font-weight:600;color:var(--purple);margin:20px 0 10px;">📦 完整 Transformer Block</div>
+    <div class="pipeline" id="pipeline">
+      <div class="pipe-block" style="border:1px solid var(--purple);background:rgba(167,139,250,0.1);color:var(--purple);">输入</div><div class="pipe-arrow">→</div>
+      <div class="pipe-block" style="border:1px solid var(--blue);background:rgba(74,158,255,0.1);color:var(--blue);">Attention</div><div class="pipe-arrow">→</div>
+      <div class="pipe-block" style="border:1px solid var(--cyan);background:rgba(34,211,238,0.1);color:var(--cyan);">Add+Norm</div><div class="pipe-arrow">→</div>
+      <div class="pipe-block" style="border:1px solid var(--orange);background:rgba(251,146,60,0.1);color:var(--orange);">FFN</div><div class="pipe-arrow">→</div>
+      <div class="pipe-block" style="border:1px solid var(--cyan);background:rgba(34,211,238,0.1);color:var(--cyan);">Add+Norm</div><div class="pipe-arrow">→</div>
+      <div class="pipe-block" style="border:1px solid var(--green);background:rgba(74,222,128,0.1);color:var(--green);">输出</div>
+    </div>
+    <div class="insight" id="ins10"><div class="label">🎉 恭喜！</div>你刚手算了 Transformer 的核心！实际堆叠 N 层（GPT-3=96）。底层学词法 → 中层语法 → 高层语义。</div>
+  </div>`;
+  staggerShow(el,'.pipe-block',200,150);staggerShow(el,'.pipe-arrow',250,150);
+  T(()=>document.getElementById('ins10').classList.add('show'),1800);
+}
+
+// Navigation
+function nav(dir){const n=cur+dir;if(n<0||n>=STEPS.length)return;cur=n;renderCurrent();}
+function goTo(idx){cur=idx;renderCurrent();}
+function renderCurrent(){
+  clearAll();const el=document.getElementById('mainContent');el.innerHTML='';
+  STEPS[cur].render(el);
+  document.getElementById('prevBtn').disabled=cur===0;
+  document.getElementById('nextBtn').disabled=cur===STEPS.length-1;
+  document.getElementById('stepCounter').textContent=`${cur+1} / ${STEPS.length}`;
+  const bar=document.getElementById('progressBar');let h='';
+  STEPS.forEach((_,i)=>{if(i>0)h+=`<div class="step-line ${i<=cur?'done':''}"></div>`;
+    h+=`<div class="step-dot ${i===cur?'active':i<cur?'done':''}" onclick="goTo(${i})">${i+1}</div>`;});
+  bar.innerHTML=h;window.scrollTo({top:0,behavior:'smooth'});
+}
+function toggleGlossary(){document.getElementById('glossary-panel').classList.toggle('open');}
+addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();nav(1);}if(e.key==='ArrowLeft'){e.preventDefault();nav(-1);}});
+renderCurrent();
+</script>
+</body>
+</html>

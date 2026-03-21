@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transformer 原理 3D 直觉</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#050a18;--blue:#4a9eff;--green:#4ade80;--purple:#a78bfa;--gold:#ffd666;--cyan:#22d3ee;--pink:#f472b6;--orange:#fb923c;--red:#ef4444;--text:#e2e8f0;--muted:#64748b;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans SC',sans-serif;overflow:hidden;height:100vh;width:100vw;user-select:none;}
+canvas#main{position:fixed;inset:0;z-index:0;cursor:grab;}
+canvas#main.grabbing{cursor:grabbing;}
+
+.info-panel{
+  position:fixed;top:20px;left:20px;z-index:20;
+  max-width:400px;
+  background:rgba(10,15,30,0.88);
+  backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;
+  padding:24px 28px;
+  transition:opacity 0.3s;
+}
+.scene-badge{
+  display:inline-block;
+  font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:600;
+  padding:3px 10px;border-radius:20px;
+  background:rgba(74,158,255,0.15);color:var(--blue);
+  border:1px solid rgba(74,158,255,0.3);margin-bottom:12px;
+}
+.scene-title{
+  font-size:1.35rem;font-weight:700;margin-bottom:8px;line-height:1.4;
+  background:linear-gradient(135deg,var(--blue),var(--purple),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.scene-desc{color:var(--muted);font-size:0.9rem;line-height:1.7;margin-bottom:16px;}
+.scene-desc strong{color:var(--text);}
+.scene-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.action-btn{
+  padding:8px 18px;border-radius:8px;border:1px solid;
+  font-size:0.85rem;font-family:'Noto Sans SC',sans-serif;
+  cursor:pointer;transition:all 0.2s;background:transparent;
+}
+.action-btn:hover{filter:brightness(1.3);}
+.action-btn.blue{border-color:var(--blue);color:var(--blue);background:rgba(74,158,255,0.1);}
+.action-btn.green{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.1);}
+.action-btn.gold{border-color:var(--gold);color:var(--gold);background:rgba(255,214,102,0.1);}
+.action-btn.pink{border-color:var(--pink);color:var(--pink);background:rgba(244,114,182,0.1);}
+.action-btn.purple{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,0.1);}
+
+.hint-bar{
+  position:fixed;top:20px;right:20px;z-index:20;
+  font-size:0.75rem;color:var(--muted);
+  background:rgba(10,15,30,0.7);backdrop-filter:blur(8px);
+  padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.06);
+}
+
+.nav-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:30;
+  display:flex;justify-content:center;align-items:center;gap:16px;
+  padding:14px 20px;
+  background:rgba(5,10,24,0.92);backdrop-filter:blur(12px);
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+.nav-btn{
+  padding:10px 28px;border-radius:8px;border:none;
+  font-size:0.95rem;font-family:'Noto Sans SC',sans-serif;
+  cursor:pointer;transition:all 0.2s;font-weight:500;
+}
+.nav-btn.prev{background:rgba(255,255,255,0.06);color:var(--text);border:1px solid rgba(255,255,255,0.12);}
+.nav-btn.prev:hover{background:rgba(255,255,255,0.1);}
+.nav-btn.next{background:var(--blue);color:#000;font-weight:700;}
+.nav-btn.next:hover{background:#6ab4ff;box-shadow:0 0 20px rgba(74,158,255,0.5);}
+.nav-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.step-counter{font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:var(--muted);min-width:50px;text-align:center;}
+
+.progress{
+  position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:25;
+  display:flex;align-items:center;gap:4px;
+}
+.dot{
+  width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.65rem;font-weight:600;font-family:'JetBrains Mono',monospace;
+  border:2px solid var(--muted);color:var(--muted);
+  cursor:pointer;transition:all 0.3s;
+}
+.dot.active{border-color:var(--blue);color:var(--blue);box-shadow:0 0 10px var(--blue);}
+.dot.done{border-color:var(--green);background:var(--green);color:#050a18;}
+.dot-line{width:12px;height:2px;background:var(--muted);transition:background 0.3s;}
+.dot-line.done{background:var(--green);}
+
+#glossary-btn{
+  position:fixed;bottom:80px;right:24px;z-index:999;
+  width:44px;height:44px;border-radius:50%;
+  background:rgba(74,158,255,0.15);border:1px solid var(--blue);
+  color:var(--blue);font-size:1.1rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all 0.2s;
+}
+#glossary-btn:hover{background:rgba(74,158,255,0.3);box-shadow:0 0 16px rgba(74,158,255,0.4);}
+#glossary-panel{
+  position:fixed;top:0;right:-360px;bottom:0;width:340px;z-index:1000;
+  background:rgba(10,15,30,0.97);border-left:1px solid rgba(255,255,255,0.1);
+  overflow-y:auto;padding:24px;transition:right 0.3s ease;backdrop-filter:blur(16px);
+}
+#glossary-panel.open{right:0;}
+#glossary-panel h3{font-size:1.1rem;margin-bottom:20px;color:var(--blue);}
+.g-item{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.g-item:last-child{border-bottom:none;}
+.g-item .g-en{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--gold);font-size:0.85rem;}
+.g-item .g-zh{font-weight:500;margin:3px 0;font-size:0.9rem;}
+.g-item .g-desc{font-size:0.8rem;color:var(--muted);line-height:1.5;}
+#glossary-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;}
+
+@media(max-width:640px){
+  .info-panel{max-width:none;left:10px;right:10px;top:10px;padding:16px 18px;}
+  .scene-title{font-size:1.1rem;}
+  .scene-desc{font-size:0.82rem;}
+  .nav-btn{padding:8px 18px;font-size:0.85rem;}
+  .progress{bottom:68px;}
+  .dot{width:20px;height:20px;font-size:0.55rem;}
+  .dot-line{width:6px;}
+}
+</style>
+</head>
+<body>
+
+<canvas id="main"></canvas>
+
+<div class="info-panel" id="infoPanel">
+  <div class="scene-badge" id="sceneBadge">场景 1 / 9</div>
+  <h2 class="scene-title" id="sceneTitle"></h2>
+  <p class="scene-desc" id="sceneDesc"></p>
+  <div class="scene-actions" id="sceneActions"></div>
+</div>
+
+<div class="hint-bar">🖱 拖动旋转 · 滚轮缩放</div>
+
+<div class="progress" id="progressBar"></div>
+
+<div class="nav-bar">
+  <button class="nav-btn prev" id="prevBtn" onclick="go(-1)" disabled>← 上一步</button>
+  <span class="step-counter" id="stepCounter">1 / 9</span>
+  <button class="nav-btn next" id="nextBtn" onclick="go(1)">下一步 →</button>
+</div>
+
+<button id="glossary-btn" onclick="toggleGlossary()">❓</button>
+<div id="glossary-panel">
+  <button id="glossary-close" onclick="toggleGlossary()">✕</button>
+  <h3>术语表</h3>
+  <div class="g-item"><div class="g-en">Token</div><div class="g-zh">词元 / 标记</div><div class="g-desc">模型处理文本的最小单位。中文通常一个字或词为一个 Token。</div></div>
+  <div class="g-item"><div class="g-en">Embedding</div><div class="g-zh">词向量 / 嵌入</div><div class="g-desc">把词编号映射到高维空间的一个向量，让相似词的位置更近。</div></div>
+  <div class="g-item"><div class="g-en">Self-Attention</div><div class="g-zh">自注意力机制</div><div class="g-desc">让句中每个词关注所有词，根据相关性加权融合信息。Transformer 的核心。</div></div>
+  <div class="g-item"><div class="g-en">Query (Q)</div><div class="g-zh">查询向量</div><div class="g-desc">代表「我在找什么」。每个词生成 Q，去匹配其他词的 K。</div></div>
+  <div class="g-item"><div class="g-en">Key (K)</div><div class="g-zh">键向量</div><div class="g-desc">代表「我是什么」。被其他词的 Q 来匹配和查询。</div></div>
+  <div class="g-item"><div class="g-en">Value (V)</div><div class="g-zh">值向量</div><div class="g-desc">代表「我的内容」。匹配成功后，按权重传递的实际信息。</div></div>
+  <div class="g-item"><div class="g-en">Dot Product</div><div class="g-zh">点积</div><div class="g-desc">两个向量相似度的数学度量。方向越同向，值越大。</div></div>
+  <div class="g-item"><div class="g-en">Softmax</div><div class="g-zh">归一化指数函数</div><div class="g-desc">把一组分数转成概率分布（加和为 1），让权重更集中。</div></div>
+  <div class="g-item"><div class="g-en">Multi-Head Attention</div><div class="g-zh">多头注意力</div><div class="g-desc">同时用多组 Q/K/V 从不同角度观察句子，再拼接结果。</div></div>
+  <div class="g-item"><div class="g-en">Positional Encoding</div><div class="g-zh">位置编码</div><div class="g-desc">注意力本身没有顺序感，需要额外给每个词加入位置信息。</div></div>
+  <div class="g-item"><div class="g-en">Feed Forward Network</div><div class="g-zh">前馈网络</div><div class="g-desc">注意力之后的全连接层，对每个词独立做非线性变换。</div></div>
+  <div class="g-item"><div class="g-en">Residual Connection</div><div class="g-zh">残差连接</div><div class="g-desc">将输入直接加到输出上的「捷径」，帮助深层网络稳定训练。</div></div>
+</div>
+
+<script>
+// ==================== State ====================
+const canvas = document.getElementById('main');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, dpr = 1;
+let time = 0, currentScene = 0;
+let camRotX = -0.35, camRotY = 0.6, camZoom = 1.0;
+let autoRotate = true, autoSpeed = 0.003;
+let dragging = false, lastMX = 0, lastMY = 0;
+let stars = [];
+let gridAlpha = 0, gridTarget = 0;
+let sceneFlags = {};
+
+// ==================== Particles & Connections ====================
+const P = [
+  { label:'我',  x:0,y:0,z:0, tx:0,ty:0,tz:0, color:'#64748b', size:1, ts:1, alpha:0, ta:1 },
+  { label:'爱',  x:0,y:0,z:0, tx:0,ty:0,tz:0, color:'#64748b', size:1, ts:1, alpha:0, ta:1 },
+  { label:'吃',  x:0,y:0,z:0, tx:0,ty:0,tz:0, color:'#64748b', size:1, ts:1, alpha:0, ta:1 },
+  { label:'苹果', x:0,y:0,z:0, tx:0,ty:0,tz:0, color:'#4ade80', size:1, ts:1, alpha:0, ta:1 }
+];
+let conns = []; // { from, to, weight, tw, color, flow }
+let ghosts = []; // { x,y,z,tx,ty,tz, label, color, alpha, ta, size }
+
+function setP(i, tx, ty, tz, color, ts, ta) {
+  P[i].tx=tx; P[i].ty=ty; P[i].tz=tz; P[i].color=color; P[i].ts=ts||1; P[i].ta=ta!=null?ta:1;
+}
+function addConn(from, to, tw, color, flow) {
+  conns.push({from,to,weight:0,tw,color:color||'#4a9eff',flow:!!flow});
+}
+function clearConns() { conns = []; }
+function clearGhosts() { ghosts = []; }
+function addGhost(x,y,z,label,color,size) {
+  const g = {x,y,z,tx:x,ty:y,tz:z,label,color,alpha:0,ta:0.8,size:size||0.6};
+  ghosts.push(g);
+  return g;
+}
+
+// ==================== Scenes ====================
+const SCENES = [
+  { title:'词的困境',
+    desc:'在机器的世界里，文字只是冰冷的编号。每个字孤零零地漂浮在黑暗中——它们不知道自己是什么意思，也不知道彼此有什么关系。',
+    actions:'' },
+  { title:'向量空间 — 给词一个家',
+    desc:'把编号映射到高维空间中的一个点——这就是<strong>词向量（Embedding）</strong>。相似的词住在附近：「吃」和「苹果」靠得很近，因为它们经常一起出现。',
+    actions:'' },
+  { title:'一词多义的困境',
+    desc:'「苹果」是水果还是科技公司？同一个词向量、同一个位置，但含义可能完全不同。<strong>没有上下文，词向量无法区分。</strong>',
+    actions:'<button class="action-btn gold" onclick="sceneAction(\'toggle\')">🔄 切换语境</button>' },
+  { title:'暴力尝试：看所有人',
+    desc:'直觉来了：让「<strong style="color:var(--gold)">吃</strong>」去看所有其他词，把信息混合起来。但如果<strong style="color:var(--pink)">等权平均</strong>——所有词一视同仁——结果只是一团模糊。',
+    actions:'' },
+  { title:'注意力诞生：按需分配',
+    desc:'关键洞察：不同的词重要性不同！「吃」最该关注「<strong style="color:var(--green)">苹果</strong>」，而不是「我」。让<strong style="color:var(--blue)">相关性决定权重</strong>——这就是注意力机制！',
+    actions:'<button class="action-btn green" onclick="sceneAction(\'attention\')">✨ 释放注意力</button>' },
+  { title:'一人分饰三角：Q 与 K',
+    desc:'一个词需要同时回答两个问题：<strong style="color:var(--red)">「我在找什么？」(Q)</strong> 和 <strong style="color:var(--green)">「我是什么？」(K)</strong>。所以每个词分裂出两个角色去匹配。',
+    actions:'<button class="action-btn purple" onclick="sceneAction(\'split\')">⚡ Q/K 分裂!</button>' },
+  { title:'传递内容：V 登场',
+    desc:'匹配之后要传递什么？<strong style="color:var(--gold)">Value（值向量）</strong>承载实际内容，沿着注意力权重的通道，流向需要它的词。Q 找到目标，K 确认身份，V 交付内容。',
+    actions:'<button class="action-btn gold" onclick="sceneAction(\'flow\')">🌊 信息传递</button>' },
+  { title:'多头注意力：平行世界',
+    desc:'一组 Q/K/V 只能关注一种关系。同时运行<strong>多组（多个「头」）</strong>，分别捕捉语法、语义、位置、情感等不同维度的关系，最后合并。',
+    actions:'<button class="action-btn blue" onclick="sceneAction(\'heads\')">🔀 展开多头</button>' },
+  { title:'融合：词焕然一新',
+    desc:'经过注意力的洗礼，每个词都吸收了上下文信息。「苹果」终于知道自己是水果还是手机。<strong>Transformer 的核心——自注意力——就是这么自然地被推导出来的。</strong>',
+    actions:'' }
+];
+
+// ==================== Scene Setup ====================
+function setupScene(idx) {
+  sceneFlags = {};
+  clearConns();
+  clearGhosts();
+  switch(idx) {
+    case 0: // 词的困境 — 孤立
+      gridTarget = 0;
+      setP(0, -2.5, 0.6, -0.8, '#64748b', 0.9, 0.7);
+      setP(1, -0.7, 1.3, 0.6, '#64748b', 0.9, 0.7);
+      setP(2, 0.6, -0.2, -0.5, '#64748b', 0.9, 0.7);
+      setP(3, 2.2, 0.4, 1.0, '#64748b', 0.9, 0.7);
+      break;
+    case 1: // 向量空间
+      gridTarget = 1;
+      setP(0, -1.8, 0.9, 0.2, '#a78bfa', 1, 1);
+      setP(1, -0.3, 0.6, 0.4, '#4a9eff', 1, 1);
+      setP(2, 0.4, 0.4, 0.5, '#ffd666', 1, 1);
+      setP(3, 1.3, 0.5, 0.3, '#4ade80', 1, 1);
+      break;
+    case 2: // 一词多义
+      gridTarget = 1;
+      setP(0, -1.8, 0.9, 0.2, '#a78bfa', 1, 1);
+      setP(1, -0.3, 0.6, 0.4, '#4a9eff', 1, 1);
+      setP(2, 0.4, 0.4, 0.5, '#ffd666', 1, 1);
+      setP(3, 1.3, 0.5, 0.3, '#4ade80', 1.3, 1);
+      sceneFlags.contextMode = 0; // 0=food, 1=tech
+      break;
+    case 3: // 暴力平均
+      gridTarget = 0.5;
+      setP(0, -1.5, 0.6, -0.3, '#a78bfa', 0.9, 1);
+      setP(1, -0.3, 0.8, 0.3, '#4a9eff', 0.9, 1);
+      setP(2, 0, 0, 0, '#ffd666', 1.3, 1);
+      setP(3, 1.2, 0.5, -0.2, '#4ade80', 0.9, 1);
+      addConn(2,0, 0.25, '#f472b6');
+      addConn(2,1, 0.25, '#f472b6');
+      addConn(2,3, 0.25, '#f472b6');
+      break;
+    case 4: // 注意力
+      gridTarget = 0.5;
+      setP(0, -1.5, 0.6, -0.3, '#a78bfa', 0.9, 1);
+      setP(1, -0.3, 0.8, 0.3, '#4a9eff', 0.9, 1);
+      setP(2, 0, 0, 0, '#ffd666', 1.3, 1);
+      setP(3, 1.2, 0.5, -0.2, '#4ade80', 0.9, 1);
+      addConn(2,0, 0.25, '#f472b6');
+      addConn(2,1, 0.25, '#f472b6');
+      addConn(2,3, 0.25, '#f472b6');
+      break;
+    case 5: // QKV split
+      gridTarget = 0.3;
+      setP(0, -2, 0, -0.5, '#a78bfa', 0.8, 0.6);
+      setP(1, -0.6, 0, 0.8, '#4a9eff', 0.8, 0.6);
+      setP(2, 0.6, 0, -0.3, '#ffd666', 0.8, 0.6);
+      setP(3, 2, 0, 0.5, '#4ade80', 0.8, 0.6);
+      break;
+    case 6: // V flow
+      gridTarget = 0.3;
+      setP(0, -2, 0, -0.5, '#a78bfa', 0.8, 0.5);
+      setP(1, -0.6, 0, 0.8, '#4a9eff', 0.8, 0.5);
+      setP(2, 0.6, 0, -0.3, '#ffd666', 1.2, 1);
+      setP(3, 2, 0, 0.5, '#4ade80', 0.8, 0.5);
+      // QK ghosts from scene 5 persist
+      P.forEach((p,i) => {
+        const g1 = addGhost(p.tx-0.35, p.ty+0.5, p.tz, 'Q', '#ef4444', 0.45);
+        g1.ta = 0.6;
+        const g2 = addGhost(p.tx+0.35, p.ty+0.5, p.tz, 'K', '#22c55e', 0.45);
+        g2.ta = 0.6;
+        const g3 = addGhost(p.tx, p.ty-0.5, p.tz, 'V', '#fbbf24', 0.5);
+        g3.ta = 0.7;
+      });
+      addConn(2,3, 0.15, 'rgba(251,191,36,0.5)', true);
+      addConn(2,1, 0.08, 'rgba(251,191,36,0.3)', true);
+      addConn(2,0, 0.04, 'rgba(251,191,36,0.2)', true);
+      break;
+    case 7: // 多头
+      gridTarget = 0.2;
+      setP(0, -1.5, 0, -0.3, '#a78bfa', 0.7, 0.8);
+      setP(1, -0.3, 0, 0.5, '#4a9eff', 0.7, 0.8);
+      setP(2, 0.5, 0, -0.2, '#ffd666', 0.7, 0.8);
+      setP(3, 1.5, 0, 0.3, '#4ade80', 0.7, 0.8);
+      sceneFlags.headsExpanded = false;
+      break;
+    case 8: // 融合
+      gridTarget = 0.6;
+      setP(0, -1.5, 0.5, -0.2, '#a78bfa', 1.2, 1);
+      setP(1, -0.3, 0.7, 0.4, '#4a9eff', 1.2, 1);
+      setP(2, 0.5, 0.3, 0.2, '#ffd666', 1.4, 1);
+      setP(3, 1.5, 0.6, -0.1, '#4ade80', 1.2, 1);
+      addConn(0,1, 0.15, 'rgba(167,139,250,0.3)', true);
+      addConn(0,2, 0.1, 'rgba(167,139,250,0.2)', true);
+      addConn(0,3, 0.08, 'rgba(167,139,250,0.15)', true);
+      addConn(1,2, 0.2, 'rgba(74,158,255,0.3)', true);
+      addConn(1,3, 0.12, 'rgba(74,158,255,0.2)', true);
+      addConn(2,3, 0.6, 'rgba(255,214,102,0.5)', true);
+      addConn(3,2, 0.5, 'rgba(74,222,128,0.4)', true);
+      break;
+  }
+}
+
+// ==================== Scene Actions ====================
+function sceneAction(action) {
+  if (action === 'toggle' && currentScene === 2) {
+    sceneFlags.contextMode = sceneFlags.contextMode === 0 ? 1 : 0;
+  }
+  if (action === 'attention' && currentScene === 4) {
+    sceneFlags.attentionReleased = true;
+    conns[0].tw = 0.08; conns[0].color = 'rgba(167,139,250,0.3)';
+    conns[1].tw = 0.2; conns[1].color = 'rgba(74,158,255,0.5)';
+    conns[2].tw = 0.7; conns[2].color = '#4ade80';
+    conns.forEach(c => c.flow = true);
+  }
+  if (action === 'split' && currentScene === 5) {
+    sceneFlags.qkSplit = true;
+    P.forEach((p,i) => {
+      const g1 = addGhost(p.tx-0.35, p.ty+0.5, p.tz, 'Q', '#ef4444', 0.45);
+      g1.ta = 0.8;
+      const g2 = addGhost(p.tx+0.35, p.ty+0.5, p.tz, 'K', '#22c55e', 0.45);
+      g2.ta = 0.8;
+    });
+    // Q-K matching lines from 吃's Q to all K's
+    setTimeout(() => {
+      sceneFlags.qkLines = true;
+    }, 600);
+  }
+  if (action === 'flow' && currentScene === 6) {
+    sceneFlags.vFlowing = true;
+    conns.forEach(c => { c.tw = c.tw * 3; c.flow = true; });
+  }
+  if (action === 'heads' && currentScene === 7) {
+    sceneFlags.headsExpanded = !sceneFlags.headsExpanded;
+  }
+}
+
+// ==================== 3D Projection ====================
+function project(x, y, z) {
+  const cy = Math.cos(camRotY), sy = Math.sin(camRotY);
+  let rx = x * cy + z * sy;
+  let rz = -x * sy + z * cy;
+  const cx = Math.cos(camRotX), sx = Math.sin(camRotX);
+  let ry = y * cx - rz * sx;
+  rz = y * sx + rz * cx;
+  const d = 6;
+  const p = d / (d + rz);
+  const sc = 120 * camZoom;
+  return { sx: W/2 + rx*sc*p, sy: H/2 - ry*sc*p, scale: p, depth: rz };
+}
+
+// ==================== Drawing Helpers ====================
+function drawGlow(x, y, r, color, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, r*2.5);
+  grad.addColorStop(0, color + '44');
+  grad.addColorStop(0.4, color + '18');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x, y, r*2.5, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.globalAlpha = alpha * 0.5;
+  ctx.beginPath();
+  ctx.arc(x, y, r*0.35, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawLabel(x, y, text, color, alpha, fontSize) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.font = `bold ${fontSize||14}px "Noto Sans SC",sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = color;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function drawConn(p1, p2, weight, color, showFlow) {
+  if (weight < 0.01) return;
+  ctx.save();
+  ctx.globalAlpha = Math.min(weight, 0.85);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(weight * 5, 0.5);
+  ctx.shadowBlur = weight * 12;
+  ctx.shadowColor = color;
+  ctx.beginPath();
+  ctx.moveTo(p1.sx, p1.sy);
+  ctx.lineTo(p2.sx, p2.sy);
+  ctx.stroke();
+  ctx.restore();
+  if (showFlow && weight > 0.05) {
+    const dots = Math.ceil(weight * 5);
+    for (let i = 0; i < dots; i++) {
+      const t = ((time * 0.0006 + i / dots) % 1);
+      const fx = p1.sx + (p2.sx - p1.sx) * t;
+      const fy = p1.sy + (p2.sy - p1.sy) * t;
+      const fa = weight * (1 - Math.abs(t - 0.5) * 2) * 0.9;
+      ctx.save();
+      ctx.globalAlpha = fa;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(fx, fy, 1.5 + weight * 2, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function drawGrid3D(alpha) {
+  if (alpha < 0.005) return;
+  const n = 8, sz = 3;
+  ctx.strokeStyle = `rgba(74,158,255,${alpha * 0.06})`;
+  ctx.lineWidth = 0.5;
+  for (let i = -n; i <= n; i++) {
+    const v = (i/n)*sz;
+    const a = project(v, -0.5, -sz), b = project(v, -0.5, sz);
+    ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke();
+    const c = project(-sz, -0.5, v), d = project(sz, -0.5, v);
+    ctx.beginPath(); ctx.moveTo(c.sx,c.sy); ctx.lineTo(d.sx,d.sy); ctx.stroke();
+  }
+}
+
+function drawAxes(alpha) {
+  if (alpha < 0.01) return;
+  const o = project(0,-0.5,0);
+  const axes = [{x:2.5,y:-0.5,z:0,l:'X'},{x:0,y:2,z:0,l:'Y'},{x:0,y:-0.5,z:2.5,l:'Z'}];
+  axes.forEach(a => {
+    const p = project(a.x,a.y,a.z);
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.15;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(o.sx,o.sy); ctx.lineTo(p.sx,p.sy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '11px "JetBrains Mono",monospace';
+    ctx.fillText(a.l, p.sx+4, p.sy-4);
+    ctx.restore();
+  });
+}
+
+// ==================== Stars ====================
+function initStars() {
+  stars = Array.from({length:180}, () => ({
+    x:Math.random()*W, y:Math.random()*H,
+    r:Math.random()*1.1+0.3, a:Math.random(), da:(Math.random()-0.5)*0.008
+  }));
+}
+function drawStars() {
+  for (const s of stars) {
+    s.a = Math.max(0.08, Math.min(0.7, s.a + s.da));
+    if (s.a <= 0.08 || s.a >= 0.7) s.da *= -1;
+    ctx.fillStyle = `rgba(180,200,255,${s.a})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// ==================== Scene-Specific Draw ====================
+function drawSceneExtra() {
+  switch(currentScene) {
+    case 0: drawScene0Extra(); break;
+    case 2: drawScene2Extra(); break;
+    case 3: drawScene3Extra(); break;
+    case 5: drawScene5Extra(); break;
+    case 6: drawScene6Extra(); break;
+    case 7: drawScene7Extra(); break;
+    case 8: drawScene8Extra(); break;
+  }
+}
+
+function drawScene0Extra() {
+  // 每个字符旁边浮动显示编号
+  P.forEach((p, i) => {
+    const pr = project(p.x, p.y, p.z);
+    const ids = [1024, 1341, 1658, 1975];
+    drawLabel(pr.sx, pr.sy + 30*pr.scale, '#'+ids[i], '#64748b', p.alpha*0.5, 10*pr.scale);
+  });
+}
+
+function drawScene2Extra() {
+  // 苹果闪烁效果
+  const apple = P[3];
+  const pr = project(apple.x, apple.y, apple.z);
+  const mode = sceneFlags.contextMode || 0;
+  const t = Math.sin(time * 0.004) * 0.5 + 0.5;
+
+  const labelR = apple.size * 14 * pr.scale;
+  const extraOffset = labelR + 28*pr.scale;
+  if (mode === 0) {
+    apple.color = '#4ade80';
+    drawLabel(pr.sx, pr.sy - extraOffset, '🍎 水果', '#4ade80', apple.alpha*0.8, 13*pr.scale);
+  } else {
+    apple.color = '#a78bfa';
+    drawLabel(pr.sx, pr.sy - extraOffset, '📱 科技', '#a78bfa', apple.alpha*0.8, 13*pr.scale);
+  }
+
+  // 问号粒子效果
+  const qx = apple.x + Math.sin(time*0.003)*0.15;
+  const qy = apple.y + Math.cos(time*0.004)*0.1 + 0.8;
+  const qpr = project(qx, qy, apple.z);
+  drawLabel(qpr.sx, qpr.sy, '?', '#ffd666', 0.3 + t*0.4, 24*qpr.scale);
+}
+
+function drawScene3Extra() {
+  // 标注「吃」为焦点词
+  const eat = P[2];
+  const pr = project(eat.x, eat.y, eat.z);
+  const pulse = 0.6 + Math.sin(time*0.005)*0.4;
+  ctx.save();
+  ctx.globalAlpha = 0.15 * pulse;
+  ctx.strokeStyle = '#ffd666';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(pr.sx, pr.sy, 35*pr.scale, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+  drawLabel(pr.sx, pr.sy - 35*pr.scale, '← 焦点词', '#ffd666', 0.6, 11);
+
+  // "= 25%" 标签
+  conns.forEach(c => {
+    const fp = project(P[c.from].x, P[c.from].y, P[c.from].z);
+    const tp = project(P[c.to].x, P[c.to].y, P[c.to].z);
+    const mx = (fp.sx+tp.sx)/2, my = (fp.sy+tp.sy)/2;
+    drawLabel(mx, my-8, '25%', '#f472b6', c.weight*0.7, 10);
+  });
+}
+
+function drawScene5Extra() {
+  if (!sceneFlags.qkLines) return;
+  // Draw Q→K matching lines from 吃 to others
+  const eatIdx = 2;
+  const weights = [0.08, 0.15, 0, 0.77]; // 我、爱、吃自己、苹果
+  const colors = ['rgba(244,114,182,0.3)', 'rgba(74,158,255,0.4)', '', 'rgba(74,222,128,0.7)'];
+  P.forEach((p, i) => {
+    if (i === eatIdx || weights[i] < 0.01) return;
+    // From 吃's Q position to other's K position
+    const qx = P[eatIdx].x - 0.35, qy = P[eatIdx].y + 0.5, qz = P[eatIdx].z;
+    const kx = p.x + 0.35, ky = p.y + 0.5, kz = p.z;
+    const qp = project(qx, qy, qz);
+    const kp = project(kx, ky, kz);
+    drawConn(qp, kp, weights[i], colors[i], true);
+    // Weight label
+    const mx = (qp.sx+kp.sx)/2, my = (qp.sy+kp.sy)/2;
+    drawLabel(mx, my-8, (weights[i]*100).toFixed(0)+'%', colors[i], 0.8, 10);
+  });
+}
+
+function drawScene6Extra() {
+  if (!sceneFlags.vFlowing) return;
+  // Enhanced V flow particles toward 吃
+  const eat = P[2];
+  const epr = project(eat.x, eat.y-0.5, eat.z);
+  const pulse = 0.5 + Math.sin(time*0.006)*0.5;
+  drawGlow(epr.sx, epr.sy, 18*epr.scale*pulse, '#fbbf24', 0.4);
+  drawLabel(epr.sx, epr.sy - 25, '吸收中...', '#fbbf24', pulse*0.7, 11);
+}
+
+function drawScene7Extra() {
+  if (!sceneFlags.headsExpanded) return;
+  // Draw 4 parallel head layers
+  const headColors = ['#ef4444','#4a9eff','#4ade80','#fbbf24'];
+  const headLabels = ['语法头','语义头','位置头','情感头'];
+  const offsets = [-1.8, -0.6, 0.6, 1.8];
+  // Different connection patterns per head
+  const headConns = [
+    [[2,3,0.8],[0,1,0.6]], // 语法: 吃→苹果, 我→爱
+    [[2,3,0.9],[1,2,0.5]], // 语义: 吃→苹果强, 爱→吃
+    [[0,1,0.7],[1,2,0.7],[2,3,0.7]], // 位置: 相邻词
+    [[1,2,0.6],[0,3,0.4]]  // 情感: 爱→吃, 我→苹果
+  ];
+
+  headLabels.forEach((label, h) => {
+    const zOff = offsets[h];
+    const alpha = 0.5;
+    // Draw particles at this layer
+    P.forEach(p => {
+      const pr = project(p.x, p.y, p.z + zOff);
+      drawGlow(pr.sx, pr.sy, 6*pr.scale, headColors[h], alpha * 0.6);
+    });
+    // Draw connections for this head
+    headConns[h].forEach(([from, to, w]) => {
+      const fp = project(P[from].x, P[from].y, P[from].z + zOff);
+      const tp = project(P[to].x, P[to].y, P[to].z + zOff);
+      drawConn(fp, tp, w*0.4, headColors[h], true);
+    });
+    // Layer label
+    const lp = project(-2.5, 1.2, zOff);
+    drawLabel(lp.sx, lp.sy, label, headColors[h], 0.7, 12*lp.scale);
+  });
+}
+
+function drawScene8Extra() {
+  // Enhanced glow for all particles - "rebirth" effect
+  P.forEach(p => {
+    const pr = project(p.x, p.y, p.z);
+    const pulse = 0.5 + Math.sin(time*0.004 + P.indexOf(p))*0.5;
+    // Multi-colored halo
+    drawGlow(pr.sx, pr.sy, 30*pr.scale*pulse, '#4a9eff', 0.15);
+    drawGlow(pr.sx, pr.sy, 25*pr.scale*pulse, '#a78bfa', 0.1);
+    drawGlow(pr.sx, pr.sy, 20*pr.scale*pulse, '#ffd666', 0.08);
+  });
+  // "理解了上下文" label at top
+  const cp = project(0, 1.8, 0);
+  const fa = 0.5 + Math.sin(time*0.003)*0.3;
+  drawLabel(cp.sx, cp.sy, '✦ 每个词都理解了上下文 ✦', '#ffd666', fa, 14);
+}
+
+// ==================== Main Animation Loop ====================
+function animate(ts) {
+  time = ts || 0;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background gradient
+  const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
+  bg.addColorStop(0, '#0a1020');
+  bg.addColorStop(1, '#050a18');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+
+  // Camera auto-rotate
+  if (autoRotate) camRotY += autoSpeed;
+
+  // Lerp grid
+  gridAlpha += (gridTarget - gridAlpha) * 0.04;
+  drawGrid3D(gridAlpha);
+  drawAxes(gridAlpha);
+
+  // Lerp particles
+  P.forEach(p => {
+    p.x += (p.tx - p.x) * 0.04;
+    p.y += (p.ty - p.y) * 0.04;
+    p.z += (p.tz - p.z) * 0.04;
+    p.size += (p.ts - p.size) * 0.04;
+    p.alpha += (p.ta - p.alpha) * 0.04;
+  });
+  // Lerp ghosts
+  ghosts.forEach(g => {
+    g.x += (g.tx - g.x) * 0.04;
+    g.y += (g.ty - g.y) * 0.04;
+    g.z += (g.tz - g.z) * 0.04;
+    g.alpha += (g.ta - g.alpha) * 0.06;
+  });
+  // Lerp connections
+  conns.forEach(c => {
+    c.weight += (c.tw - c.weight) * 0.04;
+  });
+
+  // Scene 0: slight drift
+  if (currentScene === 0) {
+    P.forEach((p,i) => {
+      p.tx += Math.sin(time*0.0005 + i*2) * 0.0003;
+      p.ty += Math.cos(time*0.0006 + i*3) * 0.0002;
+    });
+  }
+
+  // Scene 2: apple color pulse
+  if (currentScene === 2) {
+    const t = Math.sin(time * 0.003);
+    if (sceneFlags.contextMode === undefined || sceneFlags.contextMode === 0) {
+      P[3].color = '#4ade80';
+    }
+  }
+
+  // Draw connections (behind particles)
+  conns.forEach(c => {
+    const fp = project(P[c.from].x, P[c.from].y, P[c.from].z);
+    const tp = project(P[c.to].x, P[c.to].y, P[c.to].z);
+    drawConn(fp, tp, c.weight, c.color, c.flow);
+  });
+
+  // Scene-specific extras (behind main particles for some, on top for others)
+  drawSceneExtra();
+
+  // Draw ghosts
+  ghosts.filter(g => g.alpha > 0.01).forEach(g => {
+    const pr = project(g.x, g.y, g.z);
+    drawGlow(pr.sx, pr.sy, g.size*12*pr.scale, g.color, g.alpha);
+    drawLabel(pr.sx, pr.sy - g.size*14*pr.scale, g.label, g.color, g.alpha, 11*pr.scale);
+  });
+
+  // Draw main particles sorted by depth
+  const sorted = P.map((p,i) => {
+    const pr = project(p.x, p.y, p.z);
+    return {p, pr, i};
+  }).sort((a,b) => a.pr.depth - b.pr.depth);
+
+  sorted.forEach(({p, pr}) => {
+    if (p.alpha < 0.01) return;
+    const r = p.size * 14 * pr.scale;
+    drawGlow(pr.sx, pr.sy, r, p.color, p.alpha);
+    drawLabel(pr.sx, pr.sy - r - 10*pr.scale, p.label, p.color, p.alpha, Math.round(15*pr.scale));
+  });
+
+  if (!window.__RECORDING_MODE) requestAnimationFrame(animate);
+}
+
+// ==================== Input Handling ====================
+canvas.addEventListener('mousedown', e => {
+  dragging = true;
+  lastMX = e.clientX; lastMY = e.clientY;
+  canvas.classList.add('grabbing');
+  autoRotate = false;
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  camRotY += (e.clientX - lastMX) * 0.006;
+  camRotX += (e.clientY - lastMY) * 0.006;
+  camRotX = Math.max(-1.2, Math.min(1.2, camRotX));
+  lastMX = e.clientX; lastMY = e.clientY;
+});
+window.addEventListener('mouseup', () => {
+  dragging = false;
+  canvas.classList.remove('grabbing');
+  autoRotate = true;
+});
+canvas.addEventListener('touchstart', e => {
+  dragging = true;
+  lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+  autoRotate = false;
+}, {passive:true});
+canvas.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  camRotY += (e.touches[0].clientX - lastMX) * 0.006;
+  camRotX += (e.touches[0].clientY - lastMY) * 0.006;
+  camRotX = Math.max(-1.2, Math.min(1.2, camRotX));
+  lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+}, {passive:true});
+canvas.addEventListener('touchend', () => { dragging = false; autoRotate = true; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  camZoom = Math.max(0.4, Math.min(2.5, camZoom - e.deltaY * 0.001));
+}, {passive:false});
+
+// ==================== Navigation ====================
+function go(dir) {
+  const next = currentScene + dir;
+  if (next < 0 || next >= SCENES.length) return;
+  goToScene(next);
+}
+
+function goToScene(idx) {
+  currentScene = idx;
+  setupScene(idx);
+  updateUI();
+}
+
+function updateUI() {
+  const s = SCENES[currentScene];
+  document.getElementById('sceneBadge').textContent = `场景 ${currentScene+1} / ${SCENES.length}`;
+  document.getElementById('sceneTitle').innerHTML = s.title;
+  document.getElementById('sceneDesc').innerHTML = s.desc;
+  document.getElementById('sceneActions').innerHTML = s.actions;
+  document.getElementById('stepCounter').textContent = `${currentScene+1} / ${SCENES.length}`;
+  document.getElementById('prevBtn').disabled = currentScene === 0;
+  document.getElementById('nextBtn').disabled = currentScene === SCENES.length - 1;
+
+  // Progress dots
+  const bar = document.getElementById('progressBar');
+  let html = '';
+  SCENES.forEach((_, i) => {
+    if (i > 0) html += `<div class="dot-line ${i<=currentScene?'done':''}"></div>`;
+    const cls = i===currentScene ? 'active' : i<currentScene ? 'done' : '';
+    html += `<div class="dot ${cls}" onclick="goToScene(${i})">${i+1}</div>`;
+  });
+  bar.innerHTML = html;
+}
+
+// ==================== Glossary ====================
+function toggleGlossary() {
+  document.getElementById('glossary-panel').classList.toggle('open');
+}
+
+// ==================== Keyboard ====================
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+});
+
+// ==================== Resize ====================
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  initStars();
+}
+window.addEventListener('resize', resize);
+
+// ==================== Init ====================
+resize();
+setupScene(0);
+updateUI();
+requestAnimationFrame(animate);
+
+// ==================== Recording Mode ====================
+window.__RECORDING_MODE = false;
+window.__tick = 0;
+
+window.enterRecordingMode = function() {
+  window.__RECORDING_MODE = true;
+  // Hide nav controls but KEEP info-panel for context
+  document.querySelector('.hint-bar').style.display = 'none';
+  document.querySelector('.nav-bar').style.display = 'none';
+  document.querySelector('.progress').style.display = 'none';
+  document.getElementById('glossary-btn').style.display = 'none';
+  // Hide action buttons inside info panel (we trigger actions programmatically)
+  const actions = document.getElementById('sceneActions');
+  if (actions) actions.style.display = 'none';
+  // Make info panel bigger and more readable in video
+  const panel = document.querySelector('.info-panel');
+  panel.style.maxWidth = '480px';
+  panel.style.padding = '28px 32px';
+  panel.style.fontSize = '1.05em';
+  const title = panel.querySelector('.scene-title');
+  if (title) title.style.fontSize = '1.5rem';
+  const desc = panel.querySelector('.scene-desc');
+  if (desc) desc.style.fontSize = '0.95rem';
+  // Keep auto-rotate
+  autoRotate = true;
+  autoSpeed = 0.004;
+};
+
+window.renderOneFrame = function() {
+  window.__tick++;
+  // Advance camera rotation
+  if (autoRotate) camRotY += autoSpeed;
+  // Manually trigger one animation frame worth of updates
+  const ts = window.__tick * (1000/30);
+  time = ts;
+  // Clear and redraw
+  ctx.clearRect(0, 0, W, H);
+
+  // Background gradient
+  const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
+  bg.addColorStop(0, '#0a1020');
+  bg.addColorStop(1, '#050a18');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+  // Lerp grid
+  gridAlpha += (gridTarget - gridAlpha) * 0.06;
+  drawGrid3D(gridAlpha);
+  drawAxes(gridAlpha);
+
+  // Lerp all elements
+  P.forEach(p => {
+    p.x += (p.tx - p.x) * 0.06;
+    p.y += (p.ty - p.y) * 0.06;
+    p.z += (p.tz - p.z) * 0.06;
+    p.size += (p.ts - p.size) * 0.06;
+    p.alpha += (p.ta - p.alpha) * 0.06;
+  });
+  ghosts.forEach(g => {
+    g.x += (g.tx - g.x) * 0.06;
+    g.y += (g.ty - g.y) * 0.06;
+    g.z += (g.tz - g.z) * 0.06;
+    g.alpha += (g.ta - g.alpha) * 0.08;
+  });
+  conns.forEach(c => { c.weight += (c.tw - c.weight) * 0.06; });
+
+  // Scene 0: slight drift
+  if (currentScene === 0) {
+    P.forEach((p,i) => {
+      p.tx += Math.sin(time*0.0005 + i*2) * 0.0003;
+      p.ty += Math.cos(time*0.0006 + i*3) * 0.0002;
+    });
+  }
+
+  // Scene 2: apple color pulse
+  if (currentScene === 2) {
+    if (sceneFlags.contextMode === undefined || sceneFlags.contextMode === 0) {
+      P[3].color = '#4ade80';
+    }
+  }
+
+  // Draw connections
+  conns.forEach(c => {
+    const fp = project(P[c.from].x, P[c.from].y, P[c.from].z);
+    const tp = project(P[c.to].x, P[c.to].y, P[c.to].z);
+    drawConn(fp, tp, c.weight, c.color, c.flow);
+  });
+
+  drawSceneExtra();
+
+  // Draw ghosts
+  ghosts.filter(g => g.alpha > 0.01).forEach(g => {
+    const pr = project(g.x, g.y, g.z);
+    drawGlow(pr.sx, pr.sy, g.size*12*pr.scale, g.color, g.alpha);
+    drawLabel(pr.sx, pr.sy - g.size*14*pr.scale, g.label, g.color, g.alpha, 11*pr.scale);
+  });
+
+  // Draw main particles sorted by depth
+  const sorted = P.map((p,i) => {
+    const pr = project(p.x, p.y, p.z);
+    return {p, pr, i};
+  }).sort((a,b) => a.pr.depth - b.pr.depth);
+
+  sorted.forEach(({p, pr}) => {
+    if (p.alpha < 0.01) return;
+    const r = p.size * 14 * pr.scale;
+    drawGlow(pr.sx, pr.sy, r, p.color, p.alpha);
+    drawLabel(pr.sx, pr.sy - r - 10*pr.scale, p.label, p.color, p.alpha, Math.round(15*pr.scale));
+  });
+};
+
+window.goStepSmooth = function(step) {
+  goToScene(step);
+  if (step === 2) sceneFlags.contextMode = 0;
+  if (step === 4) setTimeout(() => sceneAction('attention'), 500);
+  if (step === 5) setTimeout(() => sceneAction('split'), 500);
+  if (step === 6) setTimeout(() => sceneAction('flow'), 500);
+  if (step === 7) setTimeout(() => sceneAction('heads'), 500);
+};
+</script>
+</body>
+</html>
