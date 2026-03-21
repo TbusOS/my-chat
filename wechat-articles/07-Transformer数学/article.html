@@ -378,12 +378,8 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="cyan-border"><span class="step-badge">1</span>词变数字 — 嵌入向量<span class="en">Embedding</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step1-词变数字-初始.png" alt="Step1 词变数字 初始">
-  <div class="caption">Step 1 初始：四个词卡等待点击</div>
-</div>
-<div class="screenshot">
-  <img src="images/59-step1-词变数字-向量.png" alt="Step1 词变数字 向量">
-  <div class="caption">Step 1 向量：点击词卡后数字条形图浮现——正值蓝条向右，负值粉条向左</div>
+  <img src="images/59-step1-向量条形图.png" alt="Step1 各维度条形图，蓝色正值向右、粉色负值向左">
+  <div class="caption">Step 1：四个词的 4 维嵌入向量条形图——蓝条向右代表正值，粉条向左代表负值</div>
 </div>
 
 <p>第一步是把每个词变成一个 4 维向量。这是通过查<span class="term term-cyan">嵌入矩阵</span>（Embedding Matrix）实现的——一张巨大的查找表，每个词对应表中的一行。</p>
@@ -417,12 +413,12 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="cyan-border"><span class="step-badge">2</span>位置编码 — sin/cos 波形<span class="en">Positional Encoding</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step2-位置编码-波形.png" alt="Step2 位置编码 波形">
-  <div class="caption">Step 2 波形：动态 sin/cos 波形，每个词在波上的采样点构成位置信号</div>
+  <img src="images/59-step2-波形动画.png" alt="Step2 sin/cos 波形，每个词在波上的采样点">
+  <div class="caption">Step 2 波形：动态 sin/cos 曲线，每个词在不同频率波上的采样点构成位置信号</div>
 </div>
 <div class="screenshot">
-  <img src="images/59-step2-位置编码-结果.png" alt="Step2 位置编码 结果">
-  <div class="caption">Step 2 结果：位置编码加到词向量后的最终数值</div>
+  <img src="images/59-step2-叠加结果.png" alt="Step2 词向量与位置编码叠加后的结果向量">
+  <div class="caption">Step 2 叠加：位置编码加到词向量后的最终数值</div>
 </div>
 
 <p>Self-Attention 有一个天生的缺陷：它在计算 Q·K 时，对词的<strong>顺序完全不敏感</strong>。「我爱吃苹果」和「苹果吃爱我」在纯注意力看来没有区别——因为 Q·K 点积只看向量方向，不看位置。</p>
@@ -455,12 +451,8 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="pink-border"><span class="step-badge">3</span>生成 Q — 矩阵乘法拆解<span class="en">Query Projection</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step3-生成Q-初始.png" alt="Step3 生成Q 初始">
-  <div class="caption">Step 3 初始：词向量与权重矩阵 W_Q 准备相乘</div>
-</div>
-<div class="screenshot">
-  <img src="images/59-step3-生成Q-计算.png" alt="Step3 生成Q 计算">
-  <div class="caption">Step 3 计算：逐步计算 Q_吃 的每个分量——每一步都是「逐位相乘再求和」</div>
+  <img src="images/59-step3-Q计算过程.png" alt="Step3 矩阵乘法逐步展开，计算 Q_吃 的每个分量">
+  <div class="caption">Step 3：逐步计算 Q_吃 = X_吃 × W_Q，每个分量「逐位相乘再求和」的完整过程</div>
 </div>
 
 <p>有了带位置信息的词向量，下一步是生成 <span class="term term-red">Query</span>。具体方法是把词向量乘以一个<strong>权重矩阵 W_Q</strong>。</p>
@@ -510,12 +502,8 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="green-border"><span class="step-badge">4</span>生成 K 和 V — 三个角色齐了<span class="en">Key & Value Projection</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step4-生成KV-上.png" alt="Step4 生成KV 上">
-  <div class="caption">Step 4 上半部分：K 和 V 的生成过程</div>
-</div>
-<div class="screenshot">
-  <img src="images/59-step4-生成KV-下.png" alt="Step4 生成KV 下">
-  <div class="caption">Step 4 下半部分：每个词的 Q（红）、K（绿）、V（金）条形图并排对比</div>
+  <img src="images/59-step4-吃的QKV.png" alt="Step4 「吃」的 Q/K/V 三组条形图并排对比">
+  <div class="caption">Step 4：「吃」的 Q（红）、K（绿）、V（金）条形图并排对比——同一个词在三种角色下方向各不相同</div>
 </div>
 
 <p>用同样的方法，每个词还要乘以 W_K 生成 <span class="term term-green">Key</span>，乘以 W_V 生成 <span class="term term-gold">Value</span>。三个矩阵 W_Q、W_K、W_V 是<strong>三个独立的权重矩阵</strong>，各自学到不同的变换。</p>
@@ -562,12 +550,12 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="blue-border"><span class="step-badge">5</span>点积相似度 — 角度越小越相关<span class="en">Dot Product</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step5-点积-角度图.png" alt="Step5 点积 角度图">
-  <div class="caption">Step 5 角度图：Q_吃 和 K_苹果 的箭头角度最小，点积最大</div>
+  <img src="images/59-step5-角度图.png" alt="Step5 2D 向量角度图，Q_吃 与 K_苹果 夹角最小">
+  <div class="caption">Step 5 角度图：Q_吃 和 K_苹果 的箭头方向最接近（夹角最小），点积最大</div>
 </div>
 <div class="screenshot">
-  <img src="images/59-step5-点积-分数.png" alt="Step5 点积 分数">
-  <div class="caption">Step 5 分数：各词对的点积分数计算结果</div>
+  <img src="images/59-step5-分数柱状图.png" alt="Step5 各词对点积分数柱状图，苹果最高">
+  <div class="caption">Step 5 分数：各词对的点积分数柱状图——「苹果」远超其他词</div>
 </div>
 
 <p>现在进入最关键的一步：计算「吃」和每个词之间的<span class="term term-blue">相似度</span>。</p>
@@ -612,8 +600,8 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="orange-border"><span class="step-badge">6</span>缩放 — 防止数字爆炸<span class="en">Scaling</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step6-缩放.png" alt="Step6 缩放">
-  <div class="caption">Step 6：条形图从「过大」缩短到「合理」，除以 sqrt(d) 冷却数值</div>
+  <img src="images/59-step6-缩放对比.png" alt="Step6 缩放前后条形图对比，除以 sqrt(d) 后数值变小">
+  <div class="caption">Step 6：缩放前后对比——除以 sqrt(4)=2 后条形图缩短到合理范围</div>
 </div>
 
 <p>原始的点积分数有一个隐患：随着向量维度增大，点积的数值会线性增长。如果维度是 512，点积可能达到几百甚至几千。</p>
@@ -644,8 +632,8 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="gold-border"><span class="step-badge">7</span>Softmax — 从分数到概率<span class="en">Softmax</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step7-Softmax-饼图.png" alt="Step7 Softmax 饼图">
-  <div class="caption">Step 7：饼图直观展示——「苹果」独占 71%</div>
+  <img src="images/59-step7-饼图.png" alt="Step7 Softmax 饼图，苹果独占 71%">
+  <div class="caption">Step 7：Softmax 归一化后的饼图——「苹果」独占 71% 注意力</div>
 </div>
 
 <p><span class="term term-gold">Softmax</span> 是一个将任意实数转化为概率分布的函数。它的公式是：</p>
@@ -699,12 +687,12 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="gold-border"><span class="step-badge">8</span>加权求和 — 色彩融合<span class="en">Weighted Sum</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step8-加权求和-混合.png" alt="Step8 加权求和 混合">
-  <div class="caption">Step 8 混合：色彩混合动画——圆圈越大代表贡献越多</div>
+  <img src="images/59-step8-颜色混合.png" alt="Step8 色彩混合动画，四个词用不同颜色圆圈表示，苹果圆圈最大">
+  <div class="caption">Step 8 混合：四个词的 V 用不同颜色圆圈表示——圆圈越大贡献越多，苹果(绿)最大</div>
 </div>
 <div class="screenshot">
-  <img src="images/59-step8-加权求和-结果.png" alt="Step8 加权求和 结果">
-  <div class="caption">Step 8 结果：最终融合成新颜色</div>
+  <img src="images/59-step8-结果向量.png" alt="Step8 加权求和后的最终结果向量">
+  <div class="caption">Step 8 结果：各色圆圈融合后产生新向量——「吃」现在包含了 71% 苹果的语义</div>
 </div>
 
 <p>现在万事俱备。注意力权重告诉我们「关注谁」，V 承载着「具体内容」。最后一步就是<strong>按权重对 V 做加权求和</strong>：</p>
@@ -758,8 +746,8 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="blue-border"><span class="step-badge">9</span>多头注意力 — 多个视角<span class="en">Multi-Head</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step9-多头注意力.png" alt="Step9 多头注意力">
-  <div class="caption">Step 9：向量一分为二，两个头分别学习语法和语义关系</div>
+  <img src="images/59-step9-多头卡片.png" alt="Step9 两个注意力头的卡片，分别展示语法头和语义头">
+  <div class="caption">Step 9：两个头的卡片——头 1 关注动宾关系(吃→苹果)，头 2 关注修饰关系(吃→爱)</div>
 </div>
 
 <p>上面的全部计算只是<strong>一个「头」</strong>的工作。实际的模型会同时运行多个头。</p>
@@ -801,12 +789,8 @@ p { margin-bottom: 14px; font-size: 15px; color: #444; }
 <h2 class="orange-border"><span class="step-badge">10</span>FFN + 残差 — 最后两道工序<span class="en">FFN & Residual</span></h2>
 
 <div class="screenshot">
-  <img src="images/59-step10-FFN残差-上.png" alt="Step10 FFN残差 上">
-  <div class="caption">Step 10 上半部分：残差连接和 Layer Normalization</div>
-</div>
-<div class="screenshot">
-  <img src="images/59-step10-FFN残差-流水线.png" alt="Step10 FFN残差 流水线">
-  <div class="caption">Step 10 流水线：完整的 Transformer Block——输入 → Attention → Add+Norm → FFN → Add+Norm → 输出</div>
+  <img src="images/59-step10-流水线.png" alt="Step10 完整 Transformer Block 流水线图">
+  <div class="caption">Step 10：完整 Transformer Block 流水线——输入 → Attention → Add+Norm → FFN → Add+Norm → 输出</div>
 </div>
 
 <p>注意力输出之后，还要经过两道关键工序，才算完成一个完整的 Transformer Block。</p>
