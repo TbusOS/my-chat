@@ -1,0 +1,27 @@
+{
+  "name": "my-chat",
+  "version": "1.0.0",
+  "description": "> 从使用到原理，由简入难的大模型学习路径 | A Complete Guide for Learning LLM from Scratch",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TbusOS/my-chat.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/TbusOS/my-chat/issues"
+  },
+  "homepage": "https://github.com/TbusOS/my-chat#readme",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

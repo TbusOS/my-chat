@@ -4,952 +4,700 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>手算一遍 Transformer：用真实数字拆解 Self-Attention</title>
-<style>
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 24px 16px;
-  background: #fff;
-  color: #333;
-  line-height: 1.8;
-  font-size: 16px;
-}
-
-h1 {
-  font-size: 22px;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 8px;
-  color: #1a1a1a;
-}
-
-.subtitle {
-  text-align: center;
-  font-size: 14px;
-  color: #888;
-  margin-bottom: 32px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.intro {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #e2e8f0;
-  padding: 24px;
-  border-radius: 12px;
-  margin-bottom: 32px;
-  font-size: 15px;
-  line-height: 1.9;
-  border-left: 4px solid #22d3ee;
-}
-.intro strong { color: #22d3ee; }
-.intro em { color: #a78bfa; font-style: normal; }
-
-/* 视频区 */
-.video-section {
-  background: #0a0e1a;
-  border-radius: 12px;
-  padding: 28px 20px;
-  text-align: center;
-  margin-bottom: 20px;
-  position: relative;
-  overflow: hidden;
-}
-.video-section::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 30% 40%, rgba(34,211,238,0.08) 0%, transparent 60%),
-              radial-gradient(circle at 70% 60%, rgba(74,158,255,0.08) 0%, transparent 60%);
-}
-.video-section .play-icon {
-  position: relative;
-  width: 56px; height: 56px;
-  background: rgba(34,211,238,0.85);
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center; justify-content: center;
-  margin-bottom: 10px;
-}
-.video-section .play-icon::after {
-  content: '';
-  border-left: 18px solid #fff;
-  border-top: 11px solid transparent;
-  border-bottom: 11px solid transparent;
-  margin-left: 4px;
-}
-.video-section .title { position: relative; color: #e8ecf4; font-size: 15px; font-weight: 600; }
-.video-section .hint { position: relative; color: #64748b; font-size: 12px; margin-top: 6px; }
-.video-section .duration { position: relative; color: #22d3ee; font-size: 12px; margin-top: 4px; }
-
-/* 截图占位 */
-.screenshot {
-  background: #0a0e1a;
-  border-radius: 10px;
-  padding: 20px;
-  margin: 16px 0;
-  text-align: center;
-  border: 1px dashed #334155;
-}
-.screenshot img {
-  max-width: 100%;
-  border-radius: 8px;
-}
-.screenshot .caption {
-  color: #64748b;
-  font-size: 12px;
-  margin-top: 8px;
-}
-
-h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 28px 0 12px;
-  padding-left: 14px;
-  border-left: 4px solid #22d3ee;
-}
-h2 .step-badge {
-  display: inline-block;
-  background: #22d3ee;
-  color: #fff;
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  text-align: center;
-  line-height: 22px;
-  font-size: 12px;
-  font-weight: 700;
-  margin-right: 6px;
-  vertical-align: middle;
-}
-h2.blue-border { border-left-color: #4a9eff; }
-h2.blue-border .step-badge { background: #4a9eff; }
-h2.cyan-border { border-left-color: #22d3ee; }
-h2.cyan-border .step-badge { background: #22d3ee; }
-h2.green-border { border-left-color: #4ade80; }
-h2.green-border .step-badge { background: #4ade80; }
-h2.gold-border { border-left-color: #ffd666; }
-h2.gold-border .step-badge { background: #ffd666; color: #1a1a1a; }
-h2.orange-border { border-left-color: #fb923c; }
-h2.orange-border .step-badge { background: #fb923c; }
-h2.pink-border { border-left-color: #f472b6; }
-h2.pink-border .step-badge { background: #f472b6; }
-h2 .en {
-  font-size: 13px;
-  color: #888;
-  font-weight: 400;
-  margin-left: 6px;
-}
-
-h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 20px 0 10px;
-}
-
-p { margin-bottom: 14px; font-size: 15px; color: #444; }
-
-.term {
-  display: inline;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-.term-purple { color: #7c3aed; background: #f3f0ff; }
-.term-blue { color: #2563eb; background: #eff6ff; }
-.term-red { color: #dc2626; background: #fef2f2; }
-.term-green { color: #16a34a; background: #f0fdf4; }
-.term-gold { color: #b45309; background: #fffbeb; }
-.term-cyan { color: #0891b2; background: #ecfeff; }
-.term-orange { color: #c2410c; background: #fff7ed; }
-.term-pink { color: #be185d; background: #fdf2f8; }
-
-.formula-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 14px 20px;
-  margin: 14px 0;
-  text-align: center;
-}
-.formula-box .formula {
-  font-family: 'Menlo', 'Consolas', monospace;
-  font-size: 15px;
-  color: #1e293b;
-  font-weight: 600;
-}
-.formula-box .note {
-  font-size: 13px;
-  color: #64748b;
-  margin-top: 6px;
-}
-
-.analogy {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin: 16px 0;
-  font-size: 14px;
-  line-height: 1.9;
-}
-
-.key-point {
-  background: linear-gradient(135deg, #ecfeff, #eff6ff);
-  border: 1px solid #a5f3fc;
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin: 16px 0;
-  font-size: 14px;
-  line-height: 1.9;
-}
-.key-point strong { color: #0e7490; }
-
-.warning-box {
-  background: #fdf2f8;
-  border: 1px solid #fbcfe8;
-  border-radius: 10px;
-  padding: 16px 20px;
-  margin: 16px 0;
-  font-size: 14px;
-  line-height: 1.9;
-}
-.warning-box strong { color: #be185d; }
-
-.compare-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  border-radius: 10px;
-  overflow: hidden;
-  margin: 16px 0;
-  font-size: 14px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
-.compare-table th {
-  padding: 10px 14px;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-weight: 600;
-  text-align: left;
-}
-.compare-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: top;
-}
-.compare-table tr:last-child td { border-bottom: none; }
-.compare-table tr:nth-child(even) td { background: #f8fafc; }
-
-.metric {
-  display: inline-block;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #0284c7;
-  font-family: 'Menlo', 'Consolas', monospace;
-}
-.metric-purple {
-  background: #f5f3ff;
-  border-color: #c4b5fd;
-  color: #6d28d9;
-}
-.metric-red {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #dc2626;
-}
-.metric-green {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #166534;
-}
-.metric-gold {
-  background: #fffbeb;
-  border-color: #fde68a;
-  color: #b45309;
-}
-
-.flow-diagram {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin: 14px 0;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 10px;
-}
-.flow-step {
-  display: inline-block;
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-}
-.flow-arrow {
-  color: #94a3b8;
-  font-size: 14px;
-}
-
-.divider {
-  height: 1px;
-  background: linear-gradient(to right, transparent, #ddd, transparent);
-  margin: 28px 0;
-}
-
-.cta {
-  background: linear-gradient(135deg, #0f172a, #1e293b);
-  color: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  text-align: center;
-  margin-top: 32px;
-}
-.cta h3 { font-size: 18px; margin-bottom: 10px; color: #22d3ee; }
-.cta p { font-size: 14px; color: #94a3b8; line-height: 1.8; }
-.cta .link {
-  display: inline-block;
-  margin-top: 14px;
-  background: linear-gradient(135deg, #22d3ee, #4a9eff);
-  color: #fff;
-  padding: 10px 28px;
-  border-radius: 24px;
-  font-size: 15px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 24px;
-  justify-content: center;
-}
-.tag {
-  font-size: 12px;
-  color: #6b7280;
-  background: #f3f4f6;
-  padding: 4px 12px;
-  border-radius: 12px;
-}
-</style>
 </head>
-<body>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','PingFang SC','Microsoft YaHei',sans-serif;max-width:680px;margin:0 auto;padding:24px 16px;background:#fff;color:#333;line-height:1.8;font-size:16px;">
 
-<h1>手算一遍 Transformer：用真实数字拆解 Self-Attention</h1>
-<p class="subtitle">10 步手算全拆解 · 数字+图形双管齐下</p>
+<h1 style="font-size:22px;font-weight:700;text-align:center;margin-bottom:8px;color:#1a1a1a;">手算一遍 Transformer：用真实数字拆解 Self-Attention</h1>
+<p style="text-align:center;font-size:14px;color:#888;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid #eee;">10 步手算全拆解 · 数字+图形双管齐下</p>
 
 <!-- ═══════════════════════════════════════ -->
 <!-- 引言 -->
 <!-- ═══════════════════════════════════════ -->
 
-<div class="intro">
-  上一篇我们用 3D 直觉理解了 Transformer 自注意力的<em>「为什么」</em>——为什么需要 Q/K/V，为什么要多头，为什么能解决一词多义。
+<div style="background-color:#0f172a;color:#e2e8f0;padding:24px;border-radius:12px;margin-bottom:32px;font-size:15px;line-height:1.9;border-left:4px solid #22d3ee;">
+  上一篇我们用 3D 直觉理解了 Transformer 自注意力的<span style="color:#a78bfa;">「为什么」</span>——为什么需要 Q/K/V，为什么要多头，为什么能解决一词多义。
   <br><br>
   但「理解原理」和「真正会算」之间隔着一道鸿沟。很多人看完公式觉得懂了，一旦要解释具体数字怎么流转，就说不清楚。
   <br><br>
-  今天我们换一个视角：<strong>用真实的数字，把 Self-Attention 从头到尾手算一遍。</strong>
+  今天我们换一个视角：<strong style="color:#22d3ee;">用真实的数字，把 Self-Attention 从头到尾手算一遍。</strong>
   <br><br>
-  句子仍然是「我 爱 吃 苹果」，维度简化为 4（实际模型动辄上千维），但每一步的计算逻辑和真实模型<strong>完全一致</strong>。算完这 10 步，你就能真正掌握 Transformer 论文那一行核心公式的全部含义。
+  句子仍然是「我 爱 吃 苹果」，维度简化为 4（实际模型动辄上千维），但每一步的计算逻辑和真实模型<strong style="color:#22d3ee;">完全一致</strong>。算完这 10 步，你就能真正掌握 Transformer 论文那一行核心公式的全部含义。
 </div>
 
 <!-- 视频区 -->
-<div class="video-section">
-  <div class="play-icon"></div>
-  <div class="title">Transformer 数学工坊（配音讲解版）</div>
-  <div class="hint">（视频需在公众号编辑器中插入 59-Transformer数学工坊.mp4）</div>
-  <div class="duration">10 步手算全拆解 · 数字+图形双管齐下</div>
+<div style="background-color:#0a0e1a;border-radius:12px;padding:28px 20px;text-align:center;margin-bottom:20px;">
+  <div style="display:inline-block;width:56px;height:56px;background-color:rgba(34,211,238,0.85);border-radius:50%;line-height:56px;font-size:22px;color:#fff;margin-bottom:10px;">&#9654;</div>
+  <div style="color:#e8ecf4;font-size:15px;font-weight:600;">Transformer 数学工坊（配音讲解版）</div>
+  <div style="color:#64748b;font-size:12px;margin-top:6px;">（视频需在公众号编辑器中插入 59-Transformer数学工坊.mp4）</div>
+  <div style="color:#22d3ee;font-size:12px;margin-top:4px;">10 步手算全拆解 · 数字+图形双管齐下</div>
 </div>
 
-<p>准备好了吗？让我们开始。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">准备好了吗？让我们开始。</p>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 1 ═══════ -->
-<h2 class="cyan-border"><span class="step-badge">1</span>词变数字 — 嵌入向量<span class="en">Embedding</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #22d3ee;"><span style="display:inline-block;background-color:#22d3ee;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">1</span>词变数字 — 嵌入向量<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Embedding</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step1-向量条形图.png" alt="Step1 各维度条形图，蓝色正值向右、粉色负值向左">
-  <div class="caption">Step 1：四个词的 4 维嵌入向量条形图——蓝条向右代表正值，粉条向左代表负值</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step1-向量条形图.png" alt="Step1 各维度条形图" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 1：四个词的 4 维嵌入向量条形图——蓝条向右代表正值，粉条向左代表负值</p>
 </div>
 
-<p>第一步是把每个词变成一个 4 维向量。这是通过查<span class="term term-cyan">嵌入矩阵</span>（Embedding Matrix）实现的——一张巨大的查找表，每个词对应表中的一行。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">第一步是把每个词变成一个 4 维向量。这是通过查<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#0891b2;background-color:#ecfeff;">嵌入矩阵</span>（Embedding Matrix）实现的——一张巨大的查找表，每个词对应表中的一行。</p>
 
-<p>我们的四个词被映射为：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">我们的四个词被映射为：</p>
 
-<table class="compare-table">
-  <tr><th>词</th><th>d0</th><th>d1</th><th>d2</th><th>d3</th></tr>
-  <tr><td style="font-weight:700; color:#7c3aed;">我</td><td>1.0</td><td>0.5</td><td>-0.3</td><td>0.8</td></tr>
-  <tr><td style="font-weight:700; color:#2563eb;">爱</td><td>0.4</td><td>-0.6</td><td>0.9</td><td>0.2</td></tr>
-  <tr><td style="font-weight:700; color:#b45309;">吃</td><td>0.7</td><td>0.3</td><td>0.5</td><td>-0.4</td></tr>
-  <tr><td style="font-weight:700; color:#16a34a;">苹果</td><td>-0.2</td><td>0.8</td><td>0.1</td><td>0.6</td></tr>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
+  <tr>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">词</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">d0</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">d1</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">d2</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">d3</th>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#7c3aed;">我</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">1.0</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.5</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">-0.3</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.8</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-weight:700;color:#2563eb;">爱</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">0.4</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">-0.6</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">0.9</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">0.2</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#b45309;">吃</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.7</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.3</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.5</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">-0.4</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;font-weight:700;color:#16a34a;">苹果</td>
+    <td style="padding:10px 14px;">-0.2</td>
+    <td style="padding:10px 14px;">0.8</td>
+    <td style="padding:10px 14px;">0.1</td>
+    <td style="padding:10px 14px;">0.6</td>
+  </tr>
 </table>
 
-<p>每个数字代表这个词在某个语义维度上的特征。正值和负值的含义是由训练自动学到的，人类无法精确解读，但可以类比理解：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">每个数字代表这个词在某个语义维度上的特征。正值和负值的含义是由训练自动学到的，人类无法精确解读，但可以类比理解：</p>
 
-<ul style="font-size: 15px; color: #444; padding-left: 24px; margin-bottom: 14px;">
+<ul style="font-size:15px;color:#444;padding-left:24px;margin-bottom:14px;">
   <li>d0 可能代表「动作性」—— 「我」(1.0) 和「吃」(0.7) 较高</li>
   <li>d1 可能代表「情感性」—— 「苹果」(0.8) 和「我」(0.5) 较高</li>
   <li>d2 可能代表「抽象性」—— 「爱」(0.9) 最高</li>
   <li>d3 可能代表「实体性」—— 「我」(0.8) 和「苹果」(0.6) 较高</li>
 </ul>
 
-<div class="key-point">
-  <strong>直觉：</strong>在交互动画中，每个维度都是一根条形图——蓝色向右代表正值，粉色向左代表负值。相似词的条形图「长得像」——这就是「相似词在空间中靠近」的数学本质。
+<div style="background-color:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
+  <strong style="color:#0e7490;">直觉：</strong>在交互动画中，每个维度都是一根条形图——蓝色向右代表正值，粉色向左代表负值。相似词的条形图「长得像」——这就是「相似词在空间中靠近」的数学本质。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 2 ═══════ -->
-<h2 class="cyan-border"><span class="step-badge">2</span>位置编码 — sin/cos 波形<span class="en">Positional Encoding</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #22d3ee;"><span style="display:inline-block;background-color:#22d3ee;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">2</span>位置编码 — sin/cos 波形<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Positional Encoding</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step2-波形动画.png" alt="Step2 sin/cos 波形，每个词在波上的采样点">
-  <div class="caption">Step 2 波形：动态 sin/cos 曲线，每个词在不同频率波上的采样点构成位置信号</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step2-波形动画.png" alt="Step2 sin/cos 波形" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 2 波形：动态 sin/cos 曲线，每个词在不同频率波上的采样点构成位置信号</p>
 </div>
-<div class="screenshot">
-  <img src="images/59-step2-叠加结果.png" alt="Step2 词向量与位置编码叠加后的结果向量">
-  <div class="caption">Step 2 叠加：位置编码加到词向量后的最终数值</div>
-</div>
-
-<p>Self-Attention 有一个天生的缺陷：它在计算 Q·K 时，对词的<strong>顺序完全不敏感</strong>。「我爱吃苹果」和「苹果吃爱我」在纯注意力看来没有区别——因为 Q·K 点积只看向量方向，不看位置。</p>
-
-<p>解决方案是<span class="term term-cyan">位置编码（Positional Encoding）</span>：用 sin 和 cos 函数为每个位置生成一个独特的信号，然后<strong>加到词向量上</strong>。</p>
-
-<div class="formula-box">
-  <div class="formula">PE(pos, 2i) = sin(pos / 10000^(2i/d))</div>
-  <div class="formula" style="margin-top: 4px;">PE(pos, 2i+1) = cos(pos / 10000^(2i/d))</div>
-  <div class="note">不同频率的 sin/cos 波形组合出每个位置的「指纹」</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step2-叠加结果.png" alt="Step2 叠加结果" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 2 叠加：位置编码加到词向量后的最终数值</p>
 </div>
 
-<p>位置 0（「我」）的编码是 <span class="metric">[0.00, 1.00, 0.00, 1.00]</span>，位置 1（「爱」）的编码是 <span class="metric">[0.84, 0.54, 0.01, 1.00]</span>——每个位置都不同，而且相邻位置变化平滑。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">Self-Attention 有一个天生的缺陷：它在计算 Q·K 时，对词的<strong>顺序完全不敏感</strong>。「我爱吃苹果」和「苹果吃爱我」在纯注意力看来没有区别——因为 Q·K 点积只看向量方向，不看位置。</p>
 
-<p>加到词向量上之后：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">解决方案是<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#0891b2;background-color:#ecfeff;">位置编码（Positional Encoding）</span>：用 sin 和 cos 函数为每个位置生成一个独特的信号，然后<strong>加到词向量上</strong>。</p>
 
-<div class="formula-box">
-  <div class="formula">「吃」' = [0.7, 0.3, 0.5, -0.4] + [0.91, -0.42, 0.02, 1.00]</div>
-  <div class="formula" style="margin-top: 4px;">= [1.61, -0.12, 0.52, 0.60]</div>
-  <div class="note">词向量 + 位置编码 = 既有语义又有位置的新向量</div>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">PE(pos, 2i) = sin(pos / 10000^(2i/d))</div>
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;margin-top:4px;">PE(pos, 2i+1) = cos(pos / 10000^(2i/d))</div>
+  <div style="font-size:13px;color:#64748b;margin-top:6px;">不同频率的 sin/cos 波形组合出每个位置的「指纹」</div>
 </div>
 
-<div class="analogy">
+<p style="margin-bottom:14px;font-size:15px;color:#444;">位置 0（「我」）的编码是 <span style="display:inline-block;background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#0284c7;font-family:'Menlo','Consolas',monospace;">[0.00, 1.00, 0.00, 1.00]</span>，位置 1（「爱」）的编码是 <span style="display:inline-block;background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#0284c7;font-family:'Menlo','Consolas',monospace;">[0.84, 0.54, 0.01, 1.00]</span>——每个位置都不同，而且相邻位置变化平滑。</p>
+
+<p style="margin-bottom:14px;font-size:15px;color:#444;">加到词向量上之后：</p>
+
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">「吃」' = [0.7, 0.3, 0.5, -0.4] + [0.91, -0.42, 0.02, 1.00]</div>
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;margin-top:4px;">= [1.61, -0.12, 0.52, 0.60]</div>
+  <div style="font-size:13px;color:#64748b;margin-top:6px;">词向量 + 位置编码 = 既有语义又有位置的新向量</div>
+</div>
+
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
   <strong>为什么用 sin/cos 而不是简单的编号？</strong>因为 sin/cos 有两个优美的数学性质：① 任意两个位置的差值可以用线性变换表示，方便模型学习「相对距离」；② 值域固定在 [-1, 1]，不会因为句子变长而数字爆炸。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 3 ═══════ -->
-<h2 class="pink-border"><span class="step-badge">3</span>生成 Q — 矩阵乘法拆解<span class="en">Query Projection</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #f472b6;"><span style="display:inline-block;background-color:#f472b6;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">3</span>生成 Q — 矩阵乘法拆解<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Query Projection</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step3-Q计算过程.png" alt="Step3 矩阵乘法逐步展开，计算 Q_吃 的每个分量">
-  <div class="caption">Step 3：逐步计算 Q_吃 = X_吃 × W_Q，每个分量「逐位相乘再求和」的完整过程</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step3-Q计算过程.png" alt="Step3 矩阵乘法逐步展开" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 3：逐步计算 Q_吃 = X_吃 × W_Q，每个分量「逐位相乘再求和」的完整过程</p>
 </div>
 
-<p>有了带位置信息的词向量，下一步是生成 <span class="term term-red">Query</span>。具体方法是把词向量乘以一个<strong>权重矩阵 W_Q</strong>。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">有了带位置信息的词向量，下一步是生成 <span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#dc2626;background-color:#fef2f2;">Query</span>。具体方法是把词向量乘以一个<strong>权重矩阵 W_Q</strong>。</p>
 
-<p>以「吃」为例，它的 Query 向量是这样算出来的：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">以「吃」为例，它的 Query 向量是这样算出来的：</p>
 
-<div class="formula-box">
-  <div class="formula">Q_吃 = X_吃 × W_Q</div>
-  <div class="note">4 维输入 × 4×4 权重矩阵 = 4 维 Query</div>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">Q_吃 = X_吃 × W_Q</div>
+  <div style="font-size:13px;color:#64748b;margin-top:6px;">4 维输入 × 4×4 权重矩阵 = 4 维 Query</div>
 </div>
 
-<p>在交互动画中，你可以看到每个分量的逐步计算过程：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">在交互动画中，你可以看到每个分量的逐步计算过程：</p>
 
-<table class="compare-table">
-  <tr><th>分量</th><th>计算过程</th><th>结果</th></tr>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
   <tr>
-    <td>Q[0]</td>
-    <td style="font-family:Menlo,Consolas,monospace; font-size:13px;">0.7×0.5 + 0.3×0.2 + 0.5×(-0.1) + (-0.4)×0.4</td>
-    <td><span class="metric-red">0.4</span></td>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">分量</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">计算过程</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">结果</th>
   </tr>
   <tr>
-    <td>Q[1]</td>
-    <td style="font-family:Menlo,Consolas,monospace; font-size:13px;">0.7×0.1 + 0.3×0.8 + 0.5×0.3 + (-0.4)×(-0.2)</td>
-    <td><span class="metric-red">0.6</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">Q[0]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:Menlo,Consolas,monospace;font-size:13px;">0.7×0.5 + 0.3×0.2 + 0.5×(-0.1) + (-0.4)×0.4</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background-color:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#dc2626;font-family:'Menlo','Consolas',monospace;">0.4</span></td>
   </tr>
   <tr>
-    <td>Q[2]</td>
-    <td style="font-family:Menlo,Consolas,monospace; font-size:13px;">0.7×(-0.2) + 0.3×0.1 + 0.5×0.6 + (-0.4)×0.1</td>
-    <td><span class="metric-red">0.2</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">Q[1]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:Menlo,Consolas,monospace;font-size:13px;">0.7×0.1 + 0.3×0.8 + 0.5×0.3 + (-0.4)×(-0.2)</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;"><span style="display:inline-block;background-color:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#dc2626;font-family:'Menlo','Consolas',monospace;">0.6</span></td>
   </tr>
   <tr>
-    <td>Q[3]</td>
-    <td style="font-family:Menlo,Consolas,monospace; font-size:13px;">0.7×0.3 + 0.3×(-0.1) + 0.5×0.2 + (-0.4)×0.7</td>
-    <td><span class="metric-red">-0.2</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">Q[2]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:Menlo,Consolas,monospace;font-size:13px;">0.7×(-0.2) + 0.3×0.1 + 0.5×0.6 + (-0.4)×0.1</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background-color:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#dc2626;font-family:'Menlo','Consolas',monospace;">0.2</span></td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;">Q[3]</td>
+    <td style="padding:10px 14px;font-family:Menlo,Consolas,monospace;font-size:13px;">0.7×0.3 + 0.3×(-0.1) + 0.5×0.2 + (-0.4)×0.7</td>
+    <td style="padding:10px 14px;"><span style="display:inline-block;background-color:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#dc2626;font-family:'Menlo','Consolas',monospace;">-0.2</span></td>
   </tr>
 </table>
 
-<p>最终得到 <span class="metric-red">Q_吃 = [0.4, 0.6, 0.2, -0.2]</span></p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">最终得到 <span style="display:inline-block;background-color:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#dc2626;font-family:'Menlo','Consolas',monospace;">Q_吃 = [0.4, 0.6, 0.2, -0.2]</span></p>
 
-<div class="key-point">
-  <strong>矩阵乘法的本质就是「按权重混合」。</strong>每个 Q 分量 = 原始向量所有维度的一个加权组合。W_Q 的每一列就是一组混合系数，由训练自动学到。Q 的含义是「把原始语义变换到一个适合做匹配的新空间」。
+<div style="background-color:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
+  <strong style="color:#0e7490;">矩阵乘法的本质就是「按权重混合」。</strong>每个 Q 分量 = 原始向量所有维度的一个加权组合。W_Q 的每一列就是一组混合系数，由训练自动学到。Q 的含义是「把原始语义变换到一个适合做匹配的新空间」。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 4 ═══════ -->
-<h2 class="green-border"><span class="step-badge">4</span>生成 K 和 V — 三个角色齐了<span class="en">Key & Value Projection</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #4ade80;"><span style="display:inline-block;background-color:#4ade80;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">4</span>生成 K 和 V — 三个角色齐了<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Key &amp; Value Projection</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step4-吃的QKV.png" alt="Step4 「吃」的 Q/K/V 三组条形图并排对比">
-  <div class="caption">Step 4：「吃」的 Q（红）、K（绿）、V（金）条形图并排对比——同一个词在三种角色下方向各不相同</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step4-吃的QKV.png" alt="Step4 QKV 对比" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 4：「吃」的 Q（红）、K（绿）、V（金）条形图并排对比——同一个词在三种角色下方向各不相同</p>
 </div>
 
-<p>用同样的方法，每个词还要乘以 W_K 生成 <span class="term term-green">Key</span>，乘以 W_V 生成 <span class="term term-gold">Value</span>。三个矩阵 W_Q、W_K、W_V 是<strong>三个独立的权重矩阵</strong>，各自学到不同的变换。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">用同样的方法，每个词还要乘以 W_K 生成 <span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#16a34a;background-color:#f0fdf4;">Key</span>，乘以 W_V 生成 <span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#b45309;background-color:#fffbeb;">Value</span>。三个矩阵 W_Q、W_K、W_V 是<strong>三个独立的权重矩阵</strong>，各自学到不同的变换。</p>
 
-<p>四个词的完整 Q/K/V 如下：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">四个词的完整 Q/K/V 如下：</p>
 
-<table class="compare-table">
-  <tr><th>词</th><th style="color:#fca5a5;">Q</th><th style="color:#86efac;">K</th><th style="color:#fde68a;">V</th></tr>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
   <tr>
-    <td style="font-weight:700; color:#7c3aed;">我</td>
-    <td style="font-family:monospace; font-size:13px;">[0.5, 0.2, -0.1, 0.6]</td>
-    <td style="font-family:monospace; font-size:13px;">[0.3, 0.1, 0.4, -0.2]</td>
-    <td style="font-family:monospace; font-size:13px;">[0.6, -0.1, 0.2, 0.4]</td>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">词</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#fca5a5;font-weight:600;text-align:left;">Q</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#86efac;font-weight:600;text-align:left;">K</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#fde68a;font-weight:600;text-align:left;">V</th>
   </tr>
   <tr>
-    <td style="font-weight:700; color:#2563eb;">爱</td>
-    <td style="font-family:monospace; font-size:13px;">[0.3, -0.4, 0.8, 0.1]</td>
-    <td style="font-family:monospace; font-size:13px;">[0.1, -0.3, 0.5, 0.2]</td>
-    <td style="font-family:monospace; font-size:13px;">[0.1, 0.5, -0.3, 0.3]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#7c3aed;">我</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">[0.5, 0.2, -0.1, 0.6]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">[0.3, 0.1, 0.4, -0.2]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">[0.6, -0.1, 0.2, 0.4]</td>
   </tr>
   <tr>
-    <td style="font-weight:700; color:#b45309;">吃</td>
-    <td style="font-family:monospace; font-size:13px;">[0.4, 0.6, 0.2, -0.2]</td>
-    <td style="font-family:monospace; font-size:13px;">[0.6, 0.2, -0.1, 0.3]</td>
-    <td style="font-family:monospace; font-size:13px;">[0.4, 0.2, 0.6, -0.1]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-weight:700;color:#2563eb;">爱</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:13px;">[0.3, -0.4, 0.8, 0.1]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:13px;">[0.1, -0.3, 0.5, 0.2]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:13px;">[0.1, 0.5, -0.3, 0.3]</td>
   </tr>
   <tr>
-    <td style="font-weight:700; color:#16a34a;">苹果</td>
-    <td style="font-family:monospace; font-size:13px;">[-0.1, 0.7, 0.3, 0.4]</td>
-    <td style="font-family:monospace; font-size:13px;">[0.2, 0.8, 0.3, 0.5]</td>
-    <td style="font-family:monospace; font-size:13px;">[-0.2, 0.7, 0.1, 0.5]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#b45309;">吃</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">[0.4, 0.6, 0.2, -0.2]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">[0.6, 0.2, -0.1, 0.3]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">[0.4, 0.2, 0.6, -0.1]</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;font-weight:700;color:#16a34a;">苹果</td>
+    <td style="padding:10px 14px;font-family:monospace;font-size:13px;">[-0.1, 0.7, 0.3, 0.4]</td>
+    <td style="padding:10px 14px;font-family:monospace;font-size:13px;">[0.2, 0.8, 0.3, 0.5]</td>
+    <td style="padding:10px 14px;font-family:monospace;font-size:13px;">[-0.2, 0.7, 0.1, 0.5]</td>
   </tr>
 </table>
 
-<p>在交互动画中，你可以看到同一个词的 Q/K/V 条形图<strong>方向各不相同</strong>——这非常关键。它意味着同一个词在不同角色下展现不同的「面貌」：Q 决定它要找什么，K 决定它的身份标签，V 决定它能提供的内容。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">在交互动画中，你可以看到同一个词的 Q/K/V 条形图<strong>方向各不相同</strong>——这非常关键。它意味着同一个词在不同角色下展现不同的「面貌」：Q 决定它要找什么，K 决定它的身份标签，V 决定它能提供的内容。</p>
 
-<div class="analogy">
-  <strong>三种角色的直觉：</strong>把每个词想象成一个人参加配对派对。<span class="term term-red">Q</span> 是你举的牌子「我在找XXX类型的人」，<span class="term term-green">K</span> 是你胸前的名牌「我是XXX类型的人」，<span class="term term-gold">V</span> 是你背包里准备分享的礼物「如果匹配成功，我给你这些东西」。
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
+  <strong>三种角色的直觉：</strong>把每个词想象成一个人参加配对派对。<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#dc2626;background-color:#fef2f2;">Q</span> 是你举的牌子「我在找XXX类型的人」，<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#16a34a;background-color:#f0fdf4;">K</span> 是你胸前的名牌「我是XXX类型的人」，<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#b45309;background-color:#fffbeb;">V</span> 是你背包里准备分享的礼物「如果匹配成功，我给你这些东西」。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 5 ═══════ -->
-<h2 class="blue-border"><span class="step-badge">5</span>点积相似度 — 角度越小越相关<span class="en">Dot Product</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #4a9eff;"><span style="display:inline-block;background-color:#4a9eff;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">5</span>点积相似度 — 角度越小越相关<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Dot Product</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step5-角度图.png" alt="Step5 2D 向量角度图，Q_吃 与 K_苹果 夹角最小">
-  <div class="caption">Step 5 角度图：Q_吃 和 K_苹果 的箭头方向最接近（夹角最小），点积最大</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step5-角度图.png" alt="Step5 角度图" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 5 角度图：Q_吃 和 K_苹果 的箭头方向最接近（夹角最小），点积最大</p>
 </div>
-<div class="screenshot">
-  <img src="images/59-step5-分数柱状图.png" alt="Step5 各词对点积分数柱状图，苹果最高">
-  <div class="caption">Step 5 分数：各词对的点积分数柱状图——「苹果」远超其他词</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step5-分数柱状图.png" alt="Step5 分数柱状图" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 5 分数：各词对的点积分数柱状图——「苹果」远超其他词</p>
 </div>
 
-<p>现在进入最关键的一步：计算「吃」和每个词之间的<span class="term term-blue">相似度</span>。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">现在进入最关键的一步：计算「吃」和每个词之间的<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#2563eb;background-color:#eff6ff;">相似度</span>。</p>
 
-<p>方法是<span class="term term-blue">点积（Dot Product）</span>：把「吃」的 Q 和每个词的 K 对应维度相乘再求和。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">方法是<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#2563eb;background-color:#eff6ff;">点积（Dot Product）</span>：把「吃」的 Q 和每个词的 K 对应维度相乘再求和。</p>
 
-<h3>手算过程</h3>
+<h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:20px 0 10px;">手算过程</h3>
 
-<table class="compare-table">
-  <tr><th>配对</th><th>逐位相乘</th><th>求和</th></tr>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
   <tr>
-    <td>Q_吃 · K_我</td>
-    <td style="font-family:monospace; font-size:12px;">0.4×0.3 + 0.6×0.1 + 0.2×0.4 + (-0.2)×(-0.2)</td>
-    <td><span class="metric-purple">0.5</span></td>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">配对</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">逐位相乘</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">求和</th>
   </tr>
   <tr>
-    <td>Q_吃 · K_爱</td>
-    <td style="font-family:monospace; font-size:12px;">0.4×0.1 + 0.6×(-0.3) + 0.2×0.5 + (-0.2)×0.2</td>
-    <td><span class="metric">-0.1</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">Q_吃 · K_我</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:12px;">0.4×0.3 + 0.6×0.1 + 0.2×0.4 + (-0.2)×(-0.2)</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background-color:#f5f3ff;border:1px solid #c4b5fd;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#6d28d9;font-family:'Menlo','Consolas',monospace;">0.5</span></td>
   </tr>
   <tr>
-    <td>Q_吃 · K_吃</td>
-    <td style="font-family:monospace; font-size:12px;">0.4×0.6 + 0.6×0.2 + 0.2×(-0.1) + (-0.2)×0.3</td>
-    <td><span class="metric-gold">0.8</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">Q_吃 · K_爱</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:12px;">0.4×0.1 + 0.6×(-0.3) + 0.2×0.5 + (-0.2)×0.2</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;"><span style="display:inline-block;background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#0284c7;font-family:'Menlo','Consolas',monospace;">-0.1</span></td>
   </tr>
   <tr>
-    <td>Q_吃 · K_苹果</td>
-    <td style="font-family:monospace; font-size:12px;">0.4×0.2 + 0.6×0.8 + 0.2×0.3 + (-0.2)×0.5</td>
-    <td><span class="metric-green">3.2</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">Q_吃 · K_吃</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:12px;">0.4×0.6 + 0.6×0.2 + 0.2×(-0.1) + (-0.2)×0.3</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background-color:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#b45309;font-family:'Menlo','Consolas',monospace;">0.8</span></td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;">Q_吃 · K_苹果</td>
+    <td style="padding:10px 14px;font-family:monospace;font-size:12px;">0.4×0.2 + 0.6×0.8 + 0.2×0.3 + (-0.2)×0.5</td>
+    <td style="padding:10px 14px;"><span style="display:inline-block;background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#166534;font-family:'Menlo','Consolas',monospace;">3.2</span></td>
   </tr>
 </table>
 
-<p>结果一目了然：「苹果」的分数 <span class="metric-green">3.2</span> 远远高于其他词！</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">结果一目了然：「苹果」的分数 <span style="display:inline-block;background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#166534;font-family:'Menlo','Consolas',monospace;">3.2</span> 远远高于其他词！</p>
 
-<div class="key-point">
-  <strong>点积的几何意义：</strong>两个向量的点积 = |a| × |b| × cos(角度)。角度越小（方向越一致），cos 值越大，点积越大。在交互动画的 2D 角度图中，你可以直观地看到 Q_吃 和 K_苹果 的箭头方向最接近——这就是数学上「最相似」的几何表现。
+<div style="background-color:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
+  <strong style="color:#0e7490;">点积的几何意义：</strong>两个向量的点积 = |a| × |b| × cos(角度)。角度越小（方向越一致），cos 值越大，点积越大。在交互动画的 2D 角度图中，你可以直观地看到 Q_吃 和 K_苹果 的箭头方向最接近——这就是数学上「最相似」的几何表现。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 6 ═══════ -->
-<h2 class="orange-border"><span class="step-badge">6</span>缩放 — 防止数字爆炸<span class="en">Scaling</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #fb923c;"><span style="display:inline-block;background-color:#fb923c;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">6</span>缩放 — 防止数字爆炸<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Scaling</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step6-缩放对比.png" alt="Step6 缩放前后条形图对比，除以 sqrt(d) 后数值变小">
-  <div class="caption">Step 6：缩放前后对比——除以 sqrt(4)=2 后条形图缩短到合理范围</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step6-缩放对比.png" alt="Step6 缩放前后对比" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 6：缩放前后对比——除以 sqrt(4)=2 后条形图缩短到合理范围</p>
 </div>
 
-<p>原始的点积分数有一个隐患：随着向量维度增大，点积的数值会线性增长。如果维度是 512，点积可能达到几百甚至几千。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">原始的点积分数有一个隐患：随着向量维度增大，点积的数值会线性增长。如果维度是 512，点积可能达到几百甚至几千。</p>
 
-<p>这会导致什么问题？后面要做 Softmax（把分数变成概率），而 Softmax 对大数值极其敏感。如果输入是 [0.5, -0.1, 0.8, 100]，Softmax 的输出会变成 [~0, ~0, ~0, ~1]——几乎是非 0 即 1 的「硬选择」，梯度趋近于零，模型学不动。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">这会导致什么问题？后面要做 Softmax（把分数变成概率），而 Softmax 对大数值极其敏感。如果输入是 [0.5, -0.1, 0.8, 100]，Softmax 的输出会变成 [~0, ~0, ~0, ~1]——几乎是非 0 即 1 的「硬选择」，梯度趋近于零，模型学不动。</p>
 
-<p>解决方案非常优雅——<strong>除以维度的平方根</strong>：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">解决方案非常优雅——<strong>除以维度的平方根</strong>：</p>
 
-<div class="formula-box">
-  <div class="formula">缩放分数 = 原始分数 ÷ √d = 原始分数 ÷ √4 = 原始分数 ÷ 2</div>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">缩放分数 = 原始分数 ÷ √d = 原始分数 ÷ √4 = 原始分数 ÷ 2</div>
 </div>
 
-<table class="compare-table">
-  <tr><th>词</th><th>原始分数</th><th>÷ √4 = ÷ 2</th><th>缩放后</th></tr>
-  <tr><td style="font-weight:700; color:#7c3aed;">我</td><td>0.5</td><td>0.5 ÷ 2</td><td>0.25</td></tr>
-  <tr><td style="font-weight:700; color:#2563eb;">爱</td><td>-0.1</td><td>-0.1 ÷ 2</td><td>-0.05</td></tr>
-  <tr><td style="font-weight:700; color:#b45309;">吃</td><td>0.8</td><td>0.8 ÷ 2</td><td>0.40</td></tr>
-  <tr><td style="font-weight:700; color:#16a34a;">苹果</td><td>3.2</td><td>3.2 ÷ 2</td><td>1.60</td></tr>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
+  <tr>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">词</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">原始分数</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">÷ √4 = ÷ 2</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">缩放后</th>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#7c3aed;">我</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.5</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.5 ÷ 2</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.25</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-weight:700;color:#2563eb;">爱</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">-0.1</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">-0.1 ÷ 2</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">-0.05</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#b45309;">吃</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.8</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.8 ÷ 2</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.40</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;font-weight:700;color:#16a34a;">苹果</td>
+    <td style="padding:10px 14px;">3.2</td>
+    <td style="padding:10px 14px;">3.2 ÷ 2</td>
+    <td style="padding:10px 14px;">1.60</td>
+  </tr>
 </table>
 
-<div class="warning-box">
-  <strong>为什么选 √d 而不是 d？</strong>统计上，d 维随机向量的点积方差约为 d。除以 √d 之后方差变为 1，刚好把数值「冷却」到一个 Softmax 能正常工作的范围。这个技巧来自 2017 年 Transformer 原论文「Attention Is All You Need」。
+<div style="background-color:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
+  <strong style="color:#be185d;">为什么选 √d 而不是 d？</strong>统计上，d 维随机向量的点积方差约为 d。除以 √d 之后方差变为 1，刚好把数值「冷却」到一个 Softmax 能正常工作的范围。这个技巧来自 2017 年 Transformer 原论文「Attention Is All You Need」。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 7 ═══════ -->
-<h2 class="gold-border"><span class="step-badge">7</span>Softmax — 从分数到概率<span class="en">Softmax</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #ffd666;"><span style="display:inline-block;background-color:#ffd666;color:#1a1a1a;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">7</span>Softmax — 从分数到概率<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Softmax</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step7-饼图.png" alt="Step7 Softmax 饼图，苹果独占 71%">
-  <div class="caption">Step 7：Softmax 归一化后的饼图——「苹果」独占 71% 注意力</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step7-饼图.png" alt="Step7 Softmax 饼图" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 7：Softmax 归一化后的饼图——「苹果」独占 71% 注意力</p>
 </div>
 
-<p><span class="term term-gold">Softmax</span> 是一个将任意实数转化为概率分布的函数。它的公式是：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;"><span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#b45309;background-color:#fffbeb;">Softmax</span> 是一个将任意实数转化为概率分布的函数。它的公式是：</p>
 
-<div class="formula-box">
-  <div class="formula">Softmax(x_i) = e^(x_i) / (e^(x_0) + e^(x_1) + ... + e^(x_n))</div>
-  <div class="note">先取 e 指数（让大的更大），再归一化（总和为 1）</div>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">Softmax(x_i) = e^(x_i) / (e^(x_0) + e^(x_1) + ... + e^(x_n))</div>
+  <div style="font-size:13px;color:#64748b;margin-top:6px;">先取 e 指数（让大的更大），再归一化（总和为 1）</div>
 </div>
 
-<h3>手算过程</h3>
+<h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:20px 0 10px;">手算过程</h3>
 
-<table class="compare-table">
-  <tr><th>词</th><th>缩放分数</th><th>e^x</th><th>概率</th></tr>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
   <tr>
-    <td style="font-weight:700; color:#7c3aed;">我</td>
-    <td>0.25</td>
-    <td>e^0.25 = 1.28</td>
-    <td><span class="metric-purple">10%</span></td>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">词</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">缩放分数</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">e^x</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">概率</th>
   </tr>
   <tr>
-    <td style="font-weight:700; color:#2563eb;">爱</td>
-    <td>-0.05</td>
-    <td>e^(-0.05) = 0.95</td>
-    <td><span class="metric">7%</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#7c3aed;">我</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.25</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">e^0.25 = 1.28</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background-color:#f5f3ff;border:1px solid #c4b5fd;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#6d28d9;font-family:'Menlo','Consolas',monospace;">10%</span></td>
   </tr>
   <tr>
-    <td style="font-weight:700; color:#b45309;">吃</td>
-    <td>0.40</td>
-    <td>e^0.40 = 1.49</td>
-    <td><span class="metric-gold">12%</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-weight:700;color:#2563eb;">爱</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">-0.05</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">e^(-0.05) = 0.95</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;"><span style="display:inline-block;background-color:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#0284c7;font-family:'Menlo','Consolas',monospace;">7%</span></td>
   </tr>
   <tr>
-    <td style="font-weight:700; color:#16a34a;">苹果</td>
-    <td>1.60</td>
-    <td>e^1.60 = 4.95</td>
-    <td><span class="metric-green">71%</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-weight:700;color:#b45309;">吃</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">0.40</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">e^0.40 = 1.49</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="display:inline-block;background-color:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#b45309;font-family:'Menlo','Consolas',monospace;">12%</span></td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;font-weight:700;color:#16a34a;">苹果</td>
+    <td style="padding:10px 14px;">1.60</td>
+    <td style="padding:10px 14px;">e^1.60 = 4.95</td>
+    <td style="padding:10px 14px;"><span style="display:inline-block;background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:2px 8px;font-size:14px;font-weight:600;color:#166534;font-family:'Menlo','Consolas',monospace;">71%</span></td>
   </tr>
 </table>
 
-<p>总和：1.28 + 0.95 + 1.49 + 4.95 = 8.67。每个概率 = 该词的 e^x ÷ 8.67。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">总和：1.28 + 0.95 + 1.49 + 4.95 = 8.67。每个概率 = 该词的 e^x ÷ 8.67。</p>
 
-<p>结果非常清晰：<strong>「苹果」独占 71% 的注意力</strong>！在交互动画中，这个比例被画成了一个饼图——苹果的扇形几乎占了整个饼的四分之三。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">结果非常清晰：<strong>「苹果」独占 71% 的注意力</strong>！在交互动画中，这个比例被画成了一个饼图——苹果的扇形几乎占了整个饼的四分之三。</p>
 
-<div class="key-point">
-  <strong>Softmax 的「放大镜效应」：</strong>原始分数中「苹果」(1.60) 只比「吃」(0.40) 大了 4 倍，但经过 e 指数之后变成了 4.95 vs 1.49 = 3.3 倍，再归一化后变成了 71% vs 12% = 5.9 倍。Softmax 会自动「锐化」差距，让最高分的选项获得更多注意力。
+<div style="background-color:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
+  <strong style="color:#0e7490;">Softmax 的「放大镜效应」：</strong>原始分数中「苹果」(1.60) 只比「吃」(0.40) 大了 4 倍，但经过 e 指数之后变成了 4.95 vs 1.49 = 3.3 倍，再归一化后变成了 71% vs 12% = 5.9 倍。Softmax 会自动「锐化」差距，让最高分的选项获得更多注意力。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 8 ═══════ -->
-<h2 class="gold-border"><span class="step-badge">8</span>加权求和 — 色彩融合<span class="en">Weighted Sum</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #ffd666;"><span style="display:inline-block;background-color:#ffd666;color:#1a1a1a;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">8</span>加权求和 — 色彩融合<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Weighted Sum</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step8-颜色混合.png" alt="Step8 色彩混合动画，四个词用不同颜色圆圈表示，苹果圆圈最大">
-  <div class="caption">Step 8 混合：四个词的 V 用不同颜色圆圈表示——圆圈越大贡献越多，苹果(绿)最大</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step8-颜色混合.png" alt="Step8 色彩混合" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 8 混合：四个词的 V 用不同颜色圆圈表示——圆圈越大贡献越多，苹果(绿)最大</p>
 </div>
-<div class="screenshot">
-  <img src="images/59-step8-结果向量.png" alt="Step8 加权求和后的最终结果向量">
-  <div class="caption">Step 8 结果：各色圆圈融合后产生新向量——「吃」现在包含了 71% 苹果的语义</div>
-</div>
-
-<p>现在万事俱备。注意力权重告诉我们「关注谁」，V 承载着「具体内容」。最后一步就是<strong>按权重对 V 做加权求和</strong>：</p>
-
-<div class="formula-box">
-  <div class="formula">吃' = 0.10 × V_我 + 0.07 × V_爱 + 0.12 × V_吃 + 0.71 × V_苹果</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step8-结果向量.png" alt="Step8 结果向量" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 8 结果：各色圆圈融合后产生新向量——「吃」现在包含了 71% 苹果的语义</p>
 </div>
 
-<h3>手算过程</h3>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">现在万事俱备。注意力权重告诉我们「关注谁」，V 承载着「具体内容」。最后一步就是<strong>按权重对 V 做加权求和</strong>：</p>
 
-<table class="compare-table">
-  <tr><th>贡献</th><th>权重 × V</th><th>结果</th></tr>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">吃' = 0.10 × V_我 + 0.07 × V_爱 + 0.12 × V_吃 + 0.71 × V_苹果</div>
+</div>
+
+<h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:20px 0 10px;">手算过程</h3>
+
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
   <tr>
-    <td style="color:#7c3aed;">10% × V_我</td>
-    <td style="font-family:monospace; font-size:12px;">0.10 × [0.6, -0.1, 0.2, 0.4]</td>
-    <td style="font-family:monospace; font-size:12px;">[0.06, -0.01, 0.02, 0.04]</td>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">贡献</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">权重 × V</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">结果</th>
   </tr>
   <tr>
-    <td style="color:#2563eb;">7% × V_爱</td>
-    <td style="font-family:monospace; font-size:12px;">0.07 × [0.1, 0.5, -0.3, 0.3]</td>
-    <td style="font-family:monospace; font-size:12px;">[0.01, 0.04, -0.02, 0.02]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#7c3aed;">10% × V_我</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:12px;">0.10 × [0.6, -0.1, 0.2, 0.4]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:12px;">[0.06, -0.01, 0.02, 0.04]</td>
   </tr>
   <tr>
-    <td style="color:#b45309;">12% × V_吃</td>
-    <td style="font-family:monospace; font-size:12px;">0.12 × [0.4, 0.2, 0.6, -0.1]</td>
-    <td style="font-family:monospace; font-size:12px;">[0.05, 0.02, 0.07, -0.01]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;color:#2563eb;">7% × V_爱</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:12px;">0.07 × [0.1, 0.5, -0.3, 0.3]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:12px;">[0.01, 0.04, -0.02, 0.02]</td>
   </tr>
   <tr>
-    <td style="color:#16a34a;">71% × V_苹果</td>
-    <td style="font-family:monospace; font-size:12px;">0.71 × [-0.2, 0.7, 0.1, 0.5]</td>
-    <td style="font-family:monospace; font-size:12px;">[-0.14, 0.50, 0.07, 0.36]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#b45309;">12% × V_吃</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:12px;">0.12 × [0.4, 0.2, 0.6, -0.1]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:12px;">[0.05, 0.02, 0.07, -0.01]</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;color:#16a34a;">71% × V_苹果</td>
+    <td style="padding:10px 14px;font-family:monospace;font-size:12px;">0.71 × [-0.2, 0.7, 0.1, 0.5]</td>
+    <td style="padding:10px 14px;font-family:monospace;font-size:12px;">[-0.14, 0.50, 0.07, 0.36]</td>
   </tr>
 </table>
 
-<p>全部加起来：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">全部加起来：</p>
 
-<div class="formula-box">
-  <div class="formula">吃'（新向量）= [-0.02, 0.54, 0.14, 0.41]</div>
-  <div class="note">71% 的成分来自「苹果」—— 「吃」现在包含了食物的语义</div>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">吃'（新向量）= [-0.02, 0.54, 0.14, 0.41]</div>
+  <div style="font-size:13px;color:#64748b;margin-top:6px;">71% 的成分来自「苹果」—— 「吃」现在包含了食物的语义</div>
 </div>
 
-<p>在交互动画中，这一步被表现为「色彩融合」：每个词用不同颜色的圆圈表示，<strong>圆圈越大代表贡献越多</strong>。绿色的「苹果」圆圈最大，它们混合后产生了一个新颜色——这就是融合了上下文之后的「吃」。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">在交互动画中，这一步被表现为「色彩融合」：每个词用不同颜色的圆圈表示，<strong>圆圈越大代表贡献越多</strong>。绿色的「苹果」圆圈最大，它们混合后产生了一个新颜色——这就是融合了上下文之后的「吃」。</p>
 
-<div class="key-point">
-  <strong>这就是一次完整的 Self-Attention！</strong>经过这 8 步（嵌入 → 位置编码 → QKV 投影 → 点积 → 缩放 → Softmax → 加权求和），「吃」的向量从一个只代表「进食动作」的通用含义，变成了一个包含「吃苹果（水果）」这个具体语境信息的新向量。
+<div style="background-color:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
+  <strong style="color:#0e7490;">这就是一次完整的 Self-Attention！</strong>经过这 8 步（嵌入 → 位置编码 → QKV 投影 → 点积 → 缩放 → Softmax → 加权求和），「吃」的向量从一个只代表「进食动作」的通用含义，变成了一个包含「吃苹果（水果）」这个具体语境信息的新向量。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 9 ═══════ -->
-<h2 class="blue-border"><span class="step-badge">9</span>多头注意力 — 多个视角<span class="en">Multi-Head</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #4a9eff;"><span style="display:inline-block;background-color:#4a9eff;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">9</span>多头注意力 — 多个视角<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">Multi-Head</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step9-多头卡片.png" alt="Step9 两个注意力头的卡片，分别展示语法头和语义头">
-  <div class="caption">Step 9：两个头的卡片——头 1 关注动宾关系(吃→苹果)，头 2 关注修饰关系(吃→爱)</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step9-多头卡片.png" alt="Step9 多头卡片" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 9：两个头的卡片——头 1 关注动宾关系(吃→苹果)，头 2 关注修饰关系(吃→爱)</p>
 </div>
 
-<p>上面的全部计算只是<strong>一个「头」</strong>的工作。实际的模型会同时运行多个头。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">上面的全部计算只是<strong>一个「头」</strong>的工作。实际的模型会同时运行多个头。</p>
 
-<p>实现方法很简单：把 4 维向量切成 2 份，每份 2 维，各自独立做一遍上面的 8 步：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">实现方法很简单：把 4 维向量切成 2 份，每份 2 维，各自独立做一遍上面的 8 步：</p>
 
-<table class="compare-table">
-  <tr><th>头</th><th>维度</th><th>学到的关系</th><th>举例</th></tr>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
   <tr>
-    <td style="color:#dc2626; font-weight:700;">头 1</td>
-    <td>前 2 维 [d0, d1]</td>
-    <td>语法关系</td>
-    <td>「吃」关注宾语「苹果」</td>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">头</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">维度</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">学到的关系</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">举例</th>
   </tr>
   <tr>
-    <td style="color:#2563eb; font-weight:700;">头 2</td>
-    <td>后 2 维 [d2, d3]</td>
-    <td>语义关系</td>
-    <td>「吃」关注修饰词「爱」</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#dc2626;font-weight:700;">头 1</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">前 2 维 [d0, d1]</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">语法关系</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">「吃」关注宾语「苹果」</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;color:#2563eb;font-weight:700;">头 2</td>
+    <td style="padding:10px 14px;">后 2 维 [d2, d3]</td>
+    <td style="padding:10px 14px;">语义关系</td>
+    <td style="padding:10px 14px;">「吃」关注修饰词「爱」</td>
   </tr>
 </table>
 
-<p>两个头可能学到完全不同的注意力模式——头 1 可能让「吃」重点关注「苹果」（动宾关系），头 2 可能让「吃」重点关注「爱」（程度修饰关系）。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">两个头可能学到完全不同的注意力模式——头 1 可能让「吃」重点关注「苹果」（动宾关系），头 2 可能让「吃」重点关注「爱」（程度修饰关系）。</p>
 
-<p>最后把两个头的结果拼接起来，再过一个线性变换：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">最后把两个头的结果拼接起来，再过一个线性变换：</p>
 
-<div class="formula-box">
-  <div class="formula">MultiHead = Concat(Head_1, Head_2) × W_O</div>
-  <div class="note">拼接后线性变换，合并多角度信息</div>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">MultiHead = Concat(Head_1, Head_2) × W_O</div>
+  <div style="font-size:13px;color:#64748b;margin-top:6px;">拼接后线性变换，合并多角度信息</div>
 </div>
 
-<div class="analogy">
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:14px;line-height:1.9;">
   <strong>类比：</strong>多头注意力就像多个侦探同时查同一个案子。每个侦探关注不同的线索维度——有人关注时间线，有人关注人物关系，有人关注作案动机。最终的结论是把所有侦探的调查报告综合起来。GPT-3 有 96 个「侦探」同时工作。
 </div>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════ Step 10 ═══════ -->
-<h2 class="orange-border"><span class="step-badge">10</span>FFN + 残差 — 最后两道工序<span class="en">FFN & Residual</span></h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #fb923c;"><span style="display:inline-block;background-color:#fb923c;color:#fff;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px;vertical-align:middle;">10</span>FFN + 残差 — 最后两道工序<span style="font-size:13px;color:#888;font-weight:400;margin-left:6px;">FFN &amp; Residual</span></h2>
 
-<div class="screenshot">
-  <img src="images/59-step10-流水线.png" alt="Step10 完整 Transformer Block 流水线图">
-  <div class="caption">Step 10：完整 Transformer Block 流水线——输入 → Attention → Add+Norm → FFN → Add+Norm → 输出</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:20px;margin:16px 0;text-align:center;border:1px dashed #334155;">
+  <img src="images/59-step10-流水线.png" alt="Step10 流水线" style="max-width:100%;border-radius:8px;">
+  <p style="color:#64748b;font-size:12px;margin-top:8px;">Step 10：完整 Transformer Block 流水线——输入 → Attention → Add+Norm → FFN → Add+Norm → 输出</p>
 </div>
 
-<p>注意力输出之后，还要经过两道关键工序，才算完成一个完整的 Transformer Block。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">注意力输出之后，还要经过两道关键工序，才算完成一个完整的 Transformer Block。</p>
 
-<h3>残差连接（Residual Connection）</h3>
+<h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:20px 0 10px;">残差连接（Residual Connection）</h3>
 
-<div class="formula-box">
-  <div class="formula">输出 = Attention(x) + x</div>
-  <div class="note">原始输入直接加到输出上——「保险通道」，原始信息永远不会丢</div>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">输出 = Attention(x) + x</div>
+  <div style="font-size:13px;color:#64748b;margin-top:6px;">原始输入直接加到输出上——「保险通道」，原始信息永远不会丢</div>
 </div>
 
-<p>残差连接是深度学习中最重要的技巧之一。想象你正在写一篇作文的修改稿。残差连接就是<strong>「修改稿 = 原稿 + 修改批注」</strong>，而不是从头重写。这样即使修改出了问题，原稿的信息也不会丢失。在数学上，残差连接解决了深层网络的<span class="term term-orange">梯度消失</span>问题，让几十甚至上百层的网络能够顺利训练。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">残差连接是深度学习中最重要的技巧之一。想象你正在写一篇作文的修改稿。残差连接就是<strong>「修改稿 = 原稿 + 修改批注」</strong>，而不是从头重写。这样即使修改出了问题，原稿的信息也不会丢失。在数学上，残差连接解决了深层网络的<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#c2410c;background-color:#fff7ed;">梯度消失</span>问题，让几十甚至上百层的网络能够顺利训练。</p>
 
-<h3>前馈网络（FFN）</h3>
+<h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:20px 0 10px;">前馈网络（FFN）</h3>
 
-<div class="formula-box">
-  <div class="formula">FFN(x) = ReLU(x × W_1 + b_1) × W_2 + b_2</div>
-  <div class="note">4 维 → 16 维（升维）→ ReLU 激活 → 16 维 → 4 维（降维）</div>
+<div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:15px;color:#1e293b;font-weight:600;">FFN(x) = ReLU(x × W_1 + b_1) × W_2 + b_2</div>
+  <div style="font-size:13px;color:#64748b;margin-top:6px;">4 维 → 16 维（升维）→ ReLU 激活 → 16 维 → 4 维（降维）</div>
 </div>
 
-<p>FFN 对每个词<strong>独立</strong>做一次非线性变换。先升维（给更大的思考空间），经过 ReLU 激活引入非线性，再降回原维度。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">FFN 对每个词<strong>独立</strong>做一次非线性变换。先升维（给更大的思考空间），经过 ReLU 激活引入非线性，再降回原维度。</p>
 
-<p>如果说注意力层是「词与词之间的交流」，那 FFN 就是「每个词的内部消化吸收」。注意力让词获取了上下文信息，FFN 让词把这些信息内化为自己的新理解。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">如果说注意力层是「词与词之间的交流」，那 FFN 就是「每个词的内部消化吸收」。注意力让词获取了上下文信息，FFN 让词把这些信息内化为自己的新理解。</p>
 
-<h3>完整的 Transformer Block</h3>
+<h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:20px 0 10px;">完整的 Transformer Block</h3>
 
-<div class="flow-diagram">
-  <span class="flow-step" style="background:#f5f3ff; border:1px solid #c4b5fd; color:#7c3aed;">输入</span>
-  <span class="flow-arrow">&rarr;</span>
-  <span class="flow-step" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb;">Attention</span>
-  <span class="flow-arrow">&rarr;</span>
-  <span class="flow-step" style="background:#ecfeff; border:1px solid #a5f3fc; color:#0891b2;">Add+Norm</span>
-  <span class="flow-arrow">&rarr;</span>
-  <span class="flow-step" style="background:#fff7ed; border:1px solid #fed7aa; color:#c2410c;">FFN</span>
-  <span class="flow-arrow">&rarr;</span>
-  <span class="flow-step" style="background:#ecfeff; border:1px solid #a5f3fc; color:#0891b2;">Add+Norm</span>
-  <span class="flow-arrow">&rarr;</span>
-  <span class="flow-step" style="background:#f0fdf4; border:1px solid #bbf7d0; color:#16a34a;">输出</span>
+<div style="background-color:#f8fafc;border-radius:10px;padding:16px;margin:14px 0;text-align:center;">
+  <span style="display:inline-block;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;background-color:#f5f3ff;border:1px solid #c4b5fd;color:#7c3aed;">输入</span>
+  <span style="color:#94a3b8;font-size:14px;">&rarr;</span>
+  <span style="display:inline-block;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;background-color:#eff6ff;border:1px solid #bfdbfe;color:#2563eb;">Attention</span>
+  <span style="color:#94a3b8;font-size:14px;">&rarr;</span>
+  <span style="display:inline-block;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;background-color:#ecfeff;border:1px solid #a5f3fc;color:#0891b2;">Add+Norm</span>
+  <span style="color:#94a3b8;font-size:14px;">&rarr;</span>
+  <span style="display:inline-block;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;background-color:#fff7ed;border:1px solid #fed7aa;color:#c2410c;">FFN</span>
+  <span style="color:#94a3b8;font-size:14px;">&rarr;</span>
+  <span style="display:inline-block;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;background-color:#ecfeff;border:1px solid #a5f3fc;color:#0891b2;">Add+Norm</span>
+  <span style="color:#94a3b8;font-size:14px;">&rarr;</span>
+  <span style="display:inline-block;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;background-color:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;">输出</span>
 </div>
 
-<p>一个 Transformer Block 就是把上面的步骤串起来。然后<strong>堆叠 N 个这样的 Block</strong>——底层学词法，中层学语法，高层学语义。GPT-3 堆了 96 层，GPT-4 据推测超过 120 层。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">一个 Transformer Block 就是把上面的步骤串起来。然后<strong>堆叠 N 个这样的 Block</strong>——底层学词法，中层学语法，高层学语义。GPT-3 堆了 96 层，GPT-4 据推测超过 120 层。</p>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════════════════════════════════════ -->
 <!-- 总结：核心概念速查表 -->
 <!-- ═══════════════════════════════════════ -->
 
-<h2 style="border-left-color: #0f172a;">Transformer 核心概念速查表</h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #0f172a;">Transformer 核心概念速查表</h2>
 
-<table class="compare-table">
-  <tr><th>概念</th><th>一句话解释</th><th>数学表达</th></tr>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
   <tr>
-    <td><span class="term term-cyan">Embedding</span></td>
-    <td>词 → 高维向量，相似词距离近</td>
-    <td style="font-family:monospace; font-size:13px;">x = Embed(token_id)</td>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">概念</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">一句话解释</th>
+    <th style="padding:10px 14px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;">数学表达</th>
   </tr>
   <tr>
-    <td><span class="term term-cyan">Positional Encoding</span></td>
-    <td>sin/cos 波形给词加上位置信号</td>
-    <td style="font-family:monospace; font-size:13px;">x' = x + PE(pos)</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#0891b2;background-color:#ecfeff;">Embedding</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">词 → 高维向量，相似词距离近</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">x = Embed(token_id)</td>
   </tr>
   <tr>
-    <td><span class="term term-red">Query (Q)</span></td>
-    <td>「我在找什么？」的表示</td>
-    <td style="font-family:monospace; font-size:13px;">Q = x × W_Q</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#0891b2;background-color:#ecfeff;">Positional Encoding</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">sin/cos 波形给词加上位置信号</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:13px;">x' = x + PE(pos)</td>
   </tr>
   <tr>
-    <td><span class="term term-green">Key (K)</span></td>
-    <td>「我是什么？」的标签</td>
-    <td style="font-family:monospace; font-size:13px;">K = x × W_K</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#dc2626;background-color:#fef2f2;">Query (Q)</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">「我在找什么？」的表示</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">Q = x × W_Q</td>
   </tr>
   <tr>
-    <td><span class="term term-gold">Value (V)</span></td>
-    <td>匹配成功后传递的实际内容</td>
-    <td style="font-family:monospace; font-size:13px;">V = x × W_V</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#16a34a;background-color:#f0fdf4;">Key (K)</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">「我是什么？」的标签</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:13px;">K = x × W_K</td>
   </tr>
   <tr>
-    <td><span class="term term-blue">Dot Product</span></td>
-    <td>Q·K = 方向越同向，值越大</td>
-    <td style="font-family:monospace; font-size:13px;">score = Q · K^T / √d</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#b45309;background-color:#fffbeb;">Value (V)</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">匹配成功后传递的实际内容</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">V = x × W_V</td>
   </tr>
   <tr>
-    <td><span class="term term-gold">Softmax</span></td>
-    <td>分数 → 概率分布（和为 1）</td>
-    <td style="font-family:monospace; font-size:13px;">attn = softmax(score)</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#2563eb;background-color:#eff6ff;">Dot Product</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">Q·K = 方向越同向，值越大</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:13px;">score = Q · K^T / √d</td>
   </tr>
   <tr>
-    <td><span class="term term-purple">Multi-Head</span></td>
-    <td>多组 Q/K/V 同时算，捕捉不同关系</td>
-    <td style="font-family:monospace; font-size:13px;">MH = Concat(h1..hN)×W_O</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#b45309;background-color:#fffbeb;">Softmax</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">分数 → 概率分布（和为 1）</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">attn = softmax(score)</td>
   </tr>
   <tr>
-    <td><span class="term term-orange">FFN</span></td>
-    <td>升维 → 激活 → 降维，独立处理每词</td>
-    <td style="font-family:monospace; font-size:13px;">FFN = ReLU(xW1+b1)W2+b2</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#7c3aed;background-color:#f3f0ff;">Multi-Head</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;">多组 Q/K/V 同时算，捕捉不同关系</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;background-color:#f8fafc;font-family:monospace;font-size:13px;">MH = Concat(h1..hN)×W_O</td>
   </tr>
   <tr>
-    <td><span class="term term-cyan">Residual</span></td>
-    <td>输出 = f(x) + x，保险通道</td>
-    <td style="font-family:monospace; font-size:13px;">out = f(x) + x</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#c2410c;background-color:#fff7ed;">FFN</span></td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;">升维 → 激活 → 降维，独立处理每词</td>
+    <td style="padding:10px 14px;border-bottom:1px solid #f1f5f9;font-family:monospace;font-size:13px;">FFN = ReLU(xW1+b1)W2+b2</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;"><span style="font-weight:700;padding:1px 4px;border-radius:3px;color:#0891b2;background-color:#ecfeff;">Residual</span></td>
+    <td style="padding:10px 14px;">输出 = f(x) + x，保险通道</td>
+    <td style="padding:10px 14px;font-family:monospace;font-size:13px;">out = f(x) + x</td>
   </tr>
 </table>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════════════════════════════════════ -->
 <!-- 完整公式 -->
 <!-- ═══════════════════════════════════════ -->
 
-<h2 style="border-left-color: #0f172a;">Self-Attention 完整公式</h2>
+<h2 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:28px 0 12px;padding-left:14px;border-left:4px solid #0f172a;">Self-Attention 完整公式</h2>
 
-<p>把上面所有步骤写成一行：</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">把上面所有步骤写成一行：</p>
 
-<div class="formula-box" style="background: #0f172a; border-color: #334155;">
-  <div class="formula" style="color: #22d3ee; font-size: 16px;">Attention(Q, K, V) = Softmax(Q × K^T / √d_k) × V</div>
-  <div class="note" style="color: #64748b; margin-top: 8px;">这就是 Transformer 论文中最核心的那一行公式</div>
+<div style="background-color:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px 20px;margin:14px 0;text-align:center;">
+  <div style="font-family:'Menlo','Consolas',monospace;font-size:16px;color:#22d3ee;font-weight:600;">Attention(Q, K, V) = Softmax(Q × K^T / √d_k) × V</div>
+  <div style="font-size:13px;color:#64748b;margin-top:8px;">这就是 Transformer 论文中最核心的那一行公式</div>
 </div>
 
-<p>每个符号我们都已经亲手算过了：Q 是查询（Step 3）、K 是键（Step 4）、V 是值（Step 4）、Q·K^T 是点积相似度（Step 5）、÷√d_k 是缩放（Step 6）、Softmax 是归一化（Step 7）、最后乘 V 是加权求和（Step 8）。</p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;">每个符号我们都已经亲手算过了：Q 是查询（Step 3）、K 是键（Step 4）、V 是值（Step 4）、Q·K^T 是点积相似度（Step 5）、÷√d_k 是缩放（Step 6）、Softmax 是归一化（Step 7）、最后乘 V 是加权求和（Step 8）。</p>
 
-<p><strong>一行公式，包含了整个自注意力的全部精髓。</strong></p>
+<p style="margin-bottom:14px;font-size:15px;color:#444;"><strong>一行公式，包含了整个自注意力的全部精髓。</strong></p>
 
-<div class="divider"></div>
+<div style="height:1px;background-color:#ddd;margin:28px 0;"></div>
 
 <!-- ═══════════════════════════════════════ -->
 <!-- CTA -->
 <!-- ═══════════════════════════════════════ -->
 
-<div class="video-section">
-  <div class="play-icon"></div>
-  <div class="title">59 号：Transformer 数学工坊</div>
-  <div class="hint">（视频需在公众号编辑器中插入 59-Transformer数学工坊.mp4）</div>
-  <div class="duration">真实数字 · 逐步手算 · 10 步全拆解</div>
+<div style="background-color:#0a0e1a;border-radius:12px;padding:28px 20px;text-align:center;margin-bottom:20px;">
+  <div style="display:inline-block;width:56px;height:56px;background-color:rgba(34,211,238,0.85);border-radius:50%;line-height:56px;font-size:22px;color:#fff;margin-bottom:10px;">&#9654;</div>
+  <div style="color:#e8ecf4;font-size:15px;font-weight:600;">59 号：Transformer 数学工坊</div>
+  <div style="color:#64748b;font-size:12px;margin-top:6px;">（视频需在公众号编辑器中插入 59-Transformer数学工坊.mp4）</div>
+  <div style="color:#22d3ee;font-size:12px;margin-top:4px;">真实数字 · 逐步手算 · 10 步全拆解</div>
 </div>
 
-<div class="cta">
-  <h3>59 个交互动画，持续更新，免费在线体验</h3>
-  <p>
+<div style="background-color:#0f172a;color:#fff;border-radius:12px;padding:24px;text-align:center;margin-top:32px;">
+  <h3 style="font-size:18px;margin-bottom:10px;color:#22d3ee;">59 个交互动画，持续更新，免费在线体验</h3>
+  <p style="font-size:14px;color:#94a3b8;line-height:1.8;">
     覆盖 AI 全栈知识：基础概念 &rarr; Agent 工具链 &rarr; Prompt 工程 &rarr; 模型架构 &rarr; 硬件芯片 &rarr; 前沿架构
     <br>
     纯前端实现，无需注册，手机/电脑均可访问
     <br>
     数学工坊支持逐步点击计算，每一步都有条形图/饼图/角度图可视化
   </p>
-  <a class="link" href="https://tbusos.github.io/my-chat/">点击「阅读原文」立即体验</a>
+  <a style="display:inline-block;margin-top:14px;background-color:#22d3ee;color:#fff;padding:10px 28px;border-radius:24px;font-size:15px;font-weight:600;text-decoration:none;" href="https://tbusos.github.io/my-chat/">点击「阅读原文」立即体验</a>
 </div>
 
-<div class="tags">
-  <span class="tag">Transformer</span>
-  <span class="tag">Self-Attention</span>
-  <span class="tag">Q/K/V</span>
-  <span class="tag">Softmax</span>
-  <span class="tag">Multi-Head</span>
-  <span class="tag">FFN</span>
-  <span class="tag">手算</span>
-  <span class="tag">大模型</span>
-  <span class="tag">深度学习</span>
-  <span class="tag">矩阵乘法</span>
+<div style="text-align:center;margin-top:24px;">
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">Transformer</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">Self-Attention</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">Q/K/V</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">Softmax</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">Multi-Head</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">FFN</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">手算</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">大模型</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">深度学习</span>
+  <span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:4px;">矩阵乘法</span>
 </div>
 
 </body>
