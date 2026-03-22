@@ -2025,5 +2025,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script data-goatcounter="https://tbusos.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<div id="gc-views" style="position:fixed;top:12px;right:70px;z-index:999;font-size:0.75rem;color:#64748b;background:rgba(10,15,30,0.7);padding:4px 10px;border-radius:12px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);font-family:JetBrains Mono,monospace;">👁 <span id="gc-count">-</span></div>
+<script>
+var r=new XMLHttpRequest();
+r.addEventListener("load",function(){if(this.status===200){var d=JSON.parse(this.responseText);document.getElementById("gc-count").textContent=d.count.toLocaleString()+" 次访问";}});
+r.open("GET","https://tbusos.goatcounter.com/counter/"+encodeURIComponent(location.pathname)+".json");
+r.send();
+</script>
 </body>
 </html>
