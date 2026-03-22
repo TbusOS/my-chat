@@ -785,19 +785,18 @@ footer {
 </main>
 
 <footer>
-  拆开 AI 看看 · 共 59 个交互动画 · 总访问 <span id="gc-total" style="font-weight:700;color:#4a9eff;">-</span> 次
+  拆开 AI 看看 · 共 59 个交互动画 · 总访问 <span id="gc-total" style="font-weight:700;color:#4a9eff;"></span> 次
 </footer>
 <script>
-// 加载总站访问量
-var r = new XMLHttpRequest();
-r.addEventListener('load', function() {
-  if (this.status === 200) {
-    var d = JSON.parse(this.responseText);
-    document.getElementById('gc-total').textContent = d.count.toLocaleString();
-  }
-});
-r.open('GET', 'https://tbusos.goatcounter.com/counter/TOTAL.json');
-r.send();
+// 用 img 回调方式获取总访问量（兼容性最好）
+var t = document.getElementById('gc-total');
+var img = new Image();
+img.src = 'https://tbusos.goatcounter.com/counter/TOTAL.svg';
+// 同时用 fetch 获取数字
+fetch('https://tbusos.goatcounter.com/counter/TOTAL.json')
+  .then(function(r){ return r.json(); })
+  .then(function(d){ t.textContent = d.count; })
+  .catch(function(){ t.textContent = '...'; });
 </script>
 
 <script data-goatcounter="https://tbusos.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
