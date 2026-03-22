@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型训练·数据硬件之旅</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#050a18;--blue:#4a9eff;--green:#4ade80;--purple:#a78bfa;--gold:#ffd666;--cyan:#22d3ee;--pink:#f472b6;--orange:#fb923c;--red:#ef4444;--text:#e2e8f0;--muted:#64748b;--deepblue:#1e40af;--teal:#2dd4bf;--amber:#f59e0b;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans SC',sans-serif;overflow:hidden;height:100vh;width:100vw;user-select:none;}
+canvas#main{position:fixed;inset:0;z-index:0;cursor:grab;}
+canvas#main.grabbing{cursor:grabbing;}
+
+.info-panel{
+  position:fixed;top:20px;left:20px;z-index:20;
+  max-width:420px;
+  background:rgba(10,15,30,0.88);
+  backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;
+  padding:22px 26px;
+  transition:opacity 0.3s;
+}
+.scene-badge{
+  display:inline-block;
+  font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;
+  padding:3px 10px;border-radius:20px;
+  background:rgba(74,158,255,0.15);color:var(--blue);
+  border:1px solid rgba(74,158,255,0.3);margin-bottom:10px;
+}
+.phase-tag{
+  display:inline-block;margin-left:8px;
+  font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:600;
+  padding:2px 8px;border-radius:12px;
+  background:rgba(255,214,102,0.12);color:var(--gold);
+  border:1px solid rgba(255,214,102,0.25);
+}
+.scene-title{
+  font-size:1.4rem;font-weight:700;margin-bottom:10px;line-height:1.4;
+  background:linear-gradient(135deg,var(--cyan),var(--blue),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.scene-desc{color:var(--muted);font-size:0.95rem;line-height:1.75;margin-bottom:14px;}
+.scene-desc strong{color:var(--text);}
+.scene-desc .data{color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:0.9rem;}
+.scene-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.action-btn{
+  padding:8px 18px;border-radius:8px;border:1px solid;
+  font-size:0.92rem;font-family:'Noto Sans SC',sans-serif;
+  cursor:pointer;transition:all 0.2s;background:transparent;
+}
+.action-btn:hover{filter:brightness(1.3);}
+.action-btn.blue{border-color:var(--blue);color:var(--blue);background:rgba(74,158,255,0.1);}
+.action-btn.green{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.1);}
+.action-btn.gold{border-color:var(--gold);color:var(--gold);background:rgba(255,214,102,0.1);}
+.action-btn.pink{border-color:var(--pink);color:var(--pink);background:rgba(244,114,182,0.1);}
+.action-btn.purple{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,0.1);}
+.action-btn.cyan{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,0.1);}
+.action-btn.orange{border-color:var(--orange);color:var(--orange);background:rgba(251,146,60,0.1);}
+
+.hint-bar{
+  position:fixed;top:20px;right:20px;z-index:20;
+  font-size:0.72rem;color:var(--muted);
+  background:rgba(10,15,30,0.7);backdrop-filter:blur(8px);
+  padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.06);
+}
+
+.nav-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:30;
+  display:flex;justify-content:center;align-items:center;gap:14px;
+  padding:12px 20px;
+  background:rgba(5,10,24,0.92);backdrop-filter:blur(12px);
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+.nav-btn{
+  padding:9px 24px;border-radius:8px;border:none;
+  font-size:0.9rem;font-family:'Noto Sans SC',sans-serif;
+  cursor:pointer;transition:all 0.2s;font-weight:500;
+}
+.nav-btn.prev{background:rgba(255,255,255,0.06);color:var(--text);border:1px solid rgba(255,255,255,0.12);}
+.nav-btn.prev:hover{background:rgba(255,255,255,0.1);}
+.nav-btn.next{background:var(--blue);color:#000;font-weight:700;}
+.nav-btn.next:hover{background:#6ab4ff;box-shadow:0 0 20px rgba(74,158,255,0.5);}
+.nav-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.step-counter{font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--muted);min-width:60px;text-align:center;}
+
+.progress{
+  position:fixed;bottom:64px;left:50%;transform:translateX(-50%);z-index:25;
+  display:flex;align-items:center;gap:2px;
+}
+.dot{
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.5rem;font-weight:600;font-family:'JetBrains Mono',monospace;
+  border:2px solid var(--muted);color:var(--muted);
+  cursor:pointer;transition:all 0.3s;
+}
+.dot.active{border-color:var(--blue);color:var(--blue);box-shadow:0 0 8px var(--blue);}
+.dot.done{border-color:var(--green);background:var(--green);color:#050a18;}
+.dot-line{width:6px;height:2px;background:var(--muted);transition:background 0.3s;}
+.dot-line.done{background:var(--green);}
+
+#glossary-btn{
+  position:fixed;bottom:72px;right:24px;z-index:999;
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(74,158,255,0.15);border:1px solid var(--blue);
+  color:var(--blue);font-size:1rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all 0.2s;
+}
+#glossary-btn:hover{background:rgba(74,158,255,0.3);box-shadow:0 0 16px rgba(74,158,255,0.4);}
+#glossary-panel{
+  position:fixed;top:0;right:-360px;bottom:0;width:340px;z-index:1000;
+  background:rgba(10,15,30,0.97);border-left:1px solid rgba(255,255,255,0.1);
+  overflow-y:auto;padding:24px;transition:right 0.3s ease;backdrop-filter:blur(16px);
+}
+#glossary-panel.open{right:0;}
+#glossary-panel h3{font-size:1.1rem;margin-bottom:20px;color:var(--blue);}
+.g-item{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.g-item:last-child{border-bottom:none;}
+.g-item .g-en{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--gold);font-size:0.82rem;}
+.g-item .g-zh{font-weight:500;margin:2px 0;font-size:0.88rem;}
+.g-item .g-desc{font-size:0.78rem;color:var(--muted);line-height:1.5;}
+#glossary-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;}
+
+@media(max-width:640px){
+  .info-panel{max-width:none;left:10px;right:10px;top:10px;padding:14px 16px;}
+  .scene-title{font-size:1.05rem;}
+  .scene-desc{font-size:0.78rem;}
+  .nav-btn{padding:7px 16px;font-size:0.82rem;}
+  .progress{bottom:60px;}
+  .dot{width:14px;height:14px;font-size:0.4rem;}
+  .dot-line{width:3px;}
+}
+</style>
+</head>
+<body>
+
+<canvas id="main"></canvas>
+
+<div class="info-panel" id="infoPanel">
+  <div><span class="scene-badge" id="sceneBadge">场景 1 / 17</span><span class="phase-tag" id="phaseTag">第一阶段</span></div>
+  <h2 class="scene-title" id="sceneTitle"></h2>
+  <p class="scene-desc" id="sceneDesc"></p>
+  <div class="scene-actions" id="sceneActions"></div>
+</div>
+
+<div class="hint-bar">拖动旋转 · 滚轮缩放</div>
+
+<div class="progress" id="progressBar"></div>
+
+<div class="nav-bar">
+  <button class="nav-btn prev" id="prevBtn" onclick="go(-1)" disabled>← 上一步</button>
+  <span class="step-counter" id="stepCounter">1 / 17</span>
+  <button class="nav-btn next" id="nextBtn" onclick="go(1)">下一步 →</button>
+</div>
+
+<button id="glossary-btn" onclick="toggleGlossary()">❓</button>
+<div id="glossary-panel">
+  <button id="glossary-close" onclick="toggleGlossary()">✕</button>
+  <h3>术语表</h3>
+  <div class="g-item"><div class="g-en">HBM (High Bandwidth Memory)</div><div class="g-zh">高带宽内存</div><div class="g-desc">3D 堆叠 DRAM，GPU 主显存。H100 配备 80GB HBM3，带宽 3.35 TB/s。</div></div>
+  <div class="g-item"><div class="g-en">SRAM (Static RAM)</div><div class="g-zh">静态随机存储</div><div class="g-desc">GPU 片上缓存，速度极快（~19 TB/s）但仅 KB 级容量。</div></div>
+  <div class="g-item"><div class="g-en">SM (Streaming Multiprocessor)</div><div class="g-zh">流多处理器</div><div class="g-desc">GPU 基本计算单元。H100 有 80 个 SM，每个含 128 CUDA Core + 4 Tensor Core。</div></div>
+  <div class="g-item"><div class="g-en">Tensor Core</div><div class="g-zh">张量核心</div><div class="g-desc">专用 4×4 矩阵乘加单元。每周期 64 次 FMA 运算，AI 训练核心引擎。</div></div>
+  <div class="g-item"><div class="g-en">CUDA Core</div><div class="g-zh">通用计算核心</div><div class="g-desc">GPU 通用并行计算核心，处理标量和向量运算。</div></div>
+  <div class="g-item"><div class="g-en">Warp</div><div class="g-zh">线程束</div><div class="g-desc">32 个线程同步执行的最小调度单位，SIMT 模型的基础。</div></div>
+  <div class="g-item"><div class="g-en">NVLink</div><div class="g-zh">高速互联总线</div><div class="g-desc">NVIDIA GPU 间高速通信总线。H100 双向 900 GB/s，比 PCIe 快 14 倍。</div></div>
+  <div class="g-item"><div class="g-en">NVSwitch</div><div class="g-zh">互联交换机</div><div class="g-desc">GPU 互联交换芯片，实现多 GPU 全互联拓扑。</div></div>
+  <div class="g-item"><div class="g-en">PCIe (PCI Express)</div><div class="g-zh">标准总线</div><div class="g-desc">CPU 与 GPU 之间的标准通信总线。Gen5 x16 带宽 64 GB/s。</div></div>
+  <div class="g-item"><div class="g-en">TSV (Through-Silicon Via)</div><div class="g-zh">硅通孔</div><div class="g-desc">HBM 层间垂直互联技术，直径仅 5-10μm，实现 3D 堆叠高带宽。</div></div>
+  <div class="g-item"><div class="g-en">AllReduce</div><div class="g-zh">全局归约</div><div class="g-desc">分布式训练中梯度聚合操作。先 ReduceScatter 再 AllGather。</div></div>
+  <div class="g-item"><div class="g-en">FlashAttention</div><div class="g-zh">闪存注意力</div><div class="g-desc">利用 SRAM 分块计算注意力，减少 10-20× HBM 访问，速度提升 2-4×。</div></div>
+  <div class="g-item"><div class="g-en">Mixed Precision</div><div class="g-zh">混合精度训练</div><div class="g-desc">FP16 计算 + FP32 存储。节省 ~50% 显存，Tensor Core 原生加速。</div></div>
+  <div class="g-item"><div class="g-en">Gradient Checkpointing</div><div class="g-zh">梯度检查点</div><div class="g-desc">不保存部分激活值，反向时重算。节省 ~60% 激活内存，多 ~33% 计算。</div></div>
+  <div class="g-item"><div class="g-en">Forward Pass</div><div class="g-zh">前向传播</div><div class="g-desc">输入数据逐层计算得到预测结果的过程。</div></div>
+  <div class="g-item"><div class="g-en">Backward Pass</div><div class="g-zh">反向传播</div><div class="g-desc">从损失函数反向计算各层参数梯度，用于更新权重。</div></div>
+</div>
+
+<script>
+// ==================== State ====================
+const canvas = document.getElementById('main');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, dpr = 1;
+let time = 0, currentScene = 0;
+let camRotX = -0.3, camRotY = 0.5, camZoom = 1.0;
+let autoRotate = true, autoSpeed = 0.002;
+let dragging = false, lastMX = 0, lastMY = 0;
+let stars = [];
+let sceneFlags = {};
+let sceneTime = 0;
+let sceneOffY = 0; // per-scene vertical offset in pixels (positive = shift scene up)
+
+// Per-scene vertical offsets: positive shifts scene up on screen to reveal bottom content
+// Calculated from each scene's Y coordinate center of mass
+const SCENE_OFFSETS = [
+  0,    // 0: 训练系统全景 — centered
+  30,   // 1: NVMe 内部 — controller at bottom
+  0,    // 2: CPU 预处理 — small range
+  0,    // 3: PCIe 通道 — symmetric
+  0,    // 4: GPU 芯片鸟瞰 — centered
+  15,   // 5: HBM 存储塔 — logic die at bottom
+  25,   // 6: 存储金字塔 — pyramid extends down
+  30,   // 7: SM 内部 — shared memory at bottom
+  30,   // 8: Tensor Core — formula at bottom
+  0,    // 9: Embedding — centered
+  15,   // 10: 自注意力 — attention matrix lower
+  0,    // 11: FlashAttention — symmetric
+  40,   // 12: FFN 层 — HBM storage far below
+  20,   // 13: 反向传播 — gradient spans wide
+  15,   // 14: 混合精度 — stats at bottom
+  40,   // 15: AllReduce — comparison bars far below
+  45,   // 16: 优化器 — formulas and stats far below
+];
+
+// ==================== Color Constants ====================
+const C = {
+  data: '#22d3ee', weight: '#6daaff', tensorCore: '#ffd666', cudaCore: '#8b9ec6',
+  activation: '#fb923c', gradient: '#f472b6', nvlink: '#a78bfa', pcie: '#4ade80',
+  hbm: '#5b8def', sram: '#2dd4bf', optimizer: '#f59e0b', loss: '#ef4444',
+  nand: '#a5b4fc', cpu: '#60c0f0', ddr: '#7ee8f9', amber: '#f59e0b'
+};
+
+// ==================== Scenes Data ====================
+const PHASES = ['第一阶段：数据准备','第一阶段：数据准备','第一阶段：数据准备','第二阶段：数据传输','第二阶段：数据传输','第三阶段：GPU存储层次','第三阶段：GPU存储层次','第三阶段：GPU存储层次','第四阶段：计算过程','第四阶段：计算过程','第四阶段：计算过程','第四阶段：计算过程','第四阶段：计算过程','第五阶段：反向传播与同步','第五阶段：反向传播与同步','第五阶段：反向传播与同步','第六阶段：更新与循环'];
+
+const SCENES = [
+  { title:'训练系统全景',
+    desc:'一台 AI 训练服务器的内部：<strong>NVMe SSD</strong> 存储训练数据，<strong>CPU</strong> 负责数据预处理，<strong>8 块 GPU</strong> 通过 PCIe 连接 CPU、通过 NVLink 互相连接。一次训练，数据将穿越所有这些硬件。',
+    actions:'' },
+  { title:'NVMe 内部：数据从磁盘出发',
+    desc:'训练数据沉睡在 <strong>3D NAND Flash</strong> 存储单元中——数十层硅片垂直堆叠。控制器读出 token 序列，经 NVMe 协议发出。<span class="data">读取带宽 ~7 GB/s</span>',
+    actions:'<button class="action-btn cyan" onclick="sceneAction(\'read\')">读取数据</button>' },
+  { title:'CPU 预处理工厂',
+    desc:'CPU 多核并行工作，每个核心运行一个 <strong>DataLoader Worker</strong>：读取文本 → 分词(Tokenization) → 填充(Padding) → 组成批次(Batch)。数据通过三级缓存加速处理。<span class="data">DDR5 ~90 GB/s</span>',
+    actions:'<button class="action-btn blue" onclick="sceneAction(\'dataloader\')">启动 DataLoader</button>' },
+  { title:'PCIe 高速通道',
+    desc:'批次数据通过 <strong>PCIe Gen5 x16</strong> 通道从 CPU 飞向 GPU——16 条并行数据通道组成高速公路。<span class="data">带宽 64 GB/s</span>，但相比 GPU 内部带宽，这只是一条"乡间小路"。',
+    actions:'<button class="action-btn green" onclick="sceneAction(\'compare\')">对比 Gen4/Gen5</button>' },
+  { title:'GPU 芯片鸟瞰',
+    desc:'数据抵达 <strong>H100 GPU</strong>。中央密布 <strong>80 个 SM</strong>（流处理器），四周矗立 <strong>6 组 HBM3</strong> 存储塔，中间环绕 <strong>50MB L2 Cache</strong>。这就是 AI 训练的主战场。',
+    actions:'<button class="action-btn gold" onclick="sceneAction(\'highlight\')">高亮各区域</button>' },
+  { title:'HBM 存储塔：3D 堆叠奇迹',
+    desc:'<strong>HBM3</strong> 由 8-12 层 DRAM 垂直堆叠，层间通过数千根 <strong>TSV 硅通孔</strong>（直径仅 5μm）连接。1024-bit 超宽总线带来 <span class="data">3.35 TB/s</span> 的恐怖带宽。',
+    actions:'<button class="action-btn blue" onclick="sceneAction(\'write\')">数据写入</button>' },
+  { title:'存储层次金字塔',
+    desc:'GPU 内四级存储，<strong>越往上越快越小</strong>：HBM(80GB) → L2 Cache(50MB) → Shared Memory(228KB/SM) → Register(256KB/SM)。带宽从 3.35 TB/s 飙升到近乎无限。<strong>数据每上一层，速度翻倍。</strong>',
+    actions:'<button class="action-btn cyan" onclick="sceneAction(\'climb\')">逐层穿越</button>' },
+  { title:'深入 SM 内部',
+    desc:'一个 SM 是 GPU 的"CPU核心"：<strong>4 个 Warp Scheduler</strong> 指挥调度，<strong>128 个 CUDA Core</strong>（蓝色阵列）做通用计算，<strong>4 个 Tensor Core</strong>（金色大块）做矩阵乘法——AI 训练的主力。',
+    actions:'<button class="action-btn gold" onclick="sceneAction(\'warp\')">Warp 调度</button>' },
+  { title:'Tensor Core 矩阵引擎',
+    desc:'Tensor Core 的核心操作：<strong>D = A × B + C</strong>。两个 4×4 矩阵滑入，一个周期完成全部 64 次乘加运算。<span class="data">混合精度：FP16 × FP16 + FP32</span>，这就是 AI 训练的"原子操作"。',
+    actions:'<button class="action-btn gold" onclick="sceneAction(\'multiply\')">单步执行</button>' },
+  { title:'前向传播：Embedding 层',
+    desc:'训练第一步：每个 <strong>Token ID</strong> 作为地址，从 HBM 中的权重矩阵"查表"取出对应的<strong>嵌入向量</strong>。<span class="data">128K × 4096 的矩阵 ≈ 1GB</span>，从 HBM → L2 → SM 逐级搬运。',
+    actions:'<button class="action-btn cyan" onclick="sceneAction(\'lookup\')">Token 查找</button>' },
+  { title:'前向传播：自注意力机制',
+    desc:'核心计算！输入分别投影为 <strong style="color:#ef4444">Q</strong>、<strong style="color:#4a9eff">K</strong>、<strong style="color:#4ade80">V</strong> 三组向量。Q×K^T 得注意力分数 → Softmax 归一化 → 与 V 加权求和。所有矩阵乘法由 <strong>Tensor Core</strong> 执行。',
+    actions:'<button class="action-btn purple" onclick="sceneAction(\'multihead\')">多头展开</button>' },
+  { title:'FlashAttention 优化',
+    desc:'<strong>标准 Attention</strong>：Q/K/V 在 HBM 间反复搬运，带宽瓶颈严重。<strong>FlashAttention</strong>：数据分块在 SRAM 中完成全部计算，只写最终结果。<span class="data">HBM 访问减少 10-20×，速度提升 2-4×</span>',
+    actions:'<button class="action-btn green" onclick="sceneAction(\'flash\')">切换对比</button>' },
+  { title:'前向传播：FFN 层',
+    desc:'注意力后进入 <strong>前馈网络</strong>：维度从 4096 扩展到 16384（粒子扩散）→ GELU 激活 → 压缩回 4096。<strong>激活值写回 HBM 保存</strong>，为反向传播准备。<span class="data">FFN 占计算量的 ~2/3</span>',
+    actions:'<button class="action-btn orange" onclick="sceneAction(\'showact\')">显示激活值存储</button>' },
+  { title:'反向传播：梯度逆流',
+    desc:'Loss 计算完毕，<strong style="color:var(--pink)">梯度</strong>从顶部逆流！每经过一层：读出保存的激活值 → 计算该层梯度 → 写回 HBM。<span class="data">70B 模型梯度 ≈ 140GB</span>。整个 HBM 被权重+激活+梯度+优化器状态填满。',
+    actions:'<button class="action-btn pink" onclick="sceneAction(\'checkpoint\')">梯度检查点</button>' },
+  { title:'混合精度训练',
+    desc:'<strong>FP32</strong> 主权重（大块） → 转换为 <strong>FP16</strong> 工作副本（小块）→ Tensor Core 原生加速。梯度用 <strong>Loss Scaling</strong> 防止下溢。<span class="data">节省 ~50% 显存，速度提升 2-3×</span>',
+    actions:'<button class="action-btn cyan" onclick="sceneAction(\'precision\')">精度对比</button>' },
+  { title:'多卡互联：NVLink 与 AllReduce',
+    desc:'8 卡环形拓扑，<strong>NVLink</strong> 光束连接。梯度同步分两步：<strong>ReduceScatter</strong>（分片累加）→ <strong>AllGather</strong>（收集结果）。<span class="data">NVLink 900 GB/s vs PCIe 64 GB/s，快 14 倍！</span>',
+    actions:'<button class="action-btn purple" onclick="sceneAction(\'allreduce\')">启动 AllReduce</button>' },
+  { title:'优化器更新 & 训练循环',
+    desc:'<strong>Adam 优化器</strong>读取梯度 g、动量 m、方差 v → 计算权重更新 → 写回新权重。<span class="data">70B 模型优化器状态占 560GB</span>。更新完毕，新 Batch 从 NVMe 出发——训练循环，永不停歇。',
+    actions:'<button class="action-btn gold" onclick="sceneAction(\'loop\')">下一个 Epoch</button>' }
+];
+
+// ==================== 3D Projection ====================
+function project(x, y, z) {
+  const cy = Math.cos(camRotY), sy = Math.sin(camRotY);
+  let rx = x * cy + z * sy;
+  let rz = -x * sy + z * cy;
+  const cx = Math.cos(camRotX), sx = Math.sin(camRotX);
+  let ry = y * cx - rz * sx;
+  rz = y * sx + rz * cx;
+  const d = 6;
+  const p = d / (d + rz);
+  const sc = 110 * camZoom;
+  return { sx: W/2 + rx*sc*p, sy: H/2 - ry*sc*p - sceneOffY * camZoom, scale: p, depth: rz };
+}
+
+// ==================== Drawing Helpers ====================
+function drawGlow(x, y, r, color, alpha) {
+  if (alpha < 0.01 || r < 0.5) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, r*2.5);
+  grad.addColorStop(0, color + '44');
+  grad.addColorStop(0.4, color + '18');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(x, y, r*2.5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.globalAlpha = alpha * 0.5;
+  ctx.beginPath(); ctx.arc(x, y, r*0.35, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+const TEXT_SCALE = 1.35; // global text size boost
+function drawLabel(x, y, text, color, alpha, fontSize) {
+  if (alpha < 0.01) return;
+  const sz = (fontSize||14) * camZoom * TEXT_SCALE;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.font = `bold ${sz}px "Noto Sans SC",sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.shadowBlur = 6;
+  ctx.shadowColor = color;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function drawMonoLabel(x, y, text, color, alpha, fontSize) {
+  if (alpha < 0.01) return;
+  const sz = (fontSize||12) * camZoom * TEXT_SCALE;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.font = `600 ${sz}px "JetBrains Mono",monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowBlur = 4;
+  ctx.shadowColor = color;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function drawLine(p1, p2, color, alpha, width, glow) {
+  if (alpha < 0.01) return;
+  const w = (width || 1) * camZoom;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = w;
+  if (glow) { ctx.shadowBlur = w * 3; ctx.shadowColor = color; }
+  ctx.beginPath(); ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.stroke();
+  ctx.restore();
+}
+
+function drawFlowLine(p1, p2, color, alpha, width, speed) {
+  if (alpha < 0.01) return;
+  const w = (width||1) * camZoom;
+  drawLine(p1, p2, color, alpha * 0.4, w);
+  const dots = 4;
+  for (let i = 0; i < dots; i++) {
+    const t = ((time * (speed||0.0006) + i / dots) % 1);
+    const fx = p1.sx + (p2.sx - p1.sx) * t;
+    const fy = p1.sy + (p2.sy - p1.sy) * t;
+    const fa = alpha * (1 - Math.abs(t - 0.5) * 2);
+    ctx.save();
+    ctx.globalAlpha = fa;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(fx, fy, (1.5 + w) * camZoom, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function draw3DBox(cx, cy, cz, w, h, d, color, alpha, filled) {
+  if (alpha < 0.01) return;
+  const corners = [
+    [cx-w/2,cy-h/2,cz-d/2],[cx+w/2,cy-h/2,cz-d/2],[cx+w/2,cy+h/2,cz-d/2],[cx-w/2,cy+h/2,cz-d/2],
+    [cx-w/2,cy-h/2,cz+d/2],[cx+w/2,cy-h/2,cz+d/2],[cx+w/2,cy+h/2,cz+d/2],[cx-w/2,cy+h/2,cz+d/2]
+  ];
+  const pts = corners.map(c => project(c[0],c[1],c[2]));
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (filled) {
+    // Front face
+    ctx.fillStyle = color + '30';
+    ctx.beginPath();
+    ctx.moveTo(pts[0].sx,pts[0].sy); ctx.lineTo(pts[1].sx,pts[1].sy);
+    ctx.lineTo(pts[2].sx,pts[2].sy); ctx.lineTo(pts[3].sx,pts[3].sy);
+    ctx.closePath(); ctx.fill();
+    // Top face
+    ctx.fillStyle = color + '22';
+    ctx.beginPath();
+    ctx.moveTo(pts[0].sx,pts[0].sy); ctx.lineTo(pts[1].sx,pts[1].sy);
+    ctx.lineTo(pts[5].sx,pts[5].sy); ctx.lineTo(pts[4].sx,pts[4].sy);
+    ctx.closePath(); ctx.fill();
+    // Right face
+    ctx.fillStyle = color + '18';
+    ctx.beginPath();
+    ctx.moveTo(pts[1].sx,pts[1].sy); ctx.lineTo(pts[5].sx,pts[5].sy);
+    ctx.lineTo(pts[6].sx,pts[6].sy); ctx.lineTo(pts[2].sx,pts[2].sy);
+    ctx.closePath(); ctx.fill();
+  }
+  // Batch all edges in one path — no shadow
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1 * camZoom;
+  ctx.beginPath();
+  const edges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  for (const [a,b] of edges) {
+    ctx.moveTo(pts[a].sx,pts[a].sy); ctx.lineTo(pts[b].sx,pts[b].sy);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawFlat(cx, cy, cz, w, d, color, alpha) {
+  if (alpha < 0.01) return;
+  const pts = [
+    project(cx-w/2,cy,cz-d/2), project(cx+w/2,cy,cz-d/2),
+    project(cx+w/2,cy,cz+d/2), project(cx-w/2,cy,cz+d/2)
+  ];
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color + '30';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1 * camZoom;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].sx,pts[0].sy);
+  pts.slice(1).forEach(p => ctx.lineTo(p.sx,p.sy));
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+// ==================== Stars ====================
+function initStars() {
+  stars = Array.from({length:180}, () => ({
+    x:Math.random()*W, y:Math.random()*H,
+    r:Math.random()*1.1+0.3, a:Math.random(), da:(Math.random()-0.5)*0.008
+  }));
+}
+function drawStars() {
+  for (const s of stars) {
+    s.a = Math.max(0.08, Math.min(0.7, s.a + s.da));
+    if (s.a <= 0.08 || s.a >= 0.7) s.da *= -1;
+    ctx.fillStyle = `rgba(180,200,255,${s.a})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+// ==================== Floating Particles ====================
+let floaters = [];
+function spawnFloaters(count, region, color) {
+  for (let i = 0; i < count; i++) {
+    floaters.push({
+      x: region.x + (Math.random()-0.5)*region.w,
+      y: region.y + (Math.random()-0.5)*region.h,
+      z: region.z + (Math.random()-0.5)*(region.d||region.w),
+      vx: (Math.random()-0.5)*0.005,
+      vy: (Math.random()-0.5)*0.005,
+      vz: (Math.random()-0.5)*0.005,
+      color: color,
+      size: Math.random()*2+1,
+      alpha: Math.random()*0.5+0.3,
+      life: 1
+    });
+  }
+}
+function updateAndDrawFloaters() {
+  floaters = floaters.filter(f => f.life > 0);
+  for (const f of floaters) {
+    f.x += f.vx; f.y += f.vy; f.z += f.vz;
+    f.life -= 0.002;
+    const pr = project(f.x, f.y, f.z);
+    if (pr.scale > 0) {
+      drawGlow(pr.sx, pr.sy, f.size * pr.scale, f.color, f.alpha * f.life);
+    }
+  }
+}
+
+// ==================== Scene Drawing ====================
+function drawScene() {
+  switch(currentScene) {
+    case 0: drawScene0(); break;
+    case 1: drawScene1(); break;
+    case 2: drawScene2(); break;
+    case 3: drawScene3(); break;
+    case 4: drawScene4(); break;
+    case 5: drawScene5(); break;
+    case 6: drawScene6(); break;
+    case 7: drawScene7(); break;
+    case 8: drawScene8(); break;
+    case 9: drawScene9(); break;
+    case 10: drawScene10(); break;
+    case 11: drawScene11(); break;
+    case 12: drawScene12(); break;
+    case 13: drawScene13(); break;
+    case 14: drawScene14(); break;
+    case 15: drawScene15(); break;
+    case 16: drawScene16(); break;
+  }
+}
+
+// Scene 0: 训练系统全景
+function drawScene0() {
+  const t = sceneTime;
+  // Server rack outline
+  draw3DBox(0, 0, 0, 5, 3, 2.5, '#4a6080', 0.4, true);
+  // NVMe SSDs at top
+  for (let i = 0; i < 4; i++) {
+    const x = -1.5 + i * 1;
+    draw3DBox(x, 1.2, 0, 0.7, 0.15, 1.5, C.nand, 0.5 + Math.sin(t*0.003+i)*0.15, true);
+    const lp = project(x, 1.45, 0);
+    drawMonoLabel(lp.sx, lp.sy, 'NVMe', C.nand, 0.6, 8*lp.scale);
+  }
+  // CPU in center-left
+  draw3DBox(-1.2, 0, 0, 1.2, 0.3, 1.2, C.cpu, 0.6, true);
+  const cpuL = project(-1.2, 0.3, 0);
+  drawLabel(cpuL.sx, cpuL.sy, 'CPU', C.cpu, 0.8, 13*cpuL.scale);
+  // DDR5 sticks
+  for (let i = 0; i < 4; i++) {
+    draw3DBox(-1.2, 0.5, -0.5+i*0.35, 0.08, 0.4, 0.25, C.ddr, 0.4, true);
+  }
+  const ddrL = project(-1.2, 0.85, 0);
+  drawMonoLabel(ddrL.sx, ddrL.sy, 'DDR5', C.ddr, 0.5, 8*ddrL.scale);
+  // PCIe bridge
+  const pcieA = project(-0.3, 0, 0), pcieB = project(0.5, 0, 0);
+  drawFlowLine(pcieA, pcieB, C.pcie, 0.5, 2, 0.0008);
+  drawMonoLabel((pcieA.sx+pcieB.sx)/2, (pcieA.sy+pcieB.sy)/2-12, 'PCIe Gen5', C.pcie, 0.5, 8);
+  // GPU array (8 GPUs, 2 rows x 4 cols)
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 4; c++) {
+      const gx = 1.0 + c * 0.55, gy = -0.5 + r * 1.0, gz = -0.4 + r * 0.8;
+      const pulse = 0.4 + Math.sin(t*0.004 + r*4+c)*0.15;
+      draw3DBox(gx, gy, gz, 0.4, 0.6, 0.3, C.tensorCore, pulse, true);
+      // NVLink connections between adjacent GPUs
+      if (c < 3) {
+        const a = project(gx+0.2, gy, gz), b = project(gx+0.55, gy, gz);
+        drawFlowLine(a, b, C.nvlink, 0.2, 0.5, 0.001);
+      }
+    }
+  }
+  const gpuL = project(1.8, -1.2, 0);
+  drawLabel(gpuL.sx, gpuL.sy, 'GPU × 8', C.tensorCore, 0.7, 12*gpuL.scale);
+  // NVLink label
+  const nvL = project(2.5, 0.7, 0);
+  drawMonoLabel(nvL.sx, nvL.sy, 'NVLink', C.nvlink, 0.5, 8*nvL.scale);
+  // Data flow hint
+  if (t > 1000) {
+    const flowA = project(-1.5, 1.2, 0), flowB = project(-1.2, 0.15, 0);
+    drawFlowLine(flowA, flowB, C.data, 0.4, 1.5, 0.0006);
+  }
+}
+
+// Scene 1: NVMe 内部
+function drawScene1() {
+  const t = sceneTime;
+  // NAND layers (3D stacked)
+  const layers = 10;
+  for (let i = 0; i < layers; i++) {
+    const y = -1.5 + i * 0.3;
+    const pulse = 0.3 + Math.sin(t*0.003 + i*0.5)*0.1;
+    drawFlat(0, y, 0, 3, 2, C.nand, pulse);
+    // Storage cells on each layer
+    for (let cx = -4; cx <= 4; cx++) {
+      for (let cz = -3; cz <= 3; cz++) {
+        const px = cx * 0.15, pz = cz * 0.15;
+        const pr = project(px, y+0.01, pz);
+        const cellA = 0.1 + Math.sin(t*0.005+cx*cz)*0.06;
+        ctx.save();
+        ctx.globalAlpha = cellA * pulse;
+        ctx.fillStyle = C.nand;
+        ctx.fillRect(pr.sx-1, pr.sy-1, 2, 2);
+        ctx.restore();
+      }
+    }
+  }
+  // TSV pillars between layers
+  for (let px = -3; px <= 3; px += 2) {
+    for (let pz = -2; pz <= 2; pz += 2) {
+      const x = px * 0.15, z = pz * 0.15;
+      const top = project(x, 1.5, z), bot = project(x, -1.5, z);
+      drawLine(top, bot, '#c4b5fd', 0.15, 0.5);
+    }
+  }
+  // Controller at bottom
+  draw3DBox(0, -2.0, 0, 2, 0.2, 1.5, '#818cf8', 0.5, true);
+  const ctrlL = project(0, -2.3, 0);
+  drawLabel(ctrlL.sx, ctrlL.sy, '控制器', '#818cf8', 0.7, 12);
+  // Data reading animation
+  if (sceneFlags.reading) {
+    const readLayer = Math.floor((t * 0.002) % layers);
+    const ly = -1.5 + readLayer * 0.3;
+    drawFlat(0, ly, 0, 3, 2, '#ffd666', 0.3);
+    // Particles flowing down to controller
+    for (let i = 0; i < 5; i++) {
+      const ft = ((t * 0.001 + i * 0.2) % 1);
+      const fy = ly - ft * (ly + 2.0);
+      const pr = project(Math.sin(i)*0.3, fy, Math.cos(i)*0.2);
+      drawGlow(pr.sx, pr.sy, 3*pr.scale, C.data, 0.6*(1-ft));
+    }
+  }
+  // Labels
+  const topL = project(1.8, 1.2, 0);
+  drawMonoLabel(topL.sx, topL.sy, '3D NAND Flash', C.nand, 0.6, 10);
+  const bwL = project(1.8, 0.8, 0);
+  drawMonoLabel(bwL.sx, bwL.sy, '~7 GB/s', C.data, 0.5, 9);
+}
+
+// Scene 2: CPU 预处理工厂
+function drawScene2() {
+  const t = sceneTime;
+  // CPU die outline
+  draw3DBox(0, 0, 0, 3.5, 0.3, 3.5, C.cpu, 0.3, true);
+  // CPU cores (4x4 grid)
+  const coreActive = sceneFlags.dataLoaderActive;
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const x = -1.2 + c * 0.8, z = -1.2 + r * 0.8;
+      const isWorker = coreActive && (r*4+c) < 6;
+      const pulse = isWorker ? 0.6 + Math.sin(t*0.006+r+c)*0.2 : 0.25;
+      const col = isWorker ? C.cpu : '#4a6080';
+      draw3DBox(x, 0.2, z, 0.55, 0.15, 0.55, col, pulse, true);
+      if (isWorker) {
+        const lp = project(x, 0.45, z);
+        drawMonoLabel(lp.sx, lp.sy, 'W'+(r*4+c), C.cpu, 0.6, 7*lp.scale);
+      }
+    }
+  }
+  // Cache rings (L1, L2, L3)
+  const cacheRings = [
+    {r:1.2, color:'#f472b6', label:'L1', alpha:0.15},
+    {r:1.6, color:'#a78bfa', label:'L2', alpha:0.12},
+    {r:2.0, color:'#4a9eff', label:'L3', alpha:0.1}
+  ];
+  cacheRings.forEach(ring => {
+    const segs = 36;
+    for (let i = 0; i < segs; i++) {
+      const a1 = (i/segs)*Math.PI*2, a2 = ((i+1)/segs)*Math.PI*2;
+      const p1 = project(Math.cos(a1)*ring.r, 0.15, Math.sin(a1)*ring.r);
+      const p2 = project(Math.cos(a2)*ring.r, 0.15, Math.sin(a2)*ring.r);
+      drawLine(p1, p2, ring.color, ring.alpha + Math.sin(t*0.003+i)*0.05, 1);
+    }
+    const lp = project(ring.r, 0.15, 0);
+    drawMonoLabel(lp.sx, lp.sy-10, ring.label, ring.color, 0.5, 8);
+  });
+  // DDR5 memory bars on the side
+  for (let i = 0; i < 4; i++) {
+    draw3DBox(2.2, 0.3+i*0.25, -0.3, 0.1, 0.15, 2, C.ddr, 0.35, true);
+  }
+  const ddrL = project(2.4, 1.2, 0);
+  drawLabel(ddrL.sx, ddrL.sy, 'DDR5 RAM', C.ddr, 0.5, 10);
+  // Data flow from DDR to CPU when active
+  if (coreActive) {
+    const a = project(2.2, 0.3, 0), b = project(0.5, 0.2, 0);
+    drawFlowLine(a, b, C.ddr, 0.5, 2, 0.0008);
+    // Processing pipeline labels
+    const stages = ['读取','分词','填充','Batch'];
+    stages.forEach((s, i) => {
+      const sx = -1.5 + i * 1.0;
+      const sp = project(sx, -0.3, -2);
+      const active = Math.floor(t*0.002) % 4 === i;
+      drawLabel(sp.sx, sp.sy, s, active ? C.data : '#475569', active ? 0.9 : 0.4, 11);
+      if (i < 3) {
+        const ap = project(sx+0.4, -0.3, -2), bp2 = project(sx+0.6, -0.3, -2);
+        drawLine(ap, bp2, '#475569', 0.3, 0.5);
+      }
+    });
+  }
+}
+
+// Scene 3: PCIe 高速通道
+function drawScene3() {
+  const t = sceneTime;
+  const isGen5 = !sceneFlags.showGen4;
+  const lanes = 16;
+  const tunnelLen = 5;
+  // Draw tunnel
+  for (let i = 0; i < lanes; i++) {
+    const angle = (i / lanes) * Math.PI * 2;
+    const radius = isGen5 ? 0.8 : 0.5;
+    const y1 = Math.sin(angle) * radius;
+    const z1 = Math.cos(angle) * radius;
+    // Start and end points
+    const startP = project(-tunnelLen/2, y1, z1);
+    const endP = project(tunnelLen/2, y1, z1);
+    // Lane color: gradient from blue (CPU) to gold (GPU)
+    const laneColor = i % 2 === 0 ? C.pcie : '#22d3ee';
+    drawLine(startP, endP, laneColor, 0.15, 0.5);
+    // Flowing data particles
+    const speed = isGen5 ? 0.0008 : 0.0004;
+    for (let d = 0; d < 3; d++) {
+      const ft = ((t * speed + d * 0.33 + i * 0.05) % 1);
+      const fx = -tunnelLen/2 + ft * tunnelLen;
+      const pr = project(fx, y1, z1);
+      const fa = 0.5 * Math.sin(ft * Math.PI);
+      drawGlow(pr.sx, pr.sy, 2*pr.scale, C.data, fa);
+    }
+  }
+  // CPU end
+  draw3DBox(-tunnelLen/2-0.5, 0, 0, 0.8, 1.5, 1.5, C.cpu, 0.4, true);
+  const cpuL = project(-tunnelLen/2-0.5, 1.0, 0);
+  drawLabel(cpuL.sx, cpuL.sy, 'CPU', C.cpu, 0.7, 13);
+  // GPU end
+  draw3DBox(tunnelLen/2+0.5, 0, 0, 0.8, 1.5, 1.5, C.tensorCore, 0.4, true);
+  const gpuL = project(tunnelLen/2+0.5, 1.0, 0);
+  drawLabel(gpuL.sx, gpuL.sy, 'GPU', C.tensorCore, 0.7, 13);
+  // Bandwidth label
+  const bwP = project(0, -1.3, 0);
+  const bwText = isGen5 ? 'PCIe Gen5 x16: 64 GB/s' : 'PCIe Gen4 x16: 32 GB/s';
+  drawMonoLabel(bwP.sx, bwP.sy, bwText, isGen5 ? C.pcie : '#b0bdd0', 0.7, 12);
+  // x16 lanes label
+  const laneP = project(0, 1.3, 0);
+  drawMonoLabel(laneP.sx, laneP.sy, lanes + ' 并行通道', '#b0bdd0', 0.5, 10);
+}
+
+// Scene 4: GPU 芯片鸟瞰
+function drawScene4() {
+  const t = sceneTime;
+  const hlMode = sceneFlags.highlightMode || 0; // 0=all, 1=SM, 2=L2, 3=HBM
+  // Die outline
+  draw3DBox(0, 0, 0, 4, 0.2, 4, '#475569', 0.35, true);
+  // SM grid (8x10 = 80 SMs) — use simple projected rects for perf
+  const isSM = hlMode === 0 || hlMode === 1;
+  if (isSM) {
+    ctx.save();
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 10; c++) {
+        const x = -1.6 + c * 0.35, z = -1.3 + r * 0.35;
+        const pr = project(x, 0.17, z);
+        const sz = 0.22 * 110 * camZoom * pr.scale;
+        const pulse = 0.4 + Math.sin(t*0.004+r+c*0.7)*0.15;
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = C.tensorCore + '40';
+        ctx.fillRect(pr.sx-sz/2, pr.sy-sz/2, sz, sz);
+        ctx.strokeStyle = C.tensorCore;
+        ctx.lineWidth = 0.6;
+        ctx.strokeRect(pr.sx-sz/2, pr.sy-sz/2, sz, sz);
+      }
+    }
+    ctx.restore();
+    const smL = project(0, 0.55, 0);
+    drawLabel(smL.sx, smL.sy, '80 个 SM', C.tensorCore, 0.8, 13);
+  }
+  // L2 Cache ring — use single path, no shadow
+  const isL2 = hlMode === 0 || hlMode === 2;
+  ctx.save();
+  ctx.globalAlpha = isL2 ? 0.5 : 0.1;
+  ctx.strokeStyle = C.sram;
+  ctx.lineWidth = isL2 ? 2.5 : 0.8;
+  ctx.beginPath();
+  const l2Segs = 36;
+  for (let i = 0; i <= l2Segs; i++) {
+    const a = (i/l2Segs)*Math.PI*2;
+    const rr = 1.7;
+    const p = project(Math.cos(a)*rr, 0.12, Math.sin(a)*rr);
+    if (i===0) ctx.moveTo(p.sx,p.sy); else ctx.lineTo(p.sx,p.sy);
+  }
+  ctx.stroke();
+  ctx.restore();
+  if (isL2) {
+    const l2L = project(1.8, 0.45, 0);
+    drawMonoLabel(l2L.sx, l2L.sy, 'L2 Cache 50MB', C.sram, 0.7, 10);
+  }
+  // HBM stacks (6 around edges) — fewer layers, brighter color
+  const hbmPositions = [[-2.3,0,-1],[2.3,0,-1],[-2.3,0,1],[2.3,0,1],[0,0,-2.3],[0,0,2.3]];
+  const isHBM = hlMode === 0 || hlMode === 3;
+  hbmPositions.forEach((pos, i) => {
+    const hbmA = isHBM ? 0.6 + Math.sin(t*0.003+i)*0.1 : 0.12;
+    // 4 layers (reduced from 6)
+    for (let layer = 0; layer < 4; layer++) {
+      draw3DBox(pos[0], pos[1]+layer*0.1, pos[2], 0.5, 0.06, 0.5, '#5b8def', hbmA * 0.7, true);
+    }
+    if (isHBM) {
+      const lp = project(pos[0], pos[1]+0.6, pos[2]);
+      drawMonoLabel(lp.sx, lp.sy, 'HBM3', '#7da8ff', 0.7, 8*lp.scale);
+    }
+  });
+  if (isHBM) {
+    const hbmL = project(0, -0.5, -2.5);
+    drawMonoLabel(hbmL.sx, hbmL.sy, '80GB HBM3 · 3.35 TB/s', '#7da8ff', 0.7, 11);
+  }
+  // Data path arrows when highlighting
+  if (hlMode >= 1) {
+    if (hlMode >= 3) {
+      const a = project(2.3,0.3,-1), b = project(1.7,0.12,0);
+      drawFlowLine(a, b, C.data, 0.5, 1.5, 0.0006);
+    }
+    if (hlMode >= 2) {
+      const a = project(1.5,0.12,0), b = project(0.5,0.15,0);
+      drawFlowLine(a, b, C.data, 0.5, 1.5, 0.0006);
+    }
+  }
+}
+
+// Scene 5: HBM 存储塔
+function drawScene5() {
+  const t = sceneTime;
+  const layers = 10;
+  const layerH = 0.3;
+  // DRAM layers
+  for (let i = 0; i < layers; i++) {
+    const y = -1.5 + i * layerH;
+    const pulse = 0.3 + Math.sin(t*0.003 + i*0.4)*0.1;
+    const isWriting = sceneFlags.writing && i <= Math.floor((t-sceneFlags.writeStart)*0.003) % layers;
+    const col = isWriting ? '#3b82f6' : C.hbm;
+    const alp = isWriting ? 0.6 : pulse;
+    // Each layer is a flat slab
+    draw3DBox(0, y, 0, 2.5, 0.08, 2, col, alp, true);
+    // Layer label
+    if (i === 0 || i === layers-1) {
+      const lp = project(1.5, y, 0);
+      drawMonoLabel(lp.sx, lp.sy, 'DRAM Layer '+(i+1), col, 0.4, 7*lp.scale);
+    }
+  }
+  // Logic die at bottom
+  draw3DBox(0, -1.9, 0, 2.5, 0.15, 2, '#6366f1', 0.5, true);
+  const logicL = project(0, -2.2, 0);
+  drawLabel(logicL.sx, logicL.sy, 'Logic Die (控制层)', '#6366f1', 0.6, 11);
+  // TSV pillars
+  for (let px = -3; px <= 3; px++) {
+    for (let pz = -3; pz <= 3; pz++) {
+      const x = px * 0.35, z = pz * 0.28;
+      const top = project(x, 1.5, z), bot = project(x, -1.9, z);
+      const tsvPulse = 0.1 + Math.sin(t*0.005+px+pz)*0.05;
+      drawLine(top, bot, '#fbbf24', tsvPulse, 0.5);
+    }
+  }
+  // TSV label
+  const tsvL = project(-1.6, 0.5, 1.2);
+  drawMonoLabel(tsvL.sx, tsvL.sy, 'TSV 硅通孔', '#fbbf24', 0.5, 9);
+  // Bandwidth label
+  const bwL = project(0, 2.0, 0);
+  drawMonoLabel(bwL.sx, bwL.sy, '1024-bit 总线 · 3.35 TB/s', C.data, 0.6, 10);
+  // Write animation
+  if (sceneFlags.writing) {
+    for (let i = 0; i < 8; i++) {
+      const ft = ((t*0.001 + i*0.125) % 1);
+      const fy = 2.0 - ft * 3.8;
+      const fx = (Math.random()-0.5)*1.5;
+      const pr = project(fx, fy, (Math.random()-0.5)*1);
+      drawGlow(pr.sx, pr.sy, 3*pr.scale, C.data, 0.4*(1-ft));
+    }
+  }
+}
+
+// Scene 6: 存储层次金字塔
+function drawScene6() {
+  const t = sceneTime;
+  const climbLevel = sceneFlags.climbLevel || 0; // 0-4
+  const pyramidData = [
+    { y:-1.2, w:3.5, d:3.5, h:0.4, color:C.hbm, label:'HBM3', cap:'80 GB', bw:'3.35 TB/s', lat:'~600 cycles' },
+    { y:-0.4, w:2.6, d:2.6, h:0.35, color:C.sram, label:'L2 Cache', cap:'50 MB', bw:'~6 TB/s', lat:'~200 cycles' },
+    { y:0.3, w:1.7, d:1.7, h:0.3, color:'#2dd4bf', label:'Shared Mem', cap:'228 KB/SM', bw:'~19 TB/s', lat:'~30 cycles' },
+    { y:0.9, w:0.9, d:0.9, h:0.25, color:C.tensorCore, label:'Register', cap:'256 KB/SM', bw:'∞', lat:'1 cycle' }
+  ];
+  pyramidData.forEach((layer, i) => {
+    const isActive = climbLevel === 0 || climbLevel === i+1;
+    const glow = isActive ? 0.5 + Math.sin(t*0.004+i)*0.15 : 0.15;
+    draw3DBox(0, layer.y, 0, layer.w, layer.h, layer.d, layer.color, glow, true);
+    const lp = project(layer.w/2+0.3, layer.y, 0);
+    drawLabel(lp.sx, lp.sy, layer.label, layer.color, isActive?0.8:0.3, 11);
+    if (isActive && climbLevel > 0) {
+      const dp = project(-layer.w/2-0.3, layer.y+0.1, 0);
+      drawMonoLabel(dp.sx, dp.sy, layer.cap, layer.color, 0.7, 9);
+      const bp = project(-layer.w/2-0.3, layer.y-0.1, 0);
+      drawMonoLabel(bp.sx, bp.sy, layer.bw, '#e2e8f0', 0.6, 8);
+    }
+  });
+  // Climbing particle
+  if (sceneFlags.climbing) {
+    const level = Math.min(3, Math.floor((t - sceneFlags.climbStart) * 0.001));
+    const ly = pyramidData[Math.min(level, 3)].y;
+    const pr = project(0, ly + 0.3, 0);
+    drawGlow(pr.sx, pr.sy, 8*pr.scale, C.data, 0.7 + Math.sin(t*0.008)*0.3);
+    drawLabel(pr.sx, pr.sy-15, '数据', C.data, 0.8, 12);
+    // Speed indicator
+    const speeds = ['慢','快','更快','极速'];
+    drawLabel(pr.sx, pr.sy+20, speeds[Math.min(level,3)], pyramidData[Math.min(level,3)].color, 0.7, 10);
+  }
+  // Right side bandwidth comparison bars
+  const barX = 2.5, barW = 0.12;
+  const bws = [3.35, 6, 19, 50]; // relative scale
+  pyramidData.forEach((layer, i) => {
+    const barH = bws[i] * 0.06;
+    const bp = project(barX, layer.y, 1);
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = layer.color;
+    ctx.fillRect(bp.sx, bp.sy-barH*10, barW*80*bp.scale, barH*10);
+    ctx.restore();
+  });
+}
+
+// Scene 7: 深入 SM 内部
+function drawScene7() {
+  const t = sceneTime;
+  // SM boundary
+  draw3DBox(0, 0, 0, 4, 2.5, 3, '#475569', 0.25, true);
+  // Warp Schedulers (top, 4 units)
+  for (let i = 0; i < 4; i++) {
+    const x = -1.2 + i * 0.8;
+    draw3DBox(x, 1.0, 0, 0.6, 0.2, 0.6, C.orange, 0.55 + Math.sin(t*0.005+i)*0.15, true);
+    const lp = project(x, 1.3, 0);
+    drawMonoLabel(lp.sx, lp.sy, 'WS'+i, C.orange, 0.7, 8*lp.scale);
+  }
+  const wsL = project(0, 1.55, 0);
+  drawLabel(wsL.sx, wsL.sy, 'Warp Scheduler ×4', C.orange, 0.7, 11);
+  // CUDA Cores — simple projected rects for perf (4 rows x 16 shown = 64, representing 128)
+  const activeRow = sceneFlags.warpActive ? Math.floor(t*0.002)%4 : -1;
+  ctx.save();
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 16; c++) {
+      const x = -1.5 + c * 0.19, z = -0.8 + r * 0.5;
+      const pr = project(x, 0.22, z);
+      const sz = 0.1 * 110 * camZoom * pr.scale;
+      const isActive = r === activeRow;
+      ctx.globalAlpha = isActive ? 0.75 : 0.35;
+      ctx.fillStyle = isActive ? '#60a5fa' : '#8b9ec6';
+      ctx.fillRect(pr.sx-sz/2, pr.sy-sz/2, sz, sz);
+      ctx.strokeStyle = isActive ? '#93c5fd' : '#a0aec8';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(pr.sx-sz/2, pr.sy-sz/2, sz, sz);
+    }
+  }
+  ctx.restore();
+  const cudaL = project(0, -0.1, -1.3);
+  drawMonoLabel(cudaL.sx, cudaL.sy, 'CUDA Core ×128', '#a0b4d0', 0.6, 10);
+  // Tensor Cores (4 large gold blocks in center)
+  for (let i = 0; i < 4; i++) {
+    const x = -0.9 + i * 0.6;
+    const pulse = 0.55 + Math.sin(t*0.004+i*1.5)*0.2;
+    draw3DBox(x, 0.2, 0, 0.4, 0.25, 0.4, C.tensorCore, pulse, true);
+    const lp = project(x, 0.55, 0);
+    drawMonoLabel(lp.sx, lp.sy, 'TC'+i, C.tensorCore, 0.7, 9*lp.scale);
+  }
+  const tcL = project(0, 0.8, 0);
+  drawLabel(tcL.sx, tcL.sy, 'Tensor Core ×4', C.tensorCore, 0.8, 12);
+  // Shared Memory + Register File at bottom
+  drawFlat(0, -0.8, 0, 3.5, 2.5, C.sram, 0.3);
+  const smL = project(0, -0.95, 1.5);
+  drawMonoLabel(smL.sx, smL.sy, 'Shared Memory 228KB', C.sram, 0.6, 10);
+  drawFlat(0, -0.5, 0, 3, 2, '#f0c050', 0.2);
+  const rfL = project(0, -0.65, 1.3);
+  drawMonoLabel(rfL.sx, rfL.sy, 'Register File 256KB', '#f0c050', 0.5, 9);
+  // Warp dispatch lines
+  if (sceneFlags.warpActive) {
+    const ws = project(-1.2 + activeRow * 0.8, 0.9, 0);
+    for (let c = 0; c < 16; c++) {
+      const target = project(-1.5 + c * 0.19, 0.28, -0.8 + activeRow * 0.5);
+      drawLine(ws, target, C.orange, 0.2, 0.5);
+    }
+  }
+}
+
+// Scene 8: Tensor Core 矩阵引擎
+function drawScene8() {
+  const t = sceneTime;
+  const step = sceneFlags.multiplyStep || 0; // 0=idle, 1-4=steps
+  const cellSize = 0.35;
+  // Matrix A (left, cyan)
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const x = -2.5 + c * cellSize;
+      const y = 0.7 - r * cellSize;
+      const slideIn = step >= 1 ? 1 : 0;
+      const ax = x * slideIn + (x - 2) * (1 - slideIn);
+      const pr = project(ax, y, -0.5);
+      const val = Math.floor(Math.random()*10); // visual only
+      drawGlow(pr.sx, pr.sy, 8*pr.scale, C.data, step >= 1 ? 0.6 : 0.2);
+      drawMonoLabel(pr.sx, pr.sy, String.fromCharCode(65+r)+c, C.data, step >= 1 ? 0.7 : 0.2, 8*pr.scale);
+    }
+  }
+  const aL = project(-2.5+0.5, 1.2, -0.5);
+  drawLabel(aL.sx, aL.sy, '矩阵 A (FP16)', C.data, 0.7, 11);
+  // Matrix B (top, orange)
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      const x = 0.3 + c * cellSize;
+      const y = 0.7 - r * cellSize;
+      const slideIn = step >= 1 ? 1 : 0;
+      const ay = y * slideIn + (y + 2) * (1 - slideIn);
+      const pr = project(x, ay, 0.5);
+      drawGlow(pr.sx, pr.sy, 8*pr.scale, C.activation, step >= 1 ? 0.6 : 0.2);
+      drawMonoLabel(pr.sx, pr.sy, String.fromCharCode(97+r)+c, C.activation, step >= 1 ? 0.7 : 0.2, 8*pr.scale);
+    }
+  }
+  const bL = project(0.3+0.5, 1.2, 0.5);
+  drawLabel(bL.sx, bL.sy, '矩阵 B (FP16)', C.activation, 0.7, 11);
+  // Multiply animation lines (step 2)
+  if (step >= 2) {
+    const row = Math.floor(t * 0.003) % 4;
+    for (let c = 0; c < 4; c++) {
+      const ap = project(-2.5 + c * cellSize, 0.7 - row * cellSize, -0.5);
+      const bp = project(0.3 + c * cellSize, 0.7 - c * cellSize, 0.5);
+      drawLine(ap, bp, '#fff', 0.15 + Math.sin(t*0.01+c)*0.1, 0.5);
+    }
+  }
+  // Result matrix D (right-bottom, gold) - step 3+
+  if (step >= 3) {
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const x = 0.3 + c * cellSize;
+        const y = -0.8 - r * cellSize;
+        const pr = project(x, y, 0);
+        const appear = Math.min(1, (t - sceneFlags.step3Time) * 0.002);
+        drawGlow(pr.sx, pr.sy, 8*pr.scale, C.tensorCore, 0.6*appear);
+        drawMonoLabel(pr.sx, pr.sy, 'D'+r+c, C.tensorCore, 0.7*appear, 8*pr.scale);
+      }
+    }
+    const dL = project(0.3+0.5, -0.5, 0);
+    drawLabel(dL.sx, dL.sy, '结果 D = A×B+C (FP32)', C.tensorCore, 0.7, 11);
+  }
+  // Formula
+  const fL = project(0, -2, 0);
+  drawMonoLabel(fL.sx, fL.sy, '64 FMA ops/cycle · FP16×FP16+FP32', C.tensorCore, 0.5, 10);
+}
+
+// Scene 9: Embedding 层
+function drawScene9() {
+  const t = sceneTime;
+  // Token IDs on the left
+  const tokens = [1542, 8837, 256, 4201, 9033];
+  tokens.forEach((tok, i) => {
+    const y = 1 - i * 0.5;
+    const pr = project(-2.5, y, 0);
+    const isLooking = sceneFlags.lookingUp && i <= Math.floor((t-sceneFlags.lookStart)*0.002);
+    drawGlow(pr.sx, pr.sy, 6*pr.scale, isLooking ? C.data : '#64748b', isLooking ? 0.8 : 0.4);
+    drawMonoLabel(pr.sx, pr.sy, String(tok), isLooking ? C.data : '#64748b', isLooking ? 0.8 : 0.5, 10*pr.scale);
+  });
+  const tokL = project(-2.5, 1.5, 0);
+  drawLabel(tokL.sx, tokL.sy, 'Token IDs', '#b0bdd0', 0.6, 11);
+  // Embedding weight matrix (right side, grid)
+  const rows = 12, cols = 8;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = -0.5 + c * 0.3;
+      const y = 1.2 - r * 0.23;
+      const pr = project(x, y, 0.5);
+      const isHit = sceneFlags.lookingUp && tokens.slice(0, Math.floor((t-sceneFlags.lookStart)*0.002)+1).some((_, ti) => r === (ti*2+1)%rows);
+      const col = isHit ? C.tensorCore : C.weight;
+      const alp = isHit ? 0.6 : 0.12;
+      ctx.save();
+      ctx.globalAlpha = alp;
+      ctx.fillStyle = col;
+      ctx.fillRect(pr.sx-3, pr.sy-3, 6*pr.scale, 6*pr.scale);
+      ctx.restore();
+    }
+  }
+  const mL = project(0.6, 1.6, 0.5);
+  drawLabel(mL.sx, mL.sy, '权重矩阵 128K×4096', C.weight, 0.6, 10);
+  // Lookup arrows
+  if (sceneFlags.lookingUp) {
+    const count = Math.min(tokens.length, Math.floor((t-sceneFlags.lookStart)*0.002)+1);
+    for (let i = 0; i < count; i++) {
+      const y = 1 - i * 0.5;
+      const ap = project(-2.2, y, 0);
+      const hitRow = (i*2+1)%rows;
+      const bp = project(-0.5, 1.2 - hitRow * 0.23, 0.5);
+      drawFlowLine(ap, bp, C.data, 0.5, 1, 0.001);
+    }
+  }
+  // HBM indicator at bottom
+  const hbmP = project(0, -1.5, 0);
+  drawMonoLabel(hbmP.sx, hbmP.sy, 'HBM → L2 → SM (数据搬运)', '#8bb5ff', 0.6, 10);
+}
+
+// Scene 10: 自注意力机制
+function drawScene10() {
+  const t = sceneTime;
+  // Input tokens
+  const inputLabels = ['我','爱','写','代码'];
+  inputLabels.forEach((tok, i) => {
+    const x = -1.5 + i * 1;
+    const pr = project(x, 1.8, 0);
+    drawGlow(pr.sx, pr.sy, 6*pr.scale, '#b0bdd0', 0.5);
+    drawLabel(pr.sx, pr.sy-10, tok, '#e2e8f0', 0.7, 12*pr.scale);
+  });
+  // Q/K/V projection (3 parallel paths)
+  const qkv = [
+    { label:'Q', color:'#ef4444', z:-1.2 },
+    { label:'K', color:'#4a9eff', z:0 },
+    { label:'V', color:'#4ade80', z:1.2 }
+  ];
+  qkv.forEach(item => {
+    inputLabels.forEach((_, i) => {
+      const x = -1.5 + i * 1;
+      const pr = project(x, 0.6, item.z);
+      drawGlow(pr.sx, pr.sy, 5*pr.scale, item.color, 0.5);
+      drawMonoLabel(pr.sx, pr.sy, item.label+i, item.color, 0.6, 8*pr.scale);
+    });
+    // Projection arrows
+    const ap = project(0, 1.5, 0), bp = project(0, 0.9, item.z);
+    drawFlowLine(ap, bp, item.color, 0.3, 1, 0.0006);
+    const lp = project(2.2, 0.6, item.z);
+    drawLabel(lp.sx, lp.sy, item.label, item.color, 0.7, 14);
+  });
+  // Attention score matrix (Q x K^T)
+  const attnSize = 4;
+  for (let r = 0; r < attnSize; r++) {
+    for (let c = 0; c < attnSize; c++) {
+      const x = -0.6 + c * 0.4;
+      const y = -0.4 - r * 0.4;
+      const pr = project(x, y, -0.5);
+      const score = Math.abs(Math.sin(r*c+1)) * 0.8 + 0.2;
+      const col = `rgba(255,${Math.floor(100+score*155)},50,1)`;
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = col;
+      ctx.fillRect(pr.sx-6, pr.sy-6, 12*pr.scale, 12*pr.scale);
+      ctx.restore();
+    }
+  }
+  const attnL = project(0, -0.1, -0.5);
+  drawLabel(attnL.sx, attnL.sy, 'Q×K^T 注意力分数', '#ff8c32', 0.6, 10);
+  // Multi-head expansion
+  if (sceneFlags.multiheadExpanded) {
+    const heads = ['语法','语义','位置','情感'];
+    const hColors = ['#ef4444','#4a9eff','#4ade80','#fbbf24'];
+    heads.forEach((h, i) => {
+      const z = -2 + i * 1.3;
+      const pr = project(-2.5, -0.6, z);
+      drawLabel(pr.sx, pr.sy, h+'头', hColors[i], 0.5, 9);
+      // Mini attention grid
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const gp = project(-2 + c*0.25, -0.5 - r*0.25, z);
+          const score = Math.abs(Math.sin(r*c+i+1));
+          ctx.save(); ctx.globalAlpha = 0.3*score;
+          ctx.fillStyle = hColors[i];
+          ctx.fillRect(gp.sx-3, gp.sy-3, 6, 6);
+          ctx.restore();
+        }
+      }
+    });
+  }
+  // Tensor Core indicator
+  const tcP = project(0, -2, 0);
+  drawMonoLabel(tcP.sx, tcP.sy, '所有矩阵乘法 → Tensor Core', C.tensorCore, 0.4, 9);
+}
+
+// Scene 11: FlashAttention 对比
+function drawScene11() {
+  const t = sceneTime;
+  const showFlash = sceneFlags.flashMode;
+  // Divider
+  const divTop = project(0, 2, 0), divBot = project(0, -2, 0);
+  drawLine(divTop, divBot, '#4a6080', 0.3, 1);
+  // Left: Standard Attention
+  const leftLabel = project(-1.8, 1.8, 0);
+  drawLabel(leftLabel.sx, leftLabel.sy, '标准 Attention', showFlash ? '#64748b' : '#ef4444', showFlash ? 0.4 : 0.8, 12);
+  // HBM block (left)
+  draw3DBox(-1.8, -0.8, 0, 2.5, 0.5, 1.5, showFlash ? '#334d6a' : '#ef4444', showFlash ? 0.15 : 0.3, true);
+  const lhbm = project(-1.8, -1.2, 0);
+  drawMonoLabel(lhbm.sx, lhbm.sy, 'HBM (频繁读写)', showFlash ? '#64748b' : '#ef4444', showFlash ? 0.3 : 0.6, 9);
+  // SM block (left)
+  draw3DBox(-1.8, 0.5, 0, 1.5, 0.4, 1, '#4a6080', 0.3, true);
+  const lsm = project(-1.8, 0.9, 0);
+  drawMonoLabel(lsm.sx, lsm.sy, 'SM', '#b0bdd0', 0.5, 9);
+  // Arrows bouncing between HBM and SM (standard)
+  if (!showFlash) {
+    for (let i = 0; i < 6; i++) {
+      const ft = ((t * 0.0008 + i * 0.17) % 1);
+      const goingUp = i % 2 === 0;
+      const fy = goingUp ? -0.5 + ft * 1.0 : 0.5 - ft * 1.0;
+      const fx = -1.8 + Math.sin(i*2)*0.5;
+      const pr = project(fx, fy, 0);
+      drawGlow(pr.sx, pr.sy, 3*pr.scale, '#ef4444', 0.5*Math.sin(ft*Math.PI));
+    }
+    const accessL = project(-1.8, -1.6, 0);
+    drawMonoLabel(accessL.sx, accessL.sy, 'O(N²) 内存访问', '#ef4444', 0.6, 10);
+  }
+  // Right: FlashAttention
+  const rightLabel = project(1.8, 1.8, 0);
+  drawLabel(rightLabel.sx, rightLabel.sy, 'FlashAttention', showFlash ? '#4ade80' : '#64748b', showFlash ? 0.8 : 0.4, 12);
+  // HBM block (right)
+  draw3DBox(1.8, -0.8, 0, 2.5, 0.5, 1.5, showFlash ? '#3b6bc9' : '#334d6a', showFlash ? 0.25 : 0.15, true);
+  const rhbm = project(1.8, -1.2, 0);
+  drawMonoLabel(rhbm.sx, rhbm.sy, 'HBM (仅读写一次)', showFlash ? '#4a9eff' : '#64748b', showFlash ? 0.5 : 0.3, 9);
+  // SRAM tiles (right)
+  const tiles = 4;
+  for (let i = 0; i < tiles; i++) {
+    const x = 1.0 + i * 0.5;
+    const pulse = showFlash ? 0.5 + Math.sin(t*0.005+i)*0.2 : 0.1;
+    draw3DBox(x, 0.5, 0, 0.4, 0.3, 0.6, showFlash ? C.sram : '#334d6a', pulse, true);
+    if (showFlash) {
+      const tp = project(x, 0.85, 0);
+      drawMonoLabel(tp.sx, tp.sy, 'Tile'+i, C.sram, 0.5, 7);
+    }
+  }
+  const rsm = project(1.8, 1.0, 0);
+  drawMonoLabel(rsm.sx, rsm.sy, 'SRAM 分块计算', showFlash ? C.sram : '#64748b', showFlash ? 0.6 : 0.3, 9);
+  if (showFlash) {
+    // Minimal arrows for flash
+    const fa = project(1.8, -0.5, 0), fb = project(1.8, 0.3, 0);
+    drawFlowLine(fa, fb, C.sram, 0.4, 1.5, 0.0005);
+    const accessR = project(1.8, -1.6, 0);
+    drawMonoLabel(accessR.sx, accessR.sy, 'O(N) 内存访问', C.sram, 0.6, 10);
+  }
+  // Comparison stats
+  const statsP = project(0, -2, 0);
+  drawMonoLabel(statsP.sx, statsP.sy, '内存访问减少 10-20× · 速度提升 2-4×', C.sram, 0.4, 9);
+}
+
+// Scene 12: FFN 层
+function drawScene12() {
+  const t = sceneTime;
+  // Input (left, 4096 dim)
+  const inputDots = 8;
+  for (let i = 0; i < inputDots; i++) {
+    const y = 0.8 - i * 0.2;
+    const pr = project(-2.5, y, 0);
+    drawGlow(pr.sx, pr.sy, 4*pr.scale, C.data, 0.5);
+  }
+  const inL = project(-2.5, 1.3, 0);
+  drawMonoLabel(inL.sx, inL.sy, '4096', C.data, 0.6, 10);
+  // Expanded (middle, 16384 dim = 4x)
+  const expandDots = 24;
+  for (let i = 0; i < expandDots; i++) {
+    const y = 1.2 - i * 0.1;
+    const pr = project(0, y, Math.sin(i*0.5)*0.3);
+    const pulse = 0.3 + Math.sin(t*0.005+i)*0.15;
+    drawGlow(pr.sx, pr.sy, 3*pr.scale, C.activation, pulse);
+  }
+  const expL = project(0, 1.7, 0);
+  drawMonoLabel(expL.sx, expL.sy, '16384 (×4)', C.activation, 0.6, 10);
+  // GELU activation wave
+  const geluP = project(0, -1.5, 0);
+  drawLabel(geluP.sx, geluP.sy, 'GELU 激活', C.activation, 0.5, 10);
+  // Draw GELU curve
+  ctx.save();
+  ctx.globalAlpha = 0.4;
+  ctx.strokeStyle = C.activation;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let x = -40; x <= 40; x++) {
+    const xv = x / 20;
+    const yv = xv * 0.5 * (1 + Math.tanh(Math.sqrt(2/Math.PI) * (xv + 0.044715 * xv*xv*xv)));
+    const px = geluP.sx + x * 2;
+    const py = geluP.sy - yv * 20;
+    if (x === -40) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+  // Output (right, 4096 dim)
+  for (let i = 0; i < inputDots; i++) {
+    const y = 0.8 - i * 0.2;
+    const pr = project(2.5, y, 0);
+    drawGlow(pr.sx, pr.sy, 4*pr.scale, C.data, 0.5);
+  }
+  const outL = project(2.5, 1.3, 0);
+  drawMonoLabel(outL.sx, outL.sy, '4096', C.data, 0.6, 10);
+  // Flow lines
+  const la = project(-2.2, 0, 0), lb = project(-0.5, 0, 0);
+  drawFlowLine(la, lb, C.data, 0.3, 1, 0.0006);
+  const lc = project(0.5, 0, 0), ld = project(2.2, 0, 0);
+  drawFlowLine(lc, ld, C.activation, 0.3, 1, 0.0006);
+  // Labels
+  const linL1 = project(-1.3, 0.3, 0);
+  drawLabel(linL1.sx, linL1.sy, 'Linear ↑', '#b0bdd0', 0.4, 9);
+  const linL2 = project(1.3, 0.3, 0);
+  drawLabel(linL2.sx, linL2.sy, 'Linear ↓', '#b0bdd0', 0.4, 9);
+  // Activation storage to HBM
+  if (sceneFlags.showActivations) {
+    draw3DBox(0, -2.5, 0, 4, 0.3, 2, C.hbm, 0.3, true);
+    const hbmL = project(0, -2.9, 0);
+    drawLabel(hbmL.sx, hbmL.sy, '激活值 → 保存到 HBM', C.activation, 0.6, 10);
+    for (let i = 0; i < 8; i++) {
+      const ft = ((t * 0.0008 + i * 0.125) % 1);
+      const fx = -1.5 + i * 0.4;
+      const fy = 0 - ft * 2.3;
+      const pr = project(fx, fy, 0);
+      drawGlow(pr.sx, pr.sy, 2*pr.scale, C.activation, 0.4*(1-ft));
+    }
+    // Memory pressure bar
+    const barP = project(2.8, -2.5, 0);
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    const fillH = 30 + Math.sin(t*0.003)*5;
+    ctx.fillStyle = C.activation;
+    ctx.fillRect(barP.sx, barP.sy, 8, -fillH);
+    ctx.strokeStyle = '#475569';
+    ctx.strokeRect(barP.sx, barP.sy, 8, -50);
+    ctx.restore();
+    const memL = project(2.8, -2.0, 0);
+    drawMonoLabel(memL.sx+4, memL.sy, 'HBM占用', '#b0bdd0', 0.4, 7);
+  }
+}
+
+// Scene 13: 反向传播梯度逆流
+function drawScene13() {
+  const t = sceneTime;
+  // Transformer layers (vertical stack)
+  const layerCount = 6;
+  for (let i = 0; i < layerCount; i++) {
+    const y = 1.5 - i * 0.6;
+    const isActive = sceneFlags.checkpointing ? (i % 2 === 0) : true;
+    draw3DBox(0, y, 0, 3, 0.25, 2, isActive ? '#334d6a' : '#1e3050', 0.3, true);
+    const lp = project(1.8, y, 0);
+    drawMonoLabel(lp.sx, lp.sy, 'Layer '+(i+1), '#b0bdd0', 0.4, 8);
+    // Activation storage indicator
+    if (!sceneFlags.checkpointing || i % 2 === 0) {
+      const ap = project(-1.8, y, 0);
+      drawGlow(ap.sx, ap.sy, 4, C.activation, 0.4);
+    }
+  }
+  // Loss at top
+  const lossP = project(0, 2.2, 0);
+  const lossPulse = 0.6 + Math.sin(t*0.005)*0.3;
+  drawGlow(lossP.sx, lossP.sy, 15, C.loss, lossPulse);
+  drawLabel(lossP.sx, lossP.sy-20, 'Loss', C.loss, 0.8, 14);
+  // Gradient flow (downward)
+  for (let i = 0; i < 10; i++) {
+    const ft = ((t * 0.0006 + i * 0.1) % 1);
+    const fy = 2.0 - ft * 4.0;
+    const fx = Math.sin(t*0.003+i)*0.3;
+    const pr = project(fx, fy, Math.cos(i)*0.2);
+    drawGlow(pr.sx, pr.sy, 4*pr.scale, C.gradient, 0.5 * Math.sin(ft*Math.PI));
+  }
+  // Gradient label
+  const gL = project(0.5, 0, 1.5);
+  drawLabel(gL.sx, gL.sy, '梯度逆流 ↓', C.gradient, 0.6, 11);
+  // Activation read-back arrows (orange going up)
+  for (let i = 0; i < 5; i++) {
+    const ft = ((t * 0.0005 + i * 0.2) % 1);
+    const fy = -1.5 + ft * 3.5;
+    const pr = project(-0.8, fy, 0);
+    drawGlow(pr.sx, pr.sy, 3*pr.scale, C.activation, 0.4 * Math.sin(ft*Math.PI));
+  }
+  const actL = project(-1.2, 0, 1.5);
+  drawLabel(actL.sx, actL.sy, '激活值读出 ↑', C.activation, 0.5, 10);
+  // HBM usage bar
+  const barLabels = ['权重','激活','梯度','优化器'];
+  const barColors = [C.weight, C.activation, C.gradient, C.optimizer];
+  const barWidths = sceneFlags.checkpointing ? [30,12,30,60] : [30,40,30,60];
+  let barX = -1.5;
+  barLabels.forEach((label, i) => {
+    const pr = project(barX + barWidths[i]*0.015, -2, 0);
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = barColors[i];
+    ctx.fillRect(pr.sx, pr.sy, barWidths[i], 12);
+    ctx.restore();
+    drawMonoLabel(pr.sx + barWidths[i]/2, pr.sy + 22, label, barColors[i], 0.5, 7);
+    barX += barWidths[i] * 0.03 + 0.3;
+  });
+  const hbmL = project(0, -2.5, 0);
+  drawMonoLabel(hbmL.sx, hbmL.sy, 'HBM 使用分布', '#b0bdd0', 0.4, 9);
+  // Checkpointing label
+  if (sceneFlags.checkpointing) {
+    const cpL = project(0, -1.5, 1.5);
+    drawLabel(cpL.sx, cpL.sy, '梯度检查点：跳层重算，节省 60% 激活内存', C.sram, 0.6, 10);
+  }
+}
+
+// Scene 14: 混合精度训练
+function drawScene14() {
+  const t = sceneTime;
+  const showCompare = sceneFlags.precisionCompare;
+  // FP32 Master Weight (large block, left)
+  draw3DBox(-2, 0.5, 0, 1.2, 1.2, 0.8, C.weight, 0.5, true);
+  const fp32L = project(-2, 1.3, 0);
+  drawLabel(fp32L.sx, fp32L.sy, 'FP32 主权重', C.weight, 0.7, 11);
+  drawMonoLabel(fp32L.sx, fp32L.sy+15, '32 bit', C.weight, 0.5, 9);
+  // Cast arrow
+  const castA = project(-1.2, 0.5, 0), castB = project(-0.3, 0.5, 0);
+  drawFlowLine(castA, castB, '#b0bdd0', 0.4, 1, 0.0008);
+  const castL = project(-0.7, 0.8, 0);
+  drawMonoLabel(castL.sx, castL.sy, 'Cast', '#b0bdd0', 0.5, 9);
+  // FP16 Working Copy (small block, center)
+  draw3DBox(0.3, 0.5, 0, 0.7, 0.7, 0.5, C.data, 0.5, true);
+  const fp16L = project(0.3, 1.0, 0);
+  drawLabel(fp16L.sx, fp16L.sy, 'FP16 工作副本', C.data, 0.7, 10);
+  drawMonoLabel(fp16L.sx, fp16L.sy+15, '16 bit', C.data, 0.5, 9);
+  // Tensor Core in the middle
+  draw3DBox(0.3, -0.5, 0, 0.8, 0.5, 0.6, C.tensorCore, 0.5 + Math.sin(t*0.005)*0.2, true);
+  const tcL = project(0.3, -0.1, 0);
+  drawLabel(tcL.sx, tcL.sy, 'Tensor Core', C.tensorCore, 0.6, 10);
+  // FP16 input → TC → FP32 accumulator
+  const tcA = project(0.3, 0.15, 0), tcB = project(0.3, -0.2, 0);
+  drawFlowLine(tcA, tcB, C.data, 0.4, 1.5, 0.001);
+  const accL = project(0.3, -0.85, 0);
+  drawMonoLabel(accL.sx, accL.sy, 'FP32 累加器', C.tensorCore, 0.5, 9);
+  // Gradient with Loss Scaling (right)
+  draw3DBox(2, -0.5, 0, 0.7, 0.7, 0.5, C.gradient, 0.4, true);
+  const gradL = project(2, 0.0, 0);
+  drawLabel(gradL.sx, gradL.sy, 'FP16 梯度', C.gradient, 0.6, 10);
+  // Loss scaling magnifier effect
+  const lsP = project(2, -1.3, 0);
+  drawLabel(lsP.sx, lsP.sy, 'Loss Scaling ×1024', C.amber, 0.5, 9);
+  const scaleCirc = project(2, -1.0, 0);
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.strokeStyle = C.amber;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(scaleCirc.sx, scaleCirc.sy, 15, 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
+  // Gradient back to FP32 update
+  const updA = project(2, -0.5, 0), updB = project(-2, 0, 0);
+  drawFlowLine(updA, updB, C.gradient, 0.2, 1, 0.0004);
+  const updL = project(0, -1.5, 0);
+  drawMonoLabel(updL.sx, updL.sy, '转回 FP32 → 更新主权重', '#b0bdd0', 0.4, 9);
+  // Comparison stats
+  if (showCompare) {
+    const statsY = -2;
+    const s1 = project(-1.5, statsY, 0);
+    drawMonoLabel(s1.sx, s1.sy, 'FP32: 100% 显存', '#b0bdd0', 0.6, 10);
+    const s2 = project(1.5, statsY, 0);
+    drawMonoLabel(s2.sx, s2.sy, '混合精度: ~50% 显存', C.sram, 0.6, 10);
+    const s3 = project(0, statsY-0.3, 0);
+    drawMonoLabel(s3.sx, s3.sy, '速度提升 2-3×', C.tensorCore, 0.6, 10);
+  }
+}
+
+// Scene 15: 多卡 AllReduce
+function drawScene15() {
+  const t = sceneTime;
+  const gpuCount = 8;
+  const radius = 2;
+  const allReduceActive = sceneFlags.allReduceActive;
+  const phase = allReduceActive ? Math.floor((t - sceneFlags.allReduceStart) * 0.0005) % 3 : 0; // 0=idle, 1=scatter, 2=gather
+  // Draw GPUs in ring
+  for (let i = 0; i < gpuCount; i++) {
+    const angle = (i / gpuCount) * Math.PI * 2 - Math.PI/2;
+    const gx = Math.cos(angle) * radius;
+    const gz = Math.sin(angle) * radius;
+    const pulse = 0.4 + Math.sin(t*0.004+i)*0.1;
+    draw3DBox(gx, 0, gz, 0.6, 0.8, 0.5, C.tensorCore, pulse, true);
+    const lp = project(gx, 0.6, gz);
+    drawMonoLabel(lp.sx, lp.sy, 'GPU'+i, C.tensorCore, 0.6, 9*lp.scale);
+    // NVLink connections to neighbors
+    const nextIdx = (i + 1) % gpuCount;
+    const nextAngle = (nextIdx / gpuCount) * Math.PI * 2 - Math.PI/2;
+    const nx = Math.cos(nextAngle) * radius;
+    const nz = Math.sin(nextAngle) * radius;
+    const a = project(gx, 0, gz), b = project(nx, 0, nz);
+    drawLine(a, b, C.nvlink, 0.2, 1);
+  }
+  // NVLink label
+  const nvlP = project(0, 1.5, 0);
+  drawLabel(nvlP.sx, nvlP.sy, 'NVLink 环形拓扑', C.nvlink, 0.6, 12);
+  const bwP = project(0, 1.2, 0);
+  drawMonoLabel(bwP.sx, bwP.sy, '900 GB/s 双向', C.nvlink, 0.5, 10);
+  // AllReduce animation
+  if (allReduceActive) {
+    const phaseLabel = phase === 1 ? 'ReduceScatter: 分片累加' : phase === 2 ? 'AllGather: 收集结果' : '';
+    if (phaseLabel) {
+      const plP = project(0, -1.5, 0);
+      drawLabel(plP.sx, plP.sy, phaseLabel, C.nvlink, 0.7, 12);
+    }
+    // Flowing particles on ring
+    const particleCount = 16;
+    const speed = phase === 2 ? -0.0008 : 0.0008;
+    for (let i = 0; i < particleCount; i++) {
+      const ft = ((t * speed + i / particleCount) % 1 + 1) % 1;
+      const angle = ft * Math.PI * 2 - Math.PI/2;
+      const px = Math.cos(angle) * radius;
+      const pz = Math.sin(angle) * radius;
+      const pr = project(px, 0, pz);
+      const color = phase === 1 ? C.gradient : C.weight;
+      const darken = phase === 1 ? Math.min(1, ft * 1.5) : 1;
+      drawGlow(pr.sx, pr.sy, 5*pr.scale, color, 0.5 * darken);
+    }
+  }
+  // Bandwidth comparison
+  if (sceneFlags.showNvlinkCompare) {
+    const cmpP1 = project(-1, -2.2, 0);
+    drawMonoLabel(cmpP1.sx, cmpP1.sy, 'NVLink: 900 GB/s', C.nvlink, 0.6, 10);
+    const cmpP2 = project(1, -2.2, 0);
+    drawMonoLabel(cmpP2.sx, cmpP2.sy, 'PCIe: 64 GB/s', C.pcie, 0.6, 10);
+    // Bar comparison
+    const bar1 = project(-1, -2.5, 0);
+    ctx.save(); ctx.globalAlpha = 0.4; ctx.fillStyle = C.nvlink;
+    ctx.fillRect(bar1.sx-50, bar1.sy, 100, 8); ctx.restore();
+    const bar2 = project(1, -2.5, 0);
+    ctx.save(); ctx.globalAlpha = 0.4; ctx.fillStyle = C.pcie;
+    ctx.fillRect(bar2.sx-50, bar2.sy, 7, 8); ctx.restore();
+    const ratioP = project(0, -2.8, 0);
+    drawMonoLabel(ratioP.sx, ratioP.sy, '14× 速度差距', '#e2e8f0', 0.5, 10);
+  }
+}
+
+// Scene 16: 优化器更新 & 训练循环
+function drawScene16() {
+  const t = sceneTime;
+  // Three data blocks in HBM
+  const blocks = [
+    { x:-1.8, label:'梯度 g', color:C.gradient },
+    { x:0, label:'动量 m', color:C.weight },
+    { x:1.8, label:'方差 v', color:C.sram }
+  ];
+  blocks.forEach(b => {
+    const pulse = 0.4 + Math.sin(t*0.004)*0.1;
+    draw3DBox(b.x, 0.5, 0, 1, 0.8, 0.7, b.color, pulse, true);
+    const lp = project(b.x, 1.1, 0);
+    drawLabel(lp.sx, lp.sy, b.label, b.color, 0.7, 11);
+  });
+  // Adam formulas
+  const formulas = [
+    'm = β₁m + (1-β₁)g',
+    'v = β₂v + (1-β₂)g²',
+    'w = w - lr·m̂/√(v̂+ε)'
+  ];
+  formulas.forEach((f, i) => {
+    const fp = project(0, -0.5 - i*0.4, 0);
+    drawMonoLabel(fp.sx, fp.sy, f, C.tensorCore, 0.5, 10);
+  });
+  // Updated weight output
+  draw3DBox(0, -2, 0, 1.2, 0.6, 0.7, C.tensorCore, 0.4 + Math.sin(t*0.005)*0.15, true);
+  const wL = project(0, -1.6, 0);
+  drawLabel(wL.sx, wL.sy, '新权重 w\'', C.tensorCore, 0.7, 11);
+  // Flow arrows
+  blocks.forEach(b => {
+    const a = project(b.x, 0.1, 0), br = project(0, -0.3, 0);
+    drawFlowLine(a, br, b.color, 0.3, 1, 0.0006);
+  });
+  const wa = project(0, -1.1, 0), wb = project(0, -1.65, 0);
+  drawFlowLine(wa, wb, C.tensorCore, 0.4, 1.5, 0.0008);
+  // Loop animation
+  if (sceneFlags.looping) {
+    const loopT = (t - sceneFlags.loopStart) * 0.0005;
+    // Circular arrow suggesting the loop
+    const segs = 30;
+    const loopR = 2.8;
+    for (let i = 0; i < segs; i++) {
+      const a1 = (i/segs)*Math.PI*1.5 - Math.PI/4;
+      const a2 = ((i+1)/segs)*Math.PI*1.5 - Math.PI/4;
+      const p1 = project(Math.cos(a1)*loopR, Math.sin(a1)*loopR*0.5-0.5, 0);
+      const p2 = project(Math.cos(a2)*loopR, Math.sin(a2)*loopR*0.5-0.5, 0);
+      const alp = 0.2 + Math.sin(loopT*2+i*0.3)*0.1;
+      drawLine(p1, p2, C.data, alp, 1.5);
+    }
+    // Flowing data on loop
+    for (let i = 0; i < 6; i++) {
+      const ft = ((loopT + i * 0.17) % 1);
+      const angle = ft * Math.PI * 1.5 - Math.PI/4;
+      const pr = project(Math.cos(angle)*loopR, Math.sin(angle)*loopR*0.5-0.5, 0);
+      drawGlow(pr.sx, pr.sy, 4*pr.scale, C.data, 0.5*Math.sin(ft*Math.PI));
+    }
+    const loopLabel = project(0, 2.3, 0);
+    drawLabel(loopLabel.sx, loopLabel.sy, '新 Batch → 下一轮训练', C.data, 0.6, 12);
+  }
+  // Memory stats
+  const memP = project(0, -2.8, 0);
+  drawMonoLabel(memP.sx, memP.sy, '70B: 权重280GB + 梯度140GB + 优化器560GB ≈ 1TB', '#b0bdd0', 0.4, 8);
+}
+
+// ==================== Scene Actions ====================
+function sceneAction(action) {
+  switch(action) {
+    case 'read':
+      sceneFlags.reading = true;
+      break;
+    case 'dataloader':
+      sceneFlags.dataLoaderActive = true;
+      break;
+    case 'compare':
+      sceneFlags.showGen4 = !sceneFlags.showGen4;
+      break;
+    case 'highlight':
+      sceneFlags.highlightMode = ((sceneFlags.highlightMode || 0) + 1) % 4;
+      break;
+    case 'write':
+      sceneFlags.writing = true;
+      sceneFlags.writeStart = sceneTime;
+      break;
+    case 'climb':
+      sceneFlags.climbing = true;
+      sceneFlags.climbStart = sceneTime;
+      sceneFlags.climbLevel = ((sceneFlags.climbLevel || 0) + 1);
+      if (sceneFlags.climbLevel > 4) sceneFlags.climbLevel = 1;
+      break;
+    case 'warp':
+      sceneFlags.warpActive = !sceneFlags.warpActive;
+      break;
+    case 'multiply':
+      sceneFlags.multiplyStep = (sceneFlags.multiplyStep || 0) + 1;
+      if (sceneFlags.multiplyStep === 3) sceneFlags.step3Time = sceneTime;
+      if (sceneFlags.multiplyStep > 3) sceneFlags.multiplyStep = 1;
+      break;
+    case 'lookup':
+      sceneFlags.lookingUp = true;
+      sceneFlags.lookStart = sceneTime;
+      break;
+    case 'multihead':
+      sceneFlags.multiheadExpanded = !sceneFlags.multiheadExpanded;
+      break;
+    case 'flash':
+      sceneFlags.flashMode = !sceneFlags.flashMode;
+      break;
+    case 'showact':
+      sceneFlags.showActivations = !sceneFlags.showActivations;
+      break;
+    case 'checkpoint':
+      sceneFlags.checkpointing = !sceneFlags.checkpointing;
+      break;
+    case 'precision':
+      sceneFlags.precisionCompare = !sceneFlags.precisionCompare;
+      break;
+    case 'allreduce':
+      sceneFlags.allReduceActive = true;
+      sceneFlags.allReduceStart = sceneTime;
+      break;
+    case 'nvlink':
+      sceneFlags.showNvlinkCompare = !sceneFlags.showNvlinkCompare;
+      break;
+    case 'loop':
+      sceneFlags.looping = true;
+      sceneFlags.loopStart = sceneTime;
+      break;
+  }
+}
+
+// ==================== Main Animation Loop ====================
+function animate(ts) {
+  time = ts || 0;
+  sceneTime = time;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background gradient
+  const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
+  bg.addColorStop(0, '#0a1020');
+  bg.addColorStop(1, '#050a18');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  drawStars();
+
+  // Camera auto-rotate
+  if (autoRotate) camRotY += autoSpeed;
+
+  // Draw scene
+  drawScene();
+  updateAndDrawFloaters();
+
+  requestAnimationFrame(animate);
+}
+
+// ==================== Input Handling ====================
+canvas.addEventListener('mousedown', e => {
+  dragging = true;
+  lastMX = e.clientX; lastMY = e.clientY;
+  canvas.classList.add('grabbing');
+  autoRotate = false;
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  camRotY += (e.clientX - lastMX) * 0.006;
+  camRotX += (e.clientY - lastMY) * 0.006;
+  camRotX = Math.max(-1.2, Math.min(1.2, camRotX));
+  lastMX = e.clientX; lastMY = e.clientY;
+});
+window.addEventListener('mouseup', () => {
+  dragging = false;
+  canvas.classList.remove('grabbing');
+  autoRotate = true;
+});
+canvas.addEventListener('touchstart', e => {
+  dragging = true;
+  lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+  autoRotate = false;
+}, {passive:true});
+canvas.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  camRotY += (e.touches[0].clientX - lastMX) * 0.006;
+  camRotX += (e.touches[0].clientY - lastMY) * 0.006;
+  camRotX = Math.max(-1.2, Math.min(1.2, camRotX));
+  lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+}, {passive:true});
+canvas.addEventListener('touchend', () => { dragging = false; autoRotate = true; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  camZoom = Math.max(0.4, Math.min(2.5, camZoom - e.deltaY * 0.001));
+}, {passive:false});
+
+// ==================== Navigation ====================
+function go(dir) {
+  const next = currentScene + dir;
+  if (next < 0 || next >= SCENES.length) return;
+  goToScene(next);
+}
+
+function goToScene(idx) {
+  currentScene = idx;
+  sceneFlags = {};
+  floaters = [];
+  camRotX = -0.3;
+  camRotY = 0.5;
+  sceneOffY = SCENE_OFFSETS[idx] || 0;
+  updateUI();
+}
+
+function updateUI() {
+  const s = SCENES[currentScene];
+  document.getElementById('sceneBadge').textContent = `场景 ${currentScene+1} / ${SCENES.length}`;
+  document.getElementById('phaseTag').textContent = PHASES[currentScene];
+  document.getElementById('sceneTitle').innerHTML = s.title;
+  document.getElementById('sceneDesc').innerHTML = s.desc;
+  document.getElementById('sceneActions').innerHTML = s.actions;
+  document.getElementById('stepCounter').textContent = `${currentScene+1} / ${SCENES.length}`;
+  document.getElementById('prevBtn').disabled = currentScene === 0;
+  document.getElementById('nextBtn').disabled = currentScene === SCENES.length - 1;
+
+  // Progress dots
+  const bar = document.getElementById('progressBar');
+  let html = '';
+  SCENES.forEach((_, i) => {
+    if (i > 0) html += `<div class="dot-line ${i<=currentScene?'done':''}"></div>`;
+    const cls = i===currentScene ? 'active' : i<currentScene ? 'done' : '';
+    html += `<div class="dot ${cls}" onclick="goToScene(${i})">${i+1}</div>`;
+  });
+  bar.innerHTML = html;
+}
+
+// ==================== Glossary ====================
+function toggleGlossary() {
+  document.getElementById('glossary-panel').classList.toggle('open');
+}
+
+// ==================== Keyboard ====================
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+});
+
+// ==================== Resize ====================
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  initStars();
+}
+window.addEventListener('resize', resize);
+
+// ==================== Init ====================
+resize();
+sceneOffY = SCENE_OFFSETS[0] || 0;
+updateUI();
+requestAnimationFrame(animate);
+</script>
+<script data-goatcounter="https://tbusos.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<div id="gc-views" style="position:fixed;top:12px;right:70px;z-index:999;font-size:0.75rem;color:#64748b;background:rgba(10,15,30,0.7);padding:4px 10px;border-radius:12px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);font-family:JetBrains Mono,monospace;">👁 <span id="gc-count">-</span></div>
+<script>
+var r=new XMLHttpRequest();
+r.addEventListener("load",function(){if(this.status===200){var d=JSON.parse(this.responseText);document.getElementById("gc-count").textContent=d.count.toLocaleString()+" 次访问";}});
+r.open("GET","https://tbusos.goatcounter.com/counter/"+encodeURIComponent(location.pathname)+".json");
+r.send();
+</script>
+</body>
+</html>
