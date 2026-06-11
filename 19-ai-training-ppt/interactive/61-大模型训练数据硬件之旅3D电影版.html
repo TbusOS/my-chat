@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型训练·数据硬件之旅 — 3D 电影版</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#050a18;--blue:#4a9eff;--green:#4ade80;--purple:#a78bfa;--gold:#ffd666;--cyan:#22d3ee;--pink:#f472b6;--orange:#fb923c;--red:#ef4444;--text:#e2e8f0;--muted:#64748b;--teal:#2dd4bf;--amber:#f59e0b;}
+html,body{background:var(--bg);color:var(--text);font-family:'Noto Sans SC',sans-serif;overflow:hidden;height:100%;width:100%;user-select:none;-webkit-user-select:none;}
+canvas#gl{position:fixed;inset:0;z-index:0;cursor:grab;touch-action:none;}
+canvas#gl.grabbing{cursor:grabbing;}
+
+#labels{position:fixed;inset:0;z-index:5;pointer-events:none;overflow:hidden;}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform,opacity;
+  font-size:0.82rem;font-weight:500;color:var(--text);
+  text-shadow:0 0 8px rgba(34,211,238,0.55),0 1px 3px rgba(0,0,0,0.9);}
+.lbl .sub{display:block;font-size:0.66rem;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,0.9);text-align:center;}
+.lbl-data{font-family:'JetBrains Mono',monospace;font-size:0.74rem;font-weight:600;}
+.lbl-big{font-size:1.05rem;font-weight:700;}
+.lbl-formula{font-family:'JetBrains Mono',monospace;font-size:0.95rem;font-weight:600;
+  background:rgba(8,13,28,0.72);border:1px solid rgba(255,214,102,0.35);border-radius:8px;
+  padding:5px 12px;backdrop-filter:blur(4px);}
+
+.film-title{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:18;text-align:center;
+  transition:opacity 1.2s;pointer-events:none;
+}
+.film-title h1{
+  font-size:1.5rem;font-weight:700;letter-spacing:0.06em;
+  background:linear-gradient(135deg,var(--cyan),var(--blue),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.film-title p{font-size:0.7rem;color:var(--muted);letter-spacing:0.25em;margin-top:2px;}
+
+.info-panel{
+  position:fixed;top:20px;left:20px;z-index:20;max-width:430px;
+  background:rgba(10,15,30,0.88);backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,0.1);border-radius:16px;
+  padding:22px 26px;transition:opacity 0.35s,transform 0.35s;
+}
+.info-panel.hidden{opacity:0;transform:translateY(-8px);pointer-events:none;}
+.scene-badge{
+  display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;
+  padding:3px 10px;border-radius:20px;background:rgba(74,158,255,0.15);color:var(--blue);
+  border:1px solid rgba(74,158,255,0.3);margin-bottom:10px;
+}
+.phase-tag{
+  display:inline-block;margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:0.65rem;font-weight:600;
+  padding:2px 8px;border-radius:12px;background:rgba(255,214,102,0.12);color:var(--gold);
+  border:1px solid rgba(255,214,102,0.25);
+}
+.scene-title{
+  font-size:1.4rem;font-weight:700;margin-bottom:10px;line-height:1.4;
+  background:linear-gradient(135deg,var(--cyan),var(--blue),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.scene-desc{color:var(--muted);font-size:0.95rem;line-height:1.75;margin-bottom:14px;}
+.scene-desc strong{color:var(--text);}
+.scene-desc .data{color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:0.9rem;}
+.scene-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.action-btn{
+  padding:8px 18px;border-radius:8px;border:1px solid;font-size:0.92rem;
+  font-family:'Noto Sans SC',sans-serif;cursor:pointer;transition:all 0.2s;background:transparent;
+}
+.action-btn:hover{filter:brightness(1.3);}
+.action-btn.blue{border-color:var(--blue);color:var(--blue);background:rgba(74,158,255,0.1);}
+.action-btn.green{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.1);}
+.action-btn.gold{border-color:var(--gold);color:var(--gold);background:rgba(255,214,102,0.1);}
+.action-btn.pink{border-color:var(--pink);color:var(--pink);background:rgba(244,114,182,0.1);}
+.action-btn.purple{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,0.1);}
+.action-btn.cyan{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,0.1);}
+.action-btn.orange{border-color:var(--orange);color:var(--orange);background:rgba(251,146,60,0.1);}
+
+.hint-bar{
+  position:fixed;top:20px;right:20px;z-index:20;font-size:0.72rem;color:var(--muted);
+  background:rgba(10,15,30,0.7);backdrop-filter:blur(8px);
+  padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.06);
+}
+
+.progress{
+  position:fixed;bottom:64px;left:50%;transform:translateX(-50%);z-index:25;
+  display:flex;align-items:center;gap:2px;
+}
+.dot{
+  width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:0.5rem;font-weight:600;font-family:'JetBrains Mono',monospace;
+  border:2px solid var(--muted);color:var(--muted);cursor:pointer;transition:all 0.3s;
+}
+.dot.active{border-color:var(--blue);color:var(--blue);box-shadow:0 0 8px var(--blue);}
+.dot.done{border-color:var(--green);background:var(--green);color:#050a18;}
+.dot-line{width:6px;height:2px;background:var(--muted);transition:background 0.3s;}
+.dot-line.done{background:var(--green);}
+
+.nav-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:30;
+  display:flex;justify-content:center;align-items:center;gap:14px;padding:12px 20px;
+  background:rgba(5,10,24,0.92);backdrop-filter:blur(12px);
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+.nav-btn{
+  padding:9px 24px;border-radius:8px;border:none;font-size:0.9rem;
+  font-family:'Noto Sans SC',sans-serif;cursor:pointer;transition:all 0.2s;font-weight:500;
+}
+.nav-btn.prev{background:rgba(255,255,255,0.06);color:var(--text);border:1px solid rgba(255,255,255,0.12);}
+.nav-btn.prev:hover{background:rgba(255,255,255,0.1);}
+.nav-btn.next{background:var(--blue);color:#000;font-weight:700;}
+.nav-btn.next:hover{background:#6ab4ff;box-shadow:0 0 20px rgba(74,158,255,0.5);}
+.nav-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.nav-btn.cruise{background:rgba(34,211,238,0.1);color:var(--cyan);border:1px solid rgba(34,211,238,0.4);}
+.nav-btn.cruise.on{background:var(--cyan);color:#000;font-weight:700;box-shadow:0 0 16px rgba(34,211,238,0.5);}
+.step-counter{font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--muted);min-width:60px;text-align:center;}
+
+#glossary-btn{
+  position:fixed;bottom:72px;right:24px;z-index:999;width:40px;height:40px;border-radius:50%;
+  background:rgba(74,158,255,0.15);border:1px solid var(--blue);color:var(--blue);
+  font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;
+}
+#glossary-btn:hover{background:rgba(74,158,255,0.3);box-shadow:0 0 16px rgba(74,158,255,0.4);}
+#glossary-panel{
+  position:fixed;top:0;right:-360px;bottom:0;width:340px;z-index:1000;
+  background:rgba(10,15,30,0.97);border-left:1px solid rgba(255,255,255,0.1);
+  overflow-y:auto;padding:24px;transition:right 0.3s ease;backdrop-filter:blur(16px);
+}
+#glossary-panel.open{right:0;}
+#glossary-panel h3{font-size:1.1rem;margin-bottom:20px;color:var(--blue);}
+.g-item{margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.g-item:last-child{border-bottom:none;}
+.g-item .g-en{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--gold);font-size:0.82rem;}
+.g-item .g-zh{font-weight:500;margin:2px 0;font-size:0.88rem;}
+.g-item .g-desc{font-size:0.78rem;color:var(--muted);line-height:1.5;}
+#glossary-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;}
+
+#fallback{
+  position:fixed;inset:0;z-index:2000;display:none;
+  align-items:center;justify-content:center;text-align:center;background:var(--bg);
+}
+#fallback .fb-inner{max-width:480px;padding:40px;}
+#fallback h1{
+  font-size:1.6rem;margin-bottom:16px;
+  background:linear-gradient(135deg,var(--cyan),var(--blue),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+#fallback p{color:var(--muted);line-height:1.8;margin-bottom:20px;}
+#fallback a{color:var(--cyan);}
+
+#debug{
+  position:fixed;bottom:64px;left:16px;z-index:50;display:none;
+  font-family:'JetBrains Mono',monospace;font-size:0.66rem;color:var(--green);
+  background:rgba(0,0,0,0.6);padding:6px 10px;border-radius:6px;white-space:pre;
+}
+
+@media(max-width:640px){
+  .info-panel{max-width:none;left:10px;right:10px;top:10px;padding:14px 16px;}
+  .scene-title{font-size:1.05rem;}
+  .scene-desc{font-size:0.78rem;}
+  .nav-btn{padding:7px 14px;font-size:0.8rem;}
+  .progress{bottom:60px;}
+  .dot{width:14px;height:14px;font-size:0.4rem;}
+  .dot-line{width:3px;}
+  .film-title h1{font-size:1rem;}
+  .hint-bar{display:none;}
+}
+</style>
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+
+<div class="film-title" id="filmTitle">
+  <h1>大模型训练 · 数据硬件之旅</h1>
+  <p>3D CINEMATIC EDITION · WEBGL</p>
+</div>
+
+<div class="info-panel" id="infoPanel">
+  <div><span class="scene-badge" id="sceneBadge">场景 1 / 17</span><span class="phase-tag" id="phaseTag">第一阶段</span></div>
+  <h2 class="scene-title" id="sceneTitle"></h2>
+  <p class="scene-desc" id="sceneDesc"></p>
+  <div class="scene-actions" id="sceneActions"></div>
+</div>
+
+<div class="hint-bar">滚轮 推进旅程 · 拖动 环顾 · 空格 自动巡航</div>
+
+<div class="progress" id="progressBar"></div>
+
+<div class="nav-bar">
+  <button class="nav-btn prev" id="prevBtn" onclick="go(-1)">← 上一站</button>
+  <span class="step-counter" id="stepCounter">1 / 17</span>
+  <button class="nav-btn next" id="nextBtn" onclick="go(1)">下一站 →</button>
+  <button class="nav-btn cruise" id="cruiseBtn" onclick="toggleCruise()">▶ 自动巡航</button>
+</div>
+
+<button id="glossary-btn" onclick="toggleGlossary()">❓</button>
+<div id="glossary-panel">
+  <button id="glossary-close" onclick="toggleGlossary()">✕</button>
+  <h3>术语表</h3>
+  <div class="g-item"><div class="g-en">HBM (High Bandwidth Memory)</div><div class="g-zh">高带宽内存</div><div class="g-desc">3D 堆叠 DRAM，GPU 主显存。H100 配备 80GB HBM3，带宽 3.35 TB/s。</div></div>
+  <div class="g-item"><div class="g-en">SRAM (Static RAM)</div><div class="g-zh">静态随机存储</div><div class="g-desc">GPU 片上缓存，速度极快（~19 TB/s）但仅 KB 级容量。</div></div>
+  <div class="g-item"><div class="g-en">SM (Streaming Multiprocessor)</div><div class="g-zh">流多处理器</div><div class="g-desc">GPU 基本计算单元。H100 有 80 个 SM，每个含 128 CUDA Core + 4 Tensor Core。</div></div>
+  <div class="g-item"><div class="g-en">Tensor Core</div><div class="g-zh">张量核心</div><div class="g-desc">专用 4×4 矩阵乘加单元。每周期 64 次 FMA 运算，AI 训练核心引擎。</div></div>
+  <div class="g-item"><div class="g-en">CUDA Core</div><div class="g-zh">通用计算核心</div><div class="g-desc">GPU 通用并行计算核心，处理标量和向量运算。</div></div>
+  <div class="g-item"><div class="g-en">Warp</div><div class="g-zh">线程束</div><div class="g-desc">32 个线程同步执行的最小调度单位，SIMT 模型的基础。</div></div>
+  <div class="g-item"><div class="g-en">NVLink</div><div class="g-zh">高速互联总线</div><div class="g-desc">NVIDIA GPU 间高速通信总线。H100 双向 900 GB/s，比 PCIe 快 14 倍。</div></div>
+  <div class="g-item"><div class="g-en">NVSwitch</div><div class="g-zh">互联交换机</div><div class="g-desc">GPU 互联交换芯片，实现多 GPU 全互联拓扑。</div></div>
+  <div class="g-item"><div class="g-en">PCIe (PCI Express)</div><div class="g-zh">标准总线</div><div class="g-desc">CPU 与 GPU 之间的标准通信总线。Gen5 x16 带宽 64 GB/s。</div></div>
+  <div class="g-item"><div class="g-en">TSV (Through-Silicon Via)</div><div class="g-zh">硅通孔</div><div class="g-desc">HBM 层间垂直互联技术，直径仅 5-10μm，实现 3D 堆叠高带宽。</div></div>
+  <div class="g-item"><div class="g-en">AllReduce</div><div class="g-zh">全局归约</div><div class="g-desc">分布式训练中梯度聚合操作。先 ReduceScatter 再 AllGather。</div></div>
+  <div class="g-item"><div class="g-en">FlashAttention</div><div class="g-zh">闪存注意力</div><div class="g-desc">利用 SRAM 分块计算注意力，减少 10-20× HBM 访问，速度提升 2-4×。</div></div>
+  <div class="g-item"><div class="g-en">Mixed Precision</div><div class="g-zh">混合精度训练</div><div class="g-desc">FP16 计算 + FP32 存储。节省 ~50% 显存，Tensor Core 原生加速。</div></div>
+  <div class="g-item"><div class="g-en">Gradient Checkpointing</div><div class="g-zh">梯度检查点</div><div class="g-desc">不保存部分激活值，反向时重算。节省 ~60% 激活内存，多 ~33% 计算。</div></div>
+  <div class="g-item"><div class="g-en">Forward Pass</div><div class="g-zh">前向传播</div><div class="g-desc">输入数据逐层计算得到预测结果的过程。</div></div>
+  <div class="g-item"><div class="g-en">Backward Pass</div><div class="g-zh">反向传播</div><div class="g-desc">从损失函数反向计算各层参数梯度，用于更新权重。</div></div>
+</div>
+
+<div id="fallback">
+  <div class="fb-inner">
+    <h1>需要 WebGL2 支持</h1>
+    <p>这个 3D 电影版动画依赖 WebGL2 实时渲染（实例化绘制 + 辉光后处理），你的浏览器或设备暂不支持。<br>可以改用经典版（Canvas 2D，兼容所有浏览器）：</p>
+    <p><a href="60-大模型训练数据硬件之旅.html">→ 打开经典版「大模型训练·数据硬件之旅」</a></p>
+  </div>
+</div>
+
+<div id="debug"></div>
+
+<script>
+'use strict';
+// ============================================================
+// S0 · Config —— 颜色 / 质量 / 场景文案
+// ============================================================
+const COL = {
+  data:'#22d3ee', weight:'#6daaff', tensor:'#ffd666', cuda:'#8b9ec6',
+  act:'#fb923c', grad:'#f472b6', nvlink:'#a78bfa', pcie:'#4ade80',
+  hbm:'#5b8def', sram:'#2dd4bf', opt:'#f59e0b', loss:'#ef4444',
+  nand:'#a5b4fc', cpu:'#60c0f0', ddr:'#7ee8f9', white:'#e2e8f0',
+  blue:'#4a9eff', dim:'#2a3550', board:'#101a30', gold:'#ffd666', amber:'#f59e0b'
+};
+function hexLin(h){ // hex → 线性空间 RGB
+  const r=parseInt(h.slice(1,3),16)/255, g=parseInt(h.slice(3,5),16)/255, b=parseInt(h.slice(5,7),16)/255;
+  return [Math.pow(r,2.2), Math.pow(g,2.2), Math.pow(b,2.2)];
+}
+const C3 = {}; for(const k in COL) C3[k]=hexLin(COL[k]);
+
+const urlQ = new URLSearchParams(location.search);
+const QUALITY = { renderScale:1.0, bloom:true, blurIters:2, dust:9000, shadow:true, level:'high' };
+if(urlQ.get('quality')==='medium'){ QUALITY.renderScale=0.85; QUALITY.blurIters=1; QUALITY.dust=5000; QUALITY.level='medium'; }
+if(urlQ.get('quality')==='low'){ QUALITY.renderScale=0.7; QUALITY.bloom=false; QUALITY.shadow=false; QUALITY.dust=2500; QUALITY.level='low'; }
+const DEBUG = urlQ.has('debug');
+
+const PHASES = ['第一阶段：数据准备','第一阶段：数据准备','第一阶段：数据准备','第二阶段：数据传输','第二阶段：数据传输','第三阶段：GPU存储层次','第三阶段：GPU存储层次','第三阶段：GPU存储层次','第四阶段：计算过程','第四阶段：计算过程','第四阶段：计算过程','第四阶段：计算过程','第四阶段：计算过程','第五阶段：反向传播与同步','第五阶段：反向传播与同步','第五阶段：反向传播与同步','第六阶段：更新与循环'];
+
+const SCENE_INFO = [
+  { title:'训练系统全景',
+    desc:'一台 AI 训练服务器的内部：<strong>NVMe SSD</strong> 存储训练数据，<strong>CPU</strong> 负责数据预处理，<strong>8 块 GPU</strong> 通过 PCIe 连接 CPU、通过 NVLink 互相连接。一次训练，数据将穿越所有这些硬件。',
+    btn:null },
+  { title:'NVMe 内部：数据从磁盘出发',
+    desc:'训练数据沉睡在 <strong>3D NAND Flash</strong> 存储单元中——数十层硅片垂直堆叠。控制器读出 token 序列，经 NVMe 协议发出。<span class="data">读取带宽 ~7 GB/s</span>',
+    btn:{label:'读取数据', cls:'cyan', act:'read'} },
+  { title:'CPU 预处理工厂',
+    desc:'CPU 多核并行工作，每个核心运行一个 <strong>DataLoader Worker</strong>：读取文本 → 分词(Tokenization) → 填充(Padding) → 组成批次(Batch)。数据通过三级缓存加速处理。<span class="data">DDR5 ~90 GB/s</span>',
+    btn:{label:'启动 DataLoader', cls:'blue', act:'dataloader'} },
+  { title:'PCIe 高速通道',
+    desc:'批次数据通过 <strong>PCIe Gen5 x16</strong> 通道从 CPU 飞向 GPU——16 条并行数据通道组成高速公路。<span class="data">带宽 64 GB/s</span>，但相比 GPU 内部带宽，这只是一条"乡间小路"。',
+    btn:{label:'对比 Gen4/Gen5', cls:'green', act:'compare'} },
+  { title:'GPU 芯片鸟瞰',
+    desc:'数据抵达 <strong>H100 GPU</strong>。中央密布 <strong>80 个 SM</strong>（流处理器），四周矗立 <strong>6 组 HBM3</strong> 存储塔，中间环绕 <strong>50MB L2 Cache</strong>。这就是 AI 训练的主战场。',
+    btn:{label:'高亮各区域', cls:'gold', act:'highlight'} },
+  { title:'HBM 存储塔：3D 堆叠奇迹',
+    desc:'<strong>HBM3</strong> 由 8-12 层 DRAM 垂直堆叠，层间通过数千根 <strong>TSV 硅通孔</strong>（直径仅 5μm）连接。1024-bit 超宽总线带来 <span class="data">3.35 TB/s</span> 的恐怖带宽。',
+    btn:{label:'数据写入', cls:'blue', act:'write'} },
+  { title:'存储层次金字塔',
+    desc:'GPU 内四级存储，<strong>越往上越快越小</strong>：HBM(80GB) → L2 Cache(50MB) → Shared Memory(228KB/SM) → Register(256KB/SM)。带宽从 3.35 TB/s 飙升到近乎无限。<strong>数据每上一层，速度翻倍。</strong>',
+    btn:{label:'逐层穿越', cls:'cyan', act:'climb'} },
+  { title:'深入 SM 内部',
+    desc:'一个 SM 是 GPU 的"CPU核心"：<strong>4 个 Warp Scheduler</strong> 指挥调度，<strong>128 个 CUDA Core</strong>（蓝色阵列）做通用计算，<strong>4 个 Tensor Core</strong>（金色大块）做矩阵乘法——AI 训练的主力。',
+    btn:{label:'Warp 调度', cls:'gold', act:'warp'} },
+  { title:'Tensor Core 矩阵引擎',
+    desc:'Tensor Core 的核心操作：<strong>D = A × B + C</strong>。两个 4×4 矩阵滑入，一个周期完成全部 64 次乘加运算。<span class="data">混合精度：FP16 × FP16 + FP32</span>，这就是 AI 训练的"原子操作"。',
+    btn:{label:'单步执行', cls:'gold', act:'multiply'} },
+  { title:'前向传播：Embedding 层',
+    desc:'训练第一步：每个 <strong>Token ID</strong> 作为地址，从 HBM 中的权重矩阵"查表"取出对应的<strong>嵌入向量</strong>。<span class="data">128K × 4096 的矩阵 ≈ 1GB</span>，从 HBM → L2 → SM 逐级搬运。',
+    btn:{label:'Token 查找', cls:'cyan', act:'lookup'} },
+  { title:'前向传播：自注意力机制',
+    desc:'核心计算！输入分别投影为 <strong style="color:#ef4444">Q</strong>、<strong style="color:#4a9eff">K</strong>、<strong style="color:#4ade80">V</strong> 三组向量。Q×K^T 得注意力分数 → Softmax 归一化 → 与 V 加权求和。所有矩阵乘法由 <strong>Tensor Core</strong> 执行。',
+    btn:{label:'多头展开', cls:'purple', act:'multihead'} },
+  { title:'FlashAttention 优化',
+    desc:'<strong>标准 Attention</strong>：Q/K/V 在 HBM 间反复搬运，带宽瓶颈严重。<strong>FlashAttention</strong>：数据分块在 SRAM 中完成全部计算，只写最终结果。<span class="data">HBM 访问减少 10-20×，速度提升 2-4×</span>',
+    btn:{label:'切换对比', cls:'green', act:'flash'} },
+  { title:'前向传播：FFN 层',
+    desc:'注意力后进入 <strong>前馈网络</strong>：维度从 4096 扩展到 16384（粒子扩散）→ GELU 激活 → 压缩回 4096。<strong>激活值写回 HBM 保存</strong>，为反向传播准备。<span class="data">FFN 占计算量的 ~2/3</span>',
+    btn:{label:'显示激活值存储', cls:'orange', act:'showact'} },
+  { title:'反向传播：梯度逆流',
+    desc:'Loss 计算完毕，<strong style="color:#f472b6">梯度</strong>从顶部逆流！每经过一层：读出保存的激活值 → 计算该层梯度 → 写回 HBM。<span class="data">70B 模型梯度 ≈ 140GB</span>。整个 HBM 被权重+激活+梯度+优化器状态填满。',
+    btn:{label:'梯度检查点', cls:'pink', act:'checkpoint'} },
+  { title:'混合精度训练',
+    desc:'<strong>FP32</strong> 主权重（大块） → 转换为 <strong>FP16</strong> 工作副本（小块）→ Tensor Core 原生加速。梯度用 <strong>Loss Scaling</strong> 防止下溢。<span class="data">节省 ~50% 显存，速度提升 2-3×</span>',
+    btn:{label:'精度对比', cls:'cyan', act:'precision'} },
+  { title:'多卡互联：NVLink 与 AllReduce',
+    desc:'8 卡环形拓扑，<strong>NVLink</strong> 光束连接。梯度同步分两步：<strong>ReduceScatter</strong>（分片累加）→ <strong>AllGather</strong>（收集结果）。<span class="data">NVLink 900 GB/s vs PCIe 64 GB/s，快 14 倍！</span>',
+    btn:{label:'启动 AllReduce', cls:'purple', act:'allreduce'} },
+  { title:'优化器更新 & 训练循环',
+    desc:'<strong>Adam 优化器</strong>读取梯度 g、动量 m、方差 v → 计算权重更新 → 写回新权重。<span class="data">70B 模型优化器状态占 560GB</span>。更新完毕，新 Batch 从 NVMe 出发——训练循环，永不停歇。',
+    btn:{label:'下一个 Epoch', cls:'gold', act:'loop'} }
+];
+
+const N_SCENES = 17;
+const RING_R = 1150;
+const Y_DEPTH = [0,-80,-80,-100,-160,-220,-260,-300,-340,-340,-340,-320,-320,-260,-200,0,0];
+
+// ============================================================
+// S1 · Math —— 向量 / 矩阵 / 样条 / 缓动
+// ============================================================
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const lerp=(a,b,t)=>a+(b-a)*t;
+const smoothstep=(a,b,x)=>{ const t=clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); };
+const easeIO=t=>t*t*(3-2*t);
+const TAU=Math.PI*2;
+
+const v3=(x=0,y=0,z=0)=>[x,y,z];
+const vAdd=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const vSub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const vScale=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const vMix=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
+const vLen=a=>Math.hypot(a[0],a[1],a[2]);
+const vNorm=a=>{ const l=vLen(a)||1; return [a[0]/l,a[1]/l,a[2]/l]; };
+const vCross=(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const vDot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+
+function catmull(p0,p1,p2,p3,t){
+  const t2=t*t, t3=t2*t, out=[0,0,0];
+  for(let i=0;i<3;i++){
+    out[i]=0.5*((2*p1[i]) + (-p0[i]+p2[i])*t + (2*p0[i]-5*p1[i]+4*p2[i]-p3[i])*t2 + (-p0[i]+3*p1[i]-3*p2[i]+p3[i])*t3);
+  }
+  return out;
+}
+// 帧率无关阻尼
+const damp=(cur,target,rate,dt)=>lerp(cur,target,1-Math.exp(-rate*dt));
+
+// 列主序 mat4
+function m4Persp(fovY,aspect,near,far){
+  const f=1/Math.tan(fovY/2), m=new Float32Array(16);
+  m[0]=f/aspect; m[5]=f; m[10]=(far+near)/(near-far); m[11]=-1; m[14]=2*far*near/(near-far);
+  return m;
+}
+function m4LookAt(eye,target,up){
+  const z=vNorm(vSub(eye,target)), x=vNorm(vCross(up,z)), y=vCross(z,x);
+  const m=new Float32Array(16);
+  m[0]=x[0]; m[1]=y[0]; m[2]=z[0];  m[4]=x[1]; m[5]=y[1]; m[6]=z[1];
+  m[8]=x[2]; m[9]=y[2]; m[10]=z[2];
+  m[12]=-vDot(x,eye); m[13]=-vDot(y,eye); m[14]=-vDot(z,eye); m[15]=1;
+  return m;
+}
+function m4Mul(a,b){ // a*b
+  const o=new Float32Array(16);
+  for(let c=0;c<4;c++) for(let r=0;r<4;r++){
+    o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];
+  }
+  return o;
+}
+function m4MulV4(m,v){
+  return [
+    m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12]*v[3],
+    m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13]*v[3],
+    m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14]*v[3],
+    m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]*v[3]
+  ];
+}
+function m4Ortho(l,r,b,t,n,f){
+  const m=new Float32Array(16);
+  m[0]=2/(r-l); m[5]=2/(t-b); m[10]=-2/(f-n);
+  m[12]=-(r+l)/(r-l); m[13]=-(t+b)/(t-b); m[14]=-(f+n)/(f-n); m[15]=1;
+  return m;
+}
+const M4_ID=new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+// 简单可复现伪随机（录屏/截图需要确定性）
+let _seed=12345;
+function rnd(){ _seed=(_seed*1103515245+12345)&0x7fffffff; return _seed/0x7fffffff; }
+
+// ============================================================
+// S2 · GL Core —— 上下文 / 着色器编译 / FBO
+// ============================================================
+const canvas = document.getElementById('gl');
+const gl = canvas.getContext('webgl2', { antialias:false, alpha:false, powerPreference:'high-performance' });
+if(!gl){
+  document.getElementById('fallback').style.display='flex';
+  throw new Error('WebGL2 not supported');
+}
+canvas.addEventListener('webglcontextlost', e=>{ e.preventDefault(); location.reload(); });
+const floatOK = !!gl.getExtension('EXT_color_buffer_float');
+
+let drawCalls = 0;
+function makeProg(vsSrc, fsSrc, name){
+  function sh(type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+      throw new Error(name+' shader: '+gl.getShaderInfoLog(s));
+    }
+    return s;
+  }
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, vsSrc));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fsSrc));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+    throw new Error(name+' link: '+gl.getProgramInfoLog(p));
+  }
+  return p;
+}
+function locs(prog, names){
+  const o={}; for(const n of names) o[n]=gl.getUniformLocation(prog,n); return o;
+}
+function makeFBO(w,h,opts={}){
+  const fb=gl.createFramebuffer(), tex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  const useFloat = opts.float && floatOK;
+  gl.texImage2D(gl.TEXTURE_2D,0, useFloat?gl.RGBA16F:gl.RGBA8, w,h,0, gl.RGBA, useFloat?gl.HALF_FLOAT:gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  let depth=null;
+  if(opts.depth){
+    depth=gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depth);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return {fb, tex, w, h, depth};
+}
+function delFBO(f){ if(!f)return; gl.deleteFramebuffer(f.fb); gl.deleteTexture(f.tex); if(f.depth)gl.deleteRenderbuffer(f.depth); }
+
+let cssW=1, cssH=1, dpr=1, W=1, H=1;
+let sceneFBO=null, brightFBO=null, blurA=null, blurB=null;
+function resize(){
+  cssW=window.innerWidth; cssH=window.innerHeight;
+  dpr=Math.min(window.devicePixelRatio||1, 2);
+  W=Math.max(2, Math.round(cssW*dpr*QUALITY.renderScale));
+  H=Math.max(2, Math.round(cssH*dpr*QUALITY.renderScale));
+  canvas.width=W; canvas.height=H;
+  canvas.style.width=cssW+'px'; canvas.style.height=cssH+'px';
+  delFBO(sceneFBO); delFBO(brightFBO); delFBO(blurA); delFBO(blurB);
+  sceneFBO=makeFBO(W,H,{float:true,depth:true});
+  brightFBO=makeFBO(W>>1,H>>1,{float:true});
+  blurA=makeFBO(W>>2,H>>2,{float:true});
+  blurB=makeFBO(W>>2,H>>2,{float:true});
+}
+window.addEventListener('resize', resize);
+
+// ============================================================
+// S3 · Geometry —— 立方体基础网格
+// ============================================================
+// 单位立方体（中心原点，边长1），pos3+nrm3 interleaved
+const CUBE_VERTS = new Float32Array([
+  // +X
+  .5,-.5,-.5, 1,0,0,  .5,.5,-.5, 1,0,0,  .5,.5,.5, 1,0,0,  .5,-.5,.5, 1,0,0,
+  // -X
+  -.5,-.5,.5, -1,0,0, -.5,.5,.5, -1,0,0, -.5,.5,-.5, -1,0,0, -.5,-.5,-.5, -1,0,0,
+  // +Y
+  -.5,.5,-.5, 0,1,0,  -.5,.5,.5, 0,1,0,  .5,.5,.5, 0,1,0,  .5,.5,-.5, 0,1,0,
+  // -Y
+  -.5,-.5,.5, 0,-1,0, -.5,-.5,-.5, 0,-1,0, .5,-.5,-.5, 0,-1,0, .5,-.5,.5, 0,-1,0,
+  // +Z
+  -.5,-.5,.5, 0,0,1,  .5,-.5,.5, 0,0,1,  .5,.5,.5, 0,0,1,  -.5,.5,.5, 0,0,1,
+  // -Z
+  .5,-.5,-.5, 0,0,-1, -.5,-.5,-.5, 0,0,-1, -.5,.5,-.5, 0,0,-1, .5,.5,-.5, 0,0,-1
+]);
+const CUBE_IDX = new Uint16Array([0,1,2,0,2,3, 4,5,6,4,6,7, 8,9,10,8,10,11, 12,13,14,12,14,15, 16,17,18,16,18,19, 20,21,22,20,22,23]);
+const cubeVbo = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, cubeVbo);
+gl.bufferData(gl.ARRAY_BUFFER, CUBE_VERTS, gl.STATIC_DRAW);
+const cubeIbo = gl.createBuffer();
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIbo);
+gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, CUBE_IDX, gl.STATIC_DRAW);
+
+// ============================================================
+// S5 · Shaders（提前于 S4，Batch 需要 program）
+// ============================================================
+const BOX_VS = `#version 300 es
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm;
+layout(location=2) in vec3 iPos; layout(location=3) in vec3 iScale;
+layout(location=4) in vec3 iColor; layout(location=5) in vec3 iMisc;
+uniform mat4 uVP; uniform vec3 uRoot; uniform float uRootScale;
+uniform float uTime; uniform float uPulse;
+uniform vec4 uWave; uniform vec3 uWaveP;
+out vec3 vN; out vec3 vNl; out vec3 vCol; out float vEmi; out vec3 vWorld;
+out vec3 vLocal; out vec3 vScl;
+void main(){
+  float cy=cos(iMisc.y), sy=sin(iMisc.y);
+  vec3 sp=aPos*iScale;
+  vec3 rp=vec3(sp.x*cy+sp.z*sy, sp.y, -sp.x*sy+sp.z*cy);
+  vec3 n=vec3(aNrm.x*cy+aNrm.z*sy, aNrm.y, -aNrm.x*sy+aNrm.z*cy);
+  vec3 world=uRoot+(iPos+rp)*uRootScale;
+  float emi=iMisc.x*(1.0+uPulse*(0.5+0.5*sin(uTime*2.2+iMisc.z*6.2831)));
+  if(uWaveP.y>0.001){
+    float d;
+    if(uWaveP.z>0.5){ d=(distance(world,uWave.xyz)-uWave.w)/uWaveP.x; }
+    else{ d=(dot(world,uWave.xyz)-uWave.w)/uWaveP.x; }
+    emi+=uWaveP.y*exp(-d*d);
+  }
+  // 每实例 ±12% 明度差异，打破"克隆体"感
+  vN=n; vNl=aNrm; vCol=iColor*(0.88+0.24*fract(iMisc.z*7.31));
+  vEmi=emi; vWorld=world;
+  vLocal=aPos; vScl=iScale*uRootScale;
+  gl_Position=uVP*vec4(world,1.0);
+}`;
+const BOX_FS = `#version 300 es
+precision highp float;
+in vec3 vN; in vec3 vNl; in vec3 vCol; in float vEmi; in vec3 vWorld;
+in vec3 vLocal; in vec3 vScl;
+uniform vec3 uCam; uniform vec3 uFogCol; uniform float uFogD;
+uniform float uFade; uniform float uAlpha;
+uniform mat4 uLightVP; uniform highp sampler2DShadow uShadow; uniform float uShadowOn;
+out vec4 o;
+float hash21(vec2 q){ q=fract(q*vec2(123.34,456.21)); q+=dot(q,q+45.32); return fract(q.x*q.y); }
+float dGrid(float v,float S){ return abs(fract(v/S+0.5)-0.5)*S; }
+void main(){
+  vec3 N=normalize(vN);
+  vec3 V=normalize(uCam-vWorld);
+  vec3 L=normalize(vec3(0.42,0.8,0.34));
+  float ndl=max(dot(N,L),0.0);
+
+  // —— 阴影（4-tap PCF，硬件比较再 2×2 = 软边）——
+  float sh=1.0;
+  if(uShadowOn>0.5){
+    vec4 sc=uLightVP*vec4(vWorld,1.0);
+    vec3 spc=sc.xyz/sc.w*0.5+0.5;
+    if(all(greaterThan(spc.xy,vec2(0.003))) && all(lessThan(spc.xy,vec2(0.997))) && spc.z<1.0){
+      float bias=clamp(0.0022*(1.0-ndl)+0.0007,0.0,0.004);
+      float acc=0.0;
+      for(int ix=-1;ix<=1;ix+=2) for(int iy=-1;iy<=1;iy+=2)
+        acc+=texture(uShadow, vec3(spc.xy+vec2(float(ix),float(iy))*(0.7/2048.0), spc.z-bias));
+      sh=mix(1.0, acc*0.25, 0.85); // 阴影保留 15% 透光，不死黑
+    }
+  }
+
+  // —— 程序化表面：面板接缝 + 颗粒杂色（三平面投影取 UV）——
+  vec3 an=abs(N);
+  vec2 uv = an.y>0.7 ? vWorld.xz : (an.x>0.7 ? vWorld.zy : vWorld.xy);
+  float seam=min(dGrid(uv.x,6.5), dGrid(uv.y,6.5));
+  float panel=1.0-0.09*(1.0-smoothstep(0.02,0.10,seam));
+  float mottle=0.95+0.10*hash21(floor(uv*1.6));
+  vec3 alb=vCol*panel*mottle;
+
+  // —— 假 AO：盒体底部渐暗 + 朝下表面变暗 ——
+  float ao=mix(0.5,1.0, smoothstep(-0.5,0.25,vLocal.y));
+  float aoN=mix(0.55,1.0, N.y*0.5+0.5);
+
+  // —— 倒角边缘高光（按局部坐标算到棱的世界距离）——
+  vec3 anl=abs(normalize(vNl));
+  vec3 dE3=(0.5-abs(vLocal))*vScl;
+  float dE=1e9;
+  if(anl.x<0.5) dE=min(dE,dE3.x);
+  if(anl.y<0.5) dE=min(dE,dE3.y);
+  if(anl.z<0.5) dE=min(dE,dE3.z);
+  float eW=clamp(0.10*min(min(vScl.x,vScl.y),vScl.z),0.05,0.45);
+  float edge=1.0-smoothstep(0.0,eW,dE);
+
+  // —— 光照：Blinn 高光 + 假天空反射 ——
+  vec3 H=normalize(L+V);
+  float spec=pow(max(dot(N,H),0.0),42.0);
+  vec3 R=reflect(-V,N);
+  float fres=pow(1.0-max(dot(N,V),0.0),3.0);
+  vec3 sky=mix(vec3(0.012,0.02,0.045), vec3(0.10,0.17,0.32), smoothstep(-0.4,0.8,R.y));
+
+  vec3 lit = alb*0.17*aoN
+           + alb*0.6*ndl*sh
+           + alb*spec*sh*0.9
+           + sky*fres*(0.4+0.6*sh)
+           + (sky*1.6+alb*0.5)*edge*0.6*(0.3+0.7*sh);
+  vec3 col = lit*ao + vCol*vEmi*1.7;
+
+  float dist=distance(uCam,vWorld);
+  float fog=1.0-exp(-dist*uFogD);
+  fog=max(fog,1.0-uFade);
+  col=mix(col,uFogCol,fog);
+  o=vec4(col,uAlpha);
+}`;
+// 阴影深度 pass（只算几何位置）
+const DEPTH_VS = `#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=2) in vec3 iPos; layout(location=3) in vec3 iScale; layout(location=5) in vec3 iMisc;
+uniform mat4 uLightVP; uniform vec3 uRoot; uniform float uRootScale;
+void main(){
+  float cy=cos(iMisc.y), sy=sin(iMisc.y);
+  vec3 sp=aPos*iScale;
+  vec3 rp=vec3(sp.x*cy+sp.z*sy, sp.y, -sp.x*sy+sp.z*cy);
+  gl_Position=uLightVP*vec4(uRoot+(iPos+rp)*uRootScale,1.0);
+}`;
+const DEPTH_FS = `#version 300 es
+precision mediump float;
+void main(){}`;
+const LINE_VS = `#version 300 es
+layout(location=0) in vec3 aPos; layout(location=1) in vec4 aCol;
+uniform mat4 uVP; uniform vec3 uRoot; uniform float uYaw;
+out vec4 vC; out vec3 vWorld;
+void main(){
+  float cy=cos(uYaw), sy=sin(uYaw);
+  vec3 rp=vec3(aPos.x*cy+aPos.z*sy, aPos.y, -aPos.x*sy+aPos.z*cy);
+  vec3 world=uRoot+rp;
+  vC=aCol; vWorld=world;
+  gl_Position=uVP*vec4(world,1.0);
+}`;
+const LINE_FS = `#version 300 es
+precision highp float;
+in vec4 vC; in vec3 vWorld;
+uniform vec3 uCam; uniform float uFogD; uniform float uFade; uniform float uBright;
+out vec4 o;
+void main(){
+  float dist=distance(uCam,vWorld);
+  float a=vC.a*exp(-dist*uFogD*0.85)*uFade;
+  o=vec4(vC.rgb*uBright,a);
+}`;
+const PART_VS = `#version 300 es
+layout(location=0) in vec4 aP; layout(location=1) in vec4 aC;
+uniform mat4 uVP; uniform float uPtScale; uniform vec3 uCam; uniform float uFogD;
+out vec4 vC;
+void main(){
+  gl_Position=uVP*vec4(aP.xyz,1.0);
+  float w=max(gl_Position.w,0.001);
+  gl_PointSize=clamp(aP.w*uPtScale/w, 1.0, 38.0);
+  float dist=distance(uCam,aP.xyz);
+  vC=vec4(aC.rgb, aC.a*exp(-dist*uFogD*0.7));
+}`;
+const PART_FS = `#version 300 es
+precision highp float;
+in vec4 vC;
+out vec4 o;
+void main(){
+  float d=length(gl_PointCoord-0.5)*2.0;
+  float a=smoothstep(1.0,0.0,d); a*=a;
+  o=vec4(vC.rgb*vC.a*a*1.6, 0.0);
+}`;
+const DUST_VS = `#version 300 es
+uniform mat4 uVP; uniform vec3 uCam; uniform float uTime;
+uniform float uMode; uniform float uPtScale;
+out float vA; out vec3 vCol;
+float h(float n){ return fract(sin(n)*43758.5453); }
+void main(){
+  float id=float(gl_VertexID);
+  vec3 hp=vec3(h(id*1.013), h(id*2.171), h(id*3.337));
+  if(uMode>0.5){
+    // 远景星空：固定在相机周围的方向球面上
+    vec3 dir=normalize(hp-0.5);
+    vec3 world=uCam+dir*5200.0;
+    gl_Position=uVP*vec4(world,1.0);
+    gl_PointSize=1.0+2.2*h(id*5.5);
+    vA=(0.25+0.75*pow(h(id*7.7),2.0))*(0.55+0.45*sin(uTime*(0.4+h(id*9.1))+id));
+    vCol=mix(vec3(0.7,0.82,1.0), vec3(1.0,0.9,0.75), h(id*11.3));
+  }else{
+    // 近景尘埃：围绕相机平铺的盒子
+    vec3 p=hp*900.0;
+    p.y+=uTime*(2.0+4.0*h(id*4.41));
+    vec3 rel=mod(p-uCam,900.0)-450.0;
+    vec3 world=uCam+rel;
+    gl_Position=uVP*vec4(world,1.0);
+    float w=max(gl_Position.w,0.001);
+    gl_PointSize=clamp((1.2+2.0*h(id*6.6))*uPtScale/w, 0.5, 5.0);
+    float distF=smoothstep(450.0,140.0,length(rel));
+    vA=0.10*distF*(0.5+0.5*sin(uTime*(0.5+h(id*8.8))+id*2.0));
+    vCol=vec3(0.45,0.65,0.95);
+  }
+}`;
+const DUST_FS = `#version 300 es
+precision highp float;
+in float vA; in vec3 vCol;
+out vec4 o;
+void main(){
+  float d=length(gl_PointCoord-0.5)*2.0;
+  float a=smoothstep(1.0,0.0,d);
+  o=vec4(vCol*vA*a,0.0);
+}`;
+const POST_VS = `#version 300 es
+out vec2 vUV;
+void main(){
+  vec2 p=vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2));
+  vUV=p; gl_Position=vec4(p*2.0-1.0,0.0,1.0);
+}`;
+const BRIGHT_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; uniform sampler2D uTex; uniform float uThresh; uniform float uKnee;
+out vec4 o;
+void main(){
+  vec3 c=texture(uTex,vUV).rgb;
+  float l=dot(c,vec3(0.2126,0.7152,0.0722));
+  float soft=clamp(l-uThresh+uKnee,0.0,2.0*uKnee);
+  soft=soft*soft/(4.0*uKnee);
+  float f=max(soft,l-uThresh)/max(l,1e-4);
+  o=vec4(c*f,1.0);
+}`;
+const BLUR_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; uniform sampler2D uTex; uniform vec2 uDir;
+out vec4 o;
+void main(){
+  vec3 c=texture(uTex,vUV).rgb*0.227027;
+  c+=texture(uTex,vUV+uDir*1.3846153).rgb*0.3162162;
+  c+=texture(uTex,vUV-uDir*1.3846153).rgb*0.3162162;
+  c+=texture(uTex,vUV+uDir*3.2307692).rgb*0.0702703;
+  c+=texture(uTex,vUV-uDir*3.2307692).rgb*0.0702703;
+  o=vec4(c,1.0);
+}`;
+const COMP_FS = `#version 300 es
+precision highp float;
+in vec2 vUV;
+uniform sampler2D uScene; uniform sampler2D uBloom;
+uniform float uStrength; uniform float uExposure; uniform float uBloomOn;
+uniform float uTime;
+out vec4 o;
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0); }
+void main(){
+  vec3 c=texture(uScene,vUV).rgb;
+  if(uBloomOn>0.5) c+=texture(uBloom,vUV).rgb*uStrength;
+  c*=uExposure;
+  c=aces(c);
+  vec2 q=vUV-0.5;
+  c*=1.0-0.38*pow(dot(q,q)*2.6,1.4);
+  c=pow(c,vec3(1.0/2.2));
+  // 轻微胶片噪点，消除大色块的"塑料平滑"
+  float gn=fract(sin(dot(vUV+fract(uTime*0.31), vec2(12.9898,78.233)))*43758.5453);
+  c+=(gn-0.5)*0.018;
+  o=vec4(c,1.0);
+}`;
+
+const boxProg  = makeProg(BOX_VS, BOX_FS, 'box');
+const depthProg = makeProg(DEPTH_VS, DEPTH_FS, 'depth');
+const lineProg = makeProg(LINE_VS, LINE_FS, 'line');
+const partProg = makeProg(PART_VS, PART_FS, 'part');
+const dustProg = makeProg(DUST_VS, DUST_FS, 'dust');
+const brightProg = makeProg(POST_VS, BRIGHT_FS, 'bright');
+const blurProg = makeProg(POST_VS, BLUR_FS, 'blur');
+const compProg = makeProg(POST_VS, COMP_FS, 'comp');
+
+const boxU  = locs(boxProg, ['uVP','uRoot','uRootScale','uTime','uPulse','uWave','uWaveP','uCam','uFogCol','uFogD','uFade','uAlpha','uLightVP','uShadow','uShadowOn']);
+const depthU = locs(depthProg, ['uLightVP','uRoot','uRootScale']);
+const lineU = locs(lineProg, ['uVP','uRoot','uYaw','uCam','uFogD','uFade','uBright']);
+const partU = locs(partProg, ['uVP','uPtScale','uCam','uFogD']);
+const dustU = locs(dustProg, ['uVP','uCam','uTime','uMode','uPtScale']);
+const brightU = locs(brightProg, ['uTex','uThresh','uKnee']);
+const blurU = locs(blurProg, ['uTex','uDir']);
+const compU = locs(compProg, ['uScene','uBloom','uStrength','uExposure','uBloomOn','uTime']);
+
+// —— 阴影贴图资源 ——
+const SHADOW_RES=2048;
+const LIGHT_DIR=vNorm([0.42,0.8,0.34]);
+const shadowTex=gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D,shadowTex);
+gl.texImage2D(gl.TEXTURE_2D,0,gl.DEPTH_COMPONENT24,SHADOW_RES,SHADOW_RES,0,gl.DEPTH_COMPONENT,gl.UNSIGNED_INT,null);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_FUNC,gl.LEQUAL);
+const shadowFB=gl.createFramebuffer();
+gl.bindFramebuffer(gl.FRAMEBUFFER,shadowFB);
+gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,shadowTex,0);
+gl.drawBuffers([gl.NONE]);
+gl.readBuffer(gl.NONE);
+gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+let lightVP=M4_ID, curShadowOn=0;
+
+const emptyVAO = gl.createVertexArray(); // 全屏三角形 / 无属性点
+
+const FOG_COL = hexLin('#0a1226');
+const FOG_D = 0.0026;
+
+// ============================================================
+// S4 · Batch —— 实例化立方体批次
+// ============================================================
+const INST_FLOATS = 12; // iPos3 iScale3 iColor3 iMisc3(emissive,yaw,phase)
+class Batch{
+  constructor(cap){
+    this.cap=cap; this.n=0;
+    this.inst=new Float32Array(cap*INST_FLOATS);
+    this.dirty=true;
+    this.root=[0,0,0]; this.rootScale=1;
+    this.pulse=0; this.alpha=1; this.translucent=false;
+    this.wave=null; // {dir:[x,y,z]|center, pos, width, boost, radial}
+    this.vao=gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVbo);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,24,12);
+    this.ibuf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.ibuf);
+    gl.bufferData(gl.ARRAY_BUFFER, this.inst.byteLength, gl.DYNAMIC_DRAW);
+    const stride=INST_FLOATS*4;
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2,3,gl.FLOAT,false,stride,0);  gl.vertexAttribDivisor(2,1);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,3,gl.FLOAT,false,stride,12); gl.vertexAttribDivisor(3,1);
+    gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4,3,gl.FLOAT,false,stride,24); gl.vertexAttribDivisor(4,1);
+    gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5,3,gl.FLOAT,false,stride,36); gl.vertexAttribDivisor(5,1);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIbo);
+    gl.bindVertexArray(null);
+  }
+  add(x,y,z, sx,sy,sz, col, emi=0, yaw=0, phase=-1){
+    if(this.n>=this.cap) return -1;
+    const i=this.n*INST_FLOATS, a=this.inst;
+    a[i]=x; a[i+1]=y; a[i+2]=z;
+    a[i+3]=sx; a[i+4]=sy; a[i+5]=sz;
+    a[i+6]=col[0]; a[i+7]=col[1]; a[i+8]=col[2];
+    a[i+9]=emi; a[i+10]=yaw; a[i+11]=phase<0?rnd():phase;
+    this.dirty=true;
+    return this.n++;
+  }
+  setPos(i,x,y,z){ const a=this.inst,o=i*INST_FLOATS; a[o]=x;a[o+1]=y;a[o+2]=z; this.dirty=true; }
+  setScale(i,sx,sy,sz){ const a=this.inst,o=i*INST_FLOATS; a[o+3]=sx;a[o+4]=sy;a[o+5]=sz; this.dirty=true; }
+  setColor(i,col){ const a=this.inst,o=i*INST_FLOATS; a[o+6]=col[0];a[o+7]=col[1];a[o+8]=col[2]; this.dirty=true; }
+  setEmi(i,e){ this.inst[i*INST_FLOATS+9]=e; this.dirty=true; }
+  getEmi(i){ return this.inst[i*INST_FLOATS+9]; }
+  upload(){
+    if(!this.dirty) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.ibuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.inst.subarray(0, this.n*INST_FLOATS));
+    this.dirty=false;
+  }
+  draw(fade, time){
+    if(this.n===0 || fade<=0.01) return;
+    this.upload();
+    gl.uniform3fv(boxU.uRoot, this.root);
+    gl.uniform1f(boxU.uRootScale, this.rootScale);
+    gl.uniform1f(boxU.uPulse, this.pulse);
+    gl.uniform1f(boxU.uFade, fade);
+    if(this.wave){
+      const w=this.wave;
+      gl.uniform4f(boxU.uWave, w.dir[0],w.dir[1],w.dir[2], w.pos);
+      gl.uniform3f(boxU.uWaveP, w.width, w.boost, w.radial?1:0);
+    }else{
+      gl.uniform3f(boxU.uWaveP, 1,0,0);
+      gl.uniform4f(boxU.uWave, 0,1,0,0);
+    }
+    gl.uniform1f(boxU.uShadowOn, this.translucent?0:curShadowOn);
+    if(this.translucent){
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.depthMask(false);
+      gl.uniform1f(boxU.uAlpha, this.alpha);
+    }else{
+      gl.disable(gl.BLEND);
+      gl.depthMask(true);
+      gl.uniform1f(boxU.uAlpha, 1);
+    }
+    gl.bindVertexArray(this.vao);
+    gl.drawElementsInstanced(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0, this.n);
+    gl.bindVertexArray(null);
+    drawCalls++;
+    if(this.translucent){ gl.disable(gl.BLEND); gl.depthMask(true); }
+  }
+}
+
+// ============================================================
+// S4b · LineSet —— 发光线条
+// ============================================================
+class LineSet{
+  constructor(cap){ // cap = 线段数
+    this.cap=cap; this.n=0;
+    this.verts=new Float32Array(cap*2*7);
+    this.dirty=true;
+    this.root=[0,0,0]; this.yaw=0; this.bright=1; this.alpha=1;
+    this.vao=gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+    this.buf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+    gl.bufferData(gl.ARRAY_BUFFER, this.verts.byteLength, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,28,0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,4,gl.FLOAT,false,28,12);
+    gl.bindVertexArray(null);
+  }
+  add(a,b,col,alpha=1){
+    if(this.n>=this.cap) return;
+    const o=this.n*14, v=this.verts;
+    v[o]=a[0];v[o+1]=a[1];v[o+2]=a[2]; v[o+3]=col[0];v[o+4]=col[1];v[o+5]=col[2];v[o+6]=alpha;
+    v[o+7]=b[0];v[o+8]=b[1];v[o+9]=b[2]; v[o+10]=col[0];v[o+11]=col[1];v[o+12]=col[2];v[o+13]=alpha;
+    this.n++; this.dirty=true;
+  }
+  strip(pts,col,alpha=1){ for(let i=0;i<pts.length-1;i++) this.add(pts[i],pts[i+1],col,alpha); }
+  circle(c,r,seg,col,alpha=1,plane='xz'){
+    const pts=[];
+    for(let i=0;i<=seg;i++){
+      const a=i/seg*TAU;
+      if(plane==='xz') pts.push([c[0]+Math.cos(a)*r, c[1], c[2]+Math.sin(a)*r]);
+      else if(plane==='xy') pts.push([c[0]+Math.cos(a)*r, c[1]+Math.sin(a)*r, c[2]]);
+      else pts.push([c[0], c[1]+Math.cos(a)*r, c[2]+Math.sin(a)*r]);
+    }
+    this.strip(pts,col,alpha);
+  }
+  clear(){ this.n=0; this.dirty=true; }
+  upload(){
+    if(!this.dirty) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.verts.subarray(0, this.n*14));
+    this.dirty=false;
+  }
+  draw(fade){
+    if(this.n===0 || fade<=0.01) return;
+    this.upload();
+    gl.uniform3fv(lineU.uRoot, this.root);
+    gl.uniform1f(lineU.uYaw, this.yaw);
+    gl.uniform1f(lineU.uFade, fade*this.alpha);
+    gl.uniform1f(lineU.uBright, this.bright);
+    gl.bindVertexArray(this.vao);
+    gl.drawArrays(gl.LINES, 0, this.n*2);
+    gl.bindVertexArray(null);
+    drawCalls++;
+  }
+}
+// ============================================================
+// S6 · Particles —— 全局粒子池 + 路径流 + 爆发
+// ============================================================
+const MAXP = 30000;
+const partData = new Float32Array(MAXP*8);
+let partN = 0;
+const partVao = gl.createVertexArray();
+gl.bindVertexArray(partVao);
+const partBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, partBuf);
+gl.bufferData(gl.ARRAY_BUFFER, partData.byteLength, gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,4,gl.FLOAT,false,32,0);
+gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,4,gl.FLOAT,false,32,16);
+gl.bindVertexArray(null);
+
+function pPush(x,y,z,size,col,a){
+  if(partN>=MAXP) return;
+  const o=partN*8, d=partData;
+  d[o]=x; d[o+1]=y; d[o+2]=z; d[o+3]=size;
+  d[o+4]=col[0]; d[o+5]=col[1]; d[o+6]=col[2]; d[o+7]=a;
+  partN++;
+}
+
+// 沿路径流动的粒子发射器（path 为世界坐标点列）
+class Flow{
+  constructor(path, opts={}){
+    this.setPath(path);
+    this.rate=opts.rate??30;
+    this.speed=opts.speed??60;       // 单位/秒
+    this.speedVar=opts.speedVar??0.3;
+    this.size=opts.size??3;
+    this.sizeVar=opts.sizeVar??0.4;
+    this.col=opts.col??C3.data;
+    this.col2=opts.col2??null;
+    this.jitter=opts.jitter??1.5;
+    this.bright=opts.bright??1;
+    this.fadeEnds=opts.fadeEnds??true;
+    this.intensity=opts.intensity??1;
+    this.prewarm=opts.prewarm??true;
+    this.parts=[]; this.acc=0; this.warmed=false;
+  }
+  setPath(path){
+    this.path=path;
+    this.cum=[0];
+    for(let i=1;i<path.length;i++) this.cum.push(this.cum[i-1]+vLen(vSub(path[i],path[i-1])));
+    this.len=this.cum[this.cum.length-1]||1;
+  }
+  sample(t){
+    const s=t*this.len, c=this.cum;
+    let lo=0, hi=c.length-1;
+    while(lo<hi-1){ const m=(lo+hi)>>1; if(c[m]<=s) lo=m; else hi=m; }
+    const seg=(s-c[lo])/((c[lo+1]-c[lo])||1);
+    return vMix(this.path[lo], this.path[lo+1], seg);
+  }
+  spawn(t0){
+    const sp=this.speed*(1+(rnd()*2-1)*this.speedVar)/this.len;
+    this.parts.push({
+      t:t0, sp,
+      ox:(rnd()*2-1)*this.jitter, oy:(rnd()*2-1)*this.jitter, oz:(rnd()*2-1)*this.jitter,
+      size:this.size*(1+(rnd()*2-1)*this.sizeVar),
+      col:(this.col2&&rnd()<0.5)?this.col2:this.col
+    });
+  }
+  update(dt, fade){
+    if(this.intensity<=0.001){ this.parts.length=0; this.warmed=false; return; }
+    if(this.prewarm && !this.warmed){
+      const n=Math.min(200, this.rate*this.intensity*2);
+      for(let k=0;k<n;k++) this.spawn(rnd());
+      this.warmed=true;
+    }
+    this.acc+=this.rate*this.intensity*dt;
+    while(this.acc>=1){ this.acc-=1; this.spawn(0); }
+    const keep=[];
+    for(const q of this.parts){
+      q.t+=q.sp*dt;
+      if(q.t<1){
+        keep.push(q);
+        const pos=this.sample(q.t);
+        let a=this.bright*this.intensity*fade;
+        if(this.fadeEnds) a*=Math.min(1, Math.sin(Math.PI*q.t)*2.2);
+        pPush(pos[0]+q.ox, pos[1]+q.oy, pos[2]+q.oz, q.size, q.col, a);
+      }
+    }
+    this.parts=keep;
+  }
+}
+
+// 爆发粒子（全局池）
+let bursts=[];
+function burst(pos, opts={}){
+  const n=opts.n??40, speed=opts.speed??30, col=opts.col??C3.tensor;
+  const life=opts.life??0.9, size=opts.size??3, grav=opts.grav??0,
+        drag=opts.drag??1.5, dir=opts.dir??null, spread=opts.spread??1;
+  for(let k=0;k<n;k++){
+    let d=[rnd()*2-1, rnd()*2-1, rnd()*2-1];
+    d=vNorm(d);
+    if(dir) d=vNorm(vAdd(vScale(dir,1.2), vScale(d,spread)));
+    const sp=speed*(0.4+rnd()*0.8);
+    bursts.push({
+      x:pos[0],y:pos[1],z:pos[2],
+      vx:d[0]*sp, vy:d[1]*sp, vz:d[2]*sp,
+      life:life*(0.6+rnd()*0.6), life0:life, size:size*(0.6+rnd()*0.8),
+      col, grav, drag
+    });
+  }
+}
+function updateBursts(dt){
+  const keep=[];
+  for(const b of bursts){
+    b.life-=dt;
+    if(b.life>0){
+      const dr=Math.exp(-b.drag*dt);
+      b.vx*=dr; b.vy*=dr; b.vz*=dr;
+      b.vy-=b.grav*dt;
+      b.x+=b.vx*dt; b.y+=b.vy*dt; b.z+=b.vz*dt;
+      const a=clamp(b.life/b.life0,0,1);
+      pPush(b.x,b.y,b.z,b.size,b.col,a*a*1.4);
+      keep.push(b);
+    }
+  }
+  bursts=keep;
+}
+
+// ============================================================
+// S7 · Camera —— 环形样条飞行 / 输入
+// ============================================================
+const wrapI=i=>((i%N_SCENES)+N_SCENES)%N_SCENES;
+const wrapP=v=>((v%N_SCENES)+N_SCENES)%N_SCENES;
+function wrapDist(a,i){
+  const d=Math.abs(wrapP(a)-i);
+  return Math.min(d, N_SCENES-d);
+}
+
+const SC_ANCHOR=[], SC_FWD=[], SC_RIGHT=[];
+const REST_LOCAL_OVR = {
+  0:[0,54,-168], 3:[0,4,-185], 4:[0,92,-170], 5:[68,55,-100], 6:[0,60,-158],
+  8:[0,18,-78], 9:[0,36,-138], 13:[0,54,-158], 14:[0,30,-110],
+  15:[0,92,-158], 16:[0,100,-165]
+};
+const FOCUS_LOCAL_OVR = {
+  0:[0,10,5], 3:[0,0,70], 4:[0,2,0], 5:[0,44,0], 6:[0,42,0],
+  8:[0,9,0], 9:[0,34,8], 13:[0,46,0], 15:[0,8,0], 16:[0,4,0]
+};
+const REST_W=[], FOCUS_W=[];
+for(let i=0;i<N_SCENES;i++){
+  const th=i/N_SCENES*TAU;
+  const cos=Math.cos(th), sin=Math.sin(th);
+  SC_ANCHOR.push([cos*RING_R, Y_DEPTH[i], sin*RING_R]);
+  SC_FWD.push([-sin,0,cos]);
+  SC_RIGHT.push([cos,0,sin]);
+}
+function L2W(i, l){
+  const a=SC_ANCHOR[i], r=SC_RIGHT[i], f=SC_FWD[i];
+  return [
+    a[0]+r[0]*l[0]+f[0]*l[2],
+    a[1]+l[1],
+    a[2]+r[2]*l[0]+f[2]*l[2]
+  ];
+}
+for(let i=0;i<N_SCENES;i++){
+  REST_W.push(L2W(i, REST_LOCAL_OVR[i]||[0,26,-108]));
+  FOCUS_W.push(L2W(i, FOCUS_LOCAL_OVR[i]||[0,10,0]));
+}
+
+let p=0, targetP=0, cruise=false;
+let yawOff=0, pitchOff=0, dragging=false, lastMX=0, lastMY=0;
+let lastWheelT=-9, flashV=0;
+let camPos=[0,0,0], camDir=[0,0,1];
+let proj=null, view=null, VP=null;
+function flash(v){ flashV=Math.max(flashV,v); }
+
+function updateCamera(dt, now){
+  if(cruise) targetP+=dt*0.05;
+  if(!cruise && now-lastWheelT>0.7){
+    const sn=Math.round(targetP);
+    if(Math.abs(targetP-sn)<0.22 && sn<=16 && sn>=0) targetP=damp(targetP,sn,3,dt);
+  }
+  p=damp(p,targetP,4.0,dt);
+  if(p>N_SCENES-0.02 && targetP>=N_SCENES-0.01){ p-=N_SCENES; targetP-=N_SCENES; }
+  if(cruise && targetP>=N_SCENES){ targetP-=N_SCENES; p-=N_SCENES; }
+  const pp=wrapP(p);
+  const i=Math.floor(pp), f=pp-i;
+  const pos=catmull(REST_W[wrapI(i-1)],REST_W[i],REST_W[wrapI(i+1)],REST_W[wrapI(i+2)],f);
+  const lookT=vMix(FOCUS_W[i],FOCUS_W[wrapI(i+1)],smoothstep(0.3,0.85,f));
+  let dir=vSub(lookT,pos);
+  // 拖拽环顾：把视线方向转成球面角后加偏移
+  const dl=vLen(dir)||1;
+  let yaw=Math.atan2(dir[0],dir[2])+yawOff;
+  let pitch=Math.asin(clamp(dir[1]/dl,-1,1))+pitchOff;
+  pitch=clamp(pitch,-1.35,1.35);
+  dir=[Math.sin(yaw)*Math.cos(pitch), Math.sin(pitch), Math.cos(yaw)*Math.cos(pitch)];
+  if(!dragging){ yawOff*=Math.exp(-2.5*dt); pitchOff*=Math.exp(-2.5*dt); }
+  camPos=pos; camDir=dir;
+  proj=m4Persp(Math.PI/3, W/H, 0.5, 12000);
+  view=m4LookAt(pos, vAdd(pos,dir), [0,1,0]);
+  VP=m4Mul(proj,view);
+  flashV*=Math.exp(-3.2*dt);
+}
+
+// —— 输入 ——
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  let d=e.deltaY;
+  if(e.deltaMode===1) d*=16; else if(e.deltaMode===2) d*=100;
+  d=clamp(d,-140,140);
+  targetP=clamp(targetP+d*0.0012, 0, N_SCENES-1);
+  lastWheelT=performance.now()/1000;
+  cruise=false; syncCruiseBtn();
+}, {passive:false});
+
+canvas.addEventListener('pointerdown', e=>{
+  dragging=true; lastMX=e.clientX; lastMY=e.clientY;
+  canvas.classList.add('grabbing');
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  yawOff -= (e.clientX-lastMX)*0.003;
+  pitchOff += (e.clientY-lastMY)*0.0025;
+  pitchOff=clamp(pitchOff,-0.9,0.9);
+  lastMX=e.clientX; lastMY=e.clientY;
+});
+canvas.addEventListener('pointerup', ()=>{ dragging=false; canvas.classList.remove('grabbing'); });
+canvas.addEventListener('pointercancel', ()=>{ dragging=false; canvas.classList.remove('grabbing'); });
+
+// 双指竖滑推进（移动端）
+let touchD0=0, touchP0=0;
+canvas.addEventListener('touchstart', e=>{
+  if(e.touches.length===2){
+    touchD0=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    touchP0=targetP;
+  }
+}, {passive:true});
+canvas.addEventListener('touchmove', e=>{
+  if(e.touches.length===2){
+    const y=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    targetP=clamp(touchP0+(touchD0-y)*0.008, 0, N_SCENES-1);
+    lastWheelT=performance.now()/1000;
+  }
+}, {passive:true});
+
+window.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key==='PageDown'){ go(1); e.preventDefault(); }
+  else if(e.key==='ArrowLeft'||e.key==='ArrowUp'||e.key==='PageUp'){ go(-1); e.preventDefault(); }
+  else if(e.key===' '){ toggleCruise(); e.preventDefault(); }
+});
+
+// ============================================================
+// S8 · Labels —— DOM overlay 标签
+// ============================================================
+const labelLayer=document.getElementById('labels');
+function makeLabel(S, local, html, cls=''){
+  const el=document.createElement('div');
+  el.className='lbl '+cls;
+  el.innerHTML=html;
+  el.style.opacity='0';
+  labelLayer.appendChild(el);
+  const lbl={el, world:L2W(S.i, local), show:1, vis:false};
+  S.labels.push(lbl);
+  return lbl;
+}
+function updateLabels(){
+  for(const S of RT){
+    const d=wrapDist(p, S.i);
+    const near=smoothstep(0.95,0.45,d);
+    for(const lbl of S.labels){
+      if(near<=0.02 || lbl.show<=0.02){
+        if(lbl.vis){ lbl.el.style.opacity='0'; lbl.el.style.visibility='hidden'; lbl.vis=false; }
+        continue;
+      }
+      const w=lbl.world;
+      const clip=m4MulV4(VP,[w[0],w[1],w[2],1]);
+      if(clip[3]<0.6){
+        if(lbl.vis){ lbl.el.style.opacity='0'; lbl.el.style.visibility='hidden'; lbl.vis=false; }
+        continue;
+      }
+      const sx=(clip[0]/clip[3]*0.5+0.5)*cssW;
+      const sy=(0.5-clip[1]/clip[3]*0.5)*cssH;
+      if(sx<-100||sx>cssW+100||sy<-80||sy>cssH+80){
+        if(lbl.vis){ lbl.el.style.opacity='0'; lbl.el.style.visibility='hidden'; lbl.vis=false; }
+        continue;
+      }
+      const dist=vLen(vSub(w,camPos));
+      const sc=clamp(240/dist,0.6,1.15);
+      lbl.el.style.visibility='visible';
+      lbl.el.style.transform=`translate3d(${sx.toFixed(1)}px,${sy.toFixed(1)}px,0) translate(-50%,-50%) scale(${sc.toFixed(3)})`;
+      lbl.el.style.opacity=(near*lbl.show*clamp(420/dist,0.35,1)).toFixed(3);
+      lbl.vis=true;
+    }
+  }
+}
+
+// ============================================================
+// S10 · Scene 框架 —— 注册 / 激活 / 套件
+// ============================================================
+const RT=[];
+for(let i=0;i<N_SCENES;i++){
+  RT.push({
+    i, built:false, t:0, fade:0,
+    flagOn:false, flagT:-1,
+    batches:[], lines:[], flows:[], labels:[],
+    cst:{}  // 场景私有状态
+  });
+}
+function sceneApi(S){
+  return {
+    S,
+    box(cap){ const b=new Batch(cap); S.batches.push(b); return b; },
+    line(cap){ const l=new LineSet(cap); S.lines.push(l); return l; },
+    flow(localPts, opts){
+      const f=new Flow(localPts.map(q=>L2W(S.i,q)), opts);
+      S.flows.push(f); return f;
+    },
+    flowW(worldPts, opts){ const f=new Flow(worldPts, opts); S.flows.push(f); return f; },
+    label(lx,ly,lz,html,cls){ return makeLabel(S,[lx,ly,lz],html,cls); },
+    w(x,y,z){ return L2W(S.i,[x,y,z]); }
+  };
+}
+// 通用网格摆放
+function placeGrid(b, S, o){
+  const idx=[];
+  const nx=o.nx, nz=o.nz;
+  for(let ix=0;ix<nx;ix++) for(let iz=0;iz<nz;iz++){
+    const lx=o.cx+(ix-(nx-1)/2)*o.dx;
+    const lz=o.cz+(iz-(nz-1)/2)*o.dz;
+    const h=o.sy + (o.hVar? (rnd()*2-1)*o.hVar : 0);
+    const w=L2W(S.i,[lx, o.cy+h/2, lz]);
+    idx.push(b.add(w[0],w[1],w[2], o.sx,h,o.sz, o.col, o.emi??0, S.yaw0??0));
+  }
+  return idx;
+}
+// 场景局部 yaw：让几何与环形切线对齐
+function sceneYaw(i){ return Math.atan2(SC_FWD[i][0], SC_FWD[i][2]); }
+
+const BUILDERS=new Array(N_SCENES).fill(null);
+const UPDATERS=new Array(N_SCENES).fill(null);
+
+let buildCursor=0;
+function maintainScenes(dt){
+  // 每帧最多 build 一个场景，避免卡顿
+  let builtThisFrame=false;
+  for(let k=0;k<N_SCENES;k++){
+    const S=RT[k];
+    const d=wrapDist(p,k);
+    S.fade=smoothstep(1.7,1.3,d);
+    if(d<1.8 && !S.built && !builtThisFrame && BUILDERS[k]){
+      _seed=10007+k*977; // 每场景确定性随机
+      S.yaw0=sceneYaw(k);
+      BUILDERS[k](sceneApi(S));
+      S.built=true; builtThisFrame=true;
+    }
+    if(S.built && d<1.55){
+      S.t+=dt;
+      if(S.flagOn) S.flagT+=dt;
+      if(UPDATERS[k]) UPDATERS[k](S,dt,sceneApi(S));
+      for(const f of S.flows) f.update(dt,S.fade);
+    }
+  }
+}
+
+function sceneAction(act){
+  const cur=wrapI(Math.round(wrapP(p)));
+  const S=RT[cur];
+  if(act==='loop'){ // 场景⑰：先更新脉冲，再由 UPDATERS[16] 触发环游收尾
+    RT[16].flagOn=true; RT[16].flagT=0;
+    return;
+  }
+  const toggles=['compare','flash','precision'];
+  if(toggles.includes(act)){
+    S.flagOn=!S.flagOn; S.flagT=0;
+  }else{
+    S.flagOn=true; S.flagT=0;
+  }
+}
+function startEpoch(){
+  cruise=false; syncCruiseBtn();
+  targetP=N_SCENES; // 一路飞回场景①
+}
+
+// ============================================================
+// S9 · Render —— 主渲染管线
+// ============================================================
+function render(time){
+  drawCalls=0;
+  // 0) 阴影深度 pass（正交光源框跟随当前场景）
+  curShadowOn=QUALITY.shadow?1:0;
+  if(QUALITY.shadow){
+    const pp=wrapP(p), si=Math.floor(pp), sf=pp-si;
+    const c=vMix(SC_ANCHOR[si],SC_ANCHOR[wrapI(si+1)],smoothstep(0.2,0.8,sf));
+    lightVP=m4Mul(
+      m4Ortho(-430,430,-430,430,80,1700),
+      m4LookAt(vAdd(c,vScale(LIGHT_DIR,820)), c, [0,1,0])
+    );
+    gl.bindFramebuffer(gl.FRAMEBUFFER,shadowFB);
+    gl.viewport(0,0,SHADOW_RES,SHADOW_RES);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.FRONT); // 正面剔除减轻阴影痤疮
+    gl.useProgram(depthProg);
+    gl.uniformMatrix4fv(depthU.uLightVP,false,lightVP);
+    for(const S of RT){
+      if(!S.built||S.fade<=0.01) continue;
+      for(const b of S.batches){
+        if(b.translucent||b.n===0) continue;
+        b.upload();
+        gl.uniform3fv(depthU.uRoot,b.root);
+        gl.uniform1f(depthU.uRootScale,b.rootScale);
+        gl.bindVertexArray(b.vao);
+        gl.drawElementsInstanced(gl.TRIANGLES,36,gl.UNSIGNED_SHORT,0,b.n);
+        drawCalls++;
+      }
+    }
+    gl.bindVertexArray(null);
+    gl.cullFace(gl.BACK);
+  }else{
+    lightVP=M4_ID;
+  }
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO.fb);
+  gl.viewport(0,0,W,H);
+  gl.clearColor(FOG_COL[0]*0.55, FOG_COL[1]*0.55, FOG_COL[2]*0.55, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LEQUAL);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+
+  // 1) 星空（无深度）
+  gl.depthMask(false);
+  gl.disable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE);
+  gl.useProgram(dustProg);
+  gl.uniformMatrix4fv(dustU.uVP,false,VP);
+  gl.uniform3fv(dustU.uCam,camPos);
+  gl.uniform1f(dustU.uTime,time);
+  gl.uniform1f(dustU.uPtScale, proj[5]*H*0.5);
+  gl.uniform1f(dustU.uMode,1);
+  gl.bindVertexArray(emptyVAO);
+  gl.drawArrays(gl.POINTS,0,1400);
+  drawCalls++;
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+
+  // 2) 不透明实例
+  gl.useProgram(boxProg);
+  gl.uniformMatrix4fv(boxU.uVP,false,VP);
+  gl.uniform1f(boxU.uTime,time);
+  gl.uniform3fv(boxU.uCam,camPos);
+  gl.uniform3fv(boxU.uFogCol,FOG_COL);
+  gl.uniform1f(boxU.uFogD,FOG_D);
+  gl.uniformMatrix4fv(boxU.uLightVP,false,lightVP);
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D,shadowTex);
+  gl.uniform1i(boxU.uShadow,2);
+  gl.activeTexture(gl.TEXTURE0);
+  for(const S of RT){
+    if(!S.built||S.fade<=0.01) continue;
+    for(const b of S.batches) if(!b.translucent) b.draw(S.fade,time);
+  }
+
+  // 3) 线条（加性）
+  gl.useProgram(lineProg);
+  gl.uniformMatrix4fv(lineU.uVP,false,VP);
+  gl.uniform3fv(lineU.uCam,camPos);
+  gl.uniform1f(lineU.uFogD,FOG_D);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+  gl.depthMask(false);
+  for(const S of RT){
+    if(!S.built||S.fade<=0.01) continue;
+    for(const l of S.lines) l.draw(S.fade);
+  }
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+
+  // 4) 半透明实例（加性，关深度写）
+  gl.useProgram(boxProg);
+  for(const S of RT){
+    if(!S.built||S.fade<=0.01) continue;
+    for(const b of S.batches) if(b.translucent) b.draw(S.fade,time);
+  }
+
+  // 5) 粒子池
+  if(partN>0){
+    gl.bindBuffer(gl.ARRAY_BUFFER,partBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER,0,partData.subarray(0,partN*8));
+    gl.useProgram(partProg);
+    gl.uniformMatrix4fv(partU.uVP,false,VP);
+    gl.uniform1f(partU.uPtScale, proj[5]*H*0.26);
+    gl.uniform3fv(partU.uCam,camPos);
+    gl.uniform1f(partU.uFogD,FOG_D);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE);
+    gl.depthMask(false);
+    gl.bindVertexArray(partVao);
+    gl.drawArrays(gl.POINTS,0,partN);
+    gl.bindVertexArray(null);
+    drawCalls++;
+  }
+
+  // 6) 尘埃
+  gl.useProgram(dustProg);
+  gl.uniformMatrix4fv(dustU.uVP,false,VP);
+  gl.uniform3fv(dustU.uCam,camPos);
+  gl.uniform1f(dustU.uTime,time);
+  gl.uniform1f(dustU.uPtScale, proj[5]*H*0.5);
+  gl.uniform1f(dustU.uMode,0);
+  gl.bindVertexArray(emptyVAO);
+  gl.drawArrays(gl.POINTS,0,QUALITY.dust);
+  drawCalls++;
+  gl.depthMask(true);
+  gl.disable(gl.BLEND);
+
+  // —— 后处理 ——
+  const exposure=1.12*(1+flashV);
+  if(QUALITY.bloom){
+    // 亮度提取（1/2）
+    gl.bindFramebuffer(gl.FRAMEBUFFER,brightFBO.fb);
+    gl.viewport(0,0,brightFBO.w,brightFBO.h);
+    gl.disable(gl.DEPTH_TEST);
+    gl.useProgram(brightProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,sceneFBO.tex);
+    gl.uniform1i(brightU.uTex,0);
+    gl.uniform1f(brightU.uThresh, floatOK?1.0:0.72);
+    gl.uniform1f(brightU.uKnee,0.5);
+    gl.bindVertexArray(emptyVAO);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    drawCalls++;
+    // 高斯模糊 ping-pong（1/4）
+    gl.useProgram(blurProg);
+    gl.uniform1i(blurU.uTex,0);
+    let src=brightFBO;
+    for(let it=0;it<QUALITY.blurIters;it++){
+      gl.bindFramebuffer(gl.FRAMEBUFFER,blurA.fb);
+      gl.viewport(0,0,blurA.w,blurA.h);
+      gl.bindTexture(gl.TEXTURE_2D,src.tex);
+      gl.uniform2f(blurU.uDir,1/blurA.w,0);
+      gl.drawArrays(gl.TRIANGLES,0,3);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,blurB.fb);
+      gl.bindTexture(gl.TEXTURE_2D,blurA.tex);
+      gl.uniform2f(blurU.uDir,0,1/blurB.h);
+      gl.drawArrays(gl.TRIANGLES,0,3);
+      src=blurB;
+      drawCalls+=2;
+    }
+    // 合成
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.viewport(0,0,W,H);
+    gl.useProgram(compProg);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,sceneFBO.tex);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,blurB.tex);
+    gl.uniform1i(compU.uScene,0); gl.uniform1i(compU.uBloom,1);
+    gl.uniform1f(compU.uStrength,0.9);
+    gl.uniform1f(compU.uExposure,exposure);
+    gl.uniform1f(compU.uBloomOn,1);
+    gl.uniform1f(compU.uTime,time);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    gl.activeTexture(gl.TEXTURE0);
+    drawCalls++;
+  }else{
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    gl.viewport(0,0,W,H);
+    gl.disable(gl.DEPTH_TEST);
+    gl.useProgram(compProg);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,sceneFBO.tex);
+    gl.uniform1i(compU.uScene,0);
+    gl.uniform1f(compU.uExposure,exposure*1.12);
+    gl.uniform1f(compU.uBloomOn,0);
+    gl.uniform1f(compU.uTime,time);
+    gl.bindVertexArray(emptyVAO);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    drawCalls++;
+  }
+  gl.enable(gl.DEPTH_TEST);
+}
+// ============================================================
+// S11 · 场景 ① 训练系统全景（机房夜景）
+// ============================================================
+BUILDERS[0]=A=>{
+  const {S,box,line,flow,label}=A;
+  const solid=box(220), glow=box(120);
+  glow.pulse=0.55;
+  const ln=line(260);
+  // 地面网格
+  const gcol=C3.dim;
+  for(let k=-8;k<=8;k++){
+    ln.add(A.w(k*22,-6,-170), A.w(k*22,-6,170), gcol, 0.16);
+    ln.add(A.w(-170,-6,k*22), A.w(170,-6,k*22), gcol, 0.16);
+  }
+  // 主板
+  {const c=A.w(0,1,5); solid.add(c[0],c[1],c[2],150,4,105,C3.board,0.02,S.yaw0);}
+  // CPU + 散热鳍片
+  {const c=A.w(-45,7,-15); solid.add(c[0],c[1],c[2],16,6,16,C3.cpu,0.3,S.yaw0);}
+  for(let k=0;k<5;k++){
+    const c=A.w(-45,11.5+k*1.4,-15);
+    solid.add(c[0],c[1],c[2],13-k*1.4,0.6,13-k*1.4,C3.cpu,0.08,S.yaw0);
+  }
+  // 8 块 GPU
+  S.cst.gpuTop=[];
+  for(let k=0;k<8;k++){
+    const x=-14+k*11;
+    let c=A.w(x,16,38);
+    solid.add(c[0],c[1],c[2],8,26,52,hexLin('#16203a'),0.04,S.yaw0);
+    c=A.w(x,30,38);
+    S.cst.gpuTop.push(glow.add(c[0],c[1],c[2],8.4,1.4,52,C3.blue,0.85,S.yaw0));
+    c=A.w(x,10,14);
+    glow.add(c[0],c[1],c[2],6,4,3,C3.tensor,0.5,S.yaw0);
+  }
+  // NVMe 阵列
+  for(let k=0;k<4;k++){
+    const c=A.w(-72,5,28+k*-16);
+    solid.add(c[0],c[1],c[2],16,4,12,C3.nand,0.28,S.yaw0);
+  }
+  // 内存条
+  for(let k=0;k<8;k++){
+    const c=A.w(-22+k*3.2,7,-38);
+    solid.add(c[0],c[1],c[2],1.2,8,24,vMix(C3.ddr,C3.dim,0.55),0.06,S.yaw0);
+  }
+  // NVLink 拱桥
+  for(let k=0;k<7;k++){
+    const x0=-14+k*11, x1=x0+11;
+    const pts=[];
+    for(let s=0;s<=8;s++){
+      const t=s/8;
+      pts.push(A.w(lerp(x0,x1,t), 44+Math.sin(t*Math.PI)*7, 38));
+    }
+    ln.strip(pts,C3.nvlink,0.65);
+  }
+  // PCIe 走线
+  for(let k=0;k<8;k++){
+    const x=-14+k*11;
+    ln.strip([A.w(-35,4,-12),A.w(x,4,8),A.w(x,4,14)],C3.pcie,0.35);
+  }
+  // 数据流
+  flow([[-72,8,12],[-60,10,-8],[-48,12,-14]],{rate:16,speed:30,size:2.6,col:C3.data,bright:0.9});
+  flow([[-40,8,-10],[-20,6,5],[-14,8,14],[-14,12,30]],{rate:18,speed:36,size:2.4,col:C3.pcie,bright:0.9});
+  const arc=[];
+  for(let k=0;k<=28;k++){
+    const t=k/28;
+    arc.push([-14+t*77, 44+Math.sin(t*Math.PI*7)*6, 38]);
+  }
+  flow(arc,{rate:22,speed:70,size:2.6,col:C3.nvlink,bright:1.1,fadeEnds:false});
+  // 标签
+  label(-72,18,12,'NVMe SSD<span class="sub">训练数据仓库</span>');
+  label(-45,30,-15,'CPU<span class="sub">数据预处理</span>');
+  label(25,52,38,'GPU × 8<span class="sub">NVIDIA H100</span>');
+  label(60,24,-30,'<span class="lbl-data" style="color:#a78bfa">NVLink 互联</span>');
+};
+
+// ============================================================
+// S12 · 场景 ② NVMe 内部（NAND 峡谷）
+// ============================================================
+BUILDERS[1]=A=>{
+  const {S,box,line,flow,label}=A;
+  const walls=box(100), cells=box(300), ctrl=box(20);
+  // 两面 NAND 高墙（36 层堆叠）
+  for(let side=-1;side<=1;side+=2){
+    for(let k=0;k<36;k++){
+      const c=A.w(side*36, 2+k*2.7, -6);
+      walls.add(c[0],c[1],c[2],11,1.7,96,C3.nand,0.05+0.04*(k%3===0),S.yaw0,k/36);
+    }
+  }
+  S.cst.walls=walls;
+  // 内壁发光存储单元
+  cells.pulse=0.7;
+  for(let side=-1;side<=1;side+=2){
+    for(let r=0;r<11;r++) for(let cIdx=0;cIdx<9;cIdx++){
+      const c=A.w(side*29.5, 6+r*8.6, -46+cIdx*10);
+      cells.add(c[0],c[1],c[2],1.2,2.2,3.2,C3.nand,0.5,S.yaw0);
+    }
+  }
+  // 控制器
+  {const c=A.w(0,6,52); ctrl.add(c[0],c[1],c[2],20,11,16,C3.amber,0.55,S.yaw0);}
+  {const c=A.w(0,13,52); ctrl.add(c[0],c[1],c[2],14,1.5,10,C3.gold,0.9,S.yaw0);}
+  const ln=line(80);
+  for(let k=0;k<6;k++){
+    ln.add(A.w(-30,4+k*16,-6),A.w(30,4+k*16,-6),C3.nand,0.12);
+  }
+  // 读出数据流：峡谷中心汇入控制器，再向前发出
+  S.cst.f1=flow([[-26,70,-40],[-12,40,-20],[0,16,20],[0,10,46]],{rate:42,speed:55,size:2.6,col:C3.nand,col2:C3.data,bright:1.1,intensity:0.12});
+  S.cst.f2=flow([[26,55,-30],[12,30,-5],[0,14,25],[0,10,46]],{rate:42,speed:55,size:2.6,col:C3.data,bright:1.1,intensity:0.12});
+  S.cst.f3=flow([[0,10,58],[0,12,95],[0,16,140]],{rate:30,speed:90,size:3,col:C3.data,bright:1.3,intensity:0.12});
+  label(-36,86,-6,'3D NAND Flash<span class="sub">数十层硅片垂直堆叠</span>');
+  label(0,20,52,'NVMe 控制器');
+  S.cst.bwLbl=label(0,34,80,'<span class="lbl-data" style="color:#22d3ee">读取带宽 ~7 GB/s</span>');
+  S.cst.bwLbl.show=0;
+};
+UPDATERS[1]=(S,dt)=>{
+  const on=S.flagOn;
+  const I=on?1.6:0.12;
+  S.cst.f1.intensity=damp(S.cst.f1.intensity,I,3,dt);
+  S.cst.f2.intensity=S.cst.f1.intensity;
+  S.cst.f3.intensity=S.cst.f1.intensity;
+  S.cst.bwLbl.show=damp(S.cst.bwLbl.show, on?1:0, 4, dt);
+  if(on){
+    const wy=(S.flagT*42)%120;
+    S.cst.walls.wave={dir:[0,1,0],pos:SC_ANCHOR[1][1]+wy,width:7,boost:2.1,radial:0};
+    if(((S.flagT*42)|0)%40===0) burst(L2W(1,[0,14,52]),{n:10,speed:18,col:C3.data,size:2.2,life:0.7});
+  }else S.cst.walls.wave=null;
+};
+
+// ============================================================
+// S13 · 场景 ③ CPU 预处理工厂
+// ============================================================
+BUILDERS[2]=A=>{
+  const {S,box,line,flow,label}=A;
+  const solid=box(80), cores=box(20), belt=box(80);
+  {const c=A.w(0,1,0); solid.add(c[0],c[1],c[2],105,4,105,C3.board,0.02,S.yaw0);}
+  cores.pulse=0.5;
+  S.cst.cores=cores;
+  placeGrid(cores,S,{nx:4,nz:4,dx:17,dz:17,cx:0,cy:3,cz:0,sx:10,sy:7,sz:10,col:C3.cpu,emi:0.3});
+  // 三级缓存光环
+  const ln=line(240);
+  const ringCols=[C3.sram,C3.blue,C3.nvlink];
+  for(let r=0;r<3;r++){
+    const rad=46+r*9, pts=[];
+    for(let k=0;k<=48;k++){
+      const a=k/48*TAU;
+      pts.push(A.w(Math.cos(a)*rad, 3.5, Math.sin(a)*rad));
+    }
+    ln.strip(pts,ringCols[r],0.5-r*0.1);
+  }
+  // 缓存环流粒子
+  for(let r=0;r<3;r++){
+    const rad=46+r*9, pts=[];
+    for(let k=0;k<=40;k++){
+      const a=k/40*TAU*(r%2?1:-1);
+      pts.push([Math.cos(a)*rad, 4, Math.sin(a)*rad]);
+    }
+    S.cst['ring'+r]=flow(pts,{rate:9,speed:55+r*22,size:2.2,col:ringCols[r],bright:0.85,fadeEnds:false,intensity:0.6});
+  }
+  // 传送带（放在核心阵列后方）：原始文本 → Tokenizer 门 → token → Batch 区
+  belt.pulse=0.3;
+  for(let k=0;k<4;k++){
+    const c=A.w(-92+k*9,7,62);
+    belt.add(c[0],c[1],c[2],6.5,6.5,6.5,C3.white,0.12,S.yaw0);
+  }
+  // Tokenizer 门
+  {let c=A.w(-46,9,62); belt.add(c[0],c[1],c[2],2.5,18,2.5,C3.gold,0.5,S.yaw0);
+   c=A.w(-34,9,62); belt.add(c[0],c[1],c[2],2.5,18,2.5,C3.gold,0.5,S.yaw0);
+   c=A.w(-40,18,62); belt.add(c[0],c[1],c[2],16,2.5,2.5,C3.gold,0.9,S.yaw0);}
+  // Batch 组装区 4×8 token 槽
+  S.cst.batchIdx=[];
+  const bb=box(40); bb.pulse=0.25; S.cst.bb=bb;
+  for(let r=0;r<4;r++) for(let q=0;q<8;q++){
+    const c=A.w(48+q*5.4, 4.5+r*5.4, 62);
+    S.cst.batchIdx.push(bb.add(c[0],c[1],c[2],4,4,4,C3.data,0.06,S.yaw0));
+  }
+  ln.strip([A.w(-100,3,62),A.w(80,3,62)],C3.dim,0.4);
+  // 流
+  S.cst.fText=flow([[-98,7,62],[-50,7,62]],{rate:10,speed:26,size:3.2,col:C3.white,bright:0.55,intensity:0.4});
+  S.cst.fTok=flow([[-34,7,62],[8,7,62],[42,7,62]],{rate:26,speed:42,size:2.2,col:C3.data,bright:1,intensity:0.4});
+  S.cst.fDdr=flow([[0,8,30],[0,30,70],[0,48,115]],{rate:18,speed:55,size:2.4,col:C3.ddr,bright:0.9,intensity:0.5});
+  label(0,24,0,'CPU 16 核<span class="sub">每核一个 DataLoader Worker</span>');
+  label(-40,28,62,'Tokenizer<span class="sub">分词</span>');
+  label(62,28,62,'Batch 组装<span class="sub">Padding + 拼批</span>');
+  label(-58,14,28,'L1 / L2 / L3 缓存');
+  label(0,42,60,'<span class="lbl-data" style="color:#7ee8f9">DDR5 ~90 GB/s</span>');
+};
+UPDATERS[2]=(S,dt)=>{
+  const on=S.flagOn;
+  const I=on?1.7:0.4;
+  S.cst.fText.intensity=damp(S.cst.fText.intensity,I*0.7,3,dt);
+  S.cst.fTok.intensity=damp(S.cst.fTok.intensity,I,3,dt);
+  S.cst.fDdr.intensity=damp(S.cst.fDdr.intensity,I,3,dt);
+  S.cst.cores.pulse=on?1.3:0.5;
+  for(let r=0;r<3;r++) S.cst['ring'+r].intensity=on?1.4:0.6;
+  if(on){
+    const lit=Math.min(32, Math.floor(S.flagT*7));
+    for(let k=0;k<32;k++) S.cst.bb.setEmi(S.cst.batchIdx[k], k<lit?0.95:0.06);
+    if(lit>=32 && S.flagT>5.5){ S.flagOn=false; }
+  }
+};
+
+// ============================================================
+// S14 · 场景 ④ PCIe 高速隧道
+// ============================================================
+BUILDERS[3]=A=>{
+  const {S,box,line,flow,label}=A;
+  const lnL=line(400), lnR=line(400), lnRing=line(500);
+  S.cst.lnL=lnL; S.cst.lnR=lnR;
+  const RAD=27, LEN=190;
+  // 16 条 lane
+  for(let k=0;k<16;k++){
+    const a=k/16*TAU+TAU/32;
+    const x=Math.cos(a)*RAD, y=Math.sin(a)*RAD;
+    const target=(x<0)?lnL:lnR;
+    const segs=14;
+    for(let s2=0;s2<segs;s2++){
+      const z0=-LEN+s2*(2*LEN/segs), z1=z0+2*LEN/segs-6;
+      target.add(A.w(x,y,z0),A.w(x,y,z1),C3.pcie,0.85);
+    }
+  }
+  // SerDes 脉冲环
+  for(let q=0;q<11;q++){
+    const z=-LEN+q*(2*LEN/10), pts=[];
+    for(let k=0;k<=36;k++){
+      const a=k/36*TAU;
+      pts.push(A.w(Math.cos(a)*(RAD+2), Math.sin(a)*(RAD+2), z));
+    }
+    lnRing.strip(pts, q%3===0?C3.data:C3.dim, q%3===0?0.5:0.28);
+  }
+  // 高速粒子流（左右两组，便于 Gen4/Gen5 对比）
+  S.cst.fL=[]; S.cst.fR=[];
+  for(let k=0;k<16;k+=2){
+    const a=k/16*TAU+TAU/32;
+    const x=Math.cos(a)*RAD*0.92, y=Math.sin(a)*RAD*0.92;
+    const f=flow([[x,y,-LEN-60],[x,y,LEN+60]],{rate:44,speed:520,speedVar:0.25,size:1.7,col:C3.pcie,col2:C3.data,bright:1.35,jitter:0.7,fadeEnds:false});
+    (x<0?S.cst.fL:S.cst.fR).push(f);
+  }
+  label(0,42,0,'PCIe Gen5 ×16<span class="sub">CPU → GPU 高速公路</span>','lbl-big');
+  label(0,-38,0,'<span class="lbl-data" style="color:#4ade80">带宽 64 GB/s</span>');
+  S.cst.l4=label(-38,24,0,'<span class="lbl-data" style="color:#64748b">← Gen4 ×16 · 32 GB/s</span>');
+  S.cst.l5=label(38,24,0,'<span class="lbl-data" style="color:#4ade80">Gen5 ×16 · 64 GB/s →</span>');
+  S.cst.l4.show=0; S.cst.l5.show=0;
+};
+UPDATERS[3]=(S,dt)=>{
+  const cmp=S.flagOn;
+  for(const f of S.cst.fL){
+    f.speed=damp(f.speed, cmp?260:520, 3, dt);
+    f.intensity=damp(f.intensity, cmp?0.5:1, 3, dt);
+  }
+  S.cst.lnL.alpha=damp(S.cst.lnL.alpha, cmp?0.4:1, 3, dt);
+  S.cst.l4.show=damp(S.cst.l4.show, cmp?1:0, 4, dt);
+  S.cst.l5.show=damp(S.cst.l5.show, cmp?1:0, 4, dt);
+};
+
+// ============================================================
+// S15 · 场景 ⑤ GPU 芯片鸟瞰（H100 城市）
+// ============================================================
+BUILDERS[4]=A=>{
+  const {S,box,line,flow,label}=A;
+  const die=box(20), sm=box(100), l2=box(20), hbm=box(140);
+  {const c=A.w(0,1,0); die.add(c[0],c[1],c[2],185,6,145,C3.board,0.03,S.yaw0);}
+  // 80 座 SM 摩天楼
+  sm.pulse=0.85;
+  S.cst.sm=sm;
+  placeGrid(sm,S,{nx:10,nz:8,dx:13.5,dz:12.5,cx:0,cy:4,cz:0,sx:8,sy:13,sz:7.5,hVar:6,col:C3.cuda,emi:0.22});
+  // L2 环城光带
+  S.cst.l2=l2;
+  const ring=[[0,-56,150,8],[0,56,150,8],[-72,0,8,98],[72,0,8,98]];
+  for(const q of ring){
+    const c=A.w(q[0],5,q[1]);
+    l2.add(c[0],c[1],c[2],q[2],3,q[3],C3.sram,0.5,S.yaw0);
+  }
+  // 6 座 HBM 塔
+  S.cst.hbm=hbm;
+  hbm.pulse=0.3;
+  for(const hx of [-118,118]) for(const hz of [-62,0,62]){
+    for(let k=0;k<8;k++){
+      const c=A.w(hx,4+k*4.6,hz);
+      hbm.add(c[0],c[1],c[2],22,3,28,C3.hbm,0.18,S.yaw0,k/8);
+    }
+  }
+  const ln=line(60);
+  ln.strip([A.w(-93,2,-73),A.w(93,2,-73),A.w(93,2,73),A.w(-93,2,73),A.w(-93,2,-73)],C3.blue,0.5);
+  // 数据涌入
+  flow([[0,8,-150],[0,9,-90],[0,10,-40]],{rate:30,speed:80,size:2.8,col:C3.pcie,bright:1.1});
+  flow([[-118,30,-62],[-60,16,-30],[0,12,0]],{rate:10,speed:40,size:2.2,col:C3.hbm,bright:0.8,intensity:0.6});
+  flow([[118,30,62],[60,16,30],[0,12,0]],{rate:10,speed:40,size:2.2,col:C3.hbm,bright:0.8,intensity:0.6});
+  S.cst.smLbl=label(0,44,0,'80 × SM<span class="sub">流多处理器·主战场</span>','lbl-big');
+  S.cst.l2Lbl=label(72,20,0,'L2 Cache 50MB<span class="sub">环城高速</span>');
+  S.cst.hbmLbl=label(-118,48,0,'HBM3 × 6<span class="sub">显存塔</span>');
+  label(0,16,-118,'<span class="lbl-data" style="color:#4ade80">数据从 PCIe 抵达</span>');
+};
+UPDATERS[4]=(S,dt)=>{
+  if(S.flagOn){
+    const t=S.flagT;
+    if(t<1.4){
+      // 径向扩散高亮 SM
+      S.cst.sm.wave={dir:L2W(4,[0,8,0]),pos:t*90,width:26,boost:1.8,radial:1};
+      S.cst.smLbl.show=1;
+    }else if(t<2.8){
+      S.cst.sm.wave=null;
+      S.cst.l2.pulse=1.6;
+      S.cst.l2Lbl.show=1;
+    }else if(t<4.2){
+      S.cst.l2.pulse=0;
+      S.cst.hbm.wave={dir:[0,1,0],pos:SC_ANCHOR[4][1]+((t-2.8)*36)%44,width:5,boost:1.6,radial:0};
+      S.cst.hbmLbl.show=1;
+    }else{
+      S.cst.hbm.wave=null;
+      S.flagOn=false;
+    }
+  }
+};
+
+// ============================================================
+// S16 · 场景 ⑥ HBM 存储塔（垂直闪电塔）
+// ============================================================
+BUILDERS[5]=A=>{
+  const {S,box,line,flow,label}=A;
+  const base=box(10), layers=box(20), tsv=box(60);
+  {const c=A.w(0,3,0); base.add(c[0],c[1],c[2],66,7,66,C3.amber,0.3,S.yaw0);}
+  S.cst.layers=layers;
+  for(let k=0;k<12;k++){
+    const c=A.w(0,12+k*7.6,0);
+    layers.add(c[0],c[1],c[2],52,3.4,52,C3.hbm,0.16,S.yaw0,k/12);
+  }
+  tsv.pulse=1.1;
+  for(let ix=0;ix<6;ix++) for(let iz=0;iz<6;iz++){
+    const c=A.w(-20+ix*8, 53, -20+iz*8);
+    tsv.add(c[0],c[1],c[2],0.9,86,0.9,C3.data,0.32,S.yaw0);
+  }
+  const ln=line(80);
+  for(let k=0;k<4;k++){
+    const y=12+k*30;
+    ln.strip([A.w(-27,y,-27),A.w(27,y,-27),A.w(27,y,27),A.w(-27,y,27),A.w(-27,y,-27)],C3.hbm,0.3);
+  }
+  // TSV 数据脉冲（持续微量，写入时增强）
+  S.cst.tsvFlows=[];
+  for(let k=0;k<10;k++){
+    const x=-20+(rnd()*6|0)*8, z=-20+(rnd()*6|0)*8;
+    S.cst.tsvFlows.push(flow([[x,8,z],[x,98,z]],{rate:7,speed:75,size:2.2,col:C3.data,bright:1.1,intensity:0.35}));
+  }
+  S.cst.fin=flow([[0,-30,-90],[0,2,-46],[0,6,-20]],{rate:16,speed:60,size:2.6,col:C3.data,bright:0.9,intensity:0.4});
+  label(0,104,0,'HBM3 · 12 层 DRAM<span class="sub">3D 垂直堆叠</span>','lbl-big');
+  label(-34,50,20,'TSV 硅通孔 ×数千<span class="sub">直径仅 ~5μm</span>');
+  label(0,8,-40,'逻辑芯片 Logic Die');
+  S.cst.bwLbl=label(0,118,0,'<span class="lbl-data" style="color:#22d3ee">1024-bit 总线 · 3.35 TB/s</span>');
+  S.cst.bwLbl.show=0;
+};
+UPDATERS[5]=(S,dt)=>{
+  const on=S.flagOn;
+  for(const f of S.cst.tsvFlows) f.intensity=damp(f.intensity,on?2.0:0.35,3,dt);
+  S.cst.fin.intensity=damp(S.cst.fin.intensity,on?1.6:0.4,3,dt);
+  S.cst.bwLbl.show=damp(S.cst.bwLbl.show,on?1:0,4,dt);
+  if(on){
+    const wy=S.flagT*46;
+    if(wy<130){
+      S.cst.layers.wave={dir:[0,1,0],pos:SC_ANCHOR[5][1]+8+(wy%130),width:6,boost:2.4,radial:0};
+    }
+    if(wy>96 && wy<104) burst(L2W(5,[0,102,0]),{n:14,speed:26,col:C3.data,size:2.4,life:0.8,dir:[0,1,0],spread:0.7});
+    if(S.flagT>6){ S.flagOn=false; S.cst.layers.wave=null; }
+  }
+};
+// ============================================================
+// S17 · 场景 ⑦ 存储层次金字塔（悬浮光阶）
+// ============================================================
+const TIERS=[
+  {y:0,  w:80, col:'hbm',  name:'HBM3',          spec:'80GB · 3.35 TB/s'},
+  {y:26, w:52, col:'sram', name:'L2 Cache',      spec:'50MB'},
+  {y:54, w:31, col:'data', name:'Shared Memory', spec:'228KB / SM'},
+  {y:86, w:15, col:'gold', name:'Register',      spec:'256KB / SM · 近乎零延迟'}
+];
+BUILDERS[6]=A=>{
+  const {S,box,line,flow,label}=A;
+  const tiers=box(10);
+  S.cst.tiers=tiers; S.cst.tierIdx=[];
+  const ln=line(120);
+  for(const T of TIERS){
+    const c=A.w(0,T.y,0);
+    S.cst.tierIdx.push(tiers.add(c[0],c[1],c[2],T.w,5,T.w,C3[T.col],0.28,S.yaw0));
+    const h=T.w/2;
+    ln.strip([A.w(-h,T.y+3,-h),A.w(h,T.y+3,-h),A.w(h,T.y+3,h),A.w(-h,T.y+3,h),A.w(-h,T.y+3,-h)],C3[T.col],0.6);
+  }
+  // 层间数据光柱
+  for(let k=0;k<TIERS.length-1;k++){
+    flow([[0,TIERS[k].y+4,0],[0,TIERS[k+1].y-4,0]],{rate:8,speed:38,size:2.4,col:C3[TIERS[k+1].col],bright:0.8,jitter:5,intensity:0.5});
+  }
+  label(0,TIERS[0].y+9,-TIERS[0].w/2,'HBM3<span class="sub">80GB · 3.35 TB/s</span>');
+  label(0,TIERS[1].y+9,-TIERS[1].w/2,'L2 Cache<span class="sub">50MB</span>');
+  label(0,TIERS[2].y+9,-TIERS[2].w/2,'Shared Memory<span class="sub">228KB / SM</span>');
+  label(0,TIERS[3].y+11,-TIERS[3].w/2,'Register<span class="sub">256KB / SM · 近乎无限带宽</span>');
+  label(52,46,0,'<span style="color:#ffd666">↑ 越上层 越快 越小</span>','lbl-big');
+  S.cst.orb={t:-1};
+};
+UPDATERS[6]=(S,dt)=>{
+  const orb=S.cst.orb;
+  if(S.flagOn && orb.t<0){ orb.t=0; }
+  if(orb.t>=0){
+    orb.t+=dt;
+    const seg=Math.floor(orb.t/0.9);
+    if(seg>=TIERS.length){
+      orb.t=-1; S.flagOn=false;
+    }else{
+      const f=easeIO(Math.min(1,(orb.t-seg*0.9)/0.55));
+      const y0=seg===0?-30:TIERS[seg-1].y, y1=TIERS[seg].y;
+      const y=lerp(y0,y1,f)+8;
+      const wp=L2W(6,[0,y,0]);
+      for(let k=0;k<10;k++){
+        pPush(wp[0]+(rnd()*2-1)*4, wp[1]+(rnd()*2-1)*4, wp[2]+(rnd()*2-1)*4, 4.5, C3.data, 1.2);
+      }
+      if(f>0.97 && !orb['hit'+seg]){
+        orb['hit'+seg]=true;
+        burst(L2W(6,[0,TIERS[seg].y+7,0]),{n:36,speed:42,col:C3[TIERS[seg].col],size:2.6,life:0.8,spread:1});
+        S.cst.tiers.setEmi(S.cst.tierIdx[seg],1.6);
+        flash(0.12);
+      }
+    }
+  }else{ for(const k in orb) if(k!=='t') delete orb[k]; }
+  for(let k=0;k<4;k++){
+    const e=S.cst.tiers.getEmi(S.cst.tierIdx[k]);
+    if(e>0.28) S.cst.tiers.setEmi(S.cst.tierIdx[k], Math.max(0.28, e-dt*1.2));
+  }
+};
+
+// ============================================================
+// S18 · 场景 ⑧ SM 内部（128 核方阵）
+// ============================================================
+BUILDERS[7]=A=>{
+  const {S,box,line,flow,label}=A;
+  const plate=box(10), cuda=box(140), tc=box(10), warp=box(10), smem=box(10);
+  {const c=A.w(0,1,0); plate.add(c[0],c[1],c[2],95,4,78,C3.board,0.03,S.yaw0);}
+  cuda.pulse=0.6; S.cst.cuda=cuda;
+  placeGrid(cuda,S,{nx:16,nz:8,dx:5.2,dz:5.6,cx:0,cy:3,cz:-2,sx:3.4,sy:3.4,sz:3.4,col:C3.cuda,emi:0.25});
+  S.cst.tc=tc;
+  for(let k=0;k<4;k++){
+    const c=A.w(-34+k*22.5,8,26);
+    tc.add(c[0],c[1],c[2],13,10,11,C3.tensor,0.4,S.yaw0);
+  }
+  for(let k=0;k<4;k++){
+    const c=A.w(-34+k*22.5,5,38);
+    warp.add(c[0],c[1],c[2],14,6,6,C3.cpu,0.3,S.yaw0);
+  }
+  {const c=A.w(0,2.5,-32); smem.add(c[0],c[1],c[2],80,2.5,5,C3.sram,0.4,S.yaw0);}
+  label(0,18,40,'Warp Scheduler × 4<span class="sub">调度指挥官</span>');
+  label(-44,14,-2,'128 × CUDA Core');
+  label(34,20,26,'Tensor Core × 4<span class="sub">矩阵主力</span>');
+  label(0,9,-34,'Shared Memory 228KB');
+  S.cst.warpLbl=label(0,30,0,'<span style="color:#ffd666">1 Warp = 32 线程 · 同拍执行 (SIMT)</span>','lbl-big');
+  S.cst.warpLbl.show=0;
+  S.cst.ribbon=flow([[-42,6,-30],[42,6,-30]],{rate:60,speed:130,size:2.2,col:C3.gold,bright:1.3,jitter:0.6,intensity:0});
+};
+UPDATERS[7]=(S,dt)=>{
+  const on=S.flagOn;
+  S.cst.warpLbl.show=damp(S.cst.warpLbl.show,on?1:0,4,dt);
+  S.cst.ribbon.intensity=damp(S.cst.ribbon.intensity,on?1.6:0,5,dt);
+  if(on){
+    const row=Math.floor(S.flagT/0.7)%8;
+    if(row!==S.cst.lastRow){
+      S.cst.lastRow=row;
+      const z=-2+(row-3.5)*5.6;
+      S.cst.ribbon.setPath([L2W(7,[-42,6,z]),L2W(7,[42,6,z])]);
+      S.cst.ribbon.warmed=false; S.cst.ribbon.parts.length=0;
+    }
+    const z=-2+(((Math.floor(S.flagT/0.7))%8)-3.5)*5.6;
+    S.cst.cuda.wave={dir:SC_FWD[7],pos:z,width:3.4,boost:1.7,radial:0};
+    S.cst.tc.pulse=1.2;
+    if(S.flagT>5.6){ S.flagOn=false; S.cst.cuda.wave=null; S.cst.tc.pulse=0; }
+  }
+};
+
+// ============================================================
+// S19 · 场景 ⑨ Tensor Core 矩阵引擎
+// ============================================================
+BUILDERS[8]=A=>{
+  const {S,box,line,flow,label}=A;
+  const plate=box(6), mA=box(20), mB=box(20), mD=box(20), mC=box(20);
+  {const c=A.w(0,1,0); plate.add(c[0],c[1],c[2],60,4,46,C3.board,0.05,S.yaw0);}
+  mA.translucent=true; mA.alpha=0.55; mA.pulse=0.4;
+  mB.translucent=true; mB.alpha=0.55; mB.pulse=0.4;
+  mC.translucent=true; mC.alpha=0.3;
+  S.cst.mA=mA; S.cst.mB=mB; S.cst.mD=mD;
+  S.cst.right=SC_RIGHT[8]; S.cst.fwd=SC_FWD[8];
+  S.cst.dIdx=[];
+  for(let r=0;r<4;r++) for(let q=0;q<4;q++){
+    const gx=(q-1.5)*7, gy=16+(1.5-r)*7;
+    let c=A.w(gx,gy,0);
+    mA.add(c[0],c[1],c[2],5.2,5.2,1.6,C3.data,0.5,S.yaw0);
+    mB.add(c[0],c[1],c[2],5.2,5.2,1.6,C3.tensor,0.5,S.yaw0);
+    c=A.w(gx,gy,8);
+    mC.add(c[0],c[1],c[2],5.2,5.2,1.2,C3.white,0.2,S.yaw0);
+    c=A.w(gx,gy,-9);
+    S.cst.dIdx.push(mD.add(c[0],c[1],c[2],5.5,5.5,2.2,C3.gold,0.05,S.yaw0));
+  }
+  S.cst.dx=1; // 1 = 完全分开
+  label(0,40,0,'<span class="lbl-formula">D = A × B + C</span>');
+  label(0,-8,0,'1 个时钟周期 · 64 次乘加 FMA<span class="sub">FP16 × FP16 + FP32 混合精度</span>');
+  S.cst.aLbl=label(-40,28,0,'<span style="color:#22d3ee">A 矩阵 4×4</span>');
+  S.cst.bLbl=label(40,28,0,'<span style="color:#ffd666">B 矩阵 4×4</span>');
+  label(0,2,-16,'<span style="color:#ffd666">结果 D</span>');
+};
+UPDATERS[8]=(S,dt)=>{
+  if(S.flagOn){
+    const t=S.flagT;
+    if(t<1.1){
+      S.cst.dx=1-easeIO(t/1.1);
+    }else{
+      S.cst.dx=0;
+      if(!S.cst.boom){
+        S.cst.boom=true;
+        flash(0.45);
+        burst(L2W(8,[0,16,0]),{n:64,speed:34,col:C3.gold,size:2.8,life:1.1,drag:2.2});
+        burst(L2W(8,[0,16,0]),{n:30,speed:18,col:C3.data,size:2.2,life:0.9,drag:2});
+      }
+      const lit=Math.floor((t-1.1)*13);
+      for(let k=0;k<16;k++) if(k<lit) S.cst.mD.setEmi(S.cst.dIdx[k],1.4);
+      if(t>3.6){ S.flagOn=false; }
+    }
+  }else{
+    S.cst.dx=damp(S.cst.dx,1,2,dt);
+    if(S.cst.dx>0.9){
+      S.cst.boom=false;
+      for(let k=0;k<16;k++){
+        const e=S.cst.mD.getEmi(S.cst.dIdx[k]);
+        if(e>0.05) S.cst.mD.setEmi(S.cst.dIdx[k],Math.max(0.05,e-dt*0.8));
+      }
+    }
+  }
+  const off=42*S.cst.dx;
+  S.cst.mA.root=vScale(S.cst.right,-off);
+  S.cst.mB.root=vScale(S.cst.right, off);
+  S.cst.aLbl.world=L2W(8,[-off-14,30,0]);
+  S.cst.bLbl.world=L2W(8,[off+14,30,0]);
+};
+
+// ============================================================
+// S20 · 场景 ⑩ Embedding 查表（权重巨墙）
+// ============================================================
+BUILDERS[9]=A=>{
+  const {S,box,line,flow,label}=A;
+  const wall=box(800), chips=box(10), ribbon=box(20);
+  S.cst.wall=wall;
+  wall.pulse=0.18;
+  for(let r=0;r<26;r++) for(let q=0;q<30;q++){
+    const c=A.w(-58+q*4, 5+r*4.4, 26);
+    wall.add(c[0],c[1],c[2],3.1,3.4,1,C3.weight,0.07,S.yaw0);
+  }
+  for(let k=0;k<4;k++){
+    const c=A.w(-52+k*10,5,-30);
+    chips.add(c[0],c[1],c[2],5,4,4,C3.data,k===1?0.7:0.25,S.yaw0);
+  }
+  ribbon.translucent=true; ribbon.alpha=0;
+  S.cst.ribbon=ribbon;
+  for(let k=0;k<16;k++){
+    const c=A.w(-30+k*4, 5+12*4.4, 26);
+    ribbon.add(c[0],c[1],c[2],3.4,3.6,2,C3.data,0.9,S.yaw0);
+  }
+  S.cst.beam=flow([[-42,7,-28],[-20,20,0],[-30,57.8,22]],{rate:36,speed:120,size:2.4,col:C3.data,bright:1.4,intensity:0});
+  S.cst.out=flow([[0,58,22],[10,40,-20],[14,26,-60]],{rate:24,speed:80,size:2.6,col:C3.data,bright:1.1,intensity:0});
+  label(0,124,26,'权重矩阵 · 128K 行 × 4096 维<span class="sub">≈ 1GB · 存放于 HBM</span>','lbl-big');
+  label(-42,13,-30,'<span class="lbl-data" style="color:#22d3ee">Token ID 4821</span>');
+  S.cst.vecLbl=label(14,34,-44,'嵌入向量 · 4096 维<span class="sub">HBM → L2 → SM 逐级搬运</span>');
+  S.cst.vecLbl.show=0;
+};
+UPDATERS[9]=(S,dt)=>{
+  const on=S.flagOn;
+  S.cst.beam.intensity=damp(S.cst.beam.intensity,on?1.5:0,4,dt);
+  if(on){
+    const t=S.flagT;
+    const rowY=SC_ANCHOR[9][1]+5+12*4.4;
+    if(t>0.45){
+      S.cst.wall.wave={dir:[0,1,0],pos:rowY,width:2.6,boost:2.0,radial:0};
+      S.cst.ribbon.alpha=Math.min(0.9,(t-0.45)*1.6);
+      const f=easeIO(clamp((t-0.8)/1.6,0,1));
+      S.cst.ribbon.root=vAdd(vScale(SC_FWD[9],-66*f), [0,-20*f,0]);
+      S.cst.out.intensity=f>0.5?1.4:0;
+      S.cst.vecLbl.show=f;
+    }
+    if(t>4.2){ S.flagOn=false; }
+  }else{
+    S.cst.ribbon.alpha=damp(S.cst.ribbon.alpha,0,3,dt);
+    S.cst.out.intensity=damp(S.cst.out.intensity,0,3,dt);
+    S.cst.vecLbl.show=damp(S.cst.vecLbl.show,0,3,dt);
+    if(S.cst.ribbon.alpha<0.05){ S.cst.wall.wave=null; S.cst.ribbon.root=[0,0,0]; }
+  }
+};
+
+// ============================================================
+// S21 · 场景 ⑪ 自注意力（Q/K/V 三流交汇）
+// ============================================================
+BUILDERS[10]=A=>{
+  const {S,box,line,flow,label}=A;
+  const toks=box(10), pads=box(10), mat=box(80);
+  for(let k=0;k<8;k++){
+    const c=A.w(-21+k*6,4,-30);
+    toks.add(c[0],c[1],c[2],3.6,3.6,3.6,C3.white,0.22,S.yaw0);
+  }
+  const padDef=[
+    {x:-52,y:42,z:-4,col:C3.loss,name:'Q'},
+    {x:0,  y:56,z:6, col:C3.blue,name:'K'},
+    {x:52, y:42,z:-4,col:C3.pcie,name:'V'}
+  ];
+  for(const P of padDef){
+    const c=A.w(P.x,P.y,P.z);
+    pads.add(c[0],c[1],c[2],17,3,15,P.col,0.45,S.yaw0);
+  }
+  // 注意力热度矩阵（8×8）
+  mat.translucent=true; mat.alpha=0.75; mat.pulse=0.3;
+  S.cst.mat=mat; S.cst.matIdx=[];
+  for(let r=0;r<8;r++) for(let q=0;q<8;q++){
+    const heat=Math.exp(-Math.abs(r-q)*0.55)+rnd()*0.25;
+    const c=A.w((q-3.5)*6, 28+(3.5-r)*6, 38);
+    const col=vMix(C3.hbm,C3.loss,clamp(heat,0,1));
+    S.cst.matIdx.push(mat.add(c[0],c[1],c[2],4.6,4.6,1.5,col,0.15+heat*0.65,S.yaw0));
+  }
+  // 8 个多头扇形面板（隐藏）
+  S.cst.heads=[];
+  for(let h=0;h<8;h++){
+    const hb=box(70);
+    hb.translucent=true; hb.alpha=0;
+    for(let r=0;r<8;r++) for(let q=0;q<8;q++){
+      const heat=Math.exp(-Math.abs(r-q+((h%3)-1))*0.6);
+      const c=A.w((q-3.5)*3.4, 28+(3.5-r)*3.4, 38);
+      hb.add(c[0],c[1],c[2],2.6,2.6,1,vMix(C3.nvlink,C3.loss,heat),0.2+heat*0.7,S.yaw0);
+    }
+    S.cst.heads.push(hb);
+  }
+  for(const P of padDef){
+    flow([[0,6,-40],[P.x*0.6,P.y*0.55,-20],[P.x,P.y-2,P.z]],{rate:16,speed:55,size:2.3,col:P.col,bright:1,intensity:0.7});
+    flow([[P.x,P.y,P.z],[P.x*0.4,34,16],[0,28,36]],{rate:12,speed:48,size:2.2,col:P.col,bright:0.9,intensity:0.7});
+  }
+  label(-52,52,-4,'<span style="color:#ef4444;font-weight:700">Q</span> 查询',);
+  label(0,66,6,'<span style="color:#4a9eff;font-weight:700">K</span> 键');
+  label(52,52,-4,'<span style="color:#4ade80;font-weight:700">V</span> 值');
+  label(0,62,38,'注意力分数矩阵<span class="sub">Q·Kᵀ / √d → Softmax</span>');
+  label(0,-5,-30,'输入 Token 序列');
+  S.cst.headLbl=label(0,4,38,'<span style="color:#a78bfa">多头注意力 · 8 个头并行</span>','lbl-big');
+  S.cst.headLbl.show=0;
+  S.cst.fan=0;
+};
+UPDATERS[10]=(S,dt)=>{
+  // Softmax 行扫描（常驻微动画）
+  const rowT=(S.t*0.8)%9;
+  if(rowT<8){
+    const y=SC_ANCHOR[10][1]+28+(3.5-rowT)*6;
+    S.cst.mat.wave={dir:[0,1,0],pos:y,width:3,boost:0.9,radial:0};
+  }else S.cst.mat.wave=null;
+  if(S.flagOn && S.flagT>6) S.flagOn=false;
+  S.cst.fan=damp(S.cst.fan, S.flagOn?1:0, 3, dt);
+  const f=S.cst.fan;
+  S.cst.headLbl.show=f;
+  S.cst.mat.alpha=0.75*(1-f*0.75);
+  for(let h=0;h<8;h++){
+    const hb=S.cst.heads[h];
+    hb.alpha=f*0.7;
+    const a=(h/7-0.5)*2.4;
+    const off=vAdd(vScale(SC_RIGHT[10],Math.sin(a)*52*f), [0,(Math.cos(a)*22-10)*f,0]);
+    hb.root=vAdd(off, vScale(SC_FWD[10], -14*f));
+  }
+};
+
+// ============================================================
+// S22 · 场景 ⑫ FlashAttention 平行世界对比
+// ============================================================
+BUILDERS[11]=A=>{
+  const {S,box,line,flow,label}=A;
+  const std=box(60), fla=box(60), tiles=box(10);
+  S.cst.std=std; S.cst.fla=fla;
+  // 左：标准 Attention —— 遥远的 HBM 墙 + SM，长途搬运
+  for(let k=0;k<6;k++){
+    const c=A.w(-88,4+k*7,0);
+    std.add(c[0],c[1],c[2],14,5,42,C3.hbm,0.15,S.yaw0);
+  }
+  {const c=A.w(-26,7,0); std.add(c[0],c[1],c[2],13,11,13,C3.cuda,0.25,S.yaw0);}
+  S.cst.shuttle=flow([[-80,12,8],[-32,10,4],[-80,18,-2],[-32,12,-6],[-80,24,2]],{rate:30,speed:85,size:2.2,col:C3.act,bright:0.8,fadeEnds:false,intensity:1});
+  // 右：FlashAttention —— 明亮 SRAM 小屋，就地分块计算
+  {const c=A.w(46,2,0); fla.add(c[0],c[1],c[2],34,3,30,C3.sram,0.4,S.yaw0);}
+  {const c=A.w(30,10,0); fla.add(c[0],c[1],c[2],2,14,30,C3.sram,0.25,S.yaw0);}
+  {const c=A.w(62,10,0); fla.add(c[0],c[1],c[2],2,14,30,C3.sram,0.25,S.yaw0);}
+  S.cst.tiles=tiles; S.cst.tileIdx=[];
+  tiles.pulse=0.8;
+  for(let k=0;k<4;k++){
+    const c=A.w(38+(k%2)*16,7,-6+Math.floor(k/2)*12);
+    S.cst.tileIdx.push(tiles.add(c[0],c[1],c[2],6,6,6,C3.data,0.6,S.yaw0));
+  }
+  S.cst.writeOut=flow([[46,8,14],[46,10,52],[46,12,84]],{rate:5,speed:50,size:2.6,col:C3.pcie,bright:1,intensity:0.7});
+  {const c=A.w(46,5,90); fla.add(c[0],c[1],c[2],16,8,10,C3.hbm,0.2,S.yaw0);}
+  const ln=line(30);
+  ln.add(A.w(0,-6,-50),A.w(0,40,-50),C3.dim,0.5);
+  ln.add(A.w(0,-6,50),A.w(0,40,50),C3.dim,0.5);
+  label(-60,46,0,'标准 Attention<span class="sub">Q/K/V 在 HBM 间反复搬运</span>');
+  label(46,30,0,'FlashAttention<span class="sub">SRAM 内分块完成全部计算</span>');
+  S.cst.cntL=label(-56,34,0,'<span class="lbl-data" style="color:#fb923c">HBM 访问 ×0</span>');
+  S.cst.cntR=label(46,22,40,'<span class="lbl-data" style="color:#4ade80">HBM 写回 ×1</span>');
+  S.cst.verdict=label(0,52,0,'<span style="color:#4ade80">HBM 访问 ↓10-20× · 速度 ↑2-4×</span>','lbl-big');
+  S.cst.verdict.show=0;
+  S.cst.cnt=0; S.cst.cntT=0;
+};
+UPDATERS[11]=(S,dt)=>{
+  S.cst.cntT+=dt;
+  if(S.cst.cntT>0.45){
+    S.cst.cntT=0; S.cst.cnt++;
+    S.cst.cntL.el.innerHTML='<span class="lbl-data" style="color:#fb923c">HBM 访问 ×'+S.cst.cnt+'</span>';
+  }
+  // 瓦片在 SRAM 内轮转
+  for(let k=0;k<4;k++){
+    const a=S.t*1.4+k*TAU/4;
+    const c=L2W(11,[46+Math.cos(a)*10, 7+Math.sin(S.t*2+k)*1.5, Math.sin(a)*8]);
+    S.cst.tiles.setPos(S.cst.tileIdx[k],c[0],c[1],c[2]);
+  }
+  const cmp=S.flagOn;
+  S.cst.verdict.show=damp(S.cst.verdict.show,cmp?1:0,4,dt);
+  S.cst.shuttle.intensity=damp(S.cst.shuttle.intensity,cmp?0.35:1,3,dt);
+  S.cst.std.pulse=cmp?0:0.2;
+  S.cst.fla.pulse=cmp?0.9:0.3;
+  S.cst.writeOut.intensity=cmp?1.4:0.7;
+};
+// ============================================================
+// S23 · 场景 ⑬ FFN 粒子星云
+// ============================================================
+BUILDERS[12]=A=>{
+  const {S,box,line,flow,label}=A;
+  // 球面方向集（确定性）
+  S.cst.dirs=[];
+  for(let k=0;k<520;k++){
+    const u=rnd()*2-1, a=rnd()*TAU;
+    const r2=Math.sqrt(1-u*u);
+    S.cst.dirs.push([Math.cos(a)*r2, u, Math.sin(a)*r2]);
+  }
+  S.cst.r=18; S.cst.phase=0; S.cst.gelu=0; S.cst.ghostY=0; S.cst.ghostA=0;
+  // HBM 穹窿（下方弧形）
+  const dome=box(14);
+  for(let k=0;k<10;k++){
+    const a=(k/9-0.5)*2.4;
+    const c=A.w(Math.sin(a)*40,-46,Math.cos(a)*14-4);
+    dome.add(c[0],c[1],c[2],10,5,8,C3.hbm,0.18,S.yaw0+a*0.5);
+  }
+  // 激活值幽灵副本（半透明，下沉动画）
+  const ghost=box(4);
+  ghost.translucent=true; ghost.alpha=0;
+  {const c=A.w(0,16,0); ghost.add(c[0],c[1],c[2],26,4,26,C3.act,0.7,S.yaw0);}
+  S.cst.ghost=ghost;
+  // GELU 闸门平面
+  const gate=box(4);
+  gate.translucent=true; gate.alpha=0;
+  {const c=A.w(0,16,0); gate.add(c[0],c[1],c[2],110,0.8,110,C3.pcie,0.55,S.yaw0);}
+  S.cst.gate=gate;
+  const ln=line(20);
+  ln.circle(A.w(0,-42,0),46,40,C3.hbm,0.3);
+  label(0,76,0,'FFN 前馈网络<span class="sub">4096 → 16384 → 4096</span>','lbl-big');
+  S.cst.geluLbl=label(48,16,0,'<span style="color:#4ade80">GELU 激活<span class="sub">负值粒子被熄灭</span></span>');
+  S.cst.geluLbl.show=0;
+  S.cst.hbmLbl=label(0,-36,-30,'激活值写回 HBM<span class="sub">为反向传播保存</span>');
+  S.cst.hbmLbl.show=0;
+  label(0,-2,-60,'<span class="lbl-data" style="color:#fb923c">FFN ≈ 2/3 计算量</span>');
+};
+UPDATERS[12]=(S,dt)=>{
+  let targetR=18, bright=0.55;
+  if(S.flagOn){
+    const t=S.flagT;
+    if(t<1.2){ targetR=lerp(18,48,easeIO(t/1.2)); bright=0.9; S.cst.gelu=0; }
+    else if(t<2.4){ targetR=48; bright=1; S.cst.gelu=Math.min(1,(t-1.2)/0.7); S.cst.gate.alpha=Math.sin(Math.min(1,(t-1.2)/0.5)*Math.PI)*0.25; }
+    else if(t<3.4){ targetR=lerp(48,18,easeIO((t-2.4)/1)); S.cst.gelu=1-(t-2.4)/1; }
+    else if(t<5.2){
+      targetR=18; S.cst.gelu=0;
+      const f=easeIO((t-3.4)/1.8);
+      S.cst.ghost.alpha=0.5*(1-f*0.7);
+      S.cst.ghost.root=[0,-58*f,0];
+      S.cst.hbmLbl.show=1;
+      if(!S.cst.boomed && f>0.95){ S.cst.boomed=true; burst(L2W(12,[0,-42,0]),{n:24,speed:24,col:C3.hbm,size:2.4,life:0.8}); }
+    }else{ S.flagOn=false; S.cst.boomed=false; }
+    if(t<3.4) S.cst.geluLbl.show=S.cst.gelu;
+  }else{
+    S.cst.ghost.alpha=damp(S.cst.ghost.alpha,0,3,dt);
+    S.cst.gate.alpha=0;
+    S.cst.geluLbl.show=damp(S.cst.geluLbl.show,0,3,dt);
+    S.cst.hbmLbl.show=damp(S.cst.hbmLbl.show,0,3,dt);
+    S.cst.gelu=0;
+  }
+  S.cst.r=damp(S.cst.r,targetR,4,dt);
+  // 绘制星云粒子
+  const center=L2W(12,[0,16,0]);
+  const n=S.cst.dirs.length;
+  const breath=1+0.06*Math.sin(S.t*1.8);
+  for(let k=0;k<n;k++){
+    const d=S.cst.dirs[k];
+    const neg=d[1]<0;
+    let a=0.5+0.5*Math.sin(S.t*2+k);
+    let yDrop=0, fade=1;
+    if(S.cst.gelu>0 && neg){
+      yDrop=-S.cst.gelu*26;
+      fade=1-S.cst.gelu*0.85;
+    }
+    const rr=S.cst.r*breath*(0.85+0.3*((k*7919)%97)/97);
+    pPush(center[0]+d[0]*rr, center[1]+d[1]*rr+yDrop, center[2]+d[2]*rr,
+      2.4, neg&&S.cst.gelu>0.3?C3.loss:C3.act, 0.5*a*fade*S.fade);
+  }
+};
+
+// ============================================================
+// S24 · 场景 ⑭ 反向传播：梯度瀑布
+// ============================================================
+BUILDERS[13]=A=>{
+  const {S,box,line,flow,label}=A;
+  const slabs=box(12), lossB=box(4), ghost=box(12), kept=box(4), bar=box(8);
+  slabs.translucent=true; slabs.alpha=0.4;
+  S.cst.slabs=slabs;
+  const ln=line(80);
+  for(let k=0;k<8;k++){
+    const y=4+k*13;
+    const c=A.w(0,y,0);
+    slabs.add(c[0],c[1],c[2],42,5,42,C3.weight,0.25,S.yaw0,k/8);
+    ln.strip([A.w(-21,y,-21),A.w(21,y,-21),A.w(21,y,21),A.w(-21,y,21),A.w(-21,y,-21)],C3.weight,0.35);
+  }
+  {const c=A.w(0,104,0); lossB.add(c[0],c[1],c[2],8,8,8,C3.loss,1.1,S.yaw0);}
+  // 激活值幽灵（梯度检查点演示用）
+  ghost.translucent=true; ghost.alpha=0.45;
+  S.cst.ghost=ghost;
+  for(let k=0;k<8;k++){
+    if(k%3===0) continue;
+    const c=A.w(-34,4+k*13,0);
+    ghost.add(c[0],c[1],c[2],8,4,18,C3.act,0.4,S.yaw0);
+  }
+  S.cst.kept=kept;
+  for(let k=0;k<8;k+=3){
+    const c=A.w(-34,4+k*13,0);
+    kept.add(c[0],c[1],c[2],8,4,18,C3.act,0.5,S.yaw0);
+  }
+  // 梯度瀑布
+  for(const ox of [-14,0,14]){
+    flow([[ox,108,(ox===0?16:-6)],[ox*1.2,60,6],[ox*0.8,10,-4],[ox*0.5,-12,-10]],
+      {rate:26,speed:60,size:2.6,col:C3.grad,bright:1.15,jitter:3,intensity:1});
+  }
+  // 显存构成柱
+  const segs=[
+    {h:9, col:C3.weight, y0:0},
+    {h:9, col:C3.grad,  y0:9},
+    {h:12,col:C3.act,   y0:18},
+    {h:34,col:C3.opt,   y0:30}
+  ];
+  S.cst.actBarIdx=-1;
+  segs.forEach((sg,si)=>{
+    const c=A.w(64, sg.y0+sg.h/2, 0);
+    const idx=bar.add(c[0],c[1],c[2],10,sg.h-1,10,sg.col,0.3,S.yaw0);
+    if(si===2) S.cst.actBarIdx=idx;
+  });
+  S.cst.bar=bar;
+  label(0,116,0,'Loss<span class="sub">梯度从这里逆流而下</span>','lbl-big');
+  label(34,56,0,'<span style="color:#f472b6">梯度 Gradient<span class="sub">70B 模型 ≈ 140GB</span></span>');
+  label(-34,60,0,'已保存的激活值');
+  label(64,72,0,'HBM 显存构成<span class="sub">权重+梯度+激活+优化器</span>');
+  S.cst.ckptLbl=label(0,-18,0,'<span style="color:#f472b6">检查点：只存 1/3 激活 · 反向时重算<span class="sub">激活显存 ↓60% · 计算 +33%</span></span>');
+  S.cst.ckptLbl.show=0;
+};
+UPDATERS[13]=(S,dt)=>{
+  // 常驻：点燃波从上往下扫
+  const wy=104-((S.t*26)%124);
+  S.cst.slabs.wave={dir:[0,1,0],pos:SC_ANCHOR[13][1]+wy,width:5,boost:1.5,radial:0};
+  const on=S.flagOn;
+  S.cst.ghost.alpha=damp(S.cst.ghost.alpha,on?0.06:0.45,3,dt);
+  S.cst.ckptLbl.show=damp(S.cst.ckptLbl.show,on?1:0,4,dt);
+  S.cst.kept.pulse=on?1.2:0.2;
+  // 激活值柱随检查点收缩
+  const sc=on?0.4:1;
+  S.cst.actH=damp(S.cst.actH??1,sc,3,dt);
+  S.cst.bar.setScale(S.cst.actBarIdx,10,11*S.cst.actH,10);
+  if(on&&S.flagT>7)S.flagOn=false;
+};
+
+// ============================================================
+// S25 · 场景 ⑮ 混合精度铸造
+// ============================================================
+BUILDERS[14]=A=>{
+  const {S,box,line,flow,label}=A;
+  const fp32=box(6), fp16=box(6), mover=box(2), ring=line(60);
+  fp32.translucent=true; fp32.alpha=0.5;
+  {let c=A.w(-42,18,10); fp32.add(c[0],c[1],c[2],24,24,24,C3.blue,0.4,S.yaw0);}
+  {let c=A.w(-42,18,10); fp16.add(c[0],c[1],c[2],6,6,6,C3.white,1,S.yaw0);}
+  {let c=A.w(34,12,10); fp16.add(c[0],c[1],c[2],12,12,12,C3.tensor,0.55,S.yaw0);}
+  mover.translucent=true; mover.alpha=0;
+  {const c=A.w(-42,18,10); mover.add(c[0],c[1],c[2],18,18,18,C3.data,0.6,S.yaw0);}
+  S.cst.mover=mover; S.cst.cyc=0;
+  // 铸模光圈
+  for(let k=0;k<3;k++){
+    const pts=[];
+    for(let q=0;q<=28;q++){
+      const a=q/28*TAU;
+      pts.push(L2W(14,[-4+k*1.5, 15+Math.cos(a)*(13-k*2.5), 10+Math.sin(a)*(13-k*2.5)]));
+    }
+    ring.strip(pts,C3.gold,0.5);
+  }
+  // Loss Scaling 双轨
+  const amp=[];
+  for(let q=0;q<=28;q++){
+    const a=q/28*TAU;
+    amp.push(L2W(14,[6, 6+Math.cos(a)*7, -38+Math.sin(a)*7]));
+  }
+  ring.strip(amp,C3.grad,0.7);
+  S.cst.fDim=flow([[-52,6,-38],[5,6,-38]],{rate:14,speed:42,size:1.7,col:C3.grad,bright:0.55,intensity:1});
+  S.cst.fAmp=flow([[7,6,-38],[52,6,-38]],{rate:14,speed:42,size:3.4,col:C3.grad,bright:1.4,intensity:1});
+  S.cst.fDie=flow([[-52,-6,-38],[-6,-6,-38]],{rate:10,speed:40,size:1.6,col:C3.grad,bright:0.4,intensity:1});
+  label(-42,36,10,'FP32 主权重<span class="sub">4 字节 · 高精度存档</span>');
+  label(34,26,10,'FP16 工作副本<span class="sub">2 字节 · Tensor Core 原生</span>');
+  label(-4,30,10,'<span style="color:#ffd666">精度铸模</span>');
+  label(6,18,-38,'Loss Scaling 增幅环<span class="sub">微小梯度先放大再计算</span>');
+  label(-28,-14,-38,'<span style="color:#64748b">不加 Scaling → 下溢湮灭 ✕</span>');
+  S.cst.statLbl=label(0,52,-10,'<span style="color:#22d3ee">显存 ↓50% · 速度 ↑2-3×</span>','lbl-big');
+  S.cst.statLbl.show=0;
+};
+UPDATERS[14]=(S,dt)=>{
+  // 周期性铸造动画
+  S.cst.cyc=(S.cst.cyc+dt/2.6)%1;
+  const f=S.cst.cyc;
+  const m=S.cst.mover;
+  if(f<0.55){
+    const t=easeIO(f/0.55);
+    const c=L2W(14,[lerp(-42,34,t), lerp(18,12,t), 10]);
+    m.alpha=0.55*Math.sin(Math.min(1,f/0.5)*Math.PI*0.5+0.2);
+    m.setPos(0,c[0],c[1],c[2]);
+    const sc=lerp(18,11,t);
+    m.setScale(0,sc,sc,sc);
+  }else m.alpha*=Math.exp(-6*dt);
+  S.cst.statLbl.show=damp(S.cst.statLbl.show,S.flagOn?1:0,4,dt);
+};
+
+// ============================================================
+// S26 · 场景 ⑯ AllReduce 八卡光环
+// ============================================================
+const GPU_HUES=['data','pcie','gold','act','loss','grad','nvlink','blue'];
+BUILDERS[15]=A=>{
+  const {S,box,line,flow,label}=A;
+  const gpus=box(30), ln=line(160);
+  S.cst.gpus=gpus; S.cst.gpuIdx=[];
+  const R8=58;
+  for(let k=0;k<8;k++){
+    const a=k/8*TAU;
+    const x=Math.cos(a)*R8, z=Math.sin(a)*R8;
+    let c=A.w(x,9,z);
+    S.cst.gpuIdx.push(gpus.add(c[0],c[1],c[2],11,18,11,vMix(C3[GPU_HUES[k]],C3.dim,0.45),0.18,S.yaw0+a));
+    c=A.w(x,19.5,z);
+    gpus.add(c[0],c[1],c[2],11.6,1.4,11.6,C3[GPU_HUES[k]],0.8,S.yaw0+a);
+    // NVLink 拱桥到下一卡
+    const a2=(k+1)/8*TAU, pts=[];
+    for(let q=0;q<=10;q++){
+      const t=q/10, am=lerp(a,a2,t);
+      pts.push(A.w(Math.cos(am)*R8, 24+Math.sin(t*Math.PI)*9, Math.sin(am)*R8));
+    }
+    ln.strip(pts,C3.nvlink,0.75);
+  }
+  // 环流路径
+  const ringPts=[];
+  for(let q=0;q<=64;q++){
+    const a=q/64*TAU;
+    ringPts.push([Math.cos(a)*R8, 27, Math.sin(a)*R8]);
+  }
+  S.cst.ringFlow=flow(ringPts,{rate:26,speed:150,size:2.6,col:C3.nvlink,bright:1.1,fadeEnds:false,intensity:0.35});
+  // PCIe 对照（外圈慢车道）
+  const slowPts=[];
+  for(let q=0;q<=30;q++){
+    const a=(q/30-0.25)*TAU*0.5;
+    slowPts.push([Math.cos(a)*100, 6, Math.sin(a)*100]);
+  }
+  ln.strip(slowPts.map(q=>A.w(q[0],q[1],q[2])),C3.pcie,0.25);
+  S.cst.slowFlow=flow(slowPts,{rate:6,speed:18,size:2,col:C3.pcie,bright:0.5,fadeEnds:false,intensity:0.8});
+  label(0,66,0,'NVLink 环形拓扑 · 8 × H100<span class="sub">900 GB/s · 比 PCIe 快 14×</span>','lbl-big');
+  label(0,2,108,'<span class="lbl-data" style="color:#4ade80">PCIe 慢车道 64 GB/s</span>');
+  S.cst.phaseLbl=label(0,46,0,'');
+  S.cst.phaseLbl.show=0;
+  S.cst.orbit=0;
+};
+UPDATERS[15]=(S,dt)=>{
+  const on=S.flagOn;
+  S.cst.ringFlow.intensity=damp(S.cst.ringFlow.intensity,on?2.2:0.35,3,dt);
+  if(on){
+    const t=S.flagT, R8=58;
+    const phase=t<3?0:1;
+    if(phase!==S.cst.lastPhase){
+      S.cst.lastPhase=phase;
+      flash(0.18);
+      S.cst.phaseLbl.el.innerHTML=phase===0
+        ?'<span style="color:#a78bfa">① ReduceScatter — 分片环游累加</span>'
+        :'<span style="color:#ffd666">② AllGather — 完整结果扩散到所有卡</span>';
+    }
+    S.cst.phaseLbl.show=1;
+    S.cst.orbit+=dt*(phase===0?1.6:2.4);
+    const nChunk=phase===0?8:16;
+    for(let k=0;k<nChunk;k++){
+      const a=S.cst.orbit+k/8*TAU;
+      const grow=phase===0?clamp(t/3,0.3,1):1;
+      const col=phase===0?C3[GPU_HUES[k%8]]:vMix(C3.gold,C3.white,0.3);
+      const wpos=L2W(15,[Math.cos(a)*R8, 27+Math.sin(a*3+k)*2, Math.sin(a)*R8]);
+      for(let j=0;j<4;j++){
+        pPush(wpos[0]+(rnd()*2-1)*3, wpos[1]+(rnd()*2-1)*3, wpos[2]+(rnd()*2-1)*3, 3.6*grow, col, 1.1*grow*S.fade);
+      }
+    }
+    S.cst.gpus.pulse=phase===1?1.4:0.5;
+    if(t>6.5){ S.flagOn=false; S.cst.lastPhase=-1; S.cst.gpus.pulse=0.3; }
+  }else{
+    S.cst.phaseLbl.show=damp(S.cst.phaseLbl.show,0,4,dt);
+  }
+};
+
+// ============================================================
+// S27 · 场景 ⑰ Adam 优化器 & 训练循环
+// ============================================================
+BUILDERS[16]=A=>{
+  const {S,box,line,flow,label}=A;
+  const lat=box(100), crystal=box(4);
+  S.cst.lat=lat;
+  placeGrid(lat,S,{nx:9,nz:9,dx:10,dz:10,cx:0,cy:2,cz:0,sx:3.8,sy:3.8,sz:3.8,col:C3.weight,emi:0.18});
+  {const c=A.w(0,26,0); crystal.add(c[0],c[1],c[2],10,15,10,C3.gold,0.55,S.yaw0);}
+  S.cst.crystal=crystal;
+  // m / v 双环（旋转）
+  const mRing=line(40), vRing=line(40);
+  mRing.root=L2W(16,[0,26,0]);
+  mRing.circle([0,0,0],17,36,C3.gold,0.8);
+  vRing.root=L2W(16,[0,26,0]);
+  const vPts=[];
+  for(let q=0;q<=36;q++){
+    const a=q/36*TAU;
+    vPts.push([Math.cos(a)*22, Math.sin(a)*22*0.45, Math.sin(a)*22*0.8]);
+  }
+  vRing.strip(vPts,C3.data,0.7);
+  S.cst.mRing=mRing; S.cst.vRing=vRing;
+  // 梯度流入
+  flow([[-60,60,-40],[-30,40,-20],[0,30,0]],{rate:14,speed:45,size:2.4,col:C3.grad,bright:0.9,intensity:0.8});
+  label(0,48,0,'Adam 优化器<span class="sub">w ← w − lr · m̂ / (√v̂ + ε)</span>','lbl-big');
+  label(-22,30,14,'<span style="color:#ffd666">m 动量</span>');
+  label(26,20,-14,'<span style="color:#22d3ee">v 方差</span>');
+  label(0,-8,30,'权重晶格<span class="sub">更新脉冲将重新点亮它们</span>');
+  label(48,38,0,'<span class="lbl-data" style="color:#f59e0b">优化器状态 ≈ 560GB (70B)</span>');
+  S.cst.epochLbl=label(0,68,0,'<span style="color:#22d3ee">新 Batch 从 NVMe 出发 → 训练循环，永不停歇</span>','lbl-big');
+  S.cst.epochLbl.show=0;
+};
+UPDATERS[16]=(S,dt)=>{
+  S.cst.mRing.yaw+=dt*1.3;
+  S.cst.vRing.yaw-=dt*0.9;
+  // 周期性更新脉冲
+  const cyc=(S.t*0.5)%2;
+  if(cyc<1){
+    S.cst.lat.wave={dir:L2W(16,[0,4,0]),pos:cyc*80,width:12,boost:1.5,radial:1};
+  }else S.cst.lat.wave=null;
+  if(S.flagOn){
+    if(S.flagT<0.1) flash(0.3);
+    S.cst.epochLbl.show=1;
+    S.cst.crystal.pulse=1.5;
+    if(S.flagT>1.1 && !S.cst.flew){
+      S.cst.flew=true;
+      startEpoch(); // 飞越收尾，回到场景①
+    }
+    if(S.flagT>4){ S.flagOn=false; S.cst.flew=false; }
+  }else{
+    S.cst.epochLbl.show=damp(S.cst.epochLbl.show,0,2,dt);
+    S.cst.crystal.pulse=0.4;
+  }
+};
+// ============================================================
+// S28 · UI 胶水 —— 信息面板 / 进度点 / 巡航 / 术语表
+// ============================================================
+const elPanel=document.getElementById('infoPanel');
+const elBadge=document.getElementById('sceneBadge');
+const elPhase=document.getElementById('phaseTag');
+const elTitle=document.getElementById('sceneTitle');
+const elDesc=document.getElementById('sceneDesc');
+const elActs=document.getElementById('sceneActions');
+const elCounter=document.getElementById('stepCounter');
+const elPrev=document.getElementById('prevBtn');
+const elNext=document.getElementById('nextBtn');
+const elCruise=document.getElementById('cruiseBtn');
+const elFilmTitle=document.getElementById('filmTitle');
+const elDebug=document.getElementById('debug');
+const dots=[];
+{
+  const bar=document.getElementById('progressBar');
+  for(let k=0;k<N_SCENES;k++){
+    if(k>0){
+      const lineEl=document.createElement('div');
+      lineEl.className='dot-line';
+      bar.appendChild(lineEl);
+      dots.push(lineEl);
+    }
+    const d=document.createElement('div');
+    d.className='dot'; d.textContent=k+1;
+    d.onclick=()=>{ targetP=k; cruise=false; syncCruiseBtn(); };
+    bar.appendChild(d);
+    dots.push(d);
+  }
+}
+
+let uiScene=-1;
+function updateHUD(){
+  const cur=wrapI(Math.round(wrapP(p)));
+  const d=wrapDist(p,cur);
+  if(cur!==uiScene){
+    uiScene=cur;
+    const info=SCENE_INFO[cur];
+    elBadge.textContent='场景 '+(cur+1)+' / '+N_SCENES;
+    elPhase.textContent=PHASES[cur];
+    elTitle.textContent=info.title;
+    elDesc.innerHTML=info.desc;
+    elActs.innerHTML=info.btn
+      ? '<button class="action-btn '+info.btn.cls+'" onclick="sceneAction(\''+info.btn.act+'\')">'+info.btn.label+'</button>'
+      : '';
+    elCounter.textContent=(cur+1)+' / '+N_SCENES;
+    let di=0;
+    for(const ch of dots){
+      if(ch.classList.contains('dot')){
+        ch.classList.toggle('active',di===cur);
+        ch.classList.toggle('done',di<cur);
+        di++;
+      }else{
+        ch.classList.toggle('done',di<=cur&&di>0);
+      }
+    }
+    elPrev.disabled=(cur===0);
+    elNext.disabled=(cur===N_SCENES-1);
+  }
+  elPanel.classList.toggle('hidden', d>0.45);
+  elFilmTitle.style.opacity = wrapP(p)<0.25&&targetP<0.25 ? '1':'0.22';
+}
+function go(dir){
+  const cur=Math.round(wrapP(p));
+  targetP=clamp(cur+dir,0,N_SCENES-1);
+  cruise=false; syncCruiseBtn();
+}
+function toggleCruise(){
+  cruise=!cruise;
+  syncCruiseBtn();
+}
+function syncCruiseBtn(){
+  elCruise.classList.toggle('on',cruise);
+  elCruise.textContent=cruise?'⏸ 巡航中':'▶ 自动巡航';
+}
+function toggleGlossary(){
+  document.getElementById('glossary-panel').classList.toggle('open');
+}
+
+// ============================================================
+// S29 · Boot & Loop —— 主循环 / 自动降质 / 测试钩子
+// ============================================================
+let timeS=0, lastT=performance.now(), emaMs=16, qCooldown=0, manualMode=false;
+let fpsCnt=0, fpsAcc=0, fpsShow=60;
+
+function tick(dt){
+  timeS+=dt;
+  partN=0;
+  updateCamera(dt, timeS);
+  maintainScenes(dt);
+  updateBursts(dt);
+  render(timeS);
+  updateLabels();
+  updateHUD();
+}
+function frame(now){
+  if(manualMode) return;
+  const rawDt=(now-lastT);
+  lastT=now;
+  const dt=clamp(rawDt/1000, 0.001, 0.05);
+  emaMs=emaMs*0.95+rawDt*0.05;
+  fpsAcc+=rawDt; fpsCnt++;
+  if(fpsAcc>500){ fpsShow=Math.round(1000/(fpsAcc/fpsCnt)); fpsAcc=0; fpsCnt=0; }
+  // 自动降质
+  qCooldown-=rawDt/1000;
+  if(emaMs>26 && qCooldown<=0){
+    if(QUALITY.renderScale>0.86){ QUALITY.renderScale=0.85; resize(); }
+    else if(QUALITY.shadow){ QUALITY.shadow=false; }
+    else if(QUALITY.renderScale>0.71){ QUALITY.renderScale=0.7; QUALITY.blurIters=1; resize(); }
+    else if(QUALITY.bloom){ QUALITY.bloom=false; QUALITY.dust=3000; }
+    qCooldown=3; emaMs=16;
+  }
+  tick(dt);
+  if(DEBUG){
+    elDebug.style.display='block';
+    elDebug.textContent='fps '+fpsShow+' | p '+p.toFixed(2)+' → '+targetP.toFixed(2)
+      +'\ndc '+drawCalls+' | parts '+partN+' | scale '+QUALITY.renderScale
+      +'\nbloom '+(QUALITY.bloom?'on':'off')+' shadow '+(QUALITY.shadow?'on':'off')+(floatOK?' HDR':' LDR');
+  }
+  requestAnimationFrame(frame);
+}
+
+// 测试 / 录制钩子
+window.__setProgress=v=>{ p=v; targetP=v; };
+window.__action=a=>sceneAction(a);
+window.__stats=()=>({p, targetP, drawCalls, parts:partN, fps:fpsShow, quality:QUALITY.level, hdr:floatOK});
+window.__tick=ms=>{ manualMode=true; tick((ms||33.3)/1000); };
+window.__resume=()=>{ manualMode=false; lastT=performance.now(); requestAnimationFrame(frame); };
+
+resize();
+syncCruiseBtn();
+requestAnimationFrame(frame);
+</script>
+<script data-goatcounter="https://tbusos.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<div id="gc-views" style="position:fixed;top:52px;right:20px;z-index:999;font-size:0.72rem;color:#64748b;background:rgba(10,15,30,0.7);padding:4px 10px;border-radius:12px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);font-family:JetBrains Mono,monospace;">👁 <span id="gc-count">-</span></div>
+<script>
+var r=new XMLHttpRequest();
+r.addEventListener("load",function(){if(this.status===200){var d=JSON.parse(this.responseText);document.getElementById("gc-count").textContent=d.count.toLocaleString()+" 次访问";}});
+r.open("GET","https://tbusos.goatcounter.com/counter/"+encodeURIComponent(location.pathname)+".json");
+r.send();
+</script>
+</body>
+</html>
