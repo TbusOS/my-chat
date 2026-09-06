@@ -1,0 +1,155 @@
+<h1 style="text-align:center;font-size:22px;font-weight:900;color:#1a1a2e;margin-bottom:6px;">你手指一划，手机里发生了什么？</h1>
+<p style="text-align:center;color:#888;font-size:13px;margin-bottom:24px;">拆手机 · 钻进 SoC · 看清一帧画面从 CPU 到 OLED 像素的完整链路</p>
+
+<div style="background-color:#0f172a;color:#e2e8f0;padding:20px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.9;border-left:4px solid #5aa0eb;">
+你手指在屏幕上一划，画面立刻跟着动。这中间数据要走完这样一条路：<strong style="color:#5aa0eb;">App 在 CPU 大核上算出图层 → GPU 渲染进统一内存 → DMA 在后台搬运 → DPU 把几层叠成一帧 → MIPI DSI 串行发到屏 → 驱动 IC → 几百万个 OLED 像素各自发光</strong>。这一路上的每一个设计，背后都是一个具体的取舍。这次我们把一部手机拆开，一直看到芯片内部的片上网络。
+</div>
+
+<div style="background-color:#0a0e1a;border-radius:12px;padding:24px 20px;text-align:center;margin-bottom:24px;">
+<div style="display:inline-block;width:56px;height:56px;background-color:rgba(90,160,235,0.85);border-radius:50%;line-height:56px;font-size:22px;color:#fff;margin-bottom:10px;">&#9654;</div>
+<div style="color:#e8ecf4;font-size:15px;font-weight:600;">手机：一帧画面怎么到你眼前（8.5 分钟配音讲解）</div>
+<div style="color:#64748b;font-size:12px;margin-top:6px;">（视频需在公众号后台插入）</div>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #5aa0eb;">第一幕：把手机拆开</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">1. 一部手机就三样东西</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">一块屏、一块电池、一小块主板，塞在金属中框里。主板只有巴掌的三分之一大，上面最大的那颗芯片就是 <strong>SoC</strong>。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">如果换成电脑那种分立的 CPU、显卡和内存条，主板要大十倍，手机就拿不动了。<strong>为什么手机要把什么都塞进一颗芯片？</strong>体积和功耗。芯片之间连线越长，驱动信号越费电；做进同一块硅片，距离从厘米变成毫米，省下的电全变成续航。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/01-一部手机.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 实时渲染：亮屏状态，屏幕上同时有状态栏、图标层、小组件、导航条四层</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">2. 拆开：屏 · 电池 · 主板</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">上层是屏幕，中间大半是电池，只有顶部一条是主板。主板和屏之间靠几根<strong>柔性排线</strong>连着——所有画面数据都从这几根线过去，同时还走触摸数据和电源。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么主板挤在顶部一条？</strong>电池要最大的连续空间，而且发热的芯片离电池越远越好——锂电池怕热。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/02-拆开三层.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 三层分离：亮着的屏 / 电池 + 主板 / 后盖</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">3. SoC 和内存是叠在一起的</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">主板上那颗最大的方块其实是<strong>两颗芯片叠在一起</strong>：下面是 SoC，上面直接摞着 LPDDR 内存，中间用一圈锡球连接——这叫<strong>叠层封装（PoP）</strong>。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">不叠的话内存要放到旁边，走线长几厘米，高频信号跑不动，还多占一块面积。<strong>为什么手机能叠、电脑不能？</strong>手机内存功耗小、发热小，热量能从底下的基板走掉；电脑的显卡三百瓦，上面再盖一块芯片就散不出去了，所以显存只能摆在旁边。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/03-SoC叠内存.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ SoC 基板 + die + 上方叠封的 LPDDR + 一圈锡球</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">4. 钻进 SoC：片上网络</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">左边是<strong>四个大核 + 四个小核</strong>的 CPU，右上是<strong>六个 GPU 核</strong>，右边是跑 AI 的 <strong>NPU</strong> 和处理照片的 <strong>ISP</strong>，中间一竖排是<strong>六片系统级缓存</strong>，下边是四个<strong>内存控制器</strong>、<strong>DMA</strong>、<strong>DPU</strong> 和 <strong>MIPI DSI</strong>。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">它们之间架着铜色轨道，这是<strong>片上网络（NoC）</strong>，一个三乘三的网格。没有它，这十几个模块就得两两拉专线，线数按平方涨，芯片面积全被走线吃掉。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么手机用网格，而电脑显卡用一条粗干道？</strong>显卡里几十个计算单元干的是同一件事、访问模式相似，拉一条宽干道最直接；手机 SoC 里十几种模块脾气完全不同——CPU 要低延迟、GPU 要大带宽、显示单元要稳定节拍——网格能让它们各走各的路，互不堵塞。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/04-钻进SoC.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ SoC 内部：大小核 / GPU / NPU / 系统级缓存 / 内存控制器 + 3×3 网格 NoC</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #22d3ee;">第二幕：一帧画面怎么来</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">5. CPU 派活给 GPU</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">你手指一划，App 在 <strong>CPU 大核</strong>上算出这一帧长什么样：哪些图层、各自在哪、多大。这些变成<strong>绘制命令</strong>写进内存，再通过片上网络通知 GPU 去画。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么 App 跑在大核？</strong>界面响应要低延迟，大核频率高、乱序执行强，一次算完。后台同步、推送这些不急的活交给小核，省电。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/05-CPU派活.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 命令包从大核出发，沿网格先横后竖走到 GPU</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">6. GPU 渲染进统一内存</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">GPU 把每个图层画出来，结果写进内存。手机用的是<strong>统一内存</strong>：CPU 和 GPU 共用同一块物理内存，同一份数据不用来回拷贝。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么电脑反而要分开？</strong>独立显卡插在 PCIe 上，离 CPU 十几厘米，共用一块内存的话谁访问都慢；而且显卡要的带宽是 CPU 的十几倍，专门配显存才划算。手机所有东西挤在一颗芯片里，共用是最省的选择。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/06-GPU渲染.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ GPU 核逐块算像素 → 系统级缓存 → 内存控制器 → LPDDR</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">7. DMA：搬数据不占 CPU</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">内存里一块数据要挪到另一处（比如相机拍的原始图交给 ISP、音频送给编解码），<strong>DMA 引擎</strong>接过这活：CPU 只说一句"把 A 搬到 B，搬完叫我"，然后就去睡觉，搬完 DMA 发个中断把它叫醒。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">没有 DMA，CPU 得自己一个字一个字读了再写，几兆的数据要几百万次读写，全程满载——费电还什么别的都干不了。<strong>搬运是纯体力活，不需要判断。</strong>给它配一个只会搬东西的小硬件，面积很小，却把 CPU 从最没技术含量的工作里解放出来。手机上这一条直接换算成续航。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/07-DMA搬运.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 搬运期间 CPU 大核全部暗着，占用 0%</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">8. DPU：把图层叠成一帧</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">屏幕上同时有好几层：状态栏、App 画面、导航条、输入法。它们各自画在内存里，由 <strong>DPU（显示处理单元）</strong>按次序叠起来、缩放、做色彩管理，合成最终这一帧。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">没有它，合成就得让 GPU 干——GPU 每帧要多读写一遍全屏数据，功耗明显上去，而且它本来该去画下一帧。<strong>这活每秒钟必做 60~120 次，规则又固定</strong>（叠加、混合、缩放），做成专用电路比通用 GPU 省一个数量级的电。这是手机能一直亮着屏还不烫的关键之一。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/08-DPU合成.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 四个图层从内存逐个取出，在 DPU 上叠起来</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">9. MIPI DSI：打包发给屏</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">合成好的一帧要出芯片。<strong>MIPI DSI</strong> 把像素切成包，分到<strong>四条数据通道</strong>上串行发出，另有一条<strong>时钟通道</strong>让接收端对准节拍。每条通道也是一对差分线。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么手机用 DSI 而电脑用 DisplayPort？</strong>DSI 是短距离（几厘米）、低功耗、省引脚，还支持"只发变化的那部分"和低功耗待机；DisplayPort 要走两米线缆、支持热插拔和多种分辨率协商，复杂得多也费电得多。各自为自己的场景做了优化。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/09-MIPI-DSI.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 24 位像素拆成比特，分到 4 条 lane 串行发出 + 1 条时钟</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #f472b6;">第三幕：屏幕怎么亮</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">10. 屏幕驱动 IC</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">数据经排线到屏幕上的<strong>驱动 IC</strong>。它把收到的像素存进自己的行缓冲，再按<strong>行</strong>和<strong>列</strong>把电压加到面板上对应的像素。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么驱动 IC 要贴在屏上，而不是放主板？</strong>它要接出几千根细电极直连面板，这些线只能做在玻璃上；放主板就得几千根排线，根本不可能。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/10-驱动IC.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 像素流经排线到驱动 IC，面板上一行一行刷</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">11. OLED 像素：自己发光</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">每个子像素是一小块<strong>有机发光材料</strong>夹在两个电极之间：通电就发光，电流越大越亮。红绿蓝三个子像素各自一块，各自一个 <strong>TFT</strong> 管着电流。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么 OLED 的黑是真黑？</strong>这个像素不通电就完全不发光，是纯黑。液晶屏的背光一直亮着，液晶只能"挡"，挡不干净，黑就是深灰。<strong>代价是</strong>有机材料会老化，亮得多的子像素衰减快——这就是烧屏。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/11-OLED像素.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 六层剖面：玻璃基板 / TFT / 有机发光层 / 阴极 / 封装 / 偏光片</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">12. 同一帧，两种屏的差别</h3>
+<table style="width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px;">
+<tr>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;"></th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">液晶（LCD）</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">OLED</th>
+</tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;">怎么亮</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">背光全亮，液晶转角决定挡多少</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">每个子像素按电流自己发光</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:600;">黑</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">挡不干净，是深灰</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;color:#16a34a;font-weight:700;">不通电 = 真黑</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;">深色内容功耗</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">跟内容无关，一样耗电</td><td style="padding:8px 12px;border:1px solid #e5e7eb;color:#16a34a;font-weight:700;">黑像素不耗电</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;font-weight:600;">形态</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">背光模组是硬的</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">能做曲面和折叠</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;">短板</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">做不出真黑和超薄</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">亮度上限、寿命、成本，还有烧屏</td></tr>
+</table>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/12-LCD对比OLED.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 同一帧里，OLED 的黑区完全不通电</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #ffd666;">回头看这一趟</h2>
+<table style="width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px;">
+<tr>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">设计</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">为了解决什么</th>
+</tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">全塞进一颗 SoC</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">连线越短越省电，省下的全变续航</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">内存叠在 SoC 上（PoP）</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">走线几厘米高频信号跑不动，还占面积</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">网格状片上网络</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">十几种模块脾气不同，要各走各的路</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">统一内存</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">同一份数据不用在 CPU 和 GPU 之间拷</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">专门的 DMA</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">搬运不需要判断，不该让 CPU 满载去干</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">专门的 DPU</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">每秒合成上百次，专用电路省一个数量级的电</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">MIPI DSI 串行</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">并行线排不细也弯不进手机里</td></tr>
+</table>
+
+<div style="background-color:#f0f7ff;border-radius:12px;padding:18px 20px;margin:20px 0;font-size:14px;line-height:1.9;color:#334155;border-left:4px solid #5aa0eb;">
+<strong style="color:#1e40af;">关于这次的画面</strong><br>
+视频里所有画面都是<strong>浏览器实时渲染</strong>的，不是预先做好的动画：PBR 材质、程序化生成的棚拍环境光、屏幕空间环境光遮蔽、真实倒角几何。相机停下后画面会持续累积采样，软阴影、景深、抗锯齿都是靠多次采样收敛出来的真实效果，而不是后期模糊。
+</div>
+
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">点击<strong>阅读原文</strong>可以打开交互版本，自己拖动视角、切换十二个站点，还能一拍一拍地看数据在芯片里怎么走。</p>

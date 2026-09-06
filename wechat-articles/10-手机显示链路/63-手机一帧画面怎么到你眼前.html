@@ -1,0 +1,2511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>手机：一帧画面怎么到你眼前 · 写实 3D 讲解</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#141416;
+    font-family:"Noto Sans SC",-apple-system,"PingFang SC",sans-serif;color:#e6e6ea}
+  #gl{display:block;width:100%;height:100%;cursor:grab}
+  #gl:active{cursor:grabbing}
+  .mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace}
+  /* —— 面板通用 —— */
+  .panel{background:rgba(18,18,21,.74);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,.09);border-radius:12px}
+  /* —— 标题 —— */
+  .title{position:fixed;left:22px;top:18px;z-index:20;pointer-events:none;user-select:none}
+  .title h1{font-size:clamp(18px,1.6vw,26px);font-weight:700;letter-spacing:.02em;
+    background:linear-gradient(90deg,#f1f1f3 0%,#b9c7d6 55%,#8fb3d9 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.25}
+  .title p{font-size:12.5px;color:#9a9aa2;margin-top:5px;letter-spacing:.02em}
+  /* —— 章节 / 站点 —— */
+  .acts{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:6px;padding:5px}
+  .acts button{background:transparent;border:0;color:#a3a3ab;font:500 12.5px/1 "Noto Sans SC",sans-serif;
+    padding:8px 14px;border-radius:8px;cursor:pointer;letter-spacing:.04em;transition:.18s}
+  .acts button:hover{color:#fff;background:rgba(255,255,255,.06)}
+  .acts button.on{color:#fff;background:rgba(90,160,235,.22);box-shadow:inset 0 0 0 1px rgba(120,180,245,.45)}
+  .stations{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:5px;
+    padding:5px 7px;border-radius:999px}
+  .stations button{width:26px;height:26px;border-radius:50%;border:0;background:rgba(255,255,255,.07);
+    color:#8c8c94;font:600 10.5px/1 "JetBrains Mono",monospace;cursor:pointer;transition:.18s}
+  .stations button:hover{background:rgba(255,255,255,.14);color:#fff}
+  .stations button.on{background:#5aa0eb;color:#0b1b2c}
+  .stations button.done{color:#c0c0c8}
+  /* —— 说明卡 —— */
+  .caption{position:fixed;left:22px;bottom:22px;z-index:20;width:min(430px,calc(100vw - 44px));
+    padding:18px 20px 16px;transition:opacity .35s}
+  .caption .k{font:600 11px/1 "JetBrains Mono",monospace;color:#5aa0eb;letter-spacing:.12em;text-transform:uppercase}
+  .caption h2{font-size:19px;font-weight:700;margin:9px 0 10px;letter-spacing:.01em;color:#f3f3f5}
+  .caption .body{font-size:13px;line-height:1.72;color:#c6c6cd}
+  .caption .body b{color:#f0f0f3;font-weight:600}
+  .caption .body .q{display:block;margin-top:7px}
+  .caption .body .q em{font-style:normal;color:#8fb3d9;font-weight:600;margin-right:6px}
+  .caption .body .en{color:#8a8a92;font-size:12px}
+  .caption .clk{display:none;align-items:center;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#a9a9b1}
+  .caption .clk.on{display:flex}
+  .caption .clk button{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);color:#dcdce2;border-radius:7px;padding:5px 9px;font:500 12px/1 "Noto Sans SC",sans-serif;cursor:pointer}
+  .caption .clk button:hover{background:rgba(255,255,255,.13);color:#fff}
+  .caption .clk label{display:flex;align-items:center;gap:6px}
+  .caption .clk input[type=range]{width:80px;accent-color:#5aa0eb}
+  .caption .clk #cTick{margin-left:auto;color:#5aa0eb}
+  .caption .nav{display:flex;justify-content:space-between;align-items:center;margin-top:13px;gap:10px}
+  .caption .nav button{flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);
+    color:#dcdce2;border-radius:8px;padding:8px 10px;font:500 12.5px/1 "Noto Sans SC",sans-serif;cursor:pointer;transition:.16s}
+  .caption .nav button:hover{background:rgba(255,255,255,.13);color:#fff}
+  .caption .nav button.pri{background:#5aa0eb;color:#0b1b2c;border-color:transparent;font-weight:600}
+  .caption .nav button.pri:hover{background:#74b1f3}
+  .caption .nav button:disabled{opacity:.35;cursor:default}
+  /* —— 3D 标签层 —— */
+  #labels{position:fixed;inset:0;z-index:15;pointer-events:none;overflow:hidden}
+  #leaders{position:fixed;inset:0;z-index:14;pointer-events:none;width:100%;height:100%}
+  .lb{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;
+    background:rgba(14,14,17,.82);border:1px solid rgba(255,255,255,.14);border-radius:7px;
+    padding:5px 9px 5px 9px;font-size:12px;line-height:1.35;color:#eaeaee;
+    box-shadow:0 4px 18px rgba(0,0,0,.35);opacity:0;transition:opacity .4s;backdrop-filter:blur(8px)}
+  .lb.show{opacity:1}
+  .lb small{display:block;font:400 10.5px/1.3 "JetBrains Mono",monospace;color:#8fb3d9;margin-top:2px}
+  .lb::after{content:"";position:absolute;left:50%;bottom:-5px;width:8px;height:8px;
+    background:#5aa0eb;border-radius:50%;transform:translate(-50%,50%);box-shadow:0 0 0 3px rgba(90,160,235,.25)}
+  /* —— 渲染状态 —— */
+  .hud{position:fixed;right:22px;top:112px;z-index:20;padding:12px 15px;min-width:220px;
+    font-size:11.5px;line-height:1.7;color:#a9a9b1;user-select:none;pointer-events:none}
+  .hud b{display:block;color:#e6e6ea;font-weight:600;font-size:12px;margin-bottom:5px}
+  .hud .row{display:flex;justify-content:space-between;gap:16px;font-variant-numeric:tabular-nums}
+  .hud .row span:last-child{color:#e6e6ea}
+  .hud input[type=range]{pointer-events:auto;width:100%;margin:4px 0 0;accent-color:#5aa0eb}
+  .hud input[type=checkbox]{pointer-events:auto;accent-color:#5aa0eb;margin:0}
+  .hud label.row{cursor:pointer;pointer-events:auto;margin-top:6px}
+  .bar{height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:8px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0%;background:#5aa0eb;transition:width .12s linear}
+  .tip{position:fixed;right:84px;bottom:26px;z-index:20;color:#7c7c84;font-size:11px;line-height:1.8;
+    text-align:right;user-select:none;pointer-events:none}
+  .tip kbd{background:rgba(255,255,255,.09);border-radius:4px;padding:1px 6px;font-family:inherit;color:#bdbdc5}
+  /* —— 术语表 —— */
+  .gloss-btn{position:fixed;bottom:24px;right:24px;z-index:9999;width:46px;height:46px;border-radius:50%;
+    border:1px solid rgba(255,255,255,.14);background:rgba(24,24,28,.86);color:#fff;font-size:20px;
+    cursor:pointer;backdrop-filter:blur(12px);box-shadow:0 6px 24px rgba(0,0,0,.4);transition:.18s}
+  .gloss-btn:hover{background:#5aa0eb;color:#0b1b2c;transform:translateY(-2px)}
+  .gloss{position:fixed;top:0;right:0;bottom:0;width:min(400px,92vw);z-index:9998;
+    background:rgba(16,16,19,.94);backdrop-filter:blur(20px);border-left:1px solid rgba(255,255,255,.1);
+    transform:translateX(102%);transition:transform .38s cubic-bezier(.2,.8,.2,1);overflow-y:auto;padding:26px 24px 90px}
+  .gloss.open{transform:none}
+  .gloss h3{font-size:17px;font-weight:700;margin-bottom:6px}
+  .gloss .sub{font-size:12px;color:#8a8a92;margin-bottom:18px}
+  .gloss dl{display:grid;gap:12px}
+  .gloss dt{font:600 13px/1.3 "JetBrains Mono",monospace;color:#8fb3d9}
+  .gloss dt span{font-family:"Noto Sans SC",sans-serif;color:#e6e6ea;font-weight:600;margin-left:8px}
+  .gloss dd{font-size:12.5px;line-height:1.65;color:#bdbdc5;margin-top:3px}
+  .gloss .x{position:absolute;top:16px;right:18px;background:transparent;border:0;color:#9a9aa2;font-size:22px;cursor:pointer}
+  #err{position:fixed;inset:0;display:none;place-items:center;z-index:99999;background:#141416;color:#ff8a8a;
+    font-size:14px;padding:40px;text-align:center;line-height:1.9;white-space:pre-wrap}
+  @media (max-width:900px){
+    .title p{display:none} .hud{display:none} .tip{display:none}
+    .caption{width:calc(100vw - 44px)} .acts{top:60px} .stations{top:104px}
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<svg id="leaders"></svg>
+<div id="labels"></div>
+
+<header class="title">
+  <h1>手机：一帧画面怎么到你眼前</h1>
+  <p>手指一划到屏幕亮起：SoC 内部总线 · DMA · 显示合成 · MIPI DSI · OLED · 写实 3D 讲解</p>
+</header>
+
+<nav class="acts panel" id="acts"></nav>
+<nav class="stations panel" id="stations"></nav>
+
+<aside class="caption panel" id="caption">
+  <div class="k" id="cK">第一幕 · 01 / 14</div>
+  <h2 id="cT">—</h2>
+  <div class="body" id="cB"></div>
+  <div class="clk" id="clk">
+    <button id="cPlay" title="暂停 / 继续">⏸</button>
+    <button id="cStep" title="单步:走一拍">⏭ 一拍</button>
+    <label>速度 <input id="cSpd" type="range" min="25" max="300" value="100"></label>
+    <span id="cTick" class="mono">拍 0</span>
+  </div>
+  <div class="nav">
+    <button id="bPrev">← 上一站</button>
+    <button id="bNext" class="pri">下一站 →</button>
+  </div>
+</aside>
+
+<aside class="hud panel">
+  <b>渲染状态</b>
+  <div class="row"><span>累积采样</span><span id="hSpp" class="mono">0 / 0</span></div>
+  <div class="row"><span>帧时间</span><span id="hMs" class="mono">—</span></div>
+  <div class="row"><span>三角形</span><span id="hTri" class="mono">—</span></div>
+  <div class="row"><span>光圈(景深)</span><span id="hFst" class="mono">—</span></div>
+  <input id="hAp" type="range" min="0" max="100" value="50" title="0 = 全清晰,50 = 镜头默认,100 = 两倍">
+  <label class="row"><span>焦平面贴板面(移轴)</span><input id="hTs" type="checkbox"></label>
+  <div class="bar"><i id="hBar"></i></div>
+</aside>
+
+<div class="tip"><kbd>←</kbd> <kbd>→</kbd> 切站 &nbsp; <kbd>拖动</kbd> 转视角 &nbsp; <kbd>滚轮</kbd> 推拉<br>松手后画面会持续累积采样，越等越干净</div>
+
+<button class="gloss-btn" id="gBtn" title="术语表">❓</button>
+<aside class="gloss" id="gPanel">
+  <button class="x" id="gClose">×</button>
+  <h3>术语表</h3>
+  <div class="sub">英文缩写 · 中文名 · 一句话解释</div>
+  <dl id="gList"></dl>
+</aside>
+<div id="err"></div>
+<script>
+'use strict';
+//==============================================================
+// S1 · 数学
+//==============================================================
+const M4 = {
+  ident(){ return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); },
+  mul(a,b,o){ o=o||new Float32Array(16);
+    for(let c=0;c<4;c++){ const c4=c*4,
+      b0=b[c4],b1=b[c4+1],b2=b[c4+2],b3=b[c4+3];
+      o[c4  ]=a[0]*b0+a[4]*b1+a[8 ]*b2+a[12]*b3;
+      o[c4+1]=a[1]*b0+a[5]*b1+a[9 ]*b2+a[13]*b3;
+      o[c4+2]=a[2]*b0+a[6]*b1+a[10]*b2+a[14]*b3;
+      o[c4+3]=a[3]*b0+a[7]*b1+a[11]*b2+a[15]*b3; }
+    return o; },
+  persp(fovy,asp,zn,zf,o){ o=o||new Float32Array(16);
+    const f=1/Math.tan(fovy/2), nf=1/(zn-zf);
+    o.fill(0); o[0]=f/asp; o[5]=f; o[10]=(zf+zn)*nf; o[11]=-1; o[14]=2*zf*zn*nf;
+    return o; },
+  ortho(l,r,b,t,zn,zf,o){ o=o||new Float32Array(16); o.fill(0);
+    o[0]=2/(r-l); o[5]=2/(t-b); o[10]=-2/(zf-zn); o[15]=1;
+    o[12]=-(r+l)/(r-l); o[13]=-(t+b)/(t-b); o[14]=-(zf+zn)/(zf-zn);
+    return o; },
+  look(eye,ctr,up,o){ o=o||new Float32Array(16);
+    let zx=eye[0]-ctr[0], zy=eye[1]-ctr[1], zz=eye[2]-ctr[2];
+    let l=Math.hypot(zx,zy,zz)||1; zx/=l; zy/=l; zz/=l;
+    let xx=up[1]*zz-up[2]*zy, xy=up[2]*zx-up[0]*zz, xz=up[0]*zy-up[1]*zx;
+    l=Math.hypot(xx,xy,xz);
+    if(l<1e-6){ xx=1; xy=0; xz=0; } else { xx/=l; xy/=l; xz/=l; }
+    const yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+    o[0]=xx; o[1]=yx; o[2]=zx; o[3]=0;
+    o[4]=xy; o[5]=yy; o[6]=zy; o[7]=0;
+    o[8]=xz; o[9]=yz; o[10]=zz; o[11]=0;
+    o[12]=-(xx*eye[0]+xy*eye[1]+xz*eye[2]);
+    o[13]=-(yx*eye[0]+yy*eye[1]+yz*eye[2]);
+    o[14]=-(zx*eye[0]+zy*eye[1]+zz*eye[2]);
+    o[15]=1; return o; },
+  inv(m,o){ o=o||new Float32Array(16);
+    const a00=m[0],a01=m[1],a02=m[2],a03=m[3], a10=m[4],a11=m[5],a12=m[6],a13=m[7],
+          a20=m[8],a21=m[9],a22=m[10],a23=m[11], a30=m[12],a31=m[13],a32=m[14],a33=m[15];
+    const b00=a00*a11-a01*a10, b01=a00*a12-a02*a10, b02=a00*a13-a03*a10,
+          b03=a01*a12-a02*a11, b04=a01*a13-a03*a11, b05=a02*a13-a03*a12,
+          b06=a20*a31-a21*a30, b07=a20*a32-a22*a30, b08=a20*a33-a23*a30,
+          b09=a21*a32-a22*a31, b10=a21*a33-a23*a31, b11=a22*a33-a23*a32;
+    let d=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;
+    if(!d) return o; d=1/d;
+    o[0]=(a11*b11-a12*b10+a13*b09)*d;  o[1]=(a02*b10-a01*b11-a03*b09)*d;
+    o[2]=(a31*b05-a32*b04+a33*b03)*d;  o[3]=(a22*b04-a21*b05-a23*b03)*d;
+    o[4]=(a12*b08-a10*b11-a13*b07)*d;  o[5]=(a00*b11-a02*b08+a03*b07)*d;
+    o[6]=(a32*b02-a30*b05-a33*b01)*d;  o[7]=(a20*b05-a22*b02+a23*b01)*d;
+    o[8]=(a10*b10-a11*b08+a13*b06)*d;  o[9]=(a01*b08-a00*b10-a03*b06)*d;
+    o[10]=(a30*b04-a31*b02+a33*b00)*d; o[11]=(a21*b02-a20*b04-a23*b00)*d;
+    o[12]=(a11*b07-a10*b09-a12*b06)*d; o[13]=(a00*b09-a01*b07+a02*b06)*d;
+    o[14]=(a31*b01-a30*b03-a32*b00)*d; o[15]=(a20*b03-a21*b01+a22*b00)*d;
+    return o; }
+};
+const V3 = {
+  norm(v){ const l=Math.hypot(v[0],v[1],v[2])||1; return [v[0]/l,v[1]/l,v[2]/l]; },
+  add(a,b){ return [a[0]+b[0],a[1]+b[1],a[2]+b[2]]; },
+  sub(a,b){ return [a[0]-b[0],a[1]-b[1],a[2]-b[2]]; },
+  scale(a,s){ return [a[0]*s,a[1]*s,a[2]*s]; },
+  cross(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+};
+// Halton 低差异序列 —— 累积采样的抖动来源
+function halton(i,b){ let f=1,r=0; while(i>0){ f/=b; r+=f*(i%b); i=Math.floor(i/b); } return r; }
+
+//==============================================================
+// S2 · GL 核心
+//==============================================================
+const cv = document.getElementById('gl');
+const gl = cv.getContext('webgl2', {antialias:false, alpha:false,
+  depth:false, powerPreference:'high-performance', preserveDrawingBuffer:true});
+function fatal(msg){
+  const e=document.getElementById('err');
+  e.style.display='grid'; e.textContent=msg; throw new Error(msg);
+}
+if(!gl) fatal('这台机器/浏览器不支持 WebGL2，页面无法渲染。');
+
+const GLERR=[];
+function CHK(tag){ if(GLERR.length>24) return;
+  const e=gl.getError(); if(e) GLERR.push(tag+':0x'+e.toString(16)); }
+const CAPS = {
+  colorFloat : !!gl.getExtension('EXT_color_buffer_float'),
+  floatLinear: !!gl.getExtension('OES_texture_float_linear'),
+  aniso      : gl.getExtension('EXT_texture_filter_anisotropic')
+};
+if(!CAPS.colorFloat) fatal('缺少 EXT_color_buffer_float 扩展，无法做 HDR 渲染。');
+const MAXANISO = CAPS.aniso ? gl.getParameter(CAPS.aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) : 1;
+
+function sh(type,src,tag){
+  const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
+    const log=gl.getShaderInfoLog(s);
+    console.error('['+tag+'] 着色器编译失败\n'+log);
+    console.error(src.split('\n').map((l,i)=>(i+1)+': '+l).join('\n'));
+    fatal('着色器 '+tag+' 编译失败：\n'+log);
+  }
+  return s;
+}
+function prog(vs,fs,tag){
+  const p=gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER,vs,tag+'.vs'));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER,fs,tag+'.fs'));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))
+    fatal('着色器 '+tag+' 链接失败：\n'+gl.getProgramInfoLog(p));
+  p.u = new Proxy({}, { get:(c,k)=>{ if(!(k in c)) c[k]=gl.getUniformLocation(p,k); return c[k]; } });
+  return p;
+}
+// 2D 渲染目标
+function mkTex(w,h,fmt,ifmt,type,filter,wrap){
+  const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texImage2D(gl.TEXTURE_2D,0,ifmt,w,h,0,fmt,type,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter||gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter||gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,wrap||gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,wrap||gl.CLAMP_TO_EDGE);
+  return t;
+}
+function mkFBO(w,h,specs,wantDepth){
+  const fb=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  const texs=[], bufs=[];
+  specs.forEach((s,i)=>{
+    const t=mkTex(w,h,s.fmt,s.ifmt,s.type,s.filter);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0+i,gl.TEXTURE_2D,t,0);
+    texs.push(t); bufs.push(gl.COLOR_ATTACHMENT0+i);
+  });
+  if(bufs.length>1) gl.drawBuffers(bufs);
+  let depth=null;
+  if(wantDepth){
+    depth=gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER,depth);
+    gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT24,w,h);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,depth);
+  }
+  const st=gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if(st!==gl.FRAMEBUFFER_COMPLETE) fatal('帧缓冲创建失败 (0x'+st.toString(16)+')，尺寸 '+w+'x'+h);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  return {fb,tex:texs,t:texs[0],depth,w,h};
+}
+function delFBO(f){ if(!f) return;
+  gl.deleteFramebuffer(f.fb); f.tex.forEach(t=>gl.deleteTexture(t));
+  if(f.depth) gl.deleteRenderbuffer(f.depth); }
+
+// 全屏三角形
+const quadVAO = (()=>{
+  const v=gl.createVertexArray(); gl.bindVertexArray(v);
+  const b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 3,-1, -1,3]),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  gl.bindVertexArray(null); return v;
+})();
+const FS_VS = `#version 300 es
+layout(location=0) in vec2 aP;
+out vec2 vUV;
+void main(){ vUV = aP*0.5+0.5; gl_Position = vec4(aP,0.0,1.0); }`;
+function blit(){ gl.bindVertexArray(quadVAO); gl.drawArrays(gl.TRIANGLES,0,3); }
+
+//==============================================================
+// S3 · 几何生成 —— 真圆角盒（6 面 + 12 边 + 8 角）
+//==============================================================
+function roundedBox(w,h,d,r,seg){
+  seg = Math.max(2, seg|0);
+  r = Math.min(r, w/2-1e-4, h/2-1e-4, d/2-1e-4);
+  const ex=w/2-r, ey=h/2-r, ez=d/2-r;
+  const P=[], N=[], I=[];
+  const push=(p,n)=>{ P.push(p[0],p[1],p[2]); N.push(n[0],n[1],n[2]); return P.length/3-1; };
+  const quad=(a,b,c,dd,flip)=>{ if(flip) I.push(a,c,b, a,dd,c); else I.push(a,b,c, a,c,dd); };
+
+  // ---- 6 个平面（t×b = n）----
+  const E=[ex,ey,ez];
+  const faces=[
+    {n:[ 1,0,0], t:1, b:2, ax:0, s: 1},  {n:[-1,0,0], t:2, b:1, ax:0, s:-1},
+    {n:[0, 1,0], t:2, b:0, ax:1, s: 1},  {n:[0,-1,0], t:0, b:2, ax:1, s:-1},
+    {n:[0,0, 1], t:0, b:1, ax:2, s: 1},  {n:[0,0,-1], t:1, b:0, ax:2, s:-1}
+  ];
+  for(const f of faces){
+    const mk=(st,sb)=>{ const p=[0,0,0];
+      p[f.ax]=f.s*(E[f.ax]+r); p[f.t]=st*E[f.t]; p[f.b]=sb*E[f.b];
+      return push(p,f.n); };
+    quad(mk(-1,-1), mk(1,-1), mk(1,1), mk(-1,1), false);
+  }
+  // ---- 12 条边（四分之一圆柱）----
+  // 轴 ax，另两轴按循环序 (a1,a2)，满足 cross(e_a1,e_a2)=e_ax
+  const cyc=[[1,2],[2,0],[0,1]];
+  for(let ax=0; ax<3; ax++){
+    const [a1,a2]=cyc[ax];
+    for(const s1 of [-1,1]) for(const s2 of [-1,1]){
+      const flip = (s1*s2 < 0);
+      const base=[];
+      for(let k=0;k<=seg;k++){
+        const th=k/seg*Math.PI/2, ct=Math.cos(th), st=Math.sin(th);
+        for(const tt of [-1,1]){
+          const p=[0,0,0], n=[0,0,0];
+          p[a1]=s1*(E[a1]+r*ct); p[a2]=s2*(E[a2]+r*st); p[ax]=tt*E[ax];
+          n[a1]=s1*ct; n[a2]=s2*st;
+          base.push(push(p,n));
+        }
+      }
+      for(let k=0;k<seg;k++){
+        const i0=base[k*2], i1=base[k*2+1], i2=base[k*2+3], i3=base[k*2+2];
+        quad(i0,i1,i2,i3,flip);
+      }
+    }
+  }
+  // ---- 8 个角（球面八分之一）----
+  for(const sx of [-1,1]) for(const sy of [-1,1]) for(const sz of [-1,1]){
+    const flip = (sx*sy*sz < 0);
+    const grid=[];
+    for(let i=0;i<=seg;i++){
+      const ph=i/seg*Math.PI/2, cp=Math.cos(ph), sp=Math.sin(ph);
+      for(let j=0;j<=seg;j++){
+        const th=j/seg*Math.PI/2, ct=Math.cos(th), st=Math.sin(th);
+        const n=[sx*ct*cp, sy*ct*sp, sz*st];
+        grid.push(push([sx*ex+r*n[0], sy*ey+r*n[1], sz*ez+r*n[2]], n));
+      }
+    }
+    const W=seg+1;
+    for(let i=0;i<seg;i++) for(let j=0;j<seg;j++){
+      quad(grid[i*W+j], grid[(i+1)*W+j], grid[(i+1)*W+j+1], grid[i*W+j+1], flip);
+    }
+  }
+  return { pos:new Float32Array(P), nrm:new Float32Array(N),
+           idx:(P.length/3>65535)?new Uint32Array(I):new Uint16Array(I),
+           half:[w/2,h/2,d/2] };
+}
+// 圆柱（用于过孔 / 微凸块 / TSV）
+function cylinder(r,h,seg,cap){
+  const P=[],N=[],I=[];
+  const push=(p,n)=>{ P.push(p[0],p[1],p[2]); N.push(n[0],n[1],n[2]); return P.length/3-1; };
+  const ring=[];
+  for(let i=0;i<=seg;i++){
+    const a=i/seg*Math.PI*2, c=Math.cos(a), s=Math.sin(a);
+    ring.push([push([r*c, h/2,r*s],[c,0,s]), push([r*c,-h/2,r*s],[c,0,s])]);
+  }
+  for(let i=0;i<seg;i++){
+    const [t0,b0]=ring[i], [t1,b1]=ring[i+1];
+    I.push(t0,b0,b1, t0,b1,t1);
+  }
+  if(cap!==false){
+    const ct=push([0, h/2,0],[0, 1,0]), cb=push([0,-h/2,0],[0,-1,0]);
+    for(let i=0;i<seg;i++){
+      const a0=i/seg*Math.PI*2, a1=(i+1)/seg*Math.PI*2;
+      const t0=push([r*Math.cos(a0), h/2, r*Math.sin(a0)],[0,1,0]);
+      const t1=push([r*Math.cos(a1), h/2, r*Math.sin(a1)],[0,1,0]);
+      I.push(ct,t0,t1);
+      const u0=push([r*Math.cos(a0),-h/2, r*Math.sin(a0)],[0,-1,0]);
+      const u1=push([r*Math.cos(a1),-h/2, r*Math.sin(a1)],[0,-1,0]);
+      I.push(cb,u1,u0);
+    }
+  }
+  return { pos:new Float32Array(P), nrm:new Float32Array(N),
+           idx:(P.length/3>65535)?new Uint32Array(I):new Uint16Array(I),
+           half:[r,h/2,r] };
+}
+
+//==============================================================
+// S4 · 实例化网格
+//   attr 0 aPos / 1 aNrm  |  实例 2 iPos / 3 iScl / 4 iCol / 5 iMat / 6 iAtl / 7 iExt(组,剖切,相位,剖面类型)
+//   iMat = (yaw, metallic, roughness, 丝印权重)
+//==============================================================
+const INST_FLOATS = 3+3+3+4+4+4;            // 21
+const INST_BYTES  = INST_FLOATS*4;          // 84
+function makeMesh(geo, maxInst){
+  const vao=gl.createVertexArray(); gl.bindVertexArray(vao);
+  const vb=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,vb);
+  const inter=new Float32Array(geo.pos.length*2);
+  for(let i=0,n=geo.pos.length/3;i<n;i++){
+    inter[i*6  ]=geo.pos[i*3  ]; inter[i*6+1]=geo.pos[i*3+1]; inter[i*6+2]=geo.pos[i*3+2];
+    inter[i*6+3]=geo.nrm[i*3  ]; inter[i*6+4]=geo.nrm[i*3+1]; inter[i*6+5]=geo.nrm[i*3+2];
+  }
+  gl.bufferData(gl.ARRAY_BUFFER,inter,gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,24,12);
+  const ib=gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,geo.idx,gl.STATIC_DRAW);
+  const inb=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,inb);
+  gl.bufferData(gl.ARRAY_BUFFER, maxInst*INST_BYTES, gl.DYNAMIC_DRAW);
+  const lay=[[2,3,0],[3,3,12],[4,3,24],[5,4,36],[6,4,52],[7,4,68]];
+  for(const [loc,size,off] of lay){
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc,size,gl.FLOAT,false,INST_BYTES,off);
+    gl.vertexAttribDivisor(loc,1);
+  }
+  gl.bindVertexArray(null);
+  return { vao, max:maxInst, ib:geo.idx, n:geo.idx.length,
+           type:(geo.idx instanceof Uint32Array)?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT,
+           inb, half:geo.half, count:0, tris:geo.idx.length/3 };
+}
+function uploadInst(mesh, list){
+  if(list.length > mesh.max){
+    console.error('实例数超出缓冲容量: '+list.length+' > '+mesh.max+
+      '（建缓冲时的 maxInst 要调大）');
+    list = list.slice(0, mesh.max);
+  }
+  const a=new Float32Array(list.length*INST_FLOATS);
+  list.forEach((o,i)=>{
+    const k=i*INST_FLOATS;
+    a[k  ]=o.p[0]; a[k+1]=o.p[1]; a[k+2]=o.p[2];
+    a[k+3]=o.s?o.s[0]:1; a[k+4]=o.s?o.s[1]:1; a[k+5]=o.s?o.s[2]:1;
+    a[k+6]=o.c[0]; a[k+7]=o.c[1]; a[k+8]=o.c[2];
+    a[k+9]=o.yaw||0; a[k+10]=o.me||0; a[k+11]=o.ro==null?0.5:o.ro; a[k+12]=o.tx||0;
+    const r=o.atl||[0,0,0,0];
+    a[k+13]=r[0]; a[k+14]=r[1]; a[k+15]=r[2]; a[k+16]=r[3];
+    a[k+17]=o.g||0; a[k+18]=o.clip||0; a[k+19]=o.ph||0; a[k+20]=o.kind||0;
+  });
+  gl.bindBuffer(gl.ARRAY_BUFFER,mesh.inb);
+  gl.bufferSubData(gl.ARRAY_BUFFER,0,a);
+  mesh.count=list.length;
+  // 包围球:给视锥剔除用。几个"世界"离得很远,不剔除等于每帧白画几十万三角形
+  if(list.length){
+    let x0=1e9,y0=1e9,z0=1e9,x1=-1e9,y1=-1e9,z1=-1e9, ms=1;
+    for(const o of list){
+      x0=Math.min(x0,o.p[0]); y0=Math.min(y0,o.p[1]); z0=Math.min(z0,o.p[2]);
+      x1=Math.max(x1,o.p[0]); y1=Math.max(y1,o.p[1]); z1=Math.max(z1,o.p[2]);
+      if(o.s) ms=Math.max(ms,o.s[0],o.s[1],o.s[2]);
+    }
+    const h=mesh.half||[1,1,1];
+    const pad=Math.hypot(h[0],h[1],h[2])*ms+2;
+    mesh.bc=[(x0+x1)/2,(y0+y1)/2,(z0+z1)/2];
+    mesh.br=Math.hypot(x1-x0,y1-y0,z1-z0)/2+pad;
+  } else { mesh.bc=[0,0,0]; mesh.br=0; }
+}
+// 从 VP 里取 6 个视锥平面(Gribb-Hartmann)
+function frustum(vp){
+  const P=[];
+  for(let i=0;i<6;i++){
+    const r=i>>1, sgn=(i&1)?-1:1;
+    let a=vp[3]+sgn*vp[r], b=vp[7]+sgn*vp[4+r], c=vp[11]+sgn*vp[8+r], d=vp[15]+sgn*vp[12+r];
+    const l=Math.hypot(a,b,c)||1;
+    P.push([a/l,b/l,c/l,d/l]);
+  }
+  return P;
+}
+function sphereIn(P,c,r){
+  for(const q of P) if(q[0]*c[0]+q[1]*c[1]+q[2]*c[2]+q[3] < -r) return false;
+  return true;
+}
+
+//==============================================================
+// S5 · 程序化棚拍环境 —— 烘 cubemap → 预过滤 → 辐照度 → BRDF LUT
+//   全部开机现算，不引入任何外部贴图文件
+//==============================================================
+const ENV_SIZE=256, ENV_MIPS=6, IRR_SIZE=32, LUT_SIZE=128;
+
+const CUBE_DIR_GLSL = `
+vec3 cubeDir(int face, vec2 uv){        // uv in [-1,1]
+  float u=uv.x, v=uv.y;
+  if(face==0) return normalize(vec3( 1.0, -v, -u));
+  if(face==1) return normalize(vec3(-1.0, -v,  u));
+  if(face==2) return normalize(vec3( u,  1.0,  v));
+  if(face==3) return normalize(vec3( u, -1.0, -v));
+  if(face==4) return normalize(vec3( u,  -v,  1.0));
+  return              normalize(vec3(-u,  -v, -1.0));
+}`;
+
+// —— 棚拍布光：三块柔光箱 + 无缝背景纸渐变 ——
+const STUDIO_GLSL = `
+float rectLight(vec3 d, vec3 ax, vec3 upv, float hu, float hv, float fe){
+  float dd = dot(d,ax);
+  if(dd <= 0.05) return 0.0;
+  vec3 t = normalize(cross(upv,ax));
+  vec3 b = cross(ax,t);
+  vec3 p = d/dd;
+  float su = 1.0 - smoothstep(hu, hu+fe, abs(dot(p,t)));
+  float sv = 1.0 - smoothstep(hv, hv+fe, abs(dot(p,b)));
+  return su*sv;
+}
+vec3 studio(vec3 d){
+  // 无缝背景纸：上浅下深的中性灰
+  float up = clamp(d.y*0.5+0.5, 0.0, 1.0);
+  vec3 c = mix(vec3(0.0125,0.0130,0.0150), vec3(0.105,0.109,0.120), pow(up,1.55));
+  // 地面：更暗、略偏暖
+  c = mix(c, vec3(0.0095,0.0090,0.0086), smoothstep(0.04,-0.34,d.y));
+  // 主光（大柔光箱，左上前方）
+  c += rectLight(d, normalize(vec3(-0.34, 0.88, 0.33)), vec3(0,0,1), 0.46,0.30,0.30)
+       * vec3(1.00,0.985,0.955) * 6.2;
+  // 补光（右侧，低、暗、偏冷）
+  c += rectLight(d, normalize(vec3( 0.85, 0.26,-0.18)), vec3(0,1,0), 0.40,0.26,0.34)
+       * vec3(0.82,0.88,1.00) * 1.45;
+  // 轮廓光（后方窄条）
+  c += rectLight(d, normalize(vec3( 0.10, 0.34,-0.93)), vec3(0,1,0), 0.30,0.09,0.16)
+       * vec3(1.00,0.96,0.90) * 2.9;
+  return c;
+}`;
+
+function bakeCubeFaces(program, size, targetCube, level, setup){
+  gl.bindVertexArray(quadVAO);
+  const fb=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  gl.viewport(0,0,size,size);
+  gl.useProgram(program);
+  if(setup) setup();
+  for(let f=0;f<6;f++){
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_CUBE_MAP_POSITIVE_X+f, targetCube, level||0);
+    gl.uniform1i(program.u.uFace,f);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.deleteFramebuffer(fb);
+}
+function newCube(size,mips){
+  const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_CUBE_MAP,t);
+  gl.texStorage2D(gl.TEXTURE_CUBE_MAP, mips, gl.RGBA16F, size, size);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP,gl.TEXTURE_MIN_FILTER,
+    mips>1?gl.LINEAR_MIPMAP_LINEAR:gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);
+  return t;
+}
+const ENV = {};
+function bakeEnvironment(){
+  // (1) 原始环境
+  const pRaw = prog(FS_VS, `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform int uFace;
+${CUBE_DIR_GLSL}
+${STUDIO_GLSL}
+void main(){ o=vec4(studio(cubeDir(uFace, vUV*2.0-1.0)),1.0); }`, 'env.raw');
+  ENV.raw = newCube(ENV_SIZE, ENV_MIPS);
+  bakeCubeFaces(pRaw, ENV_SIZE, ENV.raw, 0);
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, ENV.raw);
+  gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+
+  // (2) 镜面预过滤（GGX 重要性采样，逐 mip 对应一档粗糙度）
+  const pPre = prog(FS_VS, `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform int uFace; uniform float uRough; uniform float uSize;
+uniform samplerCube uEnv;
+${CUBE_DIR_GLSL}
+const float PI=3.14159265359;
+float rad(uint bits){
+  bits=(bits<<16u)|(bits>>16u);
+  bits=((bits&0x55555555u)<<1u)|((bits&0xAAAAAAAAu)>>1u);
+  bits=((bits&0x33333333u)<<2u)|((bits&0xCCCCCCCCu)>>2u);
+  bits=((bits&0x0F0F0F0Fu)<<4u)|((bits&0xF0F0F0F0u)>>4u);
+  bits=((bits&0x00FF00FFu)<<8u)|((bits&0xFF00FF00u)>>8u);
+  return float(bits)*2.3283064365386963e-10;
+}
+vec3 ggx(vec2 Xi, vec3 N, float a){
+  float phi=2.0*PI*Xi.x;
+  float ct=sqrt((1.0-Xi.y)/(1.0+(a*a-1.0)*Xi.y));
+  float st=sqrt(1.0-ct*ct);
+  vec3 H=vec3(cos(phi)*st, sin(phi)*st, ct);
+  vec3 U=abs(N.z)<0.999?vec3(0,0,1):vec3(1,0,0);
+  vec3 T=normalize(cross(U,N)), B=cross(N,T);
+  return normalize(T*H.x+B*H.y+N*H.z);
+}
+void main(){
+  vec3 N=cubeDir(uFace, vUV*2.0-1.0);
+  vec3 V=N;
+  float a=max(uRough*uRough, 1e-3);
+  const uint NS=192u;
+  vec3 sum=vec3(0.0); float wsum=0.0;
+  float sa_tex = 4.0*PI/(6.0*uSize*uSize);
+  for(uint i=0u;i<NS;i++){
+    vec2 Xi=vec2(float(i)/float(NS), rad(i));
+    vec3 H=ggx(Xi,N,a);
+    vec3 L=normalize(2.0*dot(V,H)*H-V);
+    float ndl=dot(N,L);
+    if(ndl>0.0){
+      float ndh=max(dot(N,H),0.0);
+      float d=(a*a)/(PI*pow(ndh*ndh*(a*a-1.0)+1.0,2.0));
+      float pdf=d*ndh/(4.0*max(dot(H,V),1e-4))+1e-4;
+      float sa_s=1.0/(float(NS)*pdf);
+      float lod = uRough<=0.0 ? 0.0 : 0.5*log2(sa_s/sa_tex);
+      sum += textureLod(uEnv,L,clamp(lod,0.0,7.0)).rgb*ndl;
+      wsum += ndl;
+    }
+  }
+  o=vec4(sum/max(wsum,1e-4),1.0);
+}`, 'env.prefilter');
+  ENV.spec = newCube(ENV_SIZE, ENV_MIPS);
+  for(let m=0;m<ENV_MIPS;m++){
+    const size=ENV_SIZE>>m;
+    bakeCubeFaces(pPre, size, ENV.spec, m, ()=>{
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_CUBE_MAP, ENV.raw);
+      gl.uniform1i(pPre.u.uEnv,0);
+      gl.uniform1f(pPre.u.uRough, m/(ENV_MIPS-1));
+      gl.uniform1f(pPre.u.uSize, ENV_SIZE);
+    });
+  }
+  // (3) 辐照度（余弦卷积）
+  const pIrr = prog(FS_VS, `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform int uFace; uniform samplerCube uEnv;
+${CUBE_DIR_GLSL}
+const float PI=3.14159265359;
+void main(){
+  vec3 N=cubeDir(uFace, vUV*2.0-1.0);
+  vec3 U=abs(N.y)<0.999?vec3(0,1,0):vec3(1,0,0);
+  vec3 T=normalize(cross(U,N)), B=cross(N,T);
+  vec3 sum=vec3(0.0); float n=0.0;
+  for(float ph=0.0; ph<6.2831; ph+=0.10){
+    for(float th=0.0; th<1.5707; th+=0.045){
+      float st=sin(th), ct=cos(th);
+      vec3 L=T*(st*cos(ph))+B*(st*sin(ph))+N*ct;
+      sum += textureLod(uEnv,L,3.0).rgb*ct*st;
+      n+=1.0;
+    }
+  }
+  o=vec4(PI*sum/n, 1.0);
+}`, 'env.irradiance');
+  ENV.irr = newCube(IRR_SIZE,1);
+  bakeCubeFaces(pIrr, IRR_SIZE, ENV.irr, 0, ()=>{
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_CUBE_MAP, ENV.raw);
+    gl.uniform1i(pIrr.u.uEnv,0);
+  });
+  // (4) BRDF 积分查找表（split-sum）
+  const pLut = prog(FS_VS, `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+const float PI=3.14159265359;
+float rad(uint bits){
+  bits=(bits<<16u)|(bits>>16u);
+  bits=((bits&0x55555555u)<<1u)|((bits&0xAAAAAAAAu)>>1u);
+  bits=((bits&0x33333333u)<<2u)|((bits&0xCCCCCCCCu)>>2u);
+  bits=((bits&0x0F0F0F0Fu)<<4u)|((bits&0xF0F0F0F0u)>>4u);
+  bits=((bits&0x00FF00FFu)<<8u)|((bits&0xFF00FF00u)>>8u);
+  return float(bits)*2.3283064365386963e-10;
+}
+void main(){
+  float ndv=max(vUV.x,1e-3), rough=vUV.y;
+  vec3 V=vec3(sqrt(1.0-ndv*ndv),0.0,ndv);
+  vec3 N=vec3(0,0,1);
+  float a=rough*rough;
+  float A=0.0,B=0.0;
+  const uint NS=512u;
+  for(uint i=0u;i<NS;i++){
+    vec2 Xi=vec2(float(i)/float(NS), rad(i));
+    float phi=2.0*PI*Xi.x;
+    float ct=sqrt((1.0-Xi.y)/(1.0+(a*a-1.0)*Xi.y));
+    float st=sqrt(1.0-ct*ct);
+    vec3 H=vec3(cos(phi)*st,sin(phi)*st,ct);
+    vec3 L=normalize(2.0*dot(V,H)*H-V);
+    if(L.z>0.0){
+      float ndl=L.z, ndh=max(H.z,0.0), vdh=max(dot(V,H),0.0);
+      float k=a*a/2.0;
+      float gv=ndv/(ndv*(1.0-k)+k), gvl=ndl/(ndl*(1.0-k)+k);
+      float G=gv*gvl;
+      float gvis=G*vdh/(ndh*ndv+1e-5);
+      float fc=pow(1.0-vdh,5.0);
+      A+=(1.0-fc)*gvis; B+=fc*gvis;
+    }
+  }
+  o=vec4(A/float(NS), B/float(NS), 0.0, 1.0);
+}`, 'env.brdf');
+  ENV.lut = mkTex(LUT_SIZE,LUT_SIZE,gl.RGBA,gl.RGBA16F,gl.HALF_FLOAT,gl.LINEAR);
+  const fb=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,ENV.lut,0);
+  gl.viewport(0,0,LUT_SIZE,LUT_SIZE); gl.useProgram(pLut); blit();
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.deleteFramebuffer(fb);
+}
+
+//==============================================================
+// S6 · 丝印图集 —— Canvas 2D 现画文字，转成纹理，不引外部图片
+//   型号一律用自拟编号，不使用任何真实厂商标识
+//==============================================================
+const ATLAS_N=4, ATLAS_ROWS=2, ATLAS_CELL=1024, ATLAS_W=ATLAS_N*ATLAS_CELL, ATLAS_H=ATLAS_ROWS*ATLAS_CELL;
+const ATLAS_RECT=[];
+function buildAtlas(){
+  const c=document.createElement('canvas'); c.width=ATLAS_W; c.height=ATLAS_H;
+  const x=c.getContext('2d');
+  x.clearRect(0,0,ATLAS_W,ATLAS_H);
+  const cells=[
+    {lines:['NX-2408','H9K4G8 D6A','2451-A'],       rot:0},
+    {lines:['NX-2408','H9K4G8 D6A','2451-A'],       rot:90},
+    {lines:['VRM-8P','PWM CTRL','TN-5512'],         rot:0},
+    {lines:['XG-100 · GX204-400-A1'], rot:0, corner:true},
+    {lines:['L4R2','082'],                          rot:0, small:true},
+    {lines:['DC-DC','3A 5V','SL-330'],              rot:0},
+    {lines:['CTRL','IO-88'],                        rot:0},
+    {lines:['FLASH','64Mb','FM-641'],               rot:0}
+  ];
+  cells.forEach((cell,i)=>{
+    const cx=(i%ATLAS_N)*ATLAS_CELL, cy=Math.floor(i/ATLAS_N)*ATLAS_CELL;
+    x.save();
+    x.translate(cx+ATLAS_CELL/2, cy+ATLAS_CELL/2);
+    if(cell.rot) x.rotate(cell.rot*Math.PI/180);
+    x.textAlign='center'; x.textBaseline='middle';
+    x.fillStyle='rgba(198,198,193,0.82)';
+    const n=cell.lines.length;
+    // 真实芯片丝印:字高约为芯片边长的 6%,一格 512px 对应整颗芯片
+    const k=ATLAS_CELL/512;
+    // 真实 die 上几乎没字:角落一小行淡字
+    if(cell.corner){ x.translate(ATLAS_CELL*0.12, ATLAS_CELL*0.43); x.fillStyle='rgba(198,198,193,0.5)'; }
+    const base = (cell.corner?11 : cell.big?26 : cell.small?40 : 31)*k;
+    const lead = base*1.42;
+    cell.lines.forEach((ln,j)=>{
+      const em = (j===0)?1.0:0.84;
+      x.font='500 '+Math.round(base*em)+'px ui-monospace,Menlo,"SF Mono",monospace';
+      x.fillText(ln, 0, (j-(n-1)/2)*lead);
+    });
+    // 一脚标记点(die 不画)
+    if(!cell.corner){
+      x.beginPath();
+      x.arc(-ATLAS_CELL*0.36, -ATLAS_CELL*0.34, 8*k, 0, 6.2832);
+      x.fillStyle='rgba(226,226,222,0.75)'; x.fill();
+    }
+    x.restore();
+    const px=0.5/ATLAS_W, py=0.5/ATLAS_H;
+    ATLAS_RECT.push([
+      cx/ATLAS_W+px, cy/ATLAS_H+py,
+      (cx+ATLAS_CELL)/ATLAS_W-px, (cy+ATLAS_CELL)/ATLAS_H-py ]);
+  });
+  const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,c);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  if(CAPS.aniso) gl.texParameterf(gl.TEXTURE_2D,CAPS.aniso.TEXTURE_MAX_ANISOTROPY_EXT,
+    Math.min(8,MAXANISO));
+  return t;
+}
+
+//==============================================================
+// S7 · 着色器
+//==============================================================
+const NOISE_GLSL = `
+float h31(vec3 p){ p=fract(p*0.3183099+vec3(0.71,0.113,0.419));
+  p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vnoise(vec3 x){
+  vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(h31(i+vec3(0,0,0)),h31(i+vec3(1,0,0)),f.x),
+                 mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),
+                 mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);
+}
+float fbm(vec3 p){ return 0.6*vnoise(p)+0.3*vnoise(p*2.03)+0.1*vnoise(p*4.11); }`;
+
+const GB_VS = `#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNrm;
+layout(location=2) in vec3 iPos;
+layout(location=3) in vec3 iScl;
+layout(location=4) in vec3 iCol;
+layout(location=5) in vec4 iMat;
+layout(location=6) in vec4 iAtl;
+layout(location=7) in vec4 iExt;
+uniform mat4 uVP; uniform vec3 uHalf; uniform float uLift, uCutX;
+out vec3 vN; out vec3 vCol; out vec3 vW; out vec3 vLocal;
+out vec4 vAtl; out vec3 vMat; out vec4 vExt;
+void main(){
+  float c=cos(iMat.x), s=sin(iMat.x);
+  vec3 sp=aPos*iScl;
+  vec3 rp=vec3(sp.x*c+sp.z*s, sp.y, -sp.x*s+sp.z*c);
+  vec3 nn=normalize(aNrm/max(iScl,vec3(1e-4)));
+  vec3 n=vec3(nn.x*c+nn.z*s, nn.y, -nn.x*s+nn.z*c);
+  vec3 w=iPos+rp;
+  if(iExt.x>0.5 && iExt.x<1.5) w.y-=uLift*0.55;     // 后盖往下
+  if(iExt.x>3.5 && iExt.x<4.5) w.y+=uLift*1.30;     // 屏往上抬
+  if(iExt.y>1.5) w.x=uCutX-0.03+aPos.x*iScl.x;       // 断面盖板贴着剖切面
+  vW=w; vN=n; vCol=iCol; vLocal=aPos/max(uHalf,vec3(1e-5));
+  vAtl=iAtl; vMat=iMat.yzw; vExt=iExt;
+  gl_Position=uVP*vec4(w,1.0);
+}`;
+
+const GB_FS = `#version 300 es
+precision highp float;
+in vec3 vN; in vec3 vCol; in vec3 vW; in vec3 vLocal;
+in vec4 vAtl; in vec3 vMat; in vec4 vExt;
+layout(location=0) out vec4 oAlb;
+layout(location=1) out vec4 oNrm;
+uniform sampler2D uAtlas;
+uniform float uMicro, uLift, uCutX;
+${NOISE_GLSL}
+void silk(inout vec3 alb, inout float ro, vec2 lxz, vec4 atl){
+  vec2 uv=clamp(lxz*0.5+0.5, 0.0, 1.0);
+  vec2 auv=mix(atl.xy, atl.zw, uv);
+  vec4 t=texture(uAtlas, auv);
+  // 放大时把覆盖率当距离场做阈值重建:边缘随屏幕像素自适应,不再是双线性糊
+  float w=max(fwidth(t.a)*0.75, 0.012);
+  float a=smoothstep(0.5-w, 0.5+w, t.a);
+  alb=mix(alb, vec3(0.78,0.78,0.76), a*0.92);
+  ro =mix(ro, 0.70, a*0.6);
+}
+void main(){
+  // 隐藏已抬走的散热组件;剖切封装组
+  if(vExt.x>1.5 && vExt.x<2.5 && vExt.y>0.5 && vExt.y<1.5 && vW.x>uCutX) discard;
+  if(vExt.y>1.5 && uCutX>50.0) discard;              // 没剖切时盖板不存在
+  vec3 N=normalize(vN);
+  bool front=gl_FrontFacing;
+  if(!front) N=-N;                          // 剖开后看到的是内壁,法线翻过来
+  vec3 alb=vCol;
+  float me=vMat.x, ro=vMat.y, txw=vMat.z;
+  bool top = N.y>0.65;
+  bool cutFace = (vExt.x>1.5 && vExt.x<2.5) && (!front || vExt.y>1.5);
+
+  if(cutFace){
+    // ============ 剖面着色 ============
+    float kind=vExt.w;
+    float ty=vLocal.y*0.5+0.5;
+    if(kind<1.5){            // 封装基板:8 层介质 / 铜交替
+      float ly=fract(ty*8.0);
+      float cu=smoothstep(0.62,0.66,ly)*(1.0-smoothstep(0.86,0.90,ly));
+      alb=mix(vec3(0.030,0.052,0.038), vec3(0.62,0.36,0.22), cu); me=cu; ro=mix(0.55,0.35,cu);
+    } else if(kind<2.5){     // 硅:深灰,顶部一层薄金属互连
+      float metal=smoothstep(0.80,0.84,ty)*(1.0-smoothstep(0.93,0.97,ty));
+      alb=mix(vec3(0.085,0.090,0.100), vec3(0.55,0.50,0.40), metal); me=metal; ro=mix(0.45,0.30,metal);
+    } else {                 // 锡 / 金属实心
+      alb=vec3(0.45,0.46,0.48); me=1.0; ro=0.42;
+    }
+    txw=0.0;
+  }
+  else if(top && txw>1.5 && txw<2.5){
+    // ============ PCB 板面:铜走线 + 阻焊 + 白丝印框 ============
+    vec2 pw=vW.xz;
+    float tr=0.0;
+    // 真实 PCB 走线以正交为主、少量 45 度,而且是断续的短段
+    for(int k=0;k<4;k++){
+      float a = (k<2) ? float(k)*1.5708 : (float(k)-1.5)*1.5708+0.7854;
+      float ca=cos(a), sa=sin(a);
+      float sc = 2.3 + float(k)*0.83;
+      vec2 q=vec2(pw.x*ca-pw.y*sa, pw.x*sa+pw.y*ca)*sc;
+      float ln=abs(fract(q.y+0.5)-0.5);
+      // 沿线方向切成短段,段与段之间断开
+      float seg=step(0.52, h31(vec3(floor(q.x*0.55), floor(q.y), float(k)*7.1)));
+      float w = (k<2)?0.036:0.028;
+      tr=max(tr, seg*(1.0-smoothstep(w, w*1.9, ln)));
+    }
+    // 阻焊盖在铜上:略提亮、略更光
+    alb=mix(alb, alb*2.05+vec3(0.0040,0.0058,0.0042), tr*0.80);
+    ro =mix(ro, ro*0.88, tr*0.70);
+    // 白色丝印框线(元件位号框)
+    vec2 g=pw*0.40;
+    vec2 fg=abs(fract(g)-0.5);
+    float mx=max(fg.x,fg.y);
+    float frame=(1.0-smoothstep(0.418,0.440,mx))*step(0.392,mx);
+    float cellOn=step(0.86, h31(vec3(floor(g),11.0)));
+    float sk=cellOn*frame;
+    alb=mix(alb, vec3(0.115,0.115,0.109), sk*0.85);
+    ro =mix(ro, 0.80, sk*0.65);
+    // 阻焊哑光颗粒
+    ro=clamp(ro+(fbm(vW*88.0)-0.5)*0.18, 0.22, 1.0);
+  }
+  else if(top && txw>4.5){
+    // ============ 城的硅基底:细密单元格 ============
+    vec2 g=vW.xz*0.35; vec2 f=abs(fract(g)-0.5);
+    float ln=1.0-smoothstep(0.44,0.49,max(f.x,f.y));
+    alb*=(0.82+0.40*ln);
+    vec2 g2=vW.xz*2.4; float fine=step(0.5,h31(vec3(floor(g2),5.0)));
+    alb*=(0.92+0.14*fine);
+    ro=clamp(ro+(fbm(vW*12.0)-0.5)*0.12,0.2,1.0);
+  }
+  else if(top && txw>2.5){
+    // ============ 硅 die:SM 阵列版图 ============
+    vec2 u=clamp(vLocal.xz*0.5+0.5, 0.0, 1.0);
+    vec3 base=alb;
+    // 区域:左右边缘 = 显存控制器;底边 = 显示引擎(左) / PCIe(右);中带 = L2;其余 = SM 阵列
+    bool edgeX=(u.x<0.085 || u.x>0.915);
+    bool ioBand=(u.y>0.915) && u.x>0.30 && !edgeX;
+    bool memCtl=edgeX || (u.y<0.085) || (u.y>0.915 && u.x<=0.30);
+    bool l2=abs(u.y-0.5)<0.055 && !edgeX;
+    if(memCtl){
+      float s=step(0.5, fract(u.y*60.0));
+      alb=base*(0.85+0.55*s); ro=mix(ro,0.30,0.5);
+    } else if(ioBand){
+      if(u.x<0.62){
+        vec2 g=u*vec2(10.0,40.0); vec2 f=abs(fract(g)-0.5);
+        float gap=1.0-smoothstep(0.40,0.47,max(f.x,f.y));
+        alb=mix(base*0.5, base*1.35, gap);
+      } else {
+        float s=step(0.5, fract(u.x*80.0));
+        alb=base*(0.9+0.5*s);
+      }
+    } else if(l2){
+      vec2 g=u*vec2(64.0,8.0); vec2 f=abs(fract(g)-0.5);
+      float gap=1.0-smoothstep(0.38,0.47,max(f.x,f.y));
+      alb=mix(base*1.1, base*1.9, gap);
+    } else {
+      vec2 g=u*8.0;
+      vec2 f=abs(fract(g)-0.5);
+      float gap=1.0-smoothstep(0.415,0.474,max(f.x,f.y));
+      float blk=h31(vec3(floor(g),3.0));
+      alb=base*(0.74+0.52*blk);
+      alb=mix(alb*0.48, alb, gap);
+      ro =mix(ro*1.85, ro, gap);
+      vec2 g2=u*46.0;
+      float fine=step(0.55, h31(vec3(floor(g2),9.0)));
+      alb*=(0.93+0.14*fine);
+    }
+    silk(alb, ro, vLocal.xz, vAtl);
+  }
+  else if(top && txw>0.5){
+    silk(alb, ro, vLocal.xz, vAtl);
+  }
+
+  // —— 微观表面：粗糙度扰动 + 极轻微法线扰动 ——
+  //    现实里没有绝对均匀的表面，这一层是"不假"的关键
+  if(uMicro>0.5){
+    float f=fbm(vW*46.0);
+    ro=clamp(ro + (f-0.5)*0.20, 0.035, 1.0);
+    float e=0.010;
+    float d0=fbm(vW*150.0);
+    vec3 g=vec3(fbm(vW*150.0+vec3(e,0,0))-d0,
+                fbm(vW*150.0+vec3(0,e,0))-d0,
+                fbm(vW*150.0+vec3(0,0,e))-d0)/e;
+    g-=N*dot(g,N);
+    N=normalize(N - g*0.00055);
+    // 极细的各向异性拉丝（金属件）
+    if(me>0.5){
+      float b=fbm(vW*vec3(9.0,320.0,320.0));
+      ro=clamp(ro+(b-0.5)*0.11, 0.03, 1.0);
+    }
+  }
+  oAlb=vec4(alb, me);
+  oNrm=vec4(N, ro);
+}`;
+
+const SHADOW_VS = `#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=2) in vec3 iPos;
+layout(location=3) in vec3 iScl;
+layout(location=5) in vec4 iMat;
+layout(location=7) in vec4 iExt;
+uniform mat4 uLVP; uniform float uLift, uCutX;
+out vec3 vSh;   // (组, 剖切标记, 世界 x)
+void main(){
+  float c=cos(iMat.x), s=sin(iMat.x);
+  vec3 sp=aPos*iScl;
+  vec3 rp=vec3(sp.x*c+sp.z*s, sp.y, -sp.x*s+sp.z*c);
+  vec3 w=iPos+rp;
+  if(iExt.x>0.5 && iExt.x<1.5) w.y-=uLift*0.55;
+  if(iExt.x>3.5 && iExt.x<4.5) w.y+=uLift*1.30;
+  if(iExt.y>1.5) w.x=uCutX-0.03+aPos.x*iScl.x;
+  vSh=vec3(iExt.x, iExt.y, w.x);
+  gl_Position=uLVP*vec4(w,1.0);
+}`;
+const SHADOW_FS = `#version 300 es
+precision highp float;
+in vec3 vSh; uniform float uLift, uCutX;
+void main(){
+  if(vSh.x>1.5 && vSh.x<2.5 && vSh.y>0.5 && vSh.y<1.5 && vSh.z>uCutX) discard;
+  if(vSh.y>1.5 && uCutX>50.0) discard;
+}`;
+
+// —— SSAO ——
+const SSAO_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform sampler2D uNrm, uDep;
+uniform mat4 uVP, uInvVP;
+uniform vec3 uCam;
+uniform vec2 uRes;
+uniform float uRadius, uRot, uIntensity, uSamples;
+vec3 wpos(vec2 uv, float d){
+  vec4 c=vec4(uv*2.0-1.0, d*2.0-1.0, 1.0);
+  vec4 w=uInvVP*c; return w.xyz/w.w;
+}
+float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+void main(){
+  float d=texture(uDep,vUV).r;
+  if(d>=1.0){ o=vec4(1.0); return; }
+  vec3 P=wpos(vUV,d);
+  vec3 N=normalize(texture(uNrm,vUV).xyz);
+  float ang=h21(vUV*uRes)*6.2831853+uRot;
+  float ca=cos(ang), sa=sin(ang);
+  vec3 U=abs(N.y)<0.95?vec3(0,1,0):vec3(1,0,0);
+  vec3 T=normalize(cross(U,N)), B=cross(N,T);
+  vec3 T2=T*ca+B*sa, B2=-T*sa+B*ca;
+  int NS=int(uSamples);
+  float occ=0.0;
+  for(int i=0;i<NS;i++){
+    float fi=(float(i)+0.5)/float(NS);
+    float r=uRadius*pow(fi,0.72);
+    float a2=fi*13.7+ang;
+    float z=0.18+0.82*h21(vUV*uRes+vec2(float(i),3.1+uRot));
+    float rx=sqrt(max(1.0-z*z,0.0));
+    vec3 dir=T2*(rx*cos(a2))+B2*(rx*sin(a2))+N*z;
+    vec3 S=P+dir*r+N*uRadius*0.02;
+    vec4 cp=uVP*vec4(S,1.0);
+    if(cp.w<=0.0) continue;
+    vec2 su=(cp.xy/cp.w)*0.5+0.5;
+    if(su.x<0.0||su.x>1.0||su.y<0.0||su.y>1.0) continue;
+    float sd=texture(uDep,su).r;
+    if(sd>=1.0) continue;
+    vec3 R=wpos(su,sd);
+    float dS=distance(uCam,S), dR=distance(uCam,R);
+    if(dR < dS-0.0015){
+      float rng=smoothstep(0.0,1.0, uRadius/max(abs(dS-dR),1e-4));
+      occ += rng;
+    }
+  }
+  float ao=1.0-uIntensity*occ/float(NS);
+  o=vec4(clamp(ao,0.0,1.0));
+}`;
+
+const BLUR_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform sampler2D uSrc, uDep;
+uniform vec2 uDir;
+void main(){
+  float c=texture(uDep,vUV).r;
+  float sum=texture(uSrc,vUV).r, w=1.0;
+  for(int i=1;i<=3;i++){
+    vec2 off=uDir*float(i);
+    for(int s=-1;s<=1;s+=2){
+      vec2 uv=vUV+off*float(s);
+      float dd=texture(uDep,uv).r;
+      float ww=exp(-abs(dd-c)*900.0)*(1.0-float(i)*0.22);
+      sum+=texture(uSrc,uv).r*ww; w+=ww;
+    }
+  }
+  o=vec4(sum/w);
+}`;
+
+// —— 光照合成（IBL 为主，阴影作为方向性遮挡）——
+const LIGHT_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform sampler2D uAlb, uNrm, uDep, uAO, uLut;
+uniform samplerCube uIrr, uSpec, uRaw;
+uniform mat4 uInvVP, uLVP;
+uniform highp sampler2DShadow uShadow;
+uniform vec3 uCam, uLightDir;
+uniform float uKeyFrac, uEnvInt, uMips;
+const float PI=3.14159265359;
+vec3 wpos(vec2 uv,float d){ vec4 c=vec4(uv*2.0-1.0,d*2.0-1.0,1.0);
+  vec4 w=uInvVP*c; return w.xyz/w.w; }
+float shadowAt(vec3 P, float ndl){
+  vec4 sc=uLVP*vec4(P,1.0);
+  vec3 s=sc.xyz/sc.w*0.5+0.5;
+  if(s.x<0.002||s.x>0.998||s.y<0.002||s.y>0.998||s.z>1.0) return 1.0;
+  float bias=clamp(0.0016*(1.0-ndl)+0.00035, 0.0, 0.0035);
+  float acc=0.0;
+  for(int i=-1;i<=1;i++) for(int j=-1;j<=1;j++)
+    acc+=texture(uShadow, vec3(s.xy+vec2(float(i),float(j))*(0.55/2048.0), s.z-bias));
+  return acc/9.0;
+}
+void main(){
+  float d=texture(uDep,vUV).r;
+  vec3 P=wpos(vUV,d);
+  vec3 V=normalize(uCam-P);
+  if(d>=1.0){
+    // 背景只给无缝背景纸的渐变；柔光箱本体不入画(但反射里仍有,那才是对的)
+    vec3 bd=-V;
+    float up=clamp(bd.y*0.5+0.5, 0.0, 1.0);
+    vec3 bg=mix(vec3(0.0125,0.0130,0.0150), vec3(0.105,0.109,0.120), pow(up,1.55));
+    bg=mix(bg, vec3(0.0095,0.0090,0.0086), smoothstep(0.04,-0.34,bd.y));
+    // 一点侧向的光晕,免得背景死板
+    bg*=1.0+0.55*pow(max(dot(normalize(bd),normalize(vec3(-0.34,0.60,0.33))),0.0),3.0);
+    o=vec4(bg*uEnvInt, 1.0); return;
+  }
+  vec4 A=texture(uAlb,vUV);
+  vec4 Nr=texture(uNrm,vUV);
+  vec3 alb=A.rgb; float me=A.a;
+  vec3 N=normalize(Nr.xyz); float ro=clamp(Nr.a,0.030,1.0);
+  float ao=texture(uAO,vUV).r;
+
+  float ndv=max(dot(N,V),1e-4);
+  float ndl=max(dot(N,uLightDir),0.0);
+  float sh=shadowAt(P,ndl);
+  // 朝背光面本来就照不到，不该再叠阴影
+  float lit=mix(1.0, sh, smoothstep(0.0,0.22,ndl));
+  float keyOcc = 1.0 - uKeyFrac*(1.0-lit);
+
+  vec3 F0=mix(vec3(0.04), alb, me);
+  vec3 F=F0+(max(vec3(1.0-ro),F0)-F0)*pow(1.0-ndv,5.0);
+  vec3 kd=(1.0-F)*(1.0-me);
+
+  vec3 irr=texture(uIrr,N).rgb*uEnvInt;
+  vec3 diff=kd*alb*irr*ao*keyOcc;
+
+  vec3 R=reflect(-V,N);
+  vec3 pre=textureLod(uSpec,R,ro*(uMips-1.0)).rgb*uEnvInt;
+  vec2 ab=texture(uLut, vec2(ndv,ro)).rg;
+  // 镜面遮蔽：粗糙面受 AO 影响大，镜面反射受影响小
+  float sao=clamp(pow(ao, 1.0+ro*2.2), 0.0, 1.0);
+  float skey=mix(1.0, keyOcc, 0.55+0.45*ro);
+  vec3 spec=pre*(F0*ab.x+ab.y)*sao*skey;
+
+  o=vec4(diff+spec, 1.0);
+}`;
+
+// —— 累积 / 泛光 / 合成 ——
+const COPY_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform sampler2D uSrc;
+void main(){ o=texture(uSrc,vUV); }`;
+
+const BRIGHT_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform sampler2D uSrc; uniform float uThr;
+void main(){
+  vec3 c=texture(uSrc,vUV).rgb;
+  float l=dot(c,vec3(0.2126,0.7152,0.0722));
+  o=vec4(c*smoothstep(uThr,uThr*2.2,l),1.0);
+}`;
+
+const GAUSS_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform sampler2D uSrc; uniform vec2 uDir;
+void main(){
+  vec3 s=texture(uSrc,vUV).rgb*0.227027;
+  s+=texture(uSrc,vUV+uDir*1.3846).rgb*0.316216;
+  s+=texture(uSrc,vUV-uDir*1.3846).rgb*0.316216;
+  s+=texture(uSrc,vUV+uDir*3.2308).rgb*0.070270;
+  s+=texture(uSrc,vUV-uDir*3.2308).rgb*0.070270;
+  o=vec4(s,1.0);
+}`;
+
+const POST_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o;
+uniform sampler2D uSrc, uBloom;
+uniform float uExposure, uBloomStr, uGrain, uVig, uCA, uSharp;
+uniform vec2 uPx;
+// ACES filmic 近似
+vec3 aces(vec3 x){
+  const mat3 mi=mat3(0.59719,0.07600,0.02840, 0.35458,0.90834,0.13383, 0.04823,0.01566,0.83777);
+  const mat3 mo=mat3( 1.60475,-0.10208,-0.00327, -0.53108,1.10813,-0.07276, -0.07367,-0.00605,1.07602);
+  vec3 v=mi*x;
+  vec3 a=v*(v+0.0245786)-0.000090537;
+  vec3 b=v*(0.983729*v+0.4329510)+0.238081;
+  return clamp(mo*(a/b), 0.0, 1.0);
+}
+float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+// 取一个像素的显示值:色散 + 泛光 + 曝光 + ACES
+vec3 grade(vec2 uv){
+  vec2 d=uv-0.5;
+  float r2=dot(d,d);
+  vec3 c;
+  if(uCA>0.0){
+    float k=uCA*r2;
+    c.r=texture(uSrc, uv - d*k).r;
+    c.g=texture(uSrc, uv).g;
+    c.b=texture(uSrc, uv + d*k).b;
+  } else c=texture(uSrc,uv).rgb;
+  c += texture(uBloom,uv).rgb*uBloomStr;
+  return aces(c*uExposure);
+}
+void main(){
+  vec2 uv=vUV;
+  vec2 d=uv-0.5;
+  float r2=dot(d,d);
+  vec3 c=grade(uv);
+  // 轻微反锐化掩模(在色调映射之后做,不会在高光边缘拉出光晕)
+  if(uSharp>0.0){
+    vec3 n=grade(uv+vec2(uPx.x,0.0))+grade(uv-vec2(uPx.x,0.0))
+          +grade(uv+vec2(0.0,uPx.y))+grade(uv-vec2(0.0,uPx.y));
+    c=clamp(c+(c-n*0.25)*uSharp, 0.0, 1.0);
+  }
+  // 暗角
+  c *= 1.0 - uVig*smoothstep(0.12, 0.82, r2);
+  // 胶片颗粒（固定空间种子，静止时不闪）
+  float g=(h21(gl_FragCoord.xy)-0.5)*uGrain;
+  c += g*(0.35+0.65*(1.0-dot(c,vec3(0.333))));
+  // 线性 → sRGB
+  c = pow(max(c,vec3(0.0)), vec3(1.0/2.2));
+  o=vec4(c,1.0);
+}`;
+
+//==============================================================
+// S8 · 材质库 —— 数值按参考帧目测调，不是实测光谱数据
+//==============================================================
+const MAT = {
+  pcbBlack : {c:[0.0125,0.0143,0.0132], me:0.0,  ro:0.62},
+  pcbGreen : {c:[0.0105,0.0250,0.0145], me:0.0,  ro:0.58},
+  epoxy    : {c:[0.0175,0.0180,0.0195], me:0.0,  ro:0.655},
+  epoxyGrey: {c:[0.0430,0.0440,0.0465], me:0.0,  ro:0.680},
+  goldENIG : {c:[0.6300,0.4750,0.1950], me:1.0,  ro:0.330},
+  solder   : {c:[0.4700,0.4750,0.4900], me:1.0,  ro:0.455},
+  nickelIHS: {c:[0.5200,0.5300,0.5450], me:1.0,  ro:0.275},
+  copper   : {c:[0.6600,0.3950,0.2650], me:1.0,  ro:0.360},
+  silicon  : {c:[0.0620,0.0680,0.0790], me:0.0,  ro:0.235},
+  tantalum : {c:[0.3200,0.2300,0.0350], me:0.0,  ro:0.440},
+  mlcc     : {c:[0.1650,0.1450,0.1230], me:0.0,  ro:0.640},
+  ferrite  : {c:[0.0210,0.0215,0.0228], me:0.0,  ro:0.700},
+  substrate: {c:[0.0300,0.0390,0.0335], me:0.0,  ro:0.580},
+  alu      : {c:[0.4500,0.4580,0.4700], me:1.0,  ro:0.380},
+  plasticDark:{c:[0.0160,0.0160,0.0175], me:0.0, ro:0.500},
+  connDark : {c:[0.1200,0.1200,0.1250], me:1.0,  ro:0.480},
+  // SM 放大模型用的"示意材质":仍是哑光实体,不发光
+  smSched  : {c:[0.0700,0.0750,0.0850], me:0.0,  ro:0.400},
+  smReg    : {c:[0.0350,0.0400,0.0480], me:0.0,  ro:0.420},
+  smLane   : {c:[0.2500,0.2700,0.3000], me:0.0,  ro:0.320},
+  smTensor : {c:[0.3000,0.2200,0.0900], me:0.0,  ro:0.350},
+  smLdst   : {c:[0.1200,0.1400,0.1600], me:0.0,  ro:0.400},
+  smL1     : {c:[0.0450,0.0600,0.0750], me:0.0,  ro:0.380},
+  // 显示器 / LCD 剖面
+  rubber   : {c:[0.0200,0.0200,0.0210], me:0.0,  ro:0.720},
+  bezel    : {c:[0.0180,0.0180,0.0195], me:0.0,  ro:0.420},
+  glassDark: {c:[0.0120,0.0125,0.0140], me:0.0,  ro:0.115},
+  white    : {c:[0.8200,0.8200,0.8000], me:0.0,  ro:0.500},
+  polar    : {c:[0.0900,0.0900,0.0950], me:0.0,  ro:0.520},
+  glassClr : {c:[0.5500,0.5700,0.6000], me:0.0,  ro:0.080},
+  ito      : {c:[0.6200,0.5000,0.2400], me:1.0,  ro:0.300},
+  lcRod    : {c:[0.6800,0.7000,0.7200], me:0.0,  ro:0.250},
+  filtR    : {c:[0.6500,0.0400,0.0400], me:0.0,  ro:0.180},
+  filtG    : {c:[0.0400,0.5200,0.0900], me:0.0,  ro:0.180},
+  filtB    : {c:[0.0400,0.0900,0.7000], me:0.0,  ro:0.180},
+  // die 内部"城"
+  siliconCity:{c:[0.0550,0.0600,0.0700], me:0.0, ro:0.300},
+  blockSM  : {c:[0.1050,0.1250,0.1650], me:0.0,  ro:0.450},
+  blockL2  : {c:[0.2800,0.3000,0.3400], me:0.0,  ro:0.400},
+  blockMC  : {c:[0.2200,0.1600,0.1000], me:0.0,  ro:0.450},
+  blockIO  : {c:[0.0900,0.1000,0.1100], me:0.0,  ro:0.420},
+  blockDisp: {c:[0.0800,0.1400,0.1100], me:0.0,  ro:0.420},
+  blockROP : {c:[0.1700,0.1200,0.1700], me:0.0,  ro:0.420},
+  copperRail:{c:[0.7000,0.4200,0.2800], me:1.0,  ro:0.300},
+  // —— 手机专用 ——
+  panelBlack:{c:[0.0090,0.0092,0.0105], me:0.0, ro:0.140},   // 熄屏的面板:很黑很光
+  battery  : {c:[0.0850,0.0870,0.0930], me:0.0,  ro:0.520},
+  fpc      : {c:[0.1500,0.1150,0.0350], me:0.0,  ro:0.460},   // 聚酰亚胺排线,琥珀色
+  // —— SoC 各功能块:低饱和,靠明度区分,别抢数据流的颜色 ——
+  blockCPU : {c:[0.1450,0.1550,0.1950], me:0.0,  ro:0.440},
+  blockCPUL: {c:[0.0850,0.0950,0.1250], me:0.0,  ro:0.460},
+  blockGPU : {c:[0.1050,0.1550,0.1500], me:0.0,  ro:0.450},
+  blockNPU : {c:[0.1650,0.1300,0.1750], me:0.0,  ro:0.450},
+  blockISP : {c:[0.1500,0.1350,0.0900], me:0.0,  ro:0.450},
+  blockDMA : {c:[0.1900,0.1500,0.0800], me:0.0,  ro:0.430},
+  // —— OLED 发光层:不通电时本身是暗的,亮度由数据流叠加层给 ——
+  emitR    : {c:[0.1400,0.0350,0.0300], me:0.0,  ro:0.380},
+  emitG    : {c:[0.0350,0.1300,0.0450], me:0.0,  ro:0.380},
+  emitB    : {c:[0.0350,0.0500,0.1500], me:0.0,  ro:0.380}
+};
+const rnd = (()=>{ let s=20260906; return ()=>{ s=(s*1664525+1013904223)&0x7fffffff;
+  return s/0x7fffffff; }; })();
+const jit=(v)=>1+(rnd()-0.5)*v;
+
+
+//==============================================================
+// S9 · 场景 —— 手机 / SoC 内部城 / OLED 像素剖面
+//==============================================================
+const G={STATIC:0, BACK:1, PKG:2, SOC:3, SCREEN:4, OLED:5, DIE:6};
+const PHONE=[0,0,0], SOC_CITY=[0,0,-900], OLED_O=[0,0,430];
+const PROTO={}, SCENE=[], POS={};
+function buildScene(){
+  const P=(k,geo,max)=>{ PROTO[k]=makeMesh(geo,max); return PROTO[k]; };
+  // —— 手机本体 ——
+  P('mid',    roundedBox(74, 7.4, 152, 6.0, 4), 1);      // 中框
+  P('backG',  roundedBox(72, 0.9, 150, 5.6, 3), 1);      // 后盖玻璃
+  P('screen', roundedBox(70, 0.9, 148, 5.2, 3), 1);      // 屏幕玻璃
+  P('panel',  roundedBox(68, 0.5, 146, 4.8, 3), 1);      // 显示面板
+  P('batt',   roundedBox(58, 4.4, 78, 2.0, 3), 1);
+  P('pcb',    roundedBox(64, 1.0, 40, 2.0, 3), 1);
+  P('shield', roundedBox(26, 1.6, 26, 0.6, 3), 3);       // 屏蔽罩
+  P('socSub', roundedBox(15, 0.9, 15, 0.35, 3), 1);      // SoC 基板
+  P('socDie', roundedBox(11.5, 0.7, 11.5, 0.20, 3), 1);  // SoC die
+  P('lpddr',  roundedBox(13, 0.55, 13, 0.20, 3), 2);     // LPDDR 叠封两层
+  P('pop',    roundedBox(0.5,0.5,0.5, 0.25, 2), 260);    // PoP 锡球
+  P('ufs',    roundedBox(9, 1.0, 11, 0.25, 3), 1);
+  P('pmic',   roundedBox(7, 0.9, 7, 0.22, 3), 2);
+  P('rf',     roundedBox(6, 0.8, 8, 0.22, 3), 3);
+  P('smd',    roundedBox(1.4, 0.6, 0.8, 0.10, 2), 420);
+  P('sold',   roundedBox(2.4, 0.45, 1.2, 0.08, 2), 900);
+  P('fpc',    roundedBox(10, 0.35, 1, 0.12, 2), 3);      // 排线
+  P('cam',    cylinder(6.4, 3.2, 24), 3);
+  P('camL',   cylinder(4.4, 0.5, 24), 3);
+  // —— SoC 内部城 ——
+  P('cityBase', roundedBox(230, 3, 200, 1.0, 3), 1);
+  P('bigCore',  roundedBox(26, 5, 24, 0.5, 3), 4);
+  P('litCore',  roundedBox(14, 5, 13, 0.4, 3), 4);
+  P('gpuCore',  roundedBox(20, 5, 18, 0.45, 3), 6);
+  P('npu',      roundedBox(34, 5, 26, 0.5, 3), 1);
+  P('slc',      roundedBox(22, 5, 15, 0.4, 3), 6);       // 系统级缓存分片
+  P('dmc',      roundedBox(20, 5, 11, 0.4, 3), 4);       // DRAM 控制器
+  P('dmaB',     roundedBox(16, 4, 12, 0.4, 3), 2);
+  P('dpu',      roundedBox(26, 5, 16, 0.4, 3), 1);
+  P('dsiPhy',   roundedBox(9, 4, 22, 0.35, 3), 1);
+  P('isp',      roundedBox(18, 4.5, 14, 0.4, 3), 1);
+  P('dram',     roundedBox(30, 4, 26, 0.5, 3), 4);       // 片外 LPDDR(叠在上方)
+  P('rail',     roundedBox(1,1,1, 0.02, 1), 1100);
+  P('pillar',   cylinder(0.32, 10.4, 8), 220);
+  P('beam',     roundedBox(7, 0.55, 0.55, 0.1, 2), 220);
+  P('router',   roundedBox(8.5, 3, 8, 0.3, 3), 9);
+  // —— OLED 像素剖面 ——
+  P('oSlab',  roundedBox(58, 1.1, 38, 0.3, 3), 5);
+  P('oSub',   roundedBox(62, 2.2, 42, 0.5, 3), 1);
+  P('oTft',   roundedBox(17, 0.35, 34, 0.1, 2), 3);
+  P('oEmit',  roundedBox(16, 1.5, 33, 0.35, 3), 3);      // 发光层 R/G/B
+  P('oCath',  roundedBox(58, 0.4, 38, 0.15, 2), 1);
+  P('oEnc',   roundedBox(60, 0.6, 40, 0.2, 2), 2);
+
+  const L={}; for(const k in PROTO) L[k]=[];
+  const AR=ATLAS_RECT;
+  const m=(mat,extra)=>Object.assign({c:mat.c, me:mat.me, ro:mat.ro, tx:0, g:G.STATIC}, extra||{});
+
+  // ---------- 手机 ----------
+  L.mid.push(m(MAT.alu,{p:[0,0,0], ro:0.30}));
+  L.backG.push(m(MAT.glassDark,{p:[0,-3.6,0], g:G.BACK}));
+  L.screen.push(m(MAT.glassDark,{p:[0,3.9,0], g:G.SCREEN}));
+  L.panel.push(m(MAT.panelBlack,{p:[0,3.3,0], g:G.SCREEN}));
+  POS.phone=[0,4.4,0]; POS.back=[0,-3.6,40]; POS.screenC=[0,4.4,0];
+  // 电池 + 主板(拆开后可见)
+  L.batt.push(m(MAT.battery,{p:[0,-0.3,26], g:G.PKG}));
+  L.pcb.push(m(MAT.pcbBlack,{p:[0,0.4,-46], tx:2, g:G.PKG}));
+  POS.batt=[0,2.2,26]; POS.pcb=[0,1.2,-46];
+  // SoC:基板 + die + LPDDR 叠封(PoP)
+  L.socSub.push(m(MAT.substrate,{p:[-14,1.35,-46], g:G.PKG}));
+  L.socDie.push(m(MAT.silicon,{p:[-14,2.15,-46], tx:3, atl:AR[3], g:G.PKG}));
+  for(let k=0;k<2;k++) L.lpddr.push(m(MAT.epoxy,{p:[-14,3.1+k*0.75,-46], tx:1, atl:AR[0], g:G.PKG}));
+  for(let i=-7;i<=7;i++) for(let j=-7;j<=7;j++){
+    if(Math.abs(i)<5&&Math.abs(j)<5) continue;
+    L.pop.push(m(MAT.solder,{p:[-14+i*0.95, 2.72, -46+j*0.95], g:G.PKG}));
+  }
+  POS.soc=[-14,2.6,-46]; POS.lpddr=[-14,3.9,-46];
+  L.ufs.push(m(MAT.epoxy,{p:[10,1.4,-40], tx:1, atl:AR[7], g:G.PKG}));   POS.ufs=[10,2.1,-40];
+  L.pmic.push(m(MAT.epoxyGrey,{p:[12,1.35,-54], tx:1, atl:AR[5], g:G.PKG}));
+  L.pmic.push(m(MAT.epoxyGrey,{p:[24,1.35,-46], tx:1, atl:AR[2], g:G.PKG}));
+  POS.pmic=[12,2.0,-54];
+  for(let k=0;k<3;k++) L.rf.push(m(MAT.epoxyGrey,{p:[-30+k*4,1.3,-56], tx:0, g:G.PKG}));
+  for(const [x,z] of [[-14,-46],[10,-40],[18,-54]]) L.shield.push(m(MAT.alu,{p:[x,2.6,z], ro:0.36, g:G.PKG}));
+  // 排线:主板 → 屏
+  for(let k=0;k<3;k++) L.fpc.push(m(MAT.fpc,{p:[-18+k*18,1.2,-26], s:[1,1,14], g:G.PKG}));
+  POS.fpc=[0,1.6,-26];
+  // 摄像头
+  for(let k=0;k<3;k++){ L.cam.push(m(MAT.epoxyGrey,{p:[-20+k*11,-2.2,-58], g:G.BACK}));
+    L.camL.push(m(MAT.glassClr,{p:[-20+k*11,-3.9,-58], g:G.BACK})); }
+  // 碎料
+  let g=0;
+  while(L.smd.length<400 && g++<9000){
+    const x=(rnd()-0.5)*58, z=-46+(rnd()-0.5)*34;
+    if(Math.abs(x+14)<11 && Math.abs(z+46)<11) continue;
+    if(Math.abs(x-10)<7 && Math.abs(z+40)<8) continue;
+    const yaw=(rnd()<0.5?0:Math.PI/2);
+    L.smd.push(m(MAT.mlcc,{p:[x,1.15,z], yaw, ro:MAT.mlcc.ro*jit(0.2), g:G.PKG}));
+    for(const s of [-1,1]) L.sold.push(m(MAT.solder,{p:[x+Math.cos(yaw)*s*0.62,1.05,z-Math.sin(yaw)*s*0.62], s:[0.28,0.7,0.66], yaw, g:G.PKG}));
+  }
+
+  // ---------- SoC 内部城 ----------
+  const [CX,CY,CZ]=SOC_CITY, RAIL_Y=11;
+  const ct=(mat,extra)=>m(mat,Object.assign({g:G.SOC},extra));
+  L.cityBase.push(ct(MAT.siliconCity,{p:[CX,CY-1.5,CZ], tx:5}));
+  POS.city={};
+  // CPU:4 大核(左上) + 4 小核
+  POS.city.big=[]; POS.city.lit=[];
+  for(let k=0;k<4;k++){ const p=[CX-84+ (k%2)*30, CY+2.5, CZ-62+Math.floor(k/2)*28];
+    L.bigCore.push(ct(MAT.blockCPU,{p})); POS.city.big.push(p); }
+  for(let k=0;k<4;k++){ const p=[CX-88+(k%2)*17, CY+2.5, CZ-8+Math.floor(k/2)*16];
+    L.litCore.push(ct(MAT.blockCPUL,{p})); POS.city.lit.push(p); }
+  // GPU:6 个着色核(右上)
+  POS.city.gpu=[];
+  for(let k=0;k<6;k++){ const p=[CX+52+(k%3)*24, CY+2.5, CZ-64+Math.floor(k/3)*24];
+    L.gpuCore.push(ct(MAT.blockGPU,{p})); POS.city.gpu.push(p); }
+  // NPU / ISP
+  L.npu.push(ct(MAT.blockNPU,{p:[CX+76,CY+2.5,CZ+6]}));   POS.city.npu=[CX+76,CY+5.2,CZ+6];
+  L.isp.push(ct(MAT.blockISP,{p:[CX+80,CY+2.3,CZ+48]}));  POS.city.isp=[CX+80,CY+4.8,CZ+48];
+  // 系统级缓存 6 片(中间竖排)
+  POS.city.slc=[];
+  for(let k=0;k<6;k++){ const p=[CX-8, CY+2.5, CZ-64+k*26];
+    L.slc.push(ct(MAT.blockL2,{p})); POS.city.slc.push(p); }
+  // DRAM 控制器(下边)+ 片外 LPDDR(叠在上方,PoP)
+  POS.city.dmc=[]; POS.city.dram=[];
+  for(let k=0;k<4;k++){ const p=[CX-60+k*40, CY+2.5, CZ+80];
+    L.dmc.push(ct(MAT.blockMC,{p})); POS.city.dmc.push(p);
+    const dp=[CX-60+k*40, CY+26, CZ+108];
+    L.dram.push(ct(MAT.epoxy,{p:dp, tx:1, atl:AR[0], g:G.SOC})); POS.city.dram.push(dp);
+    for(let b=0;b<16;b++) L.rail.push(ct(MAT.copper,{p:[CX-60+k*40+(b-7.5)*1.5, CY+0.3, CZ+94], s:[0.2,0.1,28], ro:0.42}));
+  }
+  // DMA / DPU / DSI PHY
+  L.dmaB.push(ct(MAT.blockDMA,{p:[CX-40,CY+2.0,CZ+42]}));  POS.city.dma=[CX-40,CY+4.6,CZ+42];
+  L.dmaB.push(ct(MAT.blockDMA,{p:[CX+24,CY+2.0,CZ+42]}));
+  L.dpu.push(ct(MAT.blockDisp,{p:[CX+30,CY+2.5,CZ+76]}));  POS.city.dpu=[CX+30,CY+5.2,CZ+76];
+  L.dsiPhy.push(ct(MAT.blockIO,{p:[CX+96,CY+2.0,CZ+80]})); POS.city.dsi=[CX+96,CY+4.6,CZ+80];
+  // 架空 NoC:网格状(手机 SoC 用 mesh NoC,不是单条交叉开关)
+  const RAILS=[];
+  function railSeg(a,b,name){
+    const dx=b[0]-a[0], dz=b[2]-a[2], len=Math.hypot(dx,dz); if(len<1) return;
+    const yaw=Math.atan2(dz,dx), nx=-dz/len, nz=dx/len;
+    for(let i=0;i<5;i++){ const o=(i-2)*1.15;
+      L.rail.push(ct(MAT.copperRail,{p:[(a[0]+b[0])/2+nx*o, CY+RAIL_Y, (a[2]+b[2])/2+nz*o], s:[len,0.5,0.45], yaw, ro:0.30})); }
+    const np=Math.max(1,Math.floor(len/32));
+    for(let k=0;k<=np;k++){ const u=(k+0.5)/(np+1), p=V([a[0],0,a[2]],[b[0],0,b[2]],u);
+      L.pillar.push(ct(MAT.copperRail,{p:[p[0],CY+RAIL_Y/2-0.3,p[2]], ro:0.35}));
+      L.beam.push(ct(MAT.copperRail,{p:[p[0],CY+RAIL_Y-0.55,p[2]], yaw:yaw+Math.PI/2, ro:0.35})); }
+    RAILS.push({name});
+  }
+  // 3×3 网格节点
+  const gx=[CX-56, CX-8, CX+52], gz=[CZ-40, CZ+18, CZ+76];
+  POS.city.node=[];
+  for(const x of gx) for(const z of gz){ L.router.push(ct(MAT.copperRail,{p:[x,CY+RAIL_Y,z], ro:0.32})); POS.city.node.push([x,CY+RAIL_Y+1.4,z]); }
+  for(const z of gz) for(let i=0;i<gx.length-1;i++) railSeg([gx[i],0,z],[gx[i+1],0,z],'h');
+  for(const x of gx) for(let i=0;i<gz.length-1;i++) railSeg([x,0,gz[i]],[x,0,gz[i+1]],'v');
+  // 各功能块的匝道
+  railSeg([CX-69,0,CZ-48],[CX-56,0,CZ-40],'big');
+  railSeg([CX-80,0,CZ+0],[CX-56,0,CZ+18],"lit");
+  railSeg([CX+64,0,CZ-52],[CX+52,0,CZ-40],'gpu');
+  railSeg([CX+76,0,CZ+6],[CX+52,0,CZ+18],'npu');
+  railSeg([CX-40,0,CZ+42],[CX-8,0,CZ+18],'dma');
+  railSeg([CX+30,0,CZ+76],[CX+52,0,CZ+76],'dpu');
+  railSeg([CX+52,0,CZ+76],[CX+96,0,CZ+80],'dsi');
+  for(let k=0;k<4;k++) railSeg([CX-60+k*40,0,CZ+76],[CX-60+k*40,0,CZ+80],'dmc'+k);
+  railSeg([CX-56,0,CZ+76],[CX-8,0,CZ+76],'bot1'); railSeg([CX-8,0,CZ+76],[CX+52,0,CZ+76],'bot2');
+  POS.city.center=[CX,CY+RAIL_Y+1.5,CZ+18];
+  POS.city.origin=[CX,CY,CZ];
+
+  // ---------- OLED 像素剖面 ----------
+  const [OX,OY,OZ]=OLED_O, ost=8.0;
+  const ol=(mat,extra)=>m(mat,Object.assign({g:G.OLED},extra));
+  const oly=[0,4.5,8.5,13.5,17.5,21];   // 基板/TFT/阳极+发光/阴极/封装/偏光
+  L.oSub.push(ol(MAT.glassClr,{p:[OX,OY+oly[0],OZ]}));
+  [-18,0,18].forEach(dx=>L.oTft.push(ol(MAT.ito,{p:[OX+dx,OY+oly[1],OZ+ost*1]})));
+  L.oSlab.push(ol(MAT.polar,{p:[OX,OY+oly[1]-0.9,OZ+ost*1], ro:0.5}));
+  [[MAT.emitR,-18],[MAT.emitG,0],[MAT.emitB,18]].forEach(([mt,dx])=>
+    L.oEmit.push(ol(mt,{p:[OX+dx,OY+oly[2],OZ+ost*2]})));
+  L.oCath.push(ol(MAT.alu,{p:[OX,OY+oly[3],OZ+ost*3], ro:0.28}));
+  L.oEnc.push(ol(MAT.glassClr,{p:[OX,OY+oly[4],OZ+ost*4]}));
+  L.oEnc.push(ol(MAT.polar,{p:[OX,OY+oly[5],OZ+ost*5]}));
+  POS.oled={ sub:[OX-34,OY+1,OZ-18], tft:[OX-34,OY+5,OZ+ost*1-18], emit:[OX-34,OY+9,OZ+ost*2-18],
+             cath:[OX+36,OY+14,OZ+ost*3-14], enc:[OX+36,OY+18,OZ+ost*4-8], pol:[OX+36,OY+21.5,OZ+ost*5-2],
+             oly, ost, cols:[-18,0,18] };
+
+  for(const k in PROTO){ uploadInst(PROTO[k], L[k]); SCENE.push(PROTO[k]); }
+}
+
+//==============================================================
+// S10 · 站点 / 说明 / 术语
+//==============================================================
+const cam={ tgt:[0,0,0], az:0, el:0.3, dist:60, fov:26, ap:0.3, ex:1.5, focus:'plane', fy:0.6 };
+const STATE={ open:0, cutX:60 };      // open = 拆解量
+function camEye(){ const ce=Math.cos(cam.el), se=Math.sin(cam.el);
+  return [cam.tgt[0]+cam.dist*ce*Math.sin(cam.az), cam.tgt[1]+cam.dist*se, cam.tgt[2]+cam.dist*ce*Math.cos(cam.az)]; }
+const C=SOC_CITY, O=OLED_O;
+const Q=(a,b,c,en)=>`<span class="q"><em>是什么</em>${a}</span><span class="q"><em>没有它</em>${b}</span><span class="q"><em>为什么这样</em>${c}</span>${en?`<span class="q en">${en}</span>`:''}`;
+const STATIONS=[
+ // ============ 第一幕 · 手机拆开 ============
+ { act:0, title:'一部手机', cam:{tgt:[0,3,2], az:-0.30, el:0.72, dist:265, fov:26, ap:0.26, focus:'plane', fy:4, ex:1.55},
+   state:{open:0}, flow:'home',
+   labels:[{p:[0,4.4,-56],t:'屏幕',s:'…',live:'home',dy:-46},{p:[-30,4.4,64],t:'OLED 面板 + 盖板玻璃',s:'这一页讲的就是它怎么亮',dy:60}],
+   body:Q('一部手机 = 一块<b>屏</b> + 一块<b>电池</b> + 一小块<b>主板</b>,塞在金属中框里。主板只有巴掌的三分之一大,上面最大的那颗就是 <b>SoC</b>。',
+          '把 SoC 换成电脑那种分立的 CPU + 显卡 + 内存条,主板要大十倍,手机就拿不动了。',
+          '为什么手机把什么都塞进一颗芯片?体积和功耗。芯片之间连线越长,驱动信号越费电;做进同一块硅片,距离从厘米变成毫米,省下的电全变成续航。',
+          'SoC (System on Chip) · OLED · PCB')},
+ { act:0, title:'拆开：屏 · 电池 · 主板', cam:{tgt:[0,12,4], az:-0.62, el:0.30, dist:300, fov:26, ap:0.24, focus:'point', fy:12, ex:1.55},
+   state:{open:1}, flow:'home',
+   labels:[{p:[0,30.5,-30],t:'显示面板 + 盖板',s:'整机最贵的一块',dy:-40},{p:[0,2.5,26],t:'电池',s:'占掉一半体积',dy:-34},{p:[0,1.6,-46],t:'主板',s:'所有芯片都在这',dy:-34},{p:[0,1.6,-26],t:'柔性排线',s:'主板 → 屏的唯一通路',dy:46}],
+   body:Q('拆开看:上层是<b>屏幕</b>,中间大半是<b>电池</b>,只有顶部一条是<b>主板</b>。主板和屏之间靠几根<b>柔性排线</b>连着——所有画面数据都从这几根线过去。',
+          '没有柔性排线,屏就是块死玻璃。它同时走显示数据(MIPI DSI)、触摸数据和背光/电源。',
+          '为什么主板挤在顶部一条?电池要最大的连续空间,而且发热的芯片离电池越远越好——锂电池怕热。',
+          'FPC (Flexible Printed Circuit) · MIPI DSI · battery')},
+ { act:0, title:'SoC 与内存叠在一起', cam:{tgt:[-14,4,-46], az:0.85, el:0.32, dist:52, fov:26, ap:0.12, focus:'plane', fy:3, ex:1.6},
+   state:{open:1},
+   labels:[{p:'soc',t:'SoC die',s:'CPU / GPU / NPU 全在这一片硅上'},{p:'lpddr',t:'LPDDR 内存',s:'直接叠在 SoC 上面',dy:-64},{p:'ufs',t:'UFS 闪存',s:'装系统和照片',dy:-40}],
+   body:Q('主板上那颗最大的方块其实是<b>两颗芯片叠在一起</b>:下面是 <b>SoC</b>,上面直接摞着 <b>LPDDR 内存</b>,中间用一圈锡球连,这叫<b>叠层封装 PoP</b>。',
+          '不叠的话内存要放到旁边,走线长几厘米——高频信号跑不动,还多占一块板子面积。',
+          '为什么手机能叠、电脑不能?手机内存功耗小、发热小,SoC 的热能从底下的基板走掉;电脑的 GPU 三百瓦,上面再盖一块芯片就散不出去了,所以显存只能摆在旁边。',
+          'PoP (Package on Package) · LPDDR5 · UFS · SoC')},
+ { act:0, title:'钻进 SoC：片上网络', cam:{tgt:[C[0],C[1]+6,C[2]+10], az:-0.45, el:0.78, dist:400, fov:26, ap:0.28, focus:'plane', fy:C[1]+7, ex:1.55},
+   state:{open:1},
+   labels:[{p:['city','big'],t:'CPU 大核 ×4',s:'跑得快、费电'},{p:['city','lit'],t:'CPU 小核 ×4',s:'省电、干杂活',dy:-40},
+           {p:['city','gpu'],t:'GPU 着色核 ×6',s:'画界面和游戏'},{p:['city','npu'],t:'NPU',s:'跑 AI 模型',dy:-40},
+           {p:['city','slc'],t:'系统级缓存 ×6 片',s:'所有模块共用'},{p:['city','dmc'],t:'内存控制器 ×4',s:'通向 LPDDR'},
+           {p:['city','dpu'],t:'DPU 显示处理',s:'把图层合成一帧'},{p:['city','dsi'],t:'MIPI DSI',s:'把画面发给屏',dy:-40},
+           {p:['city','center'],t:'NoC 片上网络',s:'3×3 网格,不是一条总线'}],
+   body:Q('SoC 里面:左边 <b>4 大核 + 4 小核</b> 的 CPU,右上 <b>6 个 GPU 核</b>,右边 <b>NPU</b> 和 <b>ISP</b>,中间一竖排 <b>6 片系统级缓存</b>,下边 <b>4 个内存控制器</b>、<b>DMA</b>、<b>DPU</b> 和 <b>MIPI DSI</b>。它们之间架着铜轨——<b>片上网络 NoC</b>,3×3 的网格。',
+          '没有 NoC,这十几个模块就得两两拉专线,线数按平方涨,芯片面积全被走线吃掉。',
+          '为什么手机用<b>网格</b>而电脑 GPU 用一条粗交叉开关?GPU 里几十个 SM 干的是同一件事、访问模式相似,拉一条宽干道最直接;手机 SoC 里十几种模块脾气完全不同(CPU 要低延迟、GPU 要大带宽、DPU 要稳定节拍),网格能让它们各走各的路互不堵。',
+          'NoC (Network on Chip) · big.LITTLE · SLC (System Level Cache) · DPU · ISP · MIPI DSI')},
+ // ============ 第二幕 · 一帧画面怎么来 ============
+ { act:1, title:'① App 提交：CPU 派活给 GPU', cam:{tgt:[C[0]-34,C[1]+8,C[2]-20], az:-0.72, el:0.62, dist:300, fov:26, ap:0.24, focus:'plane', fy:C[1]+8, ex:1.55},
+   state:{open:1}, flow:'app',
+   labels:[{p:['city','big'],t:'大核:App 主线程',s:'…',live:'app',dy:-46},{p:['city','node'],t:'NoC 节点',s:'包在网格上按路由走'},{p:['city','gpu'],t:'GPU 核',s:'收到绘制命令开工',dy:-40}],
+   body:Q('你手指一划,App 在 <b>CPU 大核</b>上算出"这一帧长什么样":哪些图层、各自在哪、多大。这些变成<b>绘制命令</b>写进内存,再通过 NoC 通知 <b>GPU</b> 去画。',
+          '没有这个分工,CPU 得自己逐像素画,一块 2400×1080 的屏一帧 260 万像素,大核算不完 16.7 毫秒。',
+          '为什么 App 跑在大核?界面响应要低延迟,大核频率高、乱序执行强,一次算完。后台同步、推送这些不急的活给小核,省电。',
+          'Draw call · command buffer · big.LITTLE · UI thread')},
+ { act:1, title:'② GPU 渲染进内存', cam:{tgt:[C[0]+40,C[1]+8,C[2]+10], az:0.55, el:0.62, dist:320, fov:26, ap:0.24, focus:'plane', fy:C[1]+8, ex:1.55},
+   state:{open:1}, flow:'render',
+   labels:[{p:['city','gpu'],t:'GPU 着色核',s:'…',live:'gpu',dy:-46},{p:['city','slc'],t:'系统级缓存',s:'CPU 和 GPU 共用同一份'},{p:['city','dram'],t:'LPDDR 内存',s:'画好的图层存这',dy:-40}],
+   body:Q('GPU 把每个图层画出来,结果写进 <b>LPDDR 内存</b>。手机是<b>统一内存</b>:CPU 和 GPU 共用同一块物理内存,同一份数据不用来回拷。',
+          '如果像电脑那样各有各的内存,CPU 生成的顶点数据得先拷进显存,GPU 画完再拷回来——手机的带宽和电量都经不起这么折腾。',
+          '为什么电脑反而要分开?独立显卡插在 PCIe 上,离 CPU 十几厘米,共用一块内存的话谁访问都慢;而且显卡要的带宽是 CPU 的十几倍,专门配 GDDR 才划算。手机所有东西挤在一颗芯片里,共用是最省的选择。',
+          'UMA (Unified Memory Architecture) · framebuffer · layer · LPDDR5')},
+ { act:1, title:'③ DMA：搬数据不占 CPU', cam:{tgt:[C[0]-20,C[1]+8,C[2]+40], az:-0.35, el:0.58, dist:300, fov:26, ap:0.24, focus:'plane', fy:C[1]+8, ex:1.55},
+   state:{open:1}, flow:'dma',
+   labels:[{p:['city','dma'],t:'DMA 引擎',s:'…',live:'dma',dy:-46},{p:['city','big'],t:'CPU 大核',s:'搬运期间它在睡觉',dy:-40},{p:['city','dram'],t:'LPDDR',s:'源和目的都在这'}],
+   body:Q('内存里一块数据要挪到另一处(比如相机拍的原始图交给 ISP、音频送给编解码),<b>DMA 引擎</b>接过这活:CPU 只说一句"把 A 搬到 B,搬完叫我",然后就去睡觉,搬完 DMA 发个中断把它叫醒。',
+          '没有 DMA,CPU 得自己一个字一个字读了再写,几兆的数据要几百万次读写,全程满载——费电还什么别的都干不了。',
+          '为什么这么安排?搬运是纯体力活,不需要判断。给它配一个只会搬东西的小硬件,面积很小,却把 CPU 从最没技术含量的工作里解放出来。手机上这一条直接换算成续航。',
+          'DMA (Direct Memory Access) · interrupt · descriptor')},
+ { act:1, title:'④ DPU：把图层合成一帧', cam:{tgt:[C[0]+16,C[1]+8,C[2]+62], az:0.42, el:0.58, dist:280, fov:26, ap:0.22, focus:'plane', fy:C[1]+8, ex:1.55},
+   state:{open:1}, flow:'compose',
+   labels:[{p:['city','dpu'],t:'DPU 显示处理单元',s:'…',live:'dpu',dy:-46},{p:['city','dram'],t:'内存里的各个图层',s:'状态栏 / App / 导航条 / 光标'},{p:['city','dsi'],t:'送往 MIPI DSI',s:'合成好的整帧',dy:-40}],
+   body:Q('屏幕上同时有好几层:状态栏、App 画面、导航条、输入法。它们各自画在内存里,由 <b>DPU</b> 按次序叠起来、缩放、做色彩管理,合成最终这一帧,直接喂给显示接口。',
+          '没有 DPU,合成就得让 GPU 干:GPU 每帧多读写一遍全屏数据,功耗明显上去,而且它本来该去画下一帧。',
+          '为什么合成值得配专用硬件?这活每秒钟必做 60~120 次,规则固定(叠加、混合、缩放),做成固定电路比通用 GPU 省一个数量级的电。这是手机能一直亮着屏还不烫的关键之一。',
+          'DPU (Display Processing Unit) · layer composition · alpha blending · color management')},
+ { act:1, title:'⑤ MIPI DSI：打包发给屏', cam:{tgt:[C[0]+70,C[1]+8,C[2]+74], az:0.78, el:0.48, dist:240, fov:26, ap:0.20, focus:'plane', fy:C[1]+8, ex:1.55},
+   state:{open:1}, flow:'dsi',
+   labels:[{p:['city','dsi'],t:'MIPI DSI 发送端',s:'…',live:'dsi',dy:-46},{p:[C[0]+140,C[1]+6,C[2]+80],t:'4 条数据 lane + 1 条时钟',s:'…',live:'lane',dy:70}],
+   body:Q('合成好的一帧要出芯片。<b>MIPI DSI</b> 把像素切成包,分到 <b>4 条数据通道</b>上串行发出,另有一条<b>时钟通道</b>让接收端对准节拍。每条通道也是一对差分线。',
+          '没有串行化,2400×1080 的屏要几十根并行线,排线做不细,也弯不进手机的转轴空间。',
+          '为什么手机用 DSI 而电脑用 DisplayPort?DSI 是短距离(几厘米)、低功耗、省引脚,还支持"只发变化的那部分"和低功耗待机模式;DP 要走两米线缆、支持热插拔和多种分辨率协商,复杂得多也费电得多。各自为自己的场景优化。',
+          'MIPI DSI · lane · differential pair · command mode / video mode')},
+ // ============ 第三幕 · 屏幕怎么亮 ============
+ { act:2, title:'⑥ 屏幕驱动 IC 收下这一帧', cam:{tgt:[0,6,-10], az:-0.55, el:0.42, dist:230, fov:26, ap:0.22, focus:'plane', fy:4, ex:1.55},
+   state:{open:1}, flow:'panel',
+   labels:[{p:'fpc',t:'柔性排线',s:'…',live:'panel',dy:-46},{p:'screenC',t:'显示面板',s:'驱动 IC 按行列点亮像素'}],
+   body:Q('数据经排线到屏幕上的<b>驱动 IC</b>。它把收到的像素存进自己的行缓冲,再按<b>行</b>和<b>列</b>把电压加到面板上对应的像素。',
+          '没有驱动 IC,SoC 就得直接驱动几百万个像素的电极——引脚数根本不够。',
+          '为什么驱动 IC 要贴在屏上而不是主板上?它要接出几千根细电极直连面板,这些线只能做在玻璃上;放主板就得几千根排线,不可能。',
+          'Display Driver IC (DDIC) · row / column driver · line buffer')},
+ { act:2, title:'⑦ OLED 像素：自己发光', cam:{tgt:[O[0]+2,O[1]+11,O[2]+8], az:0.45, el:0.28, dist:150, fov:26, ap:0.16, focus:'point', fy:11, ex:1.55},
+   state:{open:1}, flow:'oled',
+   labels:[{p:['oled','sub'],t:'① 玻璃基板',s:'一切长在它上面'},{p:['oled','tft'],t:'② TFT 背板',s:'…',live:'tft',dy:-46},
+           {p:['oled','emit'],t:'③ 有机发光层',s:'…',live:'oled',dy:-88},{p:['oled','cath'],t:'④ 阴极',s:'透明金属,盖住整片'},
+           {p:['oled','enc'],t:'⑤ 封装层',s:'挡水挡氧,有机材料怕这两样',dy:-24},{p:['oled','pol'],t:'⑥ 偏光片',s:'压掉环境光反射',dy:52}],
+   body:Q('<b>OLED</b> 每个子像素是一小块<b>有机发光材料</b>夹在两个电极之间:通电就发光,电流越大越亮。红绿蓝三个子像素各自一块,各自一个 <b>TFT</b> 管着电流。',
+          '没有 TFT 背板,就没法让某一个像素单独亮——OLED 的每个像素都得有自己的电流源。',
+          '为什么 OLED 的黑是真黑?这个像素不通电就完全不发光,是纯黑。LCD 的背光一直亮着,液晶只能"挡",挡不干净,黑就是深灰。代价是 OLED 的有机材料会老化,亮得多的子像素衰减快——这就是烧屏。',
+          'OLED · TFT backplane · anode / cathode · emissive layer · encapsulation · burn-in')},
+ { act:2, title:'⑧ 同一帧，LCD 和 OLED 的差别', cam:{tgt:[O[0]+2,O[1]+12,O[2]+10], az:1.05, el:0.34, dist:175, fov:26, ap:0.18, focus:'point', fy:12, ex:1.55},
+   state:{open:1}, flow:'compare',
+   labels:[{p:['oled','emit'],t:'OLED:像素自发光',s:'…',live:'cmp',dy:-46},{p:['oled','cath'],t:'黑 = 不通电',s:'功耗跟画面内容有关',dy:-40}],
+   body:Q('同样一帧画面,两种屏的走法完全不同。<b>LCD</b>:背光全亮 → 偏光片 → 液晶转角决定挡多少 → 滤色。<b>OLED</b>:每个子像素自己按电流发光,不需要背光,也不需要液晶。',
+          '这决定了很多日常体验:OLED 显示深色内容更省电(黑像素不耗电),LCD 显示什么都一样耗电;OLED 能做曲面和折叠,LCD 的背光模组是硬的。',
+          '为什么两种都还活着?OLED 亮度上限、寿命和成本仍不如 LCD,大尺寸尤其明显;而 LCD 做不出真黑和超薄。手机基本转向 OLED,显示器和电视两条路都在走。',
+          'LCD vs OLED · always-on display · burn-in · foldable')}
+];
+const ACTS=['第一幕 · 手机拆开','第二幕 · 一帧画面怎么来','第三幕 · 屏幕怎么亮'];
+const GLOSSARY=[
+ ['SoC','片上系统','把 CPU、GPU、NPU、内存控制器等全做进一颗芯片。'],
+ ['NoC','片上网络','芯片内部的网格状总线,各模块之间按路由传数据。'],
+ ['big.LITTLE','大小核','高性能核和低功耗核搭配,按任务轻重分派。'],
+ ['SLC','系统级缓存','CPU / GPU / NPU 共用的一大块片上缓存。'],
+ ['UMA','统一内存','CPU 和 GPU 共用同一块物理内存,不用来回拷贝。'],
+ ['LPDDR','低功耗内存','手机用的 DRAM,常直接叠在 SoC 上方(PoP)。'],
+ ['PoP','叠层封装','内存芯片直接摞在 SoC 上,靠一圈锡球连接。'],
+ ['DMA','直接内存访问','专门搬数据的小硬件,搬运期间 CPU 可以休息。'],
+ ['DPU','显示处理单元','把多个图层叠加、缩放、合成为最终一帧的专用硬件。'],
+ ['MIPI DSI','移动显示接口','SoC 发画面给屏幕的串行接口,4 条数据 lane。'],
+ ['DDIC','屏幕驱动 IC','贴在屏上,把收到的像素变成行列电压。'],
+ ['OLED','有机发光二极管屏','每个像素自己发光,不亮就是真黑。'],
+ ['TFT','薄膜晶体管','每个子像素背后的开关/电流源。'],
+ ['ISP','图像信号处理器','把摄像头的原始数据处理成照片。'],
+ ['NPU','神经网络处理器','专门跑 AI 模型的加速单元。'],
+ ['UFS','通用闪存存储','手机的"硬盘",装系统和照片。'],
+ ['FPC','柔性电路板','主板和屏之间那几根能弯的排线。'],
+ ['烧屏','OLED 老化','长期显示同一内容,该处像素衰减更快留下残影。'],
+ ['PBR','基于物理的渲染','本页渲染用的材质模型,金属和塑料反光才不一样。'],
+ ['IBL','基于图像的光照','用一张环境图给所有材质打光,本页的棚拍光就是这么来的。']
+];
+
+//==============================================================
+// S11 · 帧缓冲
+//==============================================================
+let W=1,H=1,DPR=1;
+let gbuf=null, aoA=null, aoB=null, lit=null, accum=null, frame=null, flow=null,
+    bright=null, blurA=null, blurB=null, shadow=null;
+function mkGBuffer(w,h){
+  const fb=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  const alb=mkTex(w,h,gl.RGBA,gl.RGBA8,gl.UNSIGNED_BYTE,gl.NEAREST);
+  const nrm=mkTex(w,h,gl.RGBA,gl.RGBA16F,gl.HALF_FLOAT,gl.NEAREST);
+  const dep=mkTex(w,h,gl.DEPTH_COMPONENT,gl.DEPTH_COMPONENT24,gl.UNSIGNED_INT,gl.NEAREST);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,alb,0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT1,gl.TEXTURE_2D,nrm,0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,dep,0);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  const st=gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if(st!==gl.FRAMEBUFFER_COMPLETE) fatal('G-buffer 创建失败 (0x'+st.toString(16)+')');
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  return {fb, alb, nrm, dep, tex:[alb,nrm,dep], w, h};
+}
+const SHADOW_RES=2048;
+function mkShadow(){
+  const fb=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  const t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.DEPTH_COMPONENT24,SHADOW_RES,SHADOW_RES,0,
+    gl.DEPTH_COMPONENT,gl.UNSIGNED_INT,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_FUNC,gl.LEQUAL);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,t,0);
+  gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  return {fb, t};
+}
+function resize(){
+  const scale = QUAL.renderScale;
+  DPR = Math.min(window.devicePixelRatio||1, 2) * scale;
+  const w = Math.max(2, Math.round(cv.clientWidth*DPR));
+  const h = Math.max(2, Math.round(cv.clientHeight*DPR));
+  if(w===W && h===H) return;
+  W=w; H=h; cv.width=W; cv.height=H;
+  [gbuf,aoA,aoB,lit,accum,frame,flow,bright,blurA,blurB].forEach(f=>{
+    if(!f) return;
+    if(f.alb){ gl.deleteFramebuffer(f.fb); f.tex.forEach(t=>gl.deleteTexture(t)); }
+    else delFBO(f);
+  });
+  gbuf = mkGBuffer(W,H);
+  const R8 ={fmt:gl.RED, ifmt:gl.R8,     type:gl.UNSIGNED_BYTE, filter:gl.LINEAR};
+  const F16={fmt:gl.RGBA,ifmt:gl.RGBA16F,type:gl.HALF_FLOAT,    filter:gl.LINEAR};
+  const F32={fmt:gl.RGBA,ifmt:gl.RGBA32F,type:gl.FLOAT,         filter:gl.NEAREST};
+  aoA  = mkFBO(W,H,[R8]);
+  aoB  = mkFBO(W,H,[R8]);
+  lit  = mkFBO(W,H,[F16]);
+  accum= mkFBO(W,H,[F32]);
+  frame= mkFBO(W,H,[F16]);
+  flow = mkFlowFBO(W,H);
+  bright=mkFBO(W>>1,H>>1,[F16]);
+  blurA =mkFBO(W>>2,H>>2,[F16]);
+  blurB =mkFBO(W>>2,H>>2,[F16]);
+  reset();
+}
+
+//==============================================================
+// S12 · 渲染
+//==============================================================
+const QUAL = { renderScale:1.0, maxSPP:200, micro:1, bloom:0.022, sharp:0.22,
+               grain:0.0055, vig:0.22, ca:0.0006, aoInt:0.92, aoRad:0.85 };
+const LIGHT_AXIS = V3.norm([-0.34, 0.88, 0.33]);
+const LIGHT_HU = 0.46, LIGHT_HV = 0.30;   // 与 STUDIO_GLSL 里的主光尺寸一致
+const ENV_INT = 1.0, KEY_FRAC = 0.80;
+
+let PR={};
+let spp=0, dirty=true, lastMs=0, totalTris=0;
+function reset(){ spp=0; dirty=true; }
+
+function lightVP(i){
+  // 在柔光箱面积内抖动光源方向 —— 累积后自然收敛成真实半影
+  let dir=LIGHT_AXIS;
+  if(i>0){
+    const t=V3.norm(V3.cross([0,0,1], LIGHT_AXIS));
+    const b=V3.cross(LIGHT_AXIS,t);
+    const u=(halton(i,2)*2-1)*LIGHT_HU, v=(halton(i,3)*2-1)*LIGHT_HV;
+    dir=V3.norm([LIGHT_AXIS[0]+t[0]*u+b[0]*v,
+                 LIGHT_AXIS[1]+t[1]*u+b[1]*v,
+                 LIGHT_AXIS[2]+t[2]*u+b[2]*v]);
+  }
+  const R=Math.min(Math.max(cam.dist*0.85, 14), 115);
+  const c=cam.tgt;
+  const eye=[c[0]+dir[0]*260, c[1]+dir[1]*260, c[2]+dir[2]*260];
+  const V=M4.look(eye,c,[0,1,0]);
+  const P=M4.ortho(-R,R,-R,R, 40, 520);
+  return {vp:M4.mul(P,V), dir};
+}
+function camMats(i){
+  const eye=camEye();
+  const V=M4.look(eye,cam.tgt,[0,1,0]);      // 中心相机(不抖)
+  let Vj=V, e=eye;
+  if(i>0 && cam.ap>0){
+    // 薄透镜 = 镜头在光圈盘上平移 + 一个剪切,让焦平面上的点投到同一像素
+    // (Haeberli & Akeley 1990 累积缓冲景深;焦平面允许任意朝向 → 顺带得到移轴)
+    const r=Math.sqrt(halton(i,5)), th=halton(i,7)*Math.PI*2;
+    const dx=Math.cos(th)*r*cam.ap, dy=Math.sin(th)*r*cam.ap;
+    // 相机右/上轴(世界系) = 视图矩阵旋转部分的前两行
+    e=[eye[0]+V[0]*dx+V[1]*dy, eye[1]+V[4]*dx+V[5]*dy, eye[2]+V[8]*dx+V[9]*dy];
+    // 焦平面(相机系): n·c = d
+    let n, d;
+    if(cam.focus==='plane'){
+      // 世界里 y = fy 的水平面 → 相机系法线是旋转矩阵第二列
+      n=[V[4],V[5],V[6]];
+      const c0=[V[4]*cam.fy+V[12], V[5]*cam.fy+V[13], V[6]*cam.fy+V[14]];
+      d=n[0]*c0[0]+n[1]*c0[1]+n[2]*c0[2];
+    } else {
+      n=[0,0,-1]; d=cam.dist;                 // 垂直视线,距离 = 到目标点
+    }
+    const k=1/(d-(n[0]*dx+n[1]*dy));
+    // T: 相机系里平移 -Δ;N: 剪切 c' + Δ·(n·c')·k
+    const T=M4.ident(); T[12]=-dx; T[13]=-dy;
+    const N=M4.ident();
+    N[0]+=dx*n[0]*k; N[4]+=dx*n[1]*k; N[8]+=dx*n[2]*k;
+    N[1]+=dy*n[0]*k; N[5]+=dy*n[1]*k; N[9]+=dy*n[2]*k;
+    Vj=M4.mul(N, M4.mul(T, V));
+  }
+  const P=M4.persp(cam.fov*Math.PI/180, W/H, Math.max(cam.dist*0.02,0.05), cam.dist*14+400);
+  if(i>0){
+    // 亚像素抖动用高斯(σ≈0.32px)而不是均匀 ±0.5px:
+    // 均匀抖动累积后等价于 1 像素盒式模糊,画面必软;窄高斯抗锯齿同时保锐
+    const u1=Math.max(halton(i,11),1e-6), u2=halton(i,13);
+    const r=Math.sqrt(-2*Math.log(u1))*0.32, th=2*Math.PI*u2;
+    const jx=Math.max(-1,Math.min(1,r*Math.cos(th)));
+    const jy=Math.max(-1,Math.min(1,r*Math.sin(th)));
+    P[8]+= jx*2/W;
+    P[9]+= jy*2/H;
+  }
+  return {vp:M4.mul(P,Vj), eye:e};
+}
+let culled=0, drawnTris=0;
+function drawScene(program, isShadow, vp){
+  const F=vp?frustum(vp):null;
+  for(const m of SCENE){
+    if(!m.count) continue;
+    if(F && m.br && !sphereIn(F,m.bc,m.br)){ culled++; continue; }
+    drawnTris+=m.tris*m.count;
+    gl.bindVertexArray(m.vao);
+    if(!isShadow) gl.uniform3fv(program.u.uHalf, m.half);
+    gl.drawElementsInstanced(gl.TRIANGLES, m.n, m.type, 0, m.count);
+  }
+  gl.bindVertexArray(null);
+}
+function renderSample(i){
+  const {vp:LVP, dir:LDIR}=lightVP(i);
+  const {vp:VP, eye}=camMats(i);
+  const invVP=M4.inv(VP);
+  lastVP=VP; lastEye=eye;
+
+  // 1) 阴影深度
+  gl.bindFramebuffer(gl.FRAMEBUFFER, shadow.fb);
+  gl.viewport(0,0,SHADOW_RES,SHADOW_RES);
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.depthMask(true);
+  gl.clear(gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.CULL_FACE); gl.cullFace(gl.FRONT);
+  gl.useProgram(PR.shadow);
+  gl.uniformMatrix4fv(PR.shadow.u.uLVP,false,LVP);
+  gl.uniform1f(PR.shadow.u.uLift,STATE.open*20.0); gl.uniform1f(PR.shadow.u.uCutX,STATE.cutX);
+  culled=0; drawnTris=0;
+  drawScene(PR.shadow,true,LVP);
+  gl.disable(gl.CULL_FACE);        // G-buffer 不剔除背面:剖开后要看见内壁  CHK('pass.shadow');
+
+  // 2) G-buffer
+  gl.bindFramebuffer(gl.FRAMEBUFFER, gbuf.fb);
+  gl.viewport(0,0,W,H);
+  gl.clearColor(0,0,0,0);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(PR.gb);
+  gl.uniformMatrix4fv(PR.gb.u.uVP,false,VP);
+  gl.uniform1f(PR.gb.u.uMicro, QUAL.micro);
+  gl.uniform1f(PR.gb.u.uLift,STATE.open*20.0); gl.uniform1f(PR.gb.u.uCutX,STATE.cutX);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, ATLAS_TEX);
+  gl.uniform1i(PR.gb.u.uAtlas,0);
+  drawScene(PR.gb,false,VP);
+  gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);  CHK('pass.gbuffer');
+
+  // 3) SSAO + 双边模糊
+  gl.bindFramebuffer(gl.FRAMEBUFFER, aoA.fb); gl.viewport(0,0,W,H);
+  gl.useProgram(PR.ssao);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,gbuf.nrm);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,gbuf.dep);
+  gl.uniform1i(PR.ssao.u.uNrm,0); gl.uniform1i(PR.ssao.u.uDep,1);
+  gl.uniformMatrix4fv(PR.ssao.u.uVP,false,VP);
+  gl.uniformMatrix4fv(PR.ssao.u.uInvVP,false,invVP);
+  gl.uniform3fv(PR.ssao.u.uCam,eye);
+  gl.uniform2f(PR.ssao.u.uRes,W,H);
+  gl.uniform1f(PR.ssao.u.uRadius,QUAL.aoRad);
+  gl.uniform1f(PR.ssao.u.uIntensity,QUAL.aoInt);
+  gl.uniform1f(PR.ssao.u.uRot, i*2.39996);
+  gl.uniform1f(PR.ssao.u.uSamples, (i<3?6.0:14.0));   // 头几帧先粗后细
+  blit();
+  // 累积够几帧后噪声自己收敛,不再模糊 → 接触阴影边缘保持锐利
+  for(const [src,dst,dx,dy] of (i<6 ? [[aoA,aoB,1,0],[aoB,aoA,0,1]] : [])){
+    gl.bindFramebuffer(gl.FRAMEBUFFER,dst.fb);
+    gl.useProgram(PR.blur);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,src.t);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,gbuf.dep);
+    gl.uniform1i(PR.blur.u.uSrc,0); gl.uniform1i(PR.blur.u.uDep,1);
+    gl.uniform2f(PR.blur.u.uDir, dx/W, dy/H);
+    blit();
+  }
+  CHK('pass.ssao');
+
+  // 4) 光照
+  gl.bindFramebuffer(gl.FRAMEBUFFER, lit.fb); gl.viewport(0,0,W,H);
+  gl.useProgram(PR.light);
+  const bind=(unit,tex,name,cube)=>{ gl.activeTexture(gl.TEXTURE0+unit);
+    gl.bindTexture(cube?gl.TEXTURE_CUBE_MAP:gl.TEXTURE_2D,tex);
+    gl.uniform1i(PR.light.u[name],unit); };
+  bind(0,gbuf.alb,'uAlb'); bind(1,gbuf.nrm,'uNrm'); bind(2,gbuf.dep,'uDep');
+  bind(3,aoA.t,'uAO');     bind(4,ENV.lut,'uLut');
+  bind(5,ENV.irr,'uIrr',1);bind(6,ENV.spec,'uSpec',1); bind(7,ENV.raw,'uRaw',1);
+  bind(8,shadow.t,'uShadow');
+  gl.uniformMatrix4fv(PR.light.u.uInvVP,false,invVP);
+  gl.uniformMatrix4fv(PR.light.u.uLVP,false,LVP);
+  gl.uniform3fv(PR.light.u.uCam,eye);
+  gl.uniform3fv(PR.light.u.uLightDir,LDIR);
+  gl.uniform1f(PR.light.u.uKeyFrac,KEY_FRAC);
+  gl.uniform1f(PR.light.u.uEnvInt,ENV_INT);
+  gl.uniform1f(PR.light.u.uMips,ENV_MIPS);
+  blit(); CHK('pass.light');
+
+  // 5) 累积平均
+  gl.bindFramebuffer(gl.FRAMEBUFFER, accum.fb);
+  gl.useProgram(PR.copy);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,lit.t);
+  gl.uniform1i(PR.copy.u.uSrc,0);
+  if(i===0){ gl.disable(gl.BLEND); }
+  else {
+    gl.enable(gl.BLEND);
+    gl.blendColor(0,0,0, 1/(i+1));
+    gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA);
+  }
+  blit();
+  gl.disable(gl.BLEND);
+  CHK('pass.accum');
+}
+function composite(){
+  // 写实底层 + 数据流叠加层
+  gl.bindFramebuffer(gl.FRAMEBUFFER,frame.fb); gl.viewport(0,0,W,H);
+  gl.useProgram(PR.combine);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,accum.t);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,flow.t);
+  gl.uniform1i(PR.combine.u.uA,0); gl.uniform1i(PR.combine.u.uB,1); gl.uniform1f(PR.combine.u.uBOn,FLOW.on);
+  blit();
+  // 泛光
+  gl.bindFramebuffer(gl.FRAMEBUFFER,bright.fb); gl.viewport(0,0,bright.w,bright.h);
+  gl.useProgram(PR.bright);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,frame.t);
+  gl.uniform1i(PR.bright.u.uSrc,0); gl.uniform1f(PR.bright.u.uThr,1.0);
+  blit();
+  let src=bright;
+  const bloomIters=(spp<QUAL.maxSPP && spp>6)?1:2;
+  for(let k=0;k<bloomIters;k++){
+    gl.bindFramebuffer(gl.FRAMEBUFFER,blurA.fb); gl.viewport(0,0,blurA.w,blurA.h);
+    gl.useProgram(PR.gauss);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,src.t);
+    gl.uniform1i(PR.gauss.u.uSrc,0); gl.uniform2f(PR.gauss.u.uDir,1/blurA.w,0);
+    blit();
+    gl.bindFramebuffer(gl.FRAMEBUFFER,blurB.fb);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,blurA.t);
+    gl.uniform2f(PR.gauss.u.uDir,0,1/blurA.h);
+    blit();
+    src=blurB;
+  }
+  // 最终合成
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.viewport(0,0,W,H);
+  gl.useProgram(PR.post);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,frame.t);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D,src.t);
+  gl.uniform1i(PR.post.u.uSrc,0); gl.uniform1i(PR.post.u.uBloom,1);
+  gl.uniform1f(PR.post.u.uExposure,cam.ex);
+  gl.uniform1f(PR.post.u.uBloomStr,QUAL.bloom);
+  gl.uniform1f(PR.post.u.uGrain,QUAL.grain);
+  gl.uniform1f(PR.post.u.uVig,QUAL.vig);
+  gl.uniform1f(PR.post.u.uCA,QUAL.ca);
+  gl.uniform1f(PR.post.u.uSharp,QUAL.sharp);
+  gl.uniform2f(PR.post.u.uPx,1/W,1/H);
+  blit();
+  CHK('pass.post');
+}
+
+
+//==============================================================
+// S12b · 数据流叠加层
+//   写实底层照常累积;这一层每个显示帧单独画到自己的 HDR 缓冲,
+//   深度用 G-buffer 的深度只测不写,再与累积结果相加进泛光。
+//   颜色纪律:命令=琥珀 · 数据=青 · 像素=洋红;几何本体绝不发光。
+//==============================================================
+const FLOW_VS = `#version 300 es
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNrm;
+layout(location=2) in vec3 iPos; layout(location=3) in vec3 iScl; layout(location=4) in vec3 iCol;
+layout(location=5) in vec4 iMat;   // yaw, 强度, 边缘柔和度, -
+uniform mat4 uVP;
+out vec3 vN; out vec3 vW; out vec3 vCol; out float vInt; out float vSoft;
+void main(){
+  float c=cos(iMat.x), s=sin(iMat.x);
+  vec3 sp=aPos*iScl;
+  vec3 rp=vec3(sp.x*c+sp.z*s, sp.y, -sp.x*s+sp.z*c);
+  vec3 nn=normalize(aNrm/max(iScl,vec3(1e-4)));
+  vN=vec3(nn.x*c+nn.z*s, nn.y, -nn.x*s+nn.z*c);
+  vW=iPos+rp; vCol=iCol; vInt=iMat.y; vSoft=iMat.z;
+  gl_Position=uVP*vec4(vW,1.0);
+}`;
+const FLOW_FS = `#version 300 es
+precision highp float;
+in vec3 vN; in vec3 vW; in vec3 vCol; in float vInt; in float vSoft;
+uniform vec3 uCam; out vec4 o;
+void main(){
+  vec3 N=normalize(vN); vec3 V=normalize(uCam-vW);
+  float ndv=max(dot(N,V),0.0);
+  // 光球:中心亮、边缘柔(不是圆角盒那种一格一格的 rim);垫片:均匀
+  float k = vSoft>0.5 ? pow(ndv,1.6)*1.45 : 1.0;
+  o=vec4(vCol*vInt*k, 1.0);
+}`;
+const COMBINE_FS = `#version 300 es
+precision highp float;
+in vec2 vUV; out vec4 o; uniform sampler2D uA, uB; uniform float uBOn;
+void main(){ o=vec4(texture(uA,vUV).rgb + uBOn*texture(uB,vUV).rgb, 1.0); }`;
+
+const FLOW={ box:null, orb:null, flat:null, list:[], on:0, live:{} };
+const FC={ cmd:[1.0,0.60,0.16], data:[0.22,0.82,1.0], px:[1.0,0.32,0.72] };
+let lastVP=null, lastEye=[0,0,0];
+function mkFlowFBO(w,h){
+  const fb=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  const t=mkTex(w,h,gl.RGBA,gl.RGBA16F,gl.HALF_FLOAT,gl.LINEAR);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,gbuf.dep,0);
+  const st=gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if(st!==gl.FRAMEBUFFER_COMPLETE) fatal('叠加层帧缓冲创建失败 (0x'+st.toString(16)+')');
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  return {fb, tex:[t], t, w, h};
+}
+// —— 几何小工具 ——
+const V=(a,b,t)=>[a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
+const dist3=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+function pathAt(pts,u){
+  u=Math.max(0,Math.min(0.99999,u));
+  let L=0; const seg=[]; for(let i=0;i<pts.length-1;i++){ const d=dist3(pts[i],pts[i+1]); seg.push(d); L+=d; }
+  let s=u*L;
+  for(let i=0;i<seg.length;i++){ if(s<=seg[i]) return V(pts[i],pts[i+1],seg[i]>0?s/seg[i]:0); s-=seg[i]; }
+  return pts[pts.length-1].slice();
+}
+const pulse=(T,period,ph)=>0.5+0.5*Math.sin((T/period+(ph||0))*6.2831853);
+function glow(p,scl,col,inten){ FLOW.list.push({p, s:scl, c:col, me:inten, ro:0.0, orb:0}); }
+function packets(T,pts,n,period,col,size,ph){
+  for(let i=0;i<n;i++){ const u=((T/period)+i/n+(ph||0))%1;
+    FLOW.list.push({p:pathAt(pts,u), s:[size,size,size], c:col, me:3.0, ro:1.0, orb:1}); }
+}
+function ribbon(pts,col,inten,w){
+  for(let i=0;i<pts.length-1;i++){
+    const a=pts[i], b=pts[i+1]; const dx=b[0]-a[0], dz=b[2]-a[2]; const len=Math.hypot(dx,dz);
+    if(len<1e-3) continue;
+    FLOW.list.push({p:V(a,b,0.5), s:[len,0.06,w], c:col, me:inten, yaw:Math.atan2(dz,dx), ro:0.0, orb:0});
+  }
+}
+// ---------- 全局时钟:数据按"拍"走,可暂停 / 单步 / 调速 ----------
+const CLK={ t:0, speed:1.0, playing:true, last:0, tps:1.4 };   // tps = 每秒几拍
+function clockStep(now){
+  if(!CLK.last) CLK.last=now;
+  if(CLK.playing) CLK.t += (now-CLK.last)/1000*CLK.tps*CLK.speed;
+  CLK.last=now;
+}
+const tick =()=>Math.floor(CLK.t);
+const phase=()=>CLK.t-Math.floor(CLK.t);
+const h1=(a,b,c)=>{ const x=Math.sin(a*12.9898+b*78.233+(c||0)*37.719)*43758.5453; return x-Math.floor(x); };
+const ease=(x)=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+
+// ---------- 数据对象原语(全部落到叠加层) ----------
+// 平片(无圆角):通用"格子"
+function pad(p,sx,sz,col,inten,yaw){ FLOW.list.push({p, s:[sx,0.02,sz], c:col, me:inten, yaw:yaw||0, ro:0.0, orb:0, flat:1}); }
+// 一行 n 位:亮 = 1,暗 = 0;dir 为行方向(弧度,0 = +x)
+function wordRow(center,yaw,nbits,pitch,bitFn,col,inten,cellW){
+  const dx=Math.cos(yaw), dz=-Math.sin(yaw);
+  for(let i=0;i<nbits;i++){
+    const o=(i-(nbits-1)/2)*pitch;
+    const on=bitFn(i);
+    pad([center[0]+dx*o, center[1], center[2]+dz*o], cellW||pitch*0.72, cellW?cellW*1.6:pitch*0.72*1.6, col, inten*(on?1.0:0.12), yaw+Math.PI/2);
+  }
+}
+// n 根并行导线(xz 平面内,a→b,垂直方向等距展开)
+function wires(a,b,n,spacing,col,inten,w){
+  const dx=b[0]-a[0], dz=b[2]-a[2], len=Math.hypot(dx,dz); if(len<1e-3) return;
+  const yaw=Math.atan2(dz,dx);
+  const nx=-dz/len, nz=dx/len;            // 垂直单位向量
+  for(let i=0;i<n;i++){
+    const o=(i-(n-1)/2)*spacing;
+    FLOW.list.push({p:[(a[0]+b[0])/2+nx*o,(a[1]+b[1])/2,(a[2]+b[2])/2+nz*o], s:[len,0.02,w||0.10], c:col, me:inten, yaw, ro:0.0, orb:0, flat:1});
+  }
+}
+// 沿导线束移动的一行位(u∈[0,1] 沿 a→b)
+function wordOnWires(a,b,u,n,spacing,bitFn,col,inten){
+  const p=V(a,b,u); const dx=b[0]-a[0], dz=b[2]-a[2], len=Math.hypot(dx,dz);
+  const yaw=Math.atan2(dz,dx);
+  wordRow(p, yaw+Math.PI/2, n, spacing, bitFn, col, inten, spacing*0.8);
+}
+// 一块(缓存行 / 矩阵 / 帧缓冲片)网格
+function gridObj(center,yaw,cols,rows,cell,colFn,inten){
+  const cy=Math.cos(yaw), sy=-Math.sin(yaw);
+  for(let i=0;i<cols;i++) for(let j=0;j<rows;j++){
+    const ox=(i-(cols-1)/2)*cell, oz=(j-(rows-1)/2)*cell;
+    const c=colFn(i,j); if(!c) continue;
+    pad([center[0]+ox*cy-oz*sy, center[1], center[2]+ox*sy+oz*cy], cell*0.9, cell*0.9, c.col||c, c.inten!=null?c.inten:inten, yaw);
+  }
+}
+// 一张"卡"(命令 / 指令):底板 + 三条短线
+function cardObj(p,yaw,col,inten,scale){
+  const s=scale||1;
+  pad(p,3.0*s,2.0*s,col,inten*0.35,yaw);
+  const cy=Math.cos(yaw), sy=-Math.sin(yaw);
+  for(let k=0;k<3;k++){ const oz=(k-1)*0.55*s, ox=-0.2*s;
+    pad([p[0]+ox*cy-oz*sy, p[1]+0.03, p[2]+ox*sy+oz*cy], 1.8*s, 0.22*s, col, inten, yaw); }
+}
+
+// ---------- SoC 城内路径工具 ----------
+const K0=SOC_CITY, KRY=K0[1]+11+1.9;
+const kp=(x,z,y)=>[K0[0]+x, (y==null?KRY:K0[1]+y), K0[2]+z];
+const GX=[-56,-8,52], GZ=[-40,18,76];
+// 沿网格从 (a) 到 (b):先横后竖(维序路由,真实 NoC 就是这么走的)
+function meshRoute(from,to){
+  const nx=(v)=>GX.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a);
+  const nz=(v)=>GZ.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a);
+  const ax=nx(from[0]-K0[0]), az=nz(from[2]-K0[2]);
+  const bx=nx(to[0]-K0[0]),  bz=nz(to[2]-K0[2]);
+  return [[from[0],KRY,from[2]], kp(ax,az), kp(bx,az), kp(bx,bz), [to[0],KRY,to[2]]];
+}
+function tileAlong(P,u,cols,rows,col,seed,inten){
+  const p=pathAt(P,u);
+  gridObj(p,0,cols,rows,1.5,(i,j)=>({col,inten:(inten||1.5)*(h1(seed,i,j)>0.5?1:0.22)}),1);
+  glow([p[0],p[1]-0.3,p[2]],[cols*1.5+1.2,0.02,rows*1.5+1.2],col,0.25);
+}
+function tokenAlong(P,u,col){ const p=pathAt(P,u); cardObj(p,0,col,2.6,1.9);
+  FLOW.list.push({p:[p[0],p[1]+0.9,p[2]],s:[2.2,2.2,2.2],c:col,me:1.6,ro:1.0,orb:1}); }
+function blockGlow(p,sx,sz,col,inten){ glow([p[0],p[1]+0.05,p[2]],[sx,0.02,sz],col,inten); }
+function noiseTraffic(T,n){
+  for(let i=0;i<n;i++){ const seed=i*29+5;
+    const zi=Math.floor(h1(seed,1)*3), u=((T*0.16*(0.6+0.8*h1(seed,2)))+h1(seed,3))%1;
+    const x=GX[0]+u*(GX[2]-GX[0]);
+    gridObj(kp(x,GZ[zi]),0,3,2,0.95,(a,b)=>({col:FC.data,inten:0.5*(h1(seed,a,b)>0.5?1:0.25)}),1);
+  }
+}
+
+// —— 各站的数据流 ——
+function buildFlow(kind,T){
+  FLOW.list.length=0; FLOW.live={};
+  if(kind==='home'){
+    // 亮屏:状态栏 + 图标网格 + 小组件 + 导航条(正是第 8 站要合成的那几层)
+    const cols=10, rows=20, w=64/cols, h=140/rows, y=4.55+STATE.open*26.0;
+    for(let i=0;i<cols;i++) for(let j=0;j<rows;j++){
+      const x=-32+(i+0.5)*w, z=-70+(j+0.5)*h;
+      let c=[0.06,0.09,0.16], it=0.5;
+      if(j===0){ c=[0.55,0.60,0.70]; it=(i===0||i>cols-3)?1.1:0.35; }
+      else if(j>=rows-1){ c=[0.45,0.48,0.55]; it=(i>3&&i<6)?1.0:0.30; }
+      else if(j>=3 && j<=10 && i>=1 && i<=8 && (i%3)!==0 && (j%2)===1){
+        const k=(i+j)%4; c=[[1.0,0.45,0.35],[0.35,0.75,1.0],[0.45,0.95,0.55],[1.0,0.80,0.35]][k]; it=1.6;
+      } else if(j>=13 && j<=17 && i>=1 && i<=8){
+        c=[0.30,0.38,0.55]; it=0.8+0.5*Math.sin(T*1.2+i*0.4);
+      }
+      glow([x,y,z],[w*0.9,0.02,h*0.9],c,it);
+    }
+    FLOW.live.home=`屏幕上同时有 <b>状态栏 · 图标层 · 小组件 · 导航条</b> 四层<br>各自画好,最后由 DPU 叠成一帧`;
+  }
+  else if(kind==='app'){
+    // ① App 在大核算出这一帧要画什么 → 绘制命令经 NoC 到 GPU
+    const tk=tick(), ph=phase(), step=tk%8, u=ph;
+    const big=POS.city.big[0], gpu=POS.city.gpu[0];
+    const R=meshRoute([big[0],0,big[2]],[gpu[0],0,gpu[2]]);
+    POS.city.big.forEach((p,i)=>blockGlow(p,27,25,FC.cmd, i===0?(0.25+0.7*Math.max(0,1-step*0.5)):0.10));
+    POS.city.lit.forEach(p=>blockGlow(p,15,14,FC.data,0.06));
+    if(step<2){ // 大核上算:一层层图层被列出来
+      for(let k=0;k<4;k++){ const on=(step*2+u*2)>k;
+        gridObj([big[0]-9+k*6, big[1]+3.2, big[2]],0,3,2,1.2,()=>({col:FC.cmd,inten:on?1.7:0.12}),1); }
+    } else if(step<6){ tokenAlong(R,(step-2+u)/4,FC.cmd); }
+    else { POS.city.gpu.forEach((p,i)=>blockGlow(p,21,19,FC.data,0.2+0.9*Math.max(0,1-Math.abs((step-6+u)*2-i*0.3)))); }
+    noiseTraffic(T,5);
+    const stg=['①App 主线程算这一帧的图层','①生成绘制命令写进内存','②命令包上 NoC','②按网格先横后竖走','②过路由节点','②到 GPU 这一侧下匝道','③6 个 GPU 核依次开工','③GPU 开始画'][step];
+    FLOW.live.app=`第 ${step+1}/8 拍 · <b>${stg}</b>`;
+  }
+  else if(kind==='render'){
+    // ② GPU 画完写进统一内存(经 SLC → 内存控制器 → LPDDR)
+    const tk=tick(), ph=phase(), step=tk%8, u=ph;
+    const gpu=POS.city.gpu[1], slc=POS.city.slc[3], dmc=POS.city.dmc[2], dram=POS.city.dram[2];
+    const R1=meshRoute([gpu[0],0,gpu[2]],[slc[0],0,slc[2]]);
+    const R2=meshRoute([slc[0],0,slc[2]],[dmc[0],0,dmc[2]]);
+    POS.city.gpu.forEach((p,i)=>blockGlow(p,21,19,FC.data,0.15+0.8*pulse(T,0.8,i*0.16)));
+    if(step<2){ // GPU 核上一格格算像素
+      POS.city.gpu.forEach(p=>gridObj([p[0],p[1]+3.2,p[2]],0,5,4,1.4,(i,j)=>({col:FC.px,inten:((i+j*0.5)<(step+u)*5)?1.6:0.10}),1));
+    } else if(step<4){ tileAlong(R1,(step-2+u)/2,6,4,FC.px,tk,1.5); blockGlow(slc,23,16,FC.data,0.5); }
+    else if(step<6){ tileAlong(R2,(step-4+u)/2,6,4,FC.px,tk,1.5); }
+    else { const P=[[dmc[0],KRY,dmc[2]],[dram[0],K0[1]+26,dram[2]]];
+      tileAlong(P,(step-6+u)/2,6,4,FC.px,tk,1.5); blockGlow(dram,31,27,FC.px,0.3+0.6*u); }
+    POS.city.dram.forEach(p=>blockGlow(p,31,27,FC.px,0.08));
+    noiseTraffic(T,6);
+    const stg=['①GPU 核逐块算像素','①一个图层画完','②结果上 NoC','②经系统级缓存','③转给内存控制器','③控制器排队写','④写进 LPDDR','④这一图层就绪'][step];
+    FLOW.live.gpu=`第 ${step+1}/8 拍 · <b>${stg}</b><br>CPU 和 GPU 共用同一块内存,不用拷贝`;
+  }
+  else if(kind==='dma'){
+    // ③ DMA 搬块数据,CPU 全程不参与
+    const tk=tick(), ph=phase(), step=tk%8, u=ph;
+    const dma=POS.city.dma, src=POS.city.dram[0], dst=POS.city.dram[3];
+    POS.city.big.forEach(p=>blockGlow(p,27,25,[0.35,0.38,0.45], step>=1&&step<7?0.05:0.6));
+    blockGlow(dma,17,13,FC.cmd,0.2+0.8*pulse(T,0.9));
+    if(step<1){ tokenAlong([POS.city.big[0].slice(),[dma[0],KRY,dma[2]]],u,FC.cmd); }
+    else if(step<7){ const q=(step-1+u)/6;
+      const P=[[src[0],K0[1]+26,src[2]],[dma[0],KRY,dma[2]],[dst[0],K0[1]+26,dst[2]]];
+      tileAlong(P,q,8,4,FC.data,tk,1.5);
+      blockGlow(src,31,27,FC.data,0.35); blockGlow(dst,31,27,FC.data,0.12+0.5*q);
+    } else { tokenAlong([[dma[0],KRY,dma[2]],POS.city.big[0].slice()],u,FC.cmd);
+      POS.city.big.forEach((p,i)=>blockGlow(p,27,25,FC.cmd,i===0?1.0:0.1)); }
+    noiseTraffic(T,4);
+    const busy=(step>=1&&step<7);
+    FLOW.live.dma=`第 ${step+1}/8 拍 · ${step<1?'<b>CPU 交代:把 A 搬到 B</b>':step<7?'<b>DMA 在搬 · CPU 睡觉中</b>':'<b>搬完,中断叫醒 CPU</b>'}`+
+      `<br>搬运期间 CPU 占用 <b>${busy?'0%':'—'}</b>`;
+  }
+  else if(kind==='compose'){
+    // ④ DPU 把几个图层叠成一帧
+    const tk=tick(), ph=phase(), step=tk%6, u=ph;
+    const dpu=POS.city.dpu;
+    const layers=[{n:'状态栏',c:[0.5,0.8,1.0]},{n:'App 画面',c:[1.0,0.5,0.75]},{n:'导航条',c:[0.6,1.0,0.6]},{n:'输入法',c:[1.0,0.8,0.4]}];
+    blockGlow(dpu,27,17,FC.px,0.25+0.7*pulse(T,1.0));
+    layers.forEach((ly,k)=>{
+      const src=POS.city.dram[k];
+      blockGlow(src,31,27,ly.c,0.10+(step>=k&&step<k+1?0.7:0.15));
+      if(step===k){ const P=[[src[0],K0[1]+26,src[2]],[dpu[0],KRY,dpu[2]]];
+        tileAlong(P,u,6,3,ly.c,tk+k,1.6); }
+      // DPU 上方:已到的图层叠起来
+      if(step>k) gridObj([dpu[0], dpu[1]+2.5+ (3-k)*1.5, dpu[2]],0,7,4,1.5,(i,j)=>({col:ly.c,inten:0.9}),1);
+    });
+    if(step>=4){ // 合成好的整帧
+      gridObj([dpu[0], dpu[1]+4.0, dpu[2]],0,9,5,1.7,(i,j)=>{
+        const v=(j<1)?0:(j>3?1:2); return {col:layers[v===0?0:v===1?2:1].c, inten:1.5}; },1);
+    }
+    noiseTraffic(T,4);
+    const stg=['①取状态栏图层','②取 App 画面','③取导航条','④取输入法','⑤按次序叠加 + 混合','⑥整帧就绪,送 MIPI DSI'][step];
+    FLOW.live.dpu=`第 ${step+1}/6 拍 · <b>${stg}</b><br>每秒做 60~120 次,专用电路比 GPU 省一个数量级的电`;
+  }
+  else if(kind==='dsi'){
+    // ⑤ MIPI DSI:4 条数据 lane + 1 条时钟,差分串行
+    const tk=tick(), ph=phase(), step=tk%8, u=ph;
+    const dsi=POS.city.dsi;
+    const R=Math.floor(60+180*h1(tk,1)), G2=Math.floor(60+180*h1(tk,2)), B=Math.floor(60+180*h1(tk,3));
+    const bitsOf=(v)=>[...Array(8)].map((_,i)=>(v>>(7-i))&1);
+    const all=[...bitsOf(R),...bitsOf(G2),...bitsOf(B)];
+    blockGlow(dsi,10,23,FC.px,0.25+0.6*pulse(T,0.9));
+    if(step<2){
+      [[R,[1,.28,.24]],[G2,[.3,1,.4]],[B,[.35,.5,1]]].forEach(([v,c],k)=>{
+        const bs=bitsOf(v);
+        for(let i=0;i<8;i++) glow([dsi[0]-14+i*3.0, dsi[1]+1.5+(1-k)*2.6, dsi[2]],[2.4,1.4,1.4],c,bs[i]?2.4:0.16);
+      });
+    } else {
+      for(let l=0;l<4;l++){
+        const z=dsi[2]-9+l*5.2;
+        for(const sg of [-1,1]){
+          const zz=z+sg*1.4;
+          glow([dsi[0]+60,dsi[1]+1.2,zz],[110,0.5,0.5],FC.px,0.14);
+          for(let i=0;i<10;i++){
+            const idx=(l*6+i)%24, on=(sg>0)?all[idx]:1-all[idx];
+            const uu=((((step-2)+u)/6)+i/10)%1;
+            glow([dsi[0]+8+uu*104, dsi[1]+1.2, zz],[2.4,1.4,1.4],FC.px,on?2.3:0.15);
+          }
+        }
+      }
+      // 时钟通道:规律的方波
+      for(let i=0;i<14;i++) glow([dsi[0]+8+((((step-2)+u)/6+i/14)%1)*104, dsi[1]+1.2, dsi[2]+14],[2.4,1.2,1.2],FC.cmd,(i%2)?2.0:0.15);
+    }
+    noiseTraffic(T,3);
+    const stg=['①一个像素 R/G/B 各 8 位','①三行一起进编码器','②切成包分到 4 条 lane','②每条 lane 一对差分线','②同一比特两根线相反','②时钟通道给出节拍','②接收端按时钟采样','③24 位到齐,拼回像素'][step];
+    FLOW.live.dsi=`第 ${step+1}/8 拍 · <b>${stg}</b><br>本像素 R=${R} G=${G2} B=${B}`;
+    FLOW.live.lane=`4 条数据 lane 并行 + 1 条时钟对齐<br>短距离、低功耗、省引脚 —— 手机才用得起`;
+  }
+  else if(kind==='panel'){
+    // ⑥ 排线 → 驱动 IC → 面板行列扫描
+    const tk=tick(), ph=phase(), row=tk%18;
+    const a=[0,1.6,-30], b=[0,3.4,-6];
+    for(let i=0;i<10;i++){ const u=((T*0.8)+i/10)%1;
+      FLOW.list.push({p:pathAt([a,b],u),s:[1.0,1.0,1.0],c:FC.px,me:2.2,ro:1.0,orb:1}); }
+    // 面板上逐行点亮
+    const cols=20, rows=18, w=64/cols, h=140/rows;
+    for(let i=0;i<cols;i++) for(let j=0;j<rows;j++){
+      const hv=h1(i,j,3);
+      let inten = j===row?1.6 : (j<row?0.18+0.30*hv:0.05);
+      glow([-32+ (i+0.5)*w, 4.0, -70+(j+0.5)*h],[w*0.92,0.02,h*0.92],FC.px,inten);
+    }
+    FLOW.live.panel=`第 ${row+1} 行 / 共 ${rows} 行(示意)<br>驱动 IC 把像素变成行列电压,一行一行刷`;
+  }
+  else if(kind==='oled'){
+    // ⑦ OLED:三色子像素按电流自发光
+    const tk=tick(), ph=phase();
+    const [OX,OY,OZ]=OLED_O, ost=POS.oled.ost, oly=POS.oled.oly;
+    const lvl=[0.15,0.62,1.0];                       // 三列电流大小
+    const colOf=[[1.0,0.26,0.22],[0.30,1.0,0.38],[0.34,0.48,1.0]];
+    POS.oled.cols.forEach((dx,c)=>{
+      const cur=lvl[(c+tk)%3];
+      // TFT 供的电流:一串向上的小方块
+      for(let k=0;k<5;k++){ const u=((tk*0.5+ph)*0.5+k/5)%1;
+        glow([OX+dx-6+u*12, OY+oly[1]+0.6, OZ+ost*1-14],[2.0,0.8,0.8],FC.cmd,0.3+1.6*cur);
+      }
+      // 发光层:亮度 = 电流
+      glow([OX+dx, OY+oly[2]+1.0, OZ+ost*2],[16,0.9,33],colOf[c],0.2+2.4*cur);
+      // 光往上走(没有背光,光是从这一层产生的)
+      for(let k=0;k<6;k++){ const u=((tk*0.5+ph)*0.6+k/6+c*0.11)%1;
+        const y=OY+oly[2]+1.2+u*11;
+        const li=Math.min(5,Math.max(2,Math.floor((y-OY)/4.2)));
+        FLOW.list.push({p:[OX+dx+((k*5)%3-1)*4.0, y, OZ+ost*li-20],s:[1.15,1.15,1.15],c:colOf[c],me:(0.2+2.2*cur),ro:1.0,orb:1});
+      }
+    });
+    const names=['红子像素电流小 → 暗','绿子像素电流中 → 中等亮','蓝子像素电流大 → 最亮'];
+    FLOW.live.oled=`亮度 ∝ 通过的电流<br>${names[tk%3]}`;
+    FLOW.live.tft=`每个子像素背后一个 TFT 当电流源<br>不通电 = 完全不发光 = 真黑`;
+  }
+  else if(kind==='compare'){
+    // ⑧ LCD 与 OLED:同一帧两种走法
+    const tk=tick(), ph=phase();
+    const [OX,OY,OZ]=OLED_O, ost=POS.oled.ost, oly=POS.oled.oly;
+    const colOf=[[1.0,0.26,0.22],[0.30,1.0,0.38],[0.34,0.48,1.0]];
+    // 这一帧:左半黑,右半亮 —— 看两种屏各自怎么处理
+    POS.oled.cols.forEach((dx,c)=>{
+      const dark=(c===0);                          // 第一列当"黑区"
+      glow([OX+dx, OY+oly[2]+1.0, OZ+ost*2],[16,0.9,33],colOf[c],dark?0.02:2.2);
+      if(!dark) for(let k=0;k<6;k++){ const u=((tk*0.5+ph)*0.6+k/6)%1;
+        const y=OY+oly[2]+1.2+u*11, li=Math.min(5,Math.max(2,Math.floor((y-OY)/4.2)));
+        FLOW.list.push({p:[OX+dx+((k*5)%3-1)*4.0,y,OZ+ost*li-20],s:[1.15,1.15,1.15],c:colOf[c],me:2.2,ro:1.0,orb:1});
+      }
+      // 黑区标注:一点都不耗电
+      if(dark) glow([OX+dx, OY+oly[5]+1.2, OZ+ost*5],[16,0.02,33],[0.15,0.15,0.18],0.5);
+    });
+    FLOW.live.cmp=`OLED:黑像素<b>不通电</b> → 真黑 + 不耗电<br>LCD:背光全亮,黑靠液晶挡 → 深灰 + 照样耗电`;
+  }
+}
+function renderFlow(){
+  if(!FLOW.box||!lastVP) return;
+  uploadInst(FLOW.box,  FLOW.list.filter(o=>!o.orb && !o.flat));
+  uploadInst(FLOW.orb,  FLOW.list.filter(o=> o.orb));
+  uploadInst(FLOW.flat, FLOW.list.filter(o=> o.flat));
+  gl.bindFramebuffer(gl.FRAMEBUFFER,flow.fb); gl.viewport(0,0,W,H);
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
+  gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE);
+  gl.useProgram(PR.flow);
+  gl.uniformMatrix4fv(PR.flow.u.uVP,false,lastVP);
+  gl.uniform3fv(PR.flow.u.uCam,lastEye);
+  for(const m of [FLOW.box,FLOW.orb,FLOW.flat]){ if(!m.count) continue;
+    gl.bindVertexArray(m.vao);
+    gl.drawElementsInstanced(gl.TRIANGLES,m.n,m.type,0,m.count); }
+  gl.bindVertexArray(null);
+  gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE); gl.disable(gl.DEPTH_TEST); gl.depthMask(true);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  CHK('pass.flow');
+}
+
+//==============================================================
+// S13 · 站点切换(相机缓动) / 3D 标签层 / 交互
+//==============================================================
+let cur=0, tween=null, labelsOn=false;
+const $=id=>document.getElementById(id);
+function snapshot(){ return {cam:{tgt:cam.tgt.slice(),az:cam.az,el:cam.el,dist:cam.dist,fov:cam.fov,ap:cam.ap,fy:cam.fy,ex:cam.ex},
+                             state:{open:STATE.open,cutX:STATE.cutX}}; }
+function applyPose(p){
+  cam.tgt=p.cam.tgt.slice(); cam.az=p.cam.az; cam.el=p.cam.el; cam.dist=p.cam.dist;
+  cam.fov=p.cam.fov; cam.ap=p.cam.ap; cam.fy=p.cam.fy; cam.ex=p.cam.ex;
+  STATE.open=p.state.open; STATE.cutX=p.state.cutX;
+}
+const lerp=(a,b,t)=>a+(b-a)*t;
+function goTo(i, instant){
+  i=Math.max(0,Math.min(STATIONS.length-1,i)); cur=i;
+  const st=STATIONS[i];
+  const to={cam:Object.assign({},st.cam), state:Object.assign({open:0,cutX:60},st.state)};
+  cam.focus=st.cam.focus||'plane';
+  const from=snapshot();
+  let dAz=to.cam.az-from.cam.az;
+  while(dAz>Math.PI) dAz-=2*Math.PI; while(dAz<-Math.PI) dAz+=2*Math.PI;
+  to.cam.az=from.cam.az+dAz;
+  labelsOn=false; buildLabels();
+  if(instant){ applyPose(to); tween=null; labelsOn=true; }
+  else tween={t0:performance.now(), dur:1700, from, to};
+  renderUI(); reset();
+}
+function stepTween(now){
+  if(!tween) return false;
+  let t=(now-tween.t0)/tween.dur;
+  if(t>=1){ applyPose(tween.to); tween=null; labelsOn=true; reset(); return false; }
+  const e=t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+  const f=tween.from, o=tween.to;
+  applyPose({
+    cam:{ tgt:[lerp(f.cam.tgt[0],o.cam.tgt[0],e),lerp(f.cam.tgt[1],o.cam.tgt[1],e),lerp(f.cam.tgt[2],o.cam.tgt[2],e)],
+          az:lerp(f.cam.az,o.cam.az,e), el:lerp(f.cam.el,o.cam.el,e),
+          dist:Math.exp(lerp(Math.log(f.cam.dist),Math.log(o.cam.dist),e)),
+          fov:lerp(f.cam.fov,o.cam.fov,e), ap:lerp(f.cam.ap,o.cam.ap,e), fy:lerp(f.cam.fy,o.cam.fy,e), ex:lerp(f.cam.ex,o.cam.ex,e) },
+    state:{ open:lerp(f.state.open,o.state.open,e), cutX:lerp(f.state.cutX,o.state.cutX,e) }
+  });
+  reset(); return true;
+}
+// —— 标签层:HTML 元素按 3D 锚点投影定位,SVG 画引线 ——
+const labelEls=[];
+function resolveAnchor(p){
+  let a = (typeof p==='string') ? POS[p] : (Array.isArray(p)&&typeof p[0]==='string') ? POS[p[0]][p[1]] : p;
+  if(!a) return null;
+  if(Array.isArray(a[0])) a=a[Math.floor(a.length/2)];
+  return a;
+}
+function buildLabels(){
+  const box=$('labels'), svg=$('leaders');
+  box.innerHTML=''; svg.innerHTML=''; labelEls.length=0;
+  for(const lb of (STATIONS[cur].labels||[])){
+    const p=resolveAnchor(lb.p); if(!p) continue;
+    const el=document.createElement('div'); el.className='lb';
+    el.innerHTML=lb.t+(lb.s?'<small>'+lb.s+'</small>':'');
+    box.appendChild(el);
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('stroke','rgba(120,180,245,.75)'); ln.setAttribute('stroke-width','1.2');
+    svg.appendChild(ln);
+    labelEls.push({el,ln,p,dy:lb.dy||-34,live:lb.live||null,base:lb.t+(lb.s?'<small>'+lb.s+'</small>':''),last:null});
+  }
+}
+function updateLabels(){
+  if(!labelEls.length) return;
+  const vp=camMats(0).vp, cw=cv.clientWidth, ch=cv.clientHeight;
+  for(const L of labelEls){
+    const [x,y,z]=L.p;
+    const w=vp[3]*x+vp[7]*y+vp[11]*z+vp[15];
+    if(w<=0.01){ L.el.classList.remove('show'); L.ln.setAttribute('opacity','0'); continue; }
+    const sx=((vp[0]*x+vp[4]*y+vp[8]*z+vp[12])/w*0.5+0.5)*cw;
+    const sy=(1-((vp[1]*x+vp[5]*y+vp[9]*z+vp[13])/w*0.5+0.5))*ch;
+    const on=labelsOn && sx>-50 && sx<cw+50 && sy>-50 && sy<ch+50;
+    if(L.live && FLOW.live && FLOW.live[L.live]!=null && FLOW.live[L.live]!==L.last){
+      L.last=FLOW.live[L.live]; L.el.innerHTML=L.base.replace(/<small>.*<\/small>/,'')+'<small>'+L.last+'</small>'; }
+    L.el.style.left=sx+'px'; L.el.style.top=(sy+L.dy)+'px';
+    L.el.classList.toggle('show',on);
+    L.ln.setAttribute('x1',sx); L.ln.setAttribute('y1',sy);
+    L.ln.setAttribute('x2',sx); L.ln.setAttribute('y2',sy+L.dy+4);
+    L.ln.setAttribute('opacity',on?'1':'0');
+  }
+}
+// —— UI ——
+function renderUI(){
+  const st=STATIONS[cur];
+  document.querySelectorAll('#acts button').forEach((b,k)=>b.classList.toggle('on',k===st.act));
+  document.querySelectorAll('#stations button').forEach((b,k)=>{
+    b.classList.toggle('on',k===cur); b.classList.toggle('done',k<cur); });
+  $('cK').textContent=ACTS[st.act]+' · '+String(cur+1).padStart(2,'0')+' / '+STATIONS.length;
+  $('cT').textContent=st.title;
+  $('cB').innerHTML=st.body;
+  $('bPrev').disabled=(cur===0);
+  $('clk').classList.toggle('on', !!st.flow);
+  $('bNext').textContent=(cur===STATIONS.length-1)?'回到开头 ↺':'下一站 →';
+  const sl=$('hAp'); if(sl) sl.value=50;
+  const ts=$('hTs'); if(ts) ts.checked=(cam.focus==='plane');
+}
+function buildUI(){
+  const acts=$('acts');
+  ACTS.forEach((n,i)=>{ const b=document.createElement('button'); b.textContent=n;
+    b.onclick=()=>goTo(STATIONS.findIndex(s=>s.act===i)); acts.appendChild(b); });
+  const sts=$('stations');
+  STATIONS.forEach((s,i)=>{ const b=document.createElement('button'); b.textContent=i+1; b.title=s.title;
+    b.onclick=()=>goTo(i); sts.appendChild(b); });
+  $('bPrev').onclick=()=>goTo(cur-1);
+  $('bNext').onclick=()=>goTo((cur+1)%STATIONS.length);
+  const gl_=$('gList');
+  GLOSSARY.forEach(([en,zh,ex])=>{ const dt=document.createElement('dt'); dt.innerHTML=en+'<span>'+zh+'</span>';
+    const dd=document.createElement('dd'); dd.textContent=ex; gl_.appendChild(dt); gl_.appendChild(dd); });
+  $('gBtn').onclick=()=>$('gPanel').classList.toggle('open');
+  $('gClose').onclick=()=>$('gPanel').classList.remove('open');
+  window.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key==='PageDown'){ goTo(Math.min(cur+1,STATIONS.length-1)); }
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){ goTo(Math.max(cur-1,0)); }
+    else if(e.key==='Escape'){ $('gPanel').classList.remove('open'); }
+  });
+  $('cPlay').onclick=()=>{ CLK.playing=!CLK.playing; $('cPlay').textContent=CLK.playing?'⏸':'▶'; };
+  $('cStep').onclick=()=>{ CLK.playing=false; $('cPlay').textContent='▶'; CLK.t=Math.floor(CLK.t)+1; };
+  $('cSpd').addEventListener('input',e=>{ CLK.speed=e.target.value/100; });
+  $('hAp').addEventListener('input',e=>{ cam.ap=STATIONS[cur].cam.ap*(e.target.value/50); reset(); });
+  $('hTs').addEventListener('change',e=>{ cam.focus=e.target.checked?'plane':'point'; reset(); });
+}
+// —— 鼠标:接管相机时取消缓动 ——
+let drag=null;
+cv.addEventListener('mousedown',e=>{ drag={x:e.clientX,y:e.clientY,btn:e.button}; tween=null; labelsOn=true; e.preventDefault(); });
+window.addEventListener('mouseup',()=>drag=null);
+window.addEventListener('mousemove',e=>{
+  if(!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY;
+  if(drag.btn===2||e.shiftKey){
+    const rx=Math.cos(cam.az), rz=-Math.sin(cam.az), k=cam.dist*0.0016;
+    cam.tgt[0]-=dx*rx*k; cam.tgt[2]-=dx*rz*k; cam.tgt[1]+=dy*k;
+  } else {
+    cam.az-=dx*0.0052; cam.el=Math.max(0.02,Math.min(1.52,cam.el+dy*0.0042));
+  }
+  reset();
+});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('wheel',e=>{ e.preventDefault(); tween=null;
+  cam.dist=Math.max(4,Math.min(700,cam.dist*Math.exp(e.deltaY*0.0011))); reset(); },{passive:false});
+window.addEventListener('resize',resize);
+
+//==============================================================
+// S14 · 启动 + 主循环
+//==============================================================
+let ATLAS_TEX=null;
+function boot(){
+  PR.gb     = prog(GB_VS, GB_FS, 'gbuffer');
+  PR.shadow = prog(SHADOW_VS, SHADOW_FS, 'shadow');
+  PR.ssao   = prog(FS_VS, SSAO_FS, 'ssao');
+  PR.blur   = prog(FS_VS, BLUR_FS, 'aoblur');
+  PR.light  = prog(FS_VS, LIGHT_FS, 'lighting');
+  PR.copy   = prog(FS_VS, COPY_FS, 'copy');
+  PR.bright = prog(FS_VS, BRIGHT_FS, 'bright');
+  PR.gauss  = prog(FS_VS, GAUSS_FS, 'gauss');
+  PR.post   = prog(FS_VS, POST_FS, 'post');
+  PR.flow   = prog(FLOW_VS, FLOW_FS, 'flow');
+  PR.combine= prog(FS_VS, COMBINE_FS, 'combine');
+  CHK('boot.programs');
+  ATLAS_TEX=buildAtlas();        CHK('boot.atlas');
+  bakeEnvironment();             CHK('boot.env');
+  buildScene();                  CHK('boot.scene');
+  FLOW.box=makeMesh(roundedBox(1,1,1,0.08,2),1600);
+  FLOW.orb=makeMesh(roundedBox(1,1,1,0.5,5),400);
+  FLOW.flat=makeMesh(roundedBox(1,1,1,0.002,1),9000);
+  totalTris=SCENE.reduce((a,m)=>a+m.tris*m.count,0);
+  shadow=mkShadow();             CHK('boot.shadow');
+  resize();                      CHK('boot.resize');
+  buildUI();
+  goTo(0,true);
+  requestAnimationFrame(loop);
+}
+let fpsAcc=0, fpsN=0;
+let REC=false;
+function loop(now){
+  if(REC) return;                    // 录制模式:不自排 rAF,完全由外部驱动
+  const t0=performance.now();
+  stepTween(now); clockStep(now);
+  if(spp<QUAL.maxSPP){ renderSample(spp); spp++; dirty=true; }
+  const fl=STATIONS[cur].flow;
+  if(fl && lastVP && labelsOn){ buildFlow(fl, now/1000); renderFlow(); FLOW.on=1; dirty=true; }
+  else FLOW.on=0;
+  // 累积中图变化极小:每 3 帧才做一次泛光 + 后期,省掉大头
+  if(dirty){
+    const acc = spp<QUAL.maxSPP;
+    if(!acc || spp<4 || (spp%3)===0 || FLOW.on) composite();
+    dirty = acc;
+  }
+  updateLabels();
+  const dt=performance.now()-t0; fpsAcc+=dt; fpsN++;
+  if(fpsN>=20){ lastMs=fpsAcc/fpsN; fpsAcc=0; fpsN=0; }
+  $('hSpp').textContent=spp+' / '+QUAL.maxSPP;
+  $('hMs').textContent=lastMs?lastMs.toFixed(1)+' ms':'—';
+  $('hTri').textContent=(drawnTris/2/1000).toFixed(0)+' / '+(totalTris/1000).toFixed(0)+' K';
+  $('hFst').textContent=cam.ap<0.001?'关(全清晰)':cam.ap.toFixed(2);
+  $('hBar').style.width=(100*spp/QUAL.maxSPP).toFixed(1)+'%';
+  $('cTick').textContent='拍 '+tick();
+  requestAnimationFrame(loop);
+}
+// 自动化检查 / 录制钩子
+window.__hw3d={
+  caps:()=>({webgl2:true, colorFloat:CAPS.colorFloat, floatLinear:CAPS.floatLinear, aniso:MAXANISO,
+    passes:['shadow','gbuffer','ssao','ibl-lighting','accum','bloom','post'],
+    envSize:ENV_SIZE, envMips:ENV_MIPS, tris:totalTris, stations:STATIONS.length}),
+  spp:()=>spp, maxSpp:()=>QUAL.maxSPP, converged:()=>spp>=QUAL.maxSPP && !tween,
+  busy:()=>!!tween, cur:()=>cur,
+  go:(i,instant)=>goTo(i,!!instant),
+  setSpp:(n)=>{QUAL.maxSPP=n; reset();},
+  errs:()=>GLERR.slice(),
+  glError:()=>{ const e=[]; for(let k=0;k<8;k++){ const x=gl.getError(); if(x===0) break; e.push('0x'+x.toString(16)); } return e; }
+};
+// —— 录制钩子:进站先把静态底图跑满采样定住,之后每帧只重画数据流层 ——
+window.__rec={
+  begin(){ REC=true; CLK.playing=false; },
+  end(){ REC=false; requestAnimationFrame(loop); },
+  // 跳到第 i 站并累积 n 次采样(底图从此不再变)
+  enter(i,n){
+    goTo(i,true); tween=null; labelsOn=true;
+    spp=0;
+    for(let k=0;k<(n||64);k++){ renderSample(k); spp=k+1; }
+    updateLabels();
+    return {station:i, spp};
+  },
+  // 渲染第 t 秒的一帧(只更新数据流层 + 合成)
+  frame(t){
+    CLK.t=t*CLK.tps;
+    const fl=STATIONS[cur].flow;
+    if(fl){ buildFlow(fl,t); renderFlow(); FLOW.on=1; } else FLOW.on=0;
+    composite(); updateLabels();
+  },
+  stations(){ return STATIONS.map((s,i)=>({i, act:s.act, title:s.title, flow:s.flow||null})); }
+};
+window.__setProgress=(p)=>{ goTo(Math.min(STATIONS.length-1, Math.floor(p*STATIONS.length)), true); };
+try{ boot(); }
+catch(err){ console.error(err);
+  if(!document.getElementById('err').style.display) fatal('初始化失败：'+(err&&err.message?err.message:err)); }
+</script>
+<script data-goatcounter="https://tbusos.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<div id="gc-views" style="position:fixed;top:52px;right:20px;z-index:999;font-size:0.72rem;color:#64748b;background:rgba(10,15,30,0.7);padding:4px 10px;border-radius:12px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.06);font-family:JetBrains Mono,monospace;">👁 <span id="gc-count">-</span></div>
+<script>
+var r=new XMLHttpRequest();
+r.addEventListener("load",function(){if(this.status===200){var d=JSON.parse(this.responseText);document.getElementById("gc-count").textContent=d.count.toLocaleString()+" 次访问";}});
+r.open("GET","https://tbusos.goatcounter.com/counter/"+encodeURIComponent(location.pathname)+".json");
+r.send();
+</script>
+</body>
+</html>

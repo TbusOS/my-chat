@@ -1,0 +1,173 @@
+<h1 style="text-align:center;font-size:22px;font-weight:900;color:#1a1a2e;margin-bottom:6px;">你按下鼠标那一刻，显卡里发生了什么？</h1>
+<p style="text-align:center;color:#888;font-size:13px;margin-bottom:24px;">拆开显卡 · 切开封装 · 钻进硅片 · 看清一帧画面的完整旅程</p>
+
+<div style="background-color:#0f172a;color:#e2e8f0;padding:20px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.9;border-left:4px solid #5aa0eb;">
+一帧画面从 CPU 写下一张"清单"开始，穿过 <strong style="color:#5aa0eb;">PCIe → 命令处理器 → 工作分配器 → SM → 光栅引擎 → ROP → 显存</strong>，再由显示引擎逐行读出，串行发到屏幕，最后点亮几百万个像素。这一路上，数据在芯片内部要走多远？为什么去一趟显存要五百个时钟周期，而寄存器只要一个？这次我们把显卡彻底拆开，一直看到硅片内部的总线，把这趟旅程走一遍。
+</div>
+
+<div style="background-color:#0a0e1a;border-radius:12px;padding:24px 20px;text-align:center;margin-bottom:24px;">
+<div style="display:inline-block;width:56px;height:56px;background-color:rgba(90,160,235,0.85);border-radius:50%;line-height:56px;font-size:22px;color:#fff;margin-bottom:10px;">&#9654;</div>
+<div style="color:#e8ecf4;font-size:15px;font-weight:600;">GPU：从硅片到屏幕（10 分钟配音讲解）</div>
+<div style="color:#64748b;font-size:12px;margin-top:6px;">（视频需在公众号后台插入）</div>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #5aa0eb;">第一幕：把显卡拆开</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">1. 一张显卡</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">一张显卡 = 一块 PCB + 一颗 GPU 封装 + 一圈显存 + 供电模块 + 一整套散热。你平时看见的只是最上面这层塑料外壳和两个风扇。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">为什么每个位置都长这样？<strong>风扇朝下吹、鳍片顺着机箱风道、金手指在底边、输出口在尾部</strong>——这些位置都被机箱形状和主板插槽定死了。没有这一整套散热，三百瓦的芯片几秒钟就会过热降频；没有独立供电，主板插槽只给 75 瓦，根本喂不饱它。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/01-一块显卡.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 实时渲染：金手指、供电区、双风扇外壳</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">2. 散热其实是三层</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">贴着芯片的是<strong>均热板</strong>——一个抽了真空的铜腔，里面有一点水；上面焊着<strong>七十片铝鳍片</strong>；再往上才是风扇。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">芯片只有指甲盖大，三百瓦从这么小的面积散不出去。均热板先把热摊到手掌大，鳍片再摊到几千平方厘米，风扇才吹得走。<strong>为什么是水蒸气而不是实心铜？</strong>铜靠传导，热要一点点爬；水在热端汽化、冷端凝结，整块板几乎同一个温度——同样厚度导热快十倍。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/02-拆开散热.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 散热组件抬起：均热板 + 鳍片阵列 + 风扇</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">3. 封装剖开：为什么要垫一块基板</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">把 GPU 封装切开一半：从上到下是<strong>裸露的硅片、一圈金属加强环、多层封装基板、几百颗锡球</strong>。剖面上能看到基板有八层铜和介质交替。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么中间要垫这块基板？</strong>硅片上的触点间距只有几十微米，而 PCB 最细只能做到零点几毫米，差了十倍以上。基板就是把"密的"扇出成"疏的"那个转接层。<strong>为什么硅片裸露、不盖金属盖？</strong>多一层界面就多一份热阻，功率太大，宁可让散热器直接压在硅上，用加强环防止压歪。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/03-封装剖开.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 剖面：硅片 / 加强环 / 八层基板 / 锡球阵列</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">4. 硅片版图</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">把硅片放大：大部分面积是几十个一模一样的方块——<strong>流式多处理器（SM）</strong>；中间横着一条 <strong>L2 缓存</strong>；左右两侧边缘是<strong>显存控制器</strong>；底边一角是<strong>显示引擎</strong>和 <strong>PCIe</strong>。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">GPU 的算力来自把同一个 SM <strong>复制粘贴几十上百次</strong>，而不是把一个核做得多聪明。为什么 L2 放正中间？所有 SM 都要访问它，放中间到谁的距离都差不多。为什么显存控制器贴边？它要出硅片连到外面的颗粒，走线越短越好。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/04-硅片版图.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ die 版图：SM 阵列 / L2 / 显存控制器 / 显示引擎 / PCIe</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">5. 一个 SM 里面</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">一个 SM 分成四个分区，每个分区有一个<strong>调度器</strong>、一块<strong>寄存器堆</strong>、一排简单的<strong>算术通道</strong>、一个 <strong>Tensor Core</strong>、几个<strong>访存单元</strong>。底部整条是共用的 L1 / 共享内存。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">如果换成 CPU 那种大核，一样的面积只能放几个，而且大部分晶体管在做分支预测和乱序执行——对"一百万个像素做同样的事"这些一点忙都帮不上。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/05-SM内部.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ SM 内部：调度器 / 寄存器堆 / FP32 通道 / Tensor Core / LD-ST</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #22d3ee;">第二幕：钻进硅片，看数据怎么走</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">6. 芯片内部的总线地图</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">把这颗芯片放大成一座城：四角是四组 <strong>GPC</strong>（每组八个 SM 加一个光栅引擎），中间一排是<strong>八片 L2</strong>，上下边是<strong>六个显存控制器</strong>，左边是 PCIe、命令处理器和工作分配器，右边是显示引擎。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">逻辑块的头顶架着铜色轨道，这就是<strong>交叉开关</strong>——芯片里的总线。<strong>为什么互连是"架空"的？</strong>芯片里晶体管在最底层，上面叠了十几层铜金属层专门走线——轨道跑在逻辑块头顶，<strong>这是真实结构，不是比喻</strong>。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么 L2 要切成八片摆在中间？</strong>一块大缓存只有一个门，几十个 SM 挤一个门就堵；切成片、按地址分散，才能同时服务多个请求。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/06-钻进硅片总线.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ die 内部：四组 GPC + 八片 L2 + 六个显存控制器 + 架空的交叉开关</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">7. 一帧的起点：命令进门</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">CPU 不画图，它只写一张"清单"：画哪些三角形、用什么材质、放在哪。这张清单被切成十六片，走 <strong>PCIe 的十六条通道</strong>并行进来，在 PCIe 块拼回整张，交给命令处理器解析，再由<strong>工作分配器</strong>切成四份，沿总线送到四个 GPC，最后落到每一个 SM 上。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么 PCIe 带宽"只有"32 GB/s 却够用？</strong>过去的只是清单和少量新数据；真正的大流量（纹理、顶点、帧缓冲）全在芯片内部和显存之间跑。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/07-命令进门.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 命令卡切成 16 片走 PCIe 通道 → 工作分配器 → 四个 GPC</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">8. 一次读请求走完全程</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">一个 SM 要一块数据，请求带着<strong>地址</strong>上了交叉开关。地址经哈希决定去八片 L2 里的哪一片；L2 没有 → 转给显存控制器 → 控制器向片外颗粒发读命令 → 颗粒沿 <strong>32 根数据线</strong>连发八个 32 位字 → 控制器拼成一条 <strong>256 位缓存行</strong>回填 L2 → 再沿原路送回 SM。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么按地址哈希分片，而不是按 SM 分？</strong>同一份数据可能被任何 SM 用到，按地址分才能让所有 SM 找到同一个地方。<strong>为什么一次拿 256 位而不是只拿要的 32 位？</strong>去一趟显存要几百个周期，路费太贵，顺手把相邻数据一起带回来，下次大概率用得上。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/08-显存搬运.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 请求上总线 → L2 未命中 → 显存控制器 → 颗粒 → 缓存行原路返回</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">9. 图形流水线：一个三角形的四步</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">顶点数据从 L2 取出送进 SM 做<strong>顶点着色</strong>（算三个角在屏幕的位置）→ 交给 GPC 里的<strong>光栅引擎</strong>切成它盖住的像素格 → 片元分给四个 SM 做<strong>片元着色</strong> → 回到 <strong>ROP</strong> 做深度测试和混合，沿总线写进显存里的帧缓冲。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么着色用通用 SM，光栅化却是专用电路？</strong>着色每个游戏都不一样，必须可编程；而"三角形变像素格"这一步几十年没变过，做成固定电路最省面积也最快。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/09-图形流水线.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 顶点着色 → 光栅化 → 片元着色 → ROP → 帧缓冲</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">10. SIMT：为什么 GPU 怕 if</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">调度器一次发一条指令，<strong>三十二个线程同时执行同一条</strong>。程序里写的是"一个线程做什么"，硬件把它复制三十二份同步跑。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">但遇到 <code style="background:#f1f5f9;padding:1px 5px;border-radius:4px;">if</code> 判断就麻烦了：一半线程走 if、一半走 else，硬件只能先让一半干活、另一半在旁边等着，再反过来跑一遍。<strong>两条路都走，时间翻倍。</strong>这就是为什么写 GPU 程序要尽量让相邻线程走同一条路。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/10-SIMT分支.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 分支发散：一半通道被屏蔽（红叉），3 拍变 6 拍</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">11. 存储层级：周期数就是路程</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">同一个读请求，一级级找不到、一级级往远走：</p>
+<table style="width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px;">
+<tr>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">层级</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">在哪</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">大约多少周期</th>
+</tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">寄存器</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">紧贴算术通道</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;color:#16a34a;font-weight:700;">1</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">L1 / 共享内存</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;text-align:center;">SM 块里</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;text-align:center;">~30</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">L2 切片</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">上总线走到 die 中央</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">~200</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">显存</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;text-align:center;">芯片外面</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;text-align:center;color:#dc2626;font-weight:700;">~500</td></tr>
+</table>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>快的存储为什么不能做大？</strong>每比特要六个晶体管，占地大、发热大，做几十 GB 根本放不下。GPU 的应对办法不是把路修短（做不到），而是在一个 SM 上<strong>同时挂几十组线程</strong>：谁在等数据，就先算别人的——用足够多的活，把等待藏起来。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/11-存储层级.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 同一个请求逐级未命中，周期计数器跟着路程涨</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #f472b6;">第三幕：画面怎么被点亮</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">12. 帧缓冲逐行扫出</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">算好的一帧就是显存里一块连续的像素数组——<strong>帧缓冲</strong>。<strong>显示引擎</strong>按显示器的节拍，一行一行向显存控制器要数据，请求沿总线过去，一行像素回来，再串行送出芯片。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>画面为什么会撕裂？</strong>GPU 在写下一帧的同时，显示引擎正在读上一帧，读到一半被换掉了——上半屏是旧帧、下半屏是新帧。<strong>垂直同步</strong>就是让 GPU 等显示引擎读完再换。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/12-帧缓冲扫出.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 显示引擎按行索取，像素行沿总线回来后串行送出 die</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">13. 走出显卡：差分线</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">一个像素是红绿蓝各八位共二十四位。接口把它们拆成一个个比特，分到<strong>四对差分线</strong>上串行发出。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么是差分？</strong>一对里两根线传相反的信号，接收端只看两根的<strong>差值</strong>。外面的干扰对两根线影响一样，一减就没了。USB、PCIe、HDMI，所有高速接口都是这个原理。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/13-DisplayPort.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 四对差分线，同一比特两根线一亮一暗</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">14. 一个液晶像素怎么亮</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">液晶屏从后往前是六层：<strong>背光</strong>一直亮着 → <strong>后偏光片</strong>只放一个方向的光过去 → <strong>液晶层</strong>在电压控制下把光的方向转一个角度 → <strong>前偏光片</strong>按这个角度决定放行多少 → <strong>彩色滤光片</strong>染成红绿蓝。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">透过率等于转角的正弦平方（马吕斯定律）。红色那列液晶不转，全被前偏光片挡住，所以是黑的；蓝色那列转了九十度，全透过，所以最亮。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>为什么液晶的黑不够黑？</strong>液晶转到头也会漏一点光，而背光从来不关，所以它的黑其实是深灰。<strong>OLED</strong> 每个像素自己发光，不亮就是真黑——这是两种屏幕最根本的差别。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/14-LCD像素.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 光带着偏振方向穿过六层，三列子像素透光量各不相同</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #ffd666;">回头看这一趟</h2>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">从 CPU 写下一张清单，到几十个 SM 协同计算，沿着片上总线搬运数据，写进帧缓冲，串行发出芯片，最后点亮几百万个像素——每一步的设计背后，都是一个具体的取舍：</p>
+<table style="width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px;">
+<tr>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">设计</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">为了解决什么</th>
+</tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">封装基板</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">硅片触点间距比 PCB 细十倍以上，需要扇出</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">L2 切成八片</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">一个门会被几十个 SM 挤堵</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">交叉开关</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">任何 SM 都要能到任何一片 L2</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">一次取 256 位缓存行</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">去一趟显存几百周期，路费太贵</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">一个 SM 挂几十组线程</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">路没法修短，只能用足够多的活把等待藏起来</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">差分线</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background:#f8fafc;">干扰同时加在两根线上，做减法就抵消了</td></tr>
+</table>
+
+<div style="background-color:#f0f7ff;border-radius:12px;padding:18px 20px;margin:20px 0;font-size:14px;line-height:1.9;color:#334155;border-left:4px solid #5aa0eb;">
+<strong style="color:#1e40af;">关于这次的画面</strong><br>
+视频里所有画面都是<strong>浏览器实时渲染</strong>的，不是预先做好的动画：PBR 材质、程序化生成的棚拍环境光、屏幕空间环境光遮蔽、真实倒角几何。相机停下后画面会持续累积采样，软阴影、景深、抗锯齿都是靠多次采样收敛出来的真实效果，而不是后期模糊。
+</div>
+
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">点击<strong>阅读原文</strong>可以打开交互版本，自己拖动视角、切换十五个站点，还能一拍一拍地看数据在芯片里怎么走。</p>

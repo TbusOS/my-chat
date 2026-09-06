@@ -1,0 +1,87 @@
+[
+  {
+    "id": "intro",
+    "station": 0,
+    "duration": 20.064
+  },
+  {
+    "id": "s1",
+    "station": 0,
+    "duration": 25.224
+  },
+  {
+    "id": "s2",
+    "station": 1,
+    "duration": 38.808
+  },
+  {
+    "id": "s3",
+    "station": 2,
+    "duration": 40.824
+  },
+  {
+    "id": "s4",
+    "station": 3,
+    "duration": 39.888
+  },
+  {
+    "id": "s5",
+    "station": 4,
+    "duration": 31.608
+  },
+  {
+    "id": "s6",
+    "station": 5,
+    "duration": 42.312
+  },
+  {
+    "id": "s7",
+    "station": 6,
+    "duration": 30.984
+  },
+  {
+    "id": "s8",
+    "station": 7,
+    "duration": 46.584
+  },
+  {
+    "id": "s9",
+    "station": 8,
+    "duration": 43.824
+  },
+  {
+    "id": "s10",
+    "station": 9,
+    "duration": 36.912
+  },
+  {
+    "id": "s11",
+    "station": 10,
+    "duration": 36.408
+  },
+  {
+    "id": "s12",
+    "station": 11,
+    "duration": 21.672
+  },
+  {
+    "id": "s13",
+    "station": 12,
+    "duration": 35.952
+  },
+  {
+    "id": "s14",
+    "station": 13,
+    "duration": 31.296
+  },
+  {
+    "id": "s15",
+    "station": 14,
+    "duration": 51.504
+  },
+  {
+    "id": "outro",
+    "station": 14,
+    "duration": 29.664
+  }
+]
