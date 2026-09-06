@@ -1,0 +1,213 @@
+<h1 style="text-align:center;font-size:22px;font-weight:900;color:#1a1a2e;margin-bottom:6px;">大模型训练时，数据在硬件间经历了什么？</h1>
+<p style="text-align:center;color:#888;font-size:13px;margin-bottom:24px;">从NVMe到Tensor Core的完整旅程 · 17个3D场景深度拆解</p>
+
+<div style="background-color:#0f172a;color:#e2e8f0;padding:20px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.9;border-left:4px solid #22d3ee;">
+训练一个700亿参数的大模型，每一次迭代中，数据需要穿越<strong style="color:#22d3ee;">NVMe硬盘 → CPU → PCIe总线 → GPU HBM显存 → L2 Cache → SRAM → Tensor Core</strong>，完成前向传播和反向传播后，再通过NVLink在8张GPU之间同步梯度。从最慢的NVMe（7 GB/s）到最快的SRAM（19 TB/s），带宽差距高达<strong style="color:#ffd666;">近3000倍</strong>。今天，我们用17个3D交互场景，一步步追踪这趟完整旅程。
+</div>
+
+<div style="background-color:#0a0e1a;border-radius:12px;padding:24px 20px;text-align:center;margin-bottom:24px;">
+<div style="display:inline-block;width:56px;height:56px;background-color:rgba(34,211,238,0.85);border-radius:50%;line-height:56px;font-size:22px;color:#fff;margin-bottom:10px;">&#9654;</div>
+<div style="color:#e8ecf4;font-size:15px;font-weight:600;">大模型训练·数据硬件之旅（12分钟配音讲解）</div>
+<div style="color:#64748b;font-size:12px;margin-top:6px;">（视频需在公众号后台插入）</div>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #22d3ee;">第一阶段：数据准备</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">1. 训练系统全景</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">一台典型的AI训练服务器内部由三大部分组成：</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>NVMe SSD阵列</strong>——存储海量训练数据（通常几TB到几十TB的文本语料）。<strong>CPU + DDR5内存</strong>——负责数据读取、预处理和批次组装。<strong>8块GPU</strong>——训练的主力军，通过PCIe连接CPU，通过NVLink互相连接。一次训练迭代，数据将穿越所有这些硬件。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/01-训练系统全景.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 3D全景：NVMe → CPU → PCIe → GPU×8 + NVLink互联</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">2. NVMe内部：数据的出生地</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">现代NVMe固态硬盘使用<strong>3D NAND Flash</strong>技术——数十层甚至上百层硅片像楼房一样垂直堆叠。每一层都密布着微小的存储单元（浮栅晶体管），通过捕获或释放电子来存储0和1。SSD控制器负责从这些层中读出训练用的token序列，经由NVMe协议封装后通过PCIe发出。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">NVMe SSD的<strong>顺序读取带宽约7 GB/s</strong>——听起来很快，但和GPU内部带宽相比，这只是旅程的起点。后面我们会看到，GPU内部最快的存储带宽是它的<strong>近3000倍</strong>。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/02-NVMe内部.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 3D NAND堆叠层 + 底部控制器 + TSV垂直互联</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">3. CPU预处理工厂</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">数据到达CPU后进入预处理流水线。PyTorch的DataLoader会启动多个Worker进程（通常4-8个），<strong>每个Worker占用一个CPU核心</strong>，并行执行：读取原始文本 → 分词（Tokenization）→ 填充到统一长度（Padding）→ 组成批次（Batch）。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">CPU核心周围环绕着三级缓存——L1（最快，每核32-48KB）、L2（每核1-2MB）、L3（共享，几十MB）。DDR5内存提供约<strong>90 GB/s</strong>带宽。如果DataLoader成为瓶颈（GPU利用率低于60%），可以增加Worker数量或使用内存映射文件加速。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/03-CPU预处理.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ CPU多核并行 + 三级缓存同心圆 + DDR5内存条</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #4ade80;">第二阶段：数据传输</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">4. PCIe高速通道——系统最窄的瓶颈</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">批次数据通过<strong>PCIe Gen5 x16</strong>通道从CPU传到GPU——16条并行数据通道组成高速隧道，带宽64 GB/s。然而这条"高速公路"相比GPU内部带宽，只是一条"乡间小路"——<strong>HBM带宽是PCIe的52倍</strong>。这就是为什么大模型训练要尽量减少CPU↔GPU数据搬运，优先在GPU端做一切能做的事。</p>
+
+<table style="width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px;">
+<tr>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">PCIe代际</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">x16带宽</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">每代提升</th>
+</tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">Gen3</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">16 GB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">—</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;">Gen4</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">32 GB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">2×</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">Gen5</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;color:#16a34a;font-weight:700;">64 GB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">2×</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;">Gen6（下一代）</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">128 GB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">2×</td></tr>
+</table>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">5. GPU芯片鸟瞰——AI训练的主战场</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">数据抵达NVIDIA H100 GPU芯片。从空中俯瞰：<strong>中央密布80个SM</strong>（流多处理器，总计528个Tensor Core），<strong>四周矗立6组HBM3存储塔</strong>（总计80GB显存），中间环绕<strong>50MB L2 Cache</strong>。数据沿着 HBM → L2 → SM 的路径流入计算单元。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/05-GPU芯片鸟瞰.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ H100芯片版图：SM网格(金色) + L2环(青色) + HBM塔(蓝色)</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #a78bfa;">第三阶段：GPU存储层次</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">6. HBM存储塔——3D堆叠的带宽奇迹</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">HBM（High Bandwidth Memory）是GPU的主显存。它的核心技术是<strong>3D堆叠</strong>——8-12层DRAM die像三明治一样垂直叠放。层与层之间通过数千根<strong>TSV硅通孔</strong>（Through-Silicon Via，直径仅5微米）连接，形成垂直数据通道。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">关键指标：<strong>1024-bit超宽总线</strong>——是普通DDR5（64-bit）的16倍。这就是HBM能达到<strong>3.35 TB/s</strong>带宽的秘密。类比一下：如果DDR5是一条单车道公路，HBM就是一条16车道的高速公路。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/06-HBM存储塔.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ HBM3D堆叠：多层DRAM + TSV硅通孔(金色柱子) + Logic Die</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">7. GPU存储层次金字塔——速度差3000倍</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">GPU内部有四级存储，<strong>越往上越快越小</strong>。大模型训练优化的核心思路就是：<strong>让数据尽量留在金字塔上层</strong>，减少对底层HBM的访问。FlashAttention正是这一思想的经典实践。</p>
+
+<table style="width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px;">
+<tr>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">层级</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">容量</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">带宽</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">延迟</th>
+</tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;">Register File</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">256KB/SM</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;color:#dc2626;font-weight:700;">近乎无限</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">1 cycle</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;font-weight:600;">Shared Mem/L1</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">228KB/SM</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">~19 TB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">~30 cycles</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;font-weight:600;">L2 Cache</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">50MB</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">~6 TB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">~200 cycles</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;font-weight:600;">HBM3</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">80GB</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">3.35 TB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">~600 cycles</td></tr>
+</table>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">8. 深入SM——GPU的"CPU核心"</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">一个SM（Streaming Multiprocessor）是GPU的基本计算单元。内部结构：<strong>4个Warp Scheduler</strong>负责调度——每个Warp包含32个线程，以SIMT（单指令多线程）模式同步执行。<strong>128个CUDA Core</strong>做通用计算（标量/向量运算），<strong>4个Tensor Core</strong>做矩阵乘法——这才是AI训练的核心引擎。底部是Shared Memory（228KB）和Register File（256KB），它们是离计算单元最近的高速存储。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/08-SM内部.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ SM内部：Warp Scheduler(顶) → CUDA Core阵列(蓝) → Tensor Core(金)</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #ffd666;">第四阶段：计算过程</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">9. Tensor Core——矩阵乘法的原子操作</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">Tensor Core执行的核心操作是<strong>D = A × B + C</strong>——两个4×4矩阵在<strong>一个时钟周期</strong>内完成全部64次乘加运算。输入使用FP16半精度（16位），累加器使用FP32全精度（32位）——这就是<strong>混合精度计算的硬件基础</strong>。一块H100有528个Tensor Core，理论算力接近<strong>990 TFLOPS</strong>（FP16）。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/09-TensorCore.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 4×4矩阵乘加动画：A(FP16) × B(FP16) + C → D(FP32)</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">10-11. 前向传播：Embedding → 自注意力</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">训练第一步是<strong>Embedding</strong>：每个Token ID作为地址，从HBM中的权重矩阵（128K×4096，约1GB）查表取出嵌入向量。数据沿存储金字塔 HBM→L2→Shared Memory 逐级搬运。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">然后进入Transformer的核心——<strong>自注意力机制</strong>：输入分别投影为<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#dc2626;background-color:#fef2f2;">Query</span>（我在找什么）、<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#2563eb;background-color:#eff6ff;">Key</span>（我是什么）、<span style="display:inline;font-weight:700;padding:1px 4px;border-radius:3px;color:#16a34a;background-color:#f0fdf4;">Value</span>（我的内容）。Q×K^T得注意力分数，Softmax归一化后与V加权求和——<strong>所有矩阵乘法都由Tensor Core执行</strong>。</p>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">12. FlashAttention——算法与硬件的深度协作</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">标准Attention的致命问题：Q/K/V在HBM和SM之间<strong>反复搬运</strong>——读出来算，写回去，再读出来继续算。内存访问量O(N²)，HBM不堪重负。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>FlashAttention</strong>彻底改变了这一点：把数据分成小块（Tiling），在SRAM中一次性完成全部注意力计算，只把最终结果写回HBM一次。效果惊人：</p>
+<div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 18px;margin:10px 0 16px;">
+<p style="font-size:15px;color:#166534;line-height:1.8;margin:0;"><strong>HBM访问减少 10-20×</strong> · <strong>训练速度提升 2-4×</strong> · 支持4倍更长的上下文</p>
+</div>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/12-FlashAttention.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 左：标准Attention(HBM反复读写) | 右：FlashAttention(SRAM分块计算)</p>
+</div>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">13. FFN前馈网络——占2/3计算量</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">注意力之后是前馈网络（FFN）：维度4096→16384→4096的"扩展-激活-压缩"流程。FFN占了Transformer<strong>总计算量的2/3</strong>。关键问题——每层的激活值都要写回HBM保存，因为反向传播需要用到。这就是训练比推理消耗更多显存的根本原因。</p>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #f472b6;">第五阶段：反向传播与同步</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">14. 梯度逆流——HBM被塞满的真相</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">Loss计算完毕后，梯度从顶部逆流而下。每经过一层：读出保存的激活值 → 计算梯度 → 写回HBM。一个70B模型的HBM被四类数据塞满：</p>
+
+<table style="width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px;">
+<tr>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">数据类型</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">大小(FP32)</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">说明</th>
+</tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">模型权重</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">280 GB</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">70B × 4字节</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;">梯度</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">280 GB</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;">每个参数一个梯度值</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">优化器状态(Adam)</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">560 GB</td><td style="padding:8px 12px;border:1px solid #e5e7eb;">动量m + 方差v，各280GB</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;font-weight:700;">总计</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;font-weight:700;color:#dc2626;">~1.12 TB</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;">单卡80GB远远不够</td></tr>
+</table>
+
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;"><strong>梯度检查点</strong>可以节省60%激活值内存：只保存部分层的激活值，反向时重新计算——用33%额外计算换内存。</p>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">15. 混合精度训练——零代价提速2-3倍</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">FP32主权重(32位) → Cast转FP16(16位) → Tensor Core原生加速 → 梯度用Loss Scaling防止下溢(先放大1024倍计算，再缩回) → 转回FP32更新主权重。<strong>节省~50%显存，速度提升2-3×，精度损失几乎为零</strong>。</p>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">16. NVLink与AllReduce——多卡梯度同步</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">8张GPU通过NVLink组成环形拓扑。<strong>NVLink 4.0双向带宽900 GB/s</strong>，是PCIe Gen5的<strong>14倍</strong>。</p>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">AllReduce梯度同步分两步：<strong>ReduceScatter</strong>——每张GPU把梯度分成8份，沿环发送碎片并累加收到的碎片，7轮后每卡持有1/8完整累加。<strong>AllGather</strong>——累加好的碎片再沿环传播，每卡收集到完整的平均梯度。通信与计算可以重叠（Pipeline并行），进一步隐藏延迟。</p>
+<div style="background-color:#0a0e1a;border-radius:10px;padding:16px;margin:10px 0 16px;text-align:center;">
+<img src="images/16-AllReduce.png" style="max-width:100%;border-radius:8px;">
+<p style="color:#64748b;font-size:12px;margin-top:6px;">▲ 8卡环形拓扑 + NVLink光束 + AllReduce粒子流动</p>
+</div>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #f59e0b;">第六阶段：优化器更新与循环</h2>
+
+<h3 style="font-size:16px;font-weight:700;color:#1e293b;margin:16px 0 8px;">17. Adam优化器——训练永不停歇</h3>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">Adam优化器维护三组数据：梯度g、动量m、方差v。更新公式：</p>
+<div style="background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin:10px 0 16px;font-family:'Menlo','Consolas',monospace;font-size:14px;line-height:2;color:#1e293b;">
+m = 0.9·m + 0.1·g &nbsp;&nbsp;（动量：梯度的指数移动平均）<br>
+v = 0.999·v + 0.001·g² &nbsp;&nbsp;（方差：梯度平方的移动平均）<br>
+w = w - lr · m̂ / (√v̂ + ε) &nbsp;&nbsp;（自适应学习率更新权重）
+</div>
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">70B模型的优化器状态就占<strong>560GB</strong>——超过权重本身的两倍！所以必须用多卡分摊。权重更新完毕，新的Batch从NVMe出发——整个训练循环，永不停歇。训练GPT-4级别的模型，这个循环要重复数百万次。</p>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-left:12px;border-left:4px solid #ef4444;">带宽全景：从7 GB/s到19 TB/s</h2>
+
+<table style="width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px;">
+<tr>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:left;border:1px solid #334155;">层级</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">带宽</th>
+<th style="padding:8px 12px;background-color:#0f172a;color:#e2e8f0;font-weight:600;text-align:center;border:1px solid #334155;">vs NVMe</th>
+</tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">NVMe SSD</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">7 GB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">1×</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;">PCIe Gen5</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">64 GB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">9×</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">DDR5</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">90 GB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">13×</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;">NVLink 4.0</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">900 GB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">129×</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;">HBM3</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;">3.35 TB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center;font-weight:700;">479×</td></tr>
+<tr><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;">SRAM</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;">~19 TB/s</td><td style="padding:8px 12px;border:1px solid #e5e7eb;background-color:#f8fafc;text-align:center;color:#dc2626;font-weight:700;">2714×</td></tr>
+</table>
+
+<p style="font-size:15px;line-height:1.9;color:#374151;margin-bottom:10px;">如何减少数据搬运、让数据留在高速存储中——这就是大模型训练优化的核心思想。FlashAttention、混合精度、梯度检查点、算子融合，每一项优化的本质都是在这座存储金字塔上做文章。</p>
+
+<div style="height:1px;background-color:#e5e7eb;margin:24px 0;"></div>
+
+<div style="background-color:#0f172a;color:#fff;border-radius:12px;padding:20px;text-align:center;">
+<h3 style="font-size:17px;margin-bottom:8px;color:#22d3ee;">亲手旋转3D模型，体验全部17个场景</h3>
+<p style="font-size:14px;color:#94a3b8;line-height:1.8;">支持鼠标拖拽旋转、滚轮缩放，每个场景都有交互按钮</p>
+<a style="display:inline-block;margin-top:12px;background-color:#22d3ee;color:#fff;padding:10px 28px;border-radius:24px;font-size:15px;font-weight:600;text-decoration:none;" href="https://tbusos.github.io/my-chat/">点击「阅读原文」立即体验</a>
+</div>
+
+<p style="text-align:center;margin-top:20px;">
+<span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:3px;">GPU架构</span>
+<span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:3px;">HBM</span>
+<span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:3px;">Tensor Core</span>
+<span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:3px;">NVLink</span>
+<span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:3px;">FlashAttention</span>
+<span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:3px;">混合精度</span>
+<span style="display:inline-block;font-size:12px;color:#6b7280;background-color:#f3f4f6;padding:4px 12px;border-radius:12px;margin:3px;">AllReduce</span>
+</p>

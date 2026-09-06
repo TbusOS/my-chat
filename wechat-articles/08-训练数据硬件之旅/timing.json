@@ -1,0 +1,97 @@
+[
+  {
+    "id": "intro",
+    "step": -1,
+    "duration": 24.504
+  },
+  {
+    "id": "scene1",
+    "step": 0,
+    "duration": 34.728
+  },
+  {
+    "id": "scene2",
+    "step": 1,
+    "duration": 33.936
+  },
+  {
+    "id": "scene3",
+    "step": 2,
+    "duration": 36.48
+  },
+  {
+    "id": "scene4",
+    "step": 3,
+    "duration": 36.048
+  },
+  {
+    "id": "scene5",
+    "step": 4,
+    "duration": 33.6
+  },
+  {
+    "id": "scene6",
+    "step": 5,
+    "duration": 38.688
+  },
+  {
+    "id": "scene7",
+    "step": 6,
+    "duration": 45.024
+  },
+  {
+    "id": "scene8",
+    "step": 7,
+    "duration": 38.328
+  },
+  {
+    "id": "scene9",
+    "step": 8,
+    "duration": 38.736
+  },
+  {
+    "id": "scene10",
+    "step": 9,
+    "duration": 35.736
+  },
+  {
+    "id": "scene11",
+    "step": 10,
+    "duration": 37.008
+  },
+  {
+    "id": "scene12",
+    "step": 11,
+    "duration": 41.496
+  },
+  {
+    "id": "scene13",
+    "step": 12,
+    "duration": 36.144
+  },
+  {
+    "id": "scene14",
+    "step": 13,
+    "duration": 48.336
+  },
+  {
+    "id": "scene15",
+    "step": 14,
+    "duration": 39.768
+  },
+  {
+    "id": "scene16",
+    "step": 15,
+    "duration": 45.816
+  },
+  {
+    "id": "scene17",
+    "step": 16,
+    "duration": 37.464
+  },
+  {
+    "id": "outro",
+    "step": -1,
+    "duration": 43.776
+  }
+]
