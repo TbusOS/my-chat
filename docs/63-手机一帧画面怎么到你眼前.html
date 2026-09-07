@@ -36,7 +36,7 @@
   .stations button.done{color:#c0c0c8}
   /* —— 说明卡 —— */
   .caption{position:fixed;left:22px;bottom:22px;z-index:20;width:min(430px,calc(100vw - 44px));
-    padding:18px 20px 16px;transition:opacity .35s}
+    padding:18px 56px 16px 20px;transition:opacity .35s}
   .caption .k{font:600 11px/1 "JetBrains Mono",monospace;color:#5aa0eb;letter-spacing:.12em;text-transform:uppercase}
   .caption h2{font-size:19px;font-weight:700;margin:9px 0 10px;letter-spacing:.01em;color:#f3f3f5}
   .caption .body{font-size:13px;line-height:1.72;color:#c6c6cd}
@@ -58,6 +58,17 @@
   .caption .nav button.pri{background:#5aa0eb;color:#0b1b2c;border-color:transparent;font-weight:600}
   .caption .nav button.pri:hover{background:#74b1f3}
   .caption .nav button:disabled{opacity:.35;cursor:default}
+  /* —— 说明卡收起 —— 它固定占左下一大块,挡视线时收成一条 —— */
+  .cap-x{position:absolute;top:12px;right:12px;z-index:2;background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.10);color:#b9b9c1;border-radius:7px;padding:4px 9px;
+    font:500 11px/1.25 "Noto Sans SC",sans-serif;cursor:pointer;transition:.16s;white-space:nowrap}
+  .cap-x:hover{background:rgba(255,255,255,.14);color:#fff}
+  .caption.mini{width:auto;max-width:min(430px,calc(100vw - 44px));padding:12px 62px 12px 16px}
+  .caption.mini h2{font-size:14.5px;margin:7px 0 0}
+  .caption.mini .body,.caption.mini .nav{display:none}
+  /* 收起后保留时钟控件:收起卡片多半就是为了看动画,暂停/单步正是这时候要用的 */
+  .caption.mini .clk{margin-top:10px;padding-top:9px}
+  .caption.mini .clk.on{display:flex}
   /* —— 3D 标签层 —— */
   #labels{position:fixed;inset:0;z-index:15;pointer-events:none;overflow:hidden}
   #leaders{position:fixed;inset:0;z-index:14;pointer-events:none;width:100%;height:100%}
@@ -70,7 +81,7 @@
   .lb::after{content:"";position:absolute;left:50%;bottom:-5px;width:8px;height:8px;
     background:#5aa0eb;border-radius:50%;transform:translate(-50%,50%);box-shadow:0 0 0 3px rgba(90,160,235,.25)}
   /* —— 渲染状态 —— */
-  .hud{position:fixed;right:22px;top:112px;z-index:20;padding:12px 15px;min-width:220px;
+  .hud{position:fixed;right:22px;top:112px;z-index:20;padding:12px 52px 12px 15px;min-width:220px;
     font-size:11.5px;line-height:1.7;color:#a9a9b1;user-select:none;pointer-events:none}
   .hud b{display:block;color:#e6e6ea;font-weight:600;font-size:12px;margin-bottom:5px}
   .hud .row{display:flex;justify-content:space-between;gap:16px;font-variant-numeric:tabular-nums}
@@ -80,6 +91,16 @@
   .hud label.row{cursor:pointer;pointer-events:auto;margin-top:6px}
   .bar{height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:8px;overflow:hidden}
   .bar i{display:block;height:100%;width:0%;background:#5aa0eb;transition:width .12s linear}
+  /* —— 渲染状态收起 —— 收起后只留标题和那条累积进度 —— */
+  .hud-x{position:absolute;top:10px;right:12px;z-index:2;pointer-events:auto;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.10);color:#b9b9c1;
+    border-radius:7px;padding:3px 8px;font:500 10.5px/1.25 "Noto Sans SC",sans-serif;
+    cursor:pointer;transition:.16s;white-space:nowrap}
+  .hud-x:hover{background:rgba(255,255,255,.14);color:#fff}
+  .hud.mini{min-width:0;padding:11px 52px 11px 15px}
+  .hud.mini .row,.hud.mini input[type=range],.hud.mini label.row{display:none}
+  .hud.mini b{margin-bottom:0}
+  .hud.mini .bar{margin-top:9px;width:96px}
   .tip{position:fixed;right:84px;bottom:26px;z-index:20;color:#7c7c84;font-size:11px;line-height:1.8;
     text-align:right;user-select:none;pointer-events:none}
   .tip kbd{background:rgba(255,255,255,.09);border-radius:4px;padding:1px 6px;font-family:inherit;color:#bdbdc5}
@@ -121,6 +142,7 @@
 <nav class="stations panel" id="stations"></nav>
 
 <aside class="caption panel" id="caption">
+  <button class="cap-x" id="cHide" title="收起说明卡（H）" aria-expanded="true">收起 ⌄</button>
   <div class="k" id="cK">第一幕 · 01 / 14</div>
   <h2 id="cT">—</h2>
   <div class="body" id="cB"></div>
@@ -136,7 +158,8 @@
   </div>
 </aside>
 
-<aside class="hud panel">
+<aside class="hud panel" id="hud">
+  <button class="hud-x" id="hHide" title="收起渲染状态（R）" aria-expanded="true">收起 ⌄</button>
   <b>渲染状态</b>
   <div class="row"><span>累积采样</span><span id="hSpp" class="mono">0 / 0</span></div>
   <div class="row"><span>帧时间</span><span id="hMs" class="mono">—</span></div>
@@ -147,7 +170,7 @@
   <div class="bar"><i id="hBar"></i></div>
 </aside>
 
-<div class="tip"><kbd>←</kbd> <kbd>→</kbd> 切站 &nbsp; <kbd>拖动</kbd> 转视角 &nbsp; <kbd>滚轮</kbd> 推拉<br>松手后画面会持续累积采样，越等越干净</div>
+<div class="tip"><kbd>←</kbd> <kbd>→</kbd> 切站 &nbsp; <kbd>拖动</kbd> 转视角 &nbsp; <kbd>滚轮</kbd> 推拉 &nbsp; <kbd>H</kbd>/<kbd>R</kbd> 收起面板<br>松手后画面会持续累积采样，越等越干净</div>
 
 <button class="gloss-btn" id="gBtn" title="术语表">❓</button>
 <aside class="gloss" id="gPanel">
@@ -2371,11 +2394,29 @@ function buildUI(){
   const gl_=$('gList');
   GLOSSARY.forEach(([en,zh,ex])=>{ const dt=document.createElement('dt'); dt.innerHTML=en+'<span>'+zh+'</span>';
     const dd=document.createElement('dd'); dd.textContent=ex; gl_.appendChild(dt); gl_.appendChild(dd); });
+  // 说明卡收起:它占着左下一大块,挡住主体时收成一条。收起状态跨站保留
+  const cap=$('caption'), capBtn=$('cHide');
+  const setMini=(on)=>{ cap.classList.toggle('mini',on);
+    capBtn.textContent = on ? '说明 ⌃' : '收起 ⌄';
+    capBtn.title = on ? '展开说明卡（H）' : '收起说明卡（H）';
+    capBtn.setAttribute('aria-expanded', String(!on)); };
+  const toggleMini=()=>setMini(!cap.classList.contains('mini'));
+  // 渲染状态同理:收起后只留标题和累积进度条
+  const hud=$('hud'), hudBtn=$('hHide');
+  const setHud=(on)=>{ hud.classList.toggle('mini',on);
+    hudBtn.textContent = on ? '展开 ⌃' : '收起 ⌄';
+    hudBtn.title = on ? '展开渲染状态（R）' : '收起渲染状态（R）';
+    hudBtn.setAttribute('aria-expanded', String(!on)); };
+  const toggleHud=()=>setHud(!hud.classList.contains('mini'));
+  hudBtn.onclick=toggleHud;
+  capBtn.onclick=toggleMini;
   $('gBtn').onclick=()=>$('gPanel').classList.toggle('open');
   $('gClose').onclick=()=>$('gPanel').classList.remove('open');
   window.addEventListener('keydown',e=>{
     if(e.key==='ArrowRight'||e.key==='PageDown'){ goTo(Math.min(cur+1,STATIONS.length-1)); }
     else if(e.key==='ArrowLeft'||e.key==='PageUp'){ goTo(Math.max(cur-1,0)); }
+    else if(e.key==='h'||e.key==='H'){ toggleMini(); }
+    else if(e.key==='r'||e.key==='R'){ toggleHud(); }
     else if(e.key==='Escape'){ $('gPanel').classList.remove('open'); }
   });
   $('cPlay').onclick=()=>{ CLK.playing=!CLK.playing; $('cPlay').textContent=CLK.playing?'⏸':'▶'; };
