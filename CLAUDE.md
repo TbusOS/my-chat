@@ -78,7 +78,10 @@
 1. 确定主题和最适合的动画类型
 2. 创建 HTML 文件到 `19-ai-training-ppt/interactive/`
 3. 复制到 `docs/`
-4. 更新两个目录的 `index.html`（数量 + 卡片 + footer）
+4. 更新两个目录的 `index.html`：只在 `<script>` 里的 `ITEMS` 数组加一行（序号 · 文件名 · 标题 · 副标题 · 章节 id · 玩法标签），数量、卡片、页脚、剖面图计数都从这个数组算，不用手改别处。最新几期改 `NEW_IDS`
+   - 章节 id 见同一处的 `CHAPTERS`，每个章节挂在剖面图的一层（`LAYERS`：应用 / 模型 / 架构 / 训练 / 推理 / 硬件）
+   - 玩法标签：`3d`（立体场景）· `lab`（有滑块能调参数）· `vs`（方案对比）· `tabs`（多 Tab 切换），空格分隔，可以为空
+   - 截缩略图：`node 19-ai-training-ppt/gen-thumbs.mjs <序号>`，输出 `docs/thumbs/<序号>.webp` 并自动同步到 `interactive/thumbs/`
 5. 确保术语表(❓)按钮可正常工作（JS 需在 DOM 之后执行或用 DOMContentLoaded）
 
 ### 质量检查
@@ -88,7 +91,7 @@
 - [ ] 所有文字可读，无截断
 - [ ] 深色背景下对比度足够
 - [ ] 两个目录文件完全同步
-- [ ] index.html 数量和卡片已更新
+- [ ] index.html 的 `ITEMS` 已加新行，`thumbs/<序号>.webp` 已生成
 
 ---
 

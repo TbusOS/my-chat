@@ -4,829 +4,992 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>拆开 AI 看看 — 交互动画导航</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="description" content="从你敲下的一句话开始，一层层往下拆：Agent、模型、Transformer、训练、推理，一直拆到 GPU 里的晶体管。每一层都有能点、能拖、能调参数的交互动画。">
+<meta name="theme-color" content="#060a14">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #050a18;
-  --bg2: #0d1628;
-  --bg3: #111c35;
+  --bg: #060a14;
+  --bg-2: #0a1020;
+  --panel: rgba(14, 22, 42, .72);
+  --panel-solid: #0e162a;
+  --line: rgba(120, 150, 210, .14);
+  --line-2: rgba(120, 150, 210, .28);
+  --grid: rgba(90, 130, 200, .055);
   --text: #e8ecf4;
-  --muted: #7a8599;
+  --muted: #95a0b5;
+  --dim: #8590a6;
+
   --blue: #4a9eff;
-  --gold: #ffd666;
   --green: #4ade80;
   --purple: #a78bfa;
-  --pink: #f472b6;
+  --gold: #ffd666;
   --cyan: #22d3ee;
+  --pink: #f472b6;
   --orange: #fb923c;
-  --font: 'Noto Sans SC', sans-serif;
-  --mono: 'JetBrains Mono', monospace;
+
+  --font: 'Noto Sans SC', -apple-system, 'PingFang SC', sans-serif;
+  --mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  --wrap: 1200px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --r: 14px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
+html { scroll-behavior: smooth; }
 body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
+  line-height: 1.6;
   min-height: 100vh;
-  padding: 0 0 60px;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
 }
-
-/* ── Header ── */
-header {
-  text-align: center;
-  padding: 60px 20px 40px;
-  background: linear-gradient(180deg, #0a1525 0%, var(--bg) 100%);
-  border-bottom: 1px solid #1a2a4a;
-  position: relative;
-  overflow: hidden;
-}
-
-header::before {
+/* 图纸网格 + 两团冷光 */
+body::before {
   content: '';
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: -1;
   background:
-    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(74,158,255,.12) 0%, transparent 70%);
-  pointer-events: none;
+    radial-gradient(ellipse 50% 40% at 85% 8%, rgba(74, 158, 255, .10), transparent 70%),
+    radial-gradient(ellipse 45% 35% at 5% 60%, rgba(167, 139, 250, .07), transparent 70%),
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 40px 40px,
+    var(--bg);
 }
+a { color: inherit; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 var(--gutter); }
+.mono { font-family: var(--mono); }
 
-header h1 {
-  font-size: clamp(1.6rem, 4vw, 2.8rem);
+/* ── 顶栏 ── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(6, 10, 20, .72);
+  border-bottom: 1px solid var(--line);
+}
+.topbar .wrap { display: flex; align-items: center; gap: 24px; height: 56px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; white-space: nowrap; }
+.brand-mark {
+  width: 26px; height: 26px; border-radius: 7px;
+  border: 1.5px solid var(--blue);
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 11px; color: var(--blue);
+  box-shadow: 0 0 14px rgba(74, 158, 255, .35);
+}
+.nav { display: flex; gap: 22px; margin-left: auto; font-size: .88rem; }
+.nav a { text-decoration: none; color: var(--muted); transition: color .15s; }
+.nav a:hover { color: var(--text); }
+.nav .gh { color: var(--text); font-family: var(--mono); font-size: .8rem; border: 1px solid var(--line-2); padding: 3px 10px; border-radius: 99px; }
+
+/* ── 首屏 ── */
+.hero { padding: clamp(32px, 4.5vw, 56px) 0 56px; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(24px, 4vw, 56px); align-items: center; }
+.kicker {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: .78rem; letter-spacing: .08em;
+  color: var(--cyan);
+}
+.kicker::before { content: ''; width: 18px; height: 1px; background: currentColor; }
+.hero h1 {
+  margin: 18px 0 20px;
+  font-size: clamp(3rem, 8.5vw, 6.2rem);
   font-weight: 900;
-  background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 50%, var(--pink) 100%);
+  line-height: 1.02;
+  letter-spacing: -.03em;
+}
+.hero h1 .grad {
+  background: linear-gradient(120deg, var(--blue) 0%, var(--purple) 45%, var(--pink) 80%);
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -0.02em;
-  position: relative;
+  -webkit-text-fill-color: transparent;
 }
-
-header p {
-  margin-top: 12px;
-  color: var(--muted);
-  font-size: 0.95rem;
-  position: relative;
+.hero h1 .bracket { color: var(--cyan); font-weight: 400; font-family: var(--mono); font-size: .62em; vertical-align: .18em; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.lede { color: var(--muted); font-size: clamp(1rem, 1.6vw, 1.12rem); max-width: 34em; }
+.lede b { color: var(--text); font-weight: 500; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 20px; border-radius: 10px;
+  font: 500 .95rem var(--font); text-decoration: none; cursor: pointer;
+  border: 1px solid var(--line-2); background: transparent; color: var(--text);
+  transition: transform .15s, border-color .15s, background .15s;
 }
+.btn:hover { transform: translateY(-1px); border-color: var(--blue); }
+.btn--hot { background: var(--blue); border-color: var(--blue); color: #04101f; font-weight: 700; box-shadow: 0 6px 24px rgba(74, 158, 255, .35); }
+.btn--hot:hover { background: #6cb2ff; }
 
-.badge-count {
-  display: inline-block;
-  margin-top: 16px;
-  padding: 4px 14px;
-  background: rgba(74,158,255,.15);
-  border: 1px solid rgba(74,158,255,.3);
-  border-radius: 20px;
-  color: var(--blue);
-  font-size: 0.82rem;
-  font-family: var(--mono);
-  position: relative;
-}
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-top: 48px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.stats div { background: var(--bg-2); padding: 18px 20px; }
+.stats b { display: block; font: 700 clamp(1.6rem, 3vw, 2.2rem) var(--mono); line-height: 1.1; }
+.stats span { font-size: .82rem; color: var(--muted); }
 
-/* ── Main container ── */
-main {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 40px 20px 0;
-}
+/* ── 爆炸图 ── */
+.teardown { position: relative; width: 100%; max-width: 500px; justify-self: end; }
+.teardown svg { width: 100%; height: auto; display: block; overflow: visible; }
+.plate { cursor: pointer; transition: transform 1.1s cubic-bezier(.6, .05, .25, 1); outline: none; }
+.plate .top { transition: fill .35s, stroke-width .35s; }
+.plate .core { transition: opacity .35s; opacity: .25; }
+.plate .lbl-main { font: 700 18px var(--font); }
+.plate .lbl-sub { font: 400 14px var(--font); fill: var(--muted); }
+.plate .lbl-num { font: 500 14px var(--mono); }
+.plate .lead { stroke-dasharray: 3 3; transition: opacity .35s; opacity: .55; }
+.plate.on .core { opacity: 1; }
+.plate.on .lead { opacity: 1; stroke-dasharray: none; }
+.plate:hover .core, .plate:focus-visible .core { opacity: .8; }
+.plate:focus-visible .top { stroke-width: 2.5; }
+.packet { transition: opacity .3s; }
+.packet circle.glow { filter: blur(6px); }
+.packet text { font: 700 14px var(--font); fill: #04101f; }
+.td-axis { stroke: var(--line-2); stroke-dasharray: 2 5; }
 
-/* ── Section ── */
-.section {
-  margin-bottom: 44px;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.section-icon {
-  font-size: 1.2rem;
-}
-
-.section-title {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.section-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, currentColor 0%, transparent 100%);
-  opacity: 0.2;
-}
-
-/* Section color themes */
-.theme-blue  .section-title { color: var(--blue); }
-.theme-blue  .section-line  { background: linear-gradient(90deg, var(--blue) 0%, transparent 100%); }
-
-.theme-green .section-title { color: var(--green); }
-.theme-green .section-line  { background: linear-gradient(90deg, var(--green) 0%, transparent 100%); }
-
-.theme-purple .section-title { color: var(--purple); }
-.theme-purple .section-line  { background: linear-gradient(90deg, var(--purple) 0%, transparent 100%); }
-
-.theme-gold .section-title { color: var(--gold); }
-.theme-gold .section-line  { background: linear-gradient(90deg, var(--gold) 0%, transparent 100%); }
-
-.theme-cyan .section-title { color: var(--cyan); }
-.theme-cyan .section-line  { background: linear-gradient(90deg, var(--cyan) 0%, transparent 100%); }
-
-.theme-pink .section-title { color: var(--pink); }
-.theme-pink .section-line  { background: linear-gradient(90deg, var(--pink) 0%, transparent 100%); }
-
-.theme-orange .section-title { color: var(--orange); }
-.theme-orange .section-line  { background: linear-gradient(90deg, var(--orange) 0%, transparent 100%); }
-
-.theme-orange .card:hover { border-color: rgba(251,146,60,.5); }
-.theme-orange .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(251,146,60,.07) 0%, transparent 70%); opacity:1; }
-
-/* ── Card grid ── */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
-}
-
-/* ── Card ── */
-.card {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  background: var(--bg2);
-  border: 1px solid #1a2a4a;
+.td-caption {
+  margin-top: 6px;
+  min-height: 148px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--cap, var(--blue));
   border-radius: 10px;
-  text-decoration: none;
-  color: var(--text);
-  transition: background .18s, border-color .18s, transform .18s;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+}
+.td-step { display: flex; justify-content: space-between; gap: 10px; font: 500 .74rem var(--mono); letter-spacing: .06em; color: var(--cap, var(--blue)); }
+.td-step button { font: inherit; color: var(--muted); background: none; border: 0; cursor: pointer; }
+.td-step button:hover { color: var(--text); }
+.td-text { margin: 6px 0 10px; font-size: .98rem; }
+.td-picks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .82rem; }
+.td-picks a { color: var(--muted); text-decoration: none; border-bottom: 1px dashed var(--line-2); }
+.td-picks a:hover { color: var(--text); border-color: var(--text); }
+.td-picks .go { color: var(--cap, var(--blue)); border-bottom-style: solid; }
+
+/* ── 通用分节 ── */
+section { padding: 72px 0; }
+.sec-head { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: baseline; margin-bottom: 32px; }
+.sec-no { font: 500 .8rem var(--mono); color: var(--dim); grid-row: span 2; padding-top: .55em; }
+.sec-head h2 { font-size: clamp(1.6rem, 3.2vw, 2.3rem); font-weight: 900; letter-spacing: -.02em; line-height: 1.2; }
+.sec-head p { color: var(--muted); max-width: 46em; }
+
+/* ── 学习路线 ── */
+.routes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.route {
+  --c: var(--blue);
+  padding: 20px 22px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
   position: relative;
   overflow: hidden;
 }
+.route::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--c), transparent); }
+.route h3 { font-size: 1.12rem; font-weight: 700; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.route h3 small { font: 500 .74rem var(--mono); color: var(--c); }
+.route > p { color: var(--muted); font-size: .86rem; margin: 4px 0 16px; }
+.line { list-style: none; position: relative; display: flex; flex-direction: column; gap: 2px; }
+.line::before { content: ''; position: absolute; left: 15px; top: 14px; bottom: 14px; width: 2px; background: linear-gradient(var(--c), color-mix(in srgb, var(--c) 25%, transparent)); }
+.line a { display: flex; align-items: center; gap: 12px; text-decoration: none; padding: 4px 6px 4px 0; border-radius: 8px; position: relative; }
+.line a:hover .stop { background: var(--c); color: #04101f; }
+.line a:hover .st { color: var(--text); }
+.stop {
+  flex: none; width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center;
+  font: 700 .76rem var(--mono);
+  background: var(--bg); border: 2px solid var(--c); color: var(--c);
+  transition: background .15s, color .15s;
+}
+.st { font-size: .9rem; color: #c9d1e0; transition: color .15s; }
 
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity .18s;
+/* ── 最新三期 ── */
+.spot { display: grid; grid-template-columns: 1.4fr 1fr; grid-template-rows: auto auto; gap: 16px; }
+.spot .feat:first-child { grid-row: span 2; }
+.feat {
+  position: relative; display: block; text-decoration: none;
+  border-radius: var(--r); overflow: hidden;
+  border: 1px solid var(--line); background: var(--panel-solid);
+  min-height: 220px;
+}
+.feat img { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; transition: transform .6s; }
+.feat:hover img { transform: scale(1.04); }
+.feat::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4, 7, 15, 0) 25%, rgba(4, 7, 15, .88) 62%, rgba(4, 7, 15, .97) 100%); }
+.feat-body { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 22px; z-index: 1; }
+.feat-body .no { font: 500 .76rem var(--mono); color: var(--gold); letter-spacing: .06em; }
+.feat-body h3 { font-size: clamp(1.15rem, 2.2vw, 1.5rem); font-weight: 900; line-height: 1.3; margin: 4px 0; }
+.feat-body p { font-size: .86rem; color: #c3cbdb; }
+
+/* ── 零件清单 ── */
+.toolbar {
+  position: sticky; top: 56px; z-index: 20;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 12px 0;
+  margin-bottom: 18px;
+  background: rgba(6, 10, 20, .86);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 0 0 100vmax rgba(6, 10, 20, .86);
+  clip-path: inset(0 -100vmax);
+}
+.search {
+  flex: 1 1 240px; display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; border-radius: 10px;
+  border: 1px solid var(--line-2); background: var(--bg-2);
+}
+.search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(74, 158, 255, .18); }
+.search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: 400 .95rem var(--font); }
+.search input::placeholder { color: var(--dim); }
+.search kbd { font: 500 .72rem var(--mono); color: var(--dim); border: 1px solid var(--line-2); border-radius: 5px; padding: 1px 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  --c: var(--muted);
+  font: 500 .8rem var(--font); cursor: pointer;
+  padding: 6px 12px; border-radius: 99px;
+  border: 1px solid var(--line-2); background: var(--bg-2); color: var(--muted);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.chip b { font: 500 .72rem var(--mono); opacity: .75; }
+.chip:hover { color: var(--text); border-color: var(--c); }
+.chip[aria-pressed="true"] { color: var(--text); border-color: var(--c); background: color-mix(in srgb, var(--c) 16%, var(--bg-2)); }
+.result-n { font: 500 .78rem var(--mono); color: var(--dim); margin-left: auto; }
+
+.chapter { margin-bottom: 40px; }
+.chapter[hidden] { display: none; }
+.ch-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ch-head .tag { font: 500 .72rem var(--mono); color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); padding: 2px 8px; border-radius: 5px; letter-spacing: .04em; }
+.ch-head h3 { font-size: 1.05rem; font-weight: 700; }
+.ch-head::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 40%, transparent), transparent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+
+.card {
+  --c: var(--blue);
+  display: flex; flex-direction: column;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-solid);
+  overflow: hidden;
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+}
+.card[hidden] { display: none; }
+.card:hover, .card:focus-visible { transform: translateY(-3px); border-color: color-mix(in srgb, var(--c) 60%, transparent); box-shadow: 0 10px 30px -10px color-mix(in srgb, var(--c) 45%, transparent); outline: none; }
+.thumb { position: relative; aspect-ratio: 16 / 10; background: #0b1224; overflow: hidden; border-bottom: 1px solid var(--line); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s, filter .3s; filter: brightness(.82) saturate(.9); }
+.card:hover .thumb img, .card:focus-visible .thumb img { transform: scale(1.05); filter: none; }
+/* 拆解标注:四角取景框 */
+.thumb::before, .thumb::after {
+  content: ''; position: absolute; width: 14px; height: 14px; z-index: 1;
+  border: 2px solid var(--c); opacity: 0; transition: opacity .2s;
+}
+.thumb::before { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
+.thumb::after { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
+.card:hover .thumb::before, .card:hover .thumb::after { opacity: 1; }
+.num {
+  position: absolute; left: 10px; bottom: 10px; z-index: 1;
+  font: 700 .78rem var(--mono); color: var(--c);
+  background: rgba(6, 10, 20, .82); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+  padding: 1px 8px; border-radius: 5px;
+}
+.new {
+  position: absolute; right: 10px; top: 10px; z-index: 1;
+  font: 700 .7rem var(--mono); color: #1a1300; background: var(--gold);
+  padding: 1px 7px; border-radius: 5px;
+}
+.card-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.card-title { font-size: .98rem; font-weight: 700; line-height: 1.4; color: var(--text); }
+.card-sub { font-size: .8rem; color: var(--muted); line-height: 1.5; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 8px; }
+.tags span { font: 500 .68rem var(--mono); color: var(--dim); border: 1px solid var(--line-2); border-radius: 4px; padding: 0 6px; }
+.empty { display: none; text-align: center; color: var(--muted); padding: 40px 0; }
+.empty.show { display: block; }
+mark { background: color-mix(in srgb, var(--gold) 35%, transparent); color: inherit; border-radius: 2px; }
+
+/* ── 页脚 ── */
+footer { border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--muted); font-size: .84rem; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; }
+footer b { color: var(--blue); font-family: var(--mono); }
+
+/* ── 术语表 ── */
+.help-btn {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 1px solid var(--line-2); background: var(--panel-solid); color: var(--text);
+  font-size: 1.2rem; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .45), 0 0 0 4px rgba(74, 158, 255, .08);
+}
+.help-btn:hover { border-color: var(--blue); }
+.glossary {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 10000;
+  width: min(380px, 92vw);
+  background: rgba(8, 13, 26, .97);
+  backdrop-filter: blur(12px);
+  border-left: 1px solid var(--line-2);
+  padding: 24px 22px;
+  overflow-y: auto;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform .3s ease, visibility 0s linear .3s;
+}
+.glossary.open { transform: none; visibility: visible; transition: transform .3s ease; }
+.glossary h2 { font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.glossary h2 button { background: none; border: 0; color: var(--muted); font-size: 1.4rem; cursor: pointer; }
+.glossary dl { display: grid; gap: 12px; }
+.glossary dt { font-weight: 700; }
+.glossary dt span { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.glossary dd { color: var(--muted); font-size: .86rem; }
+
+/* ── 浮现 ── */
+.js .rv { opacity: 0; transform: translateY(14px); transition: opacity .6s, transform .6s; }
+.js .rv.in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .js .rv { opacity: 1; transform: none; transition: none; }
+  .plate, .feat img, .thumb img, .card { transition: none; }
+  .hero h1 .bracket { animation: none; }
 }
 
-.card:hover {
-  background: var(--bg3);
-  transform: translateY(-2px);
+@media (max-width: 900px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr); }
+  .teardown { max-width: 560px; margin: 0 auto; width: 100%; }
+  .spot { grid-template-columns: minmax(0, 1fr); }
+  .spot .feat:first-child { grid-row: auto; }
+  .routes { grid-template-columns: minmax(0, 1fr); }
 }
-
-/* card accent per theme */
-.theme-blue   .card:hover { border-color: rgba(74,158,255,.5); }
-.theme-blue   .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(74,158,255,.07) 0%, transparent 70%); opacity:1; }
-
-.theme-green  .card:hover { border-color: rgba(74,222,128,.5); }
-.theme-green  .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(74,222,128,.07) 0%, transparent 70%); opacity:1; }
-
-.theme-purple .card:hover { border-color: rgba(167,139,250,.5); }
-.theme-purple .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(167,139,250,.07) 0%, transparent 70%); opacity:1; }
-
-.theme-gold   .card:hover { border-color: rgba(255,214,102,.5); }
-.theme-gold   .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,214,102,.07) 0%, transparent 70%); opacity:1; }
-
-.theme-cyan   .card:hover { border-color: rgba(34,211,238,.5); }
-.theme-cyan   .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(34,211,238,.07) 0%, transparent 70%); opacity:1; }
-
-.theme-pink   .card:hover { border-color: rgba(244,114,182,.5); }
-.theme-pink   .card:hover::before { background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(244,114,182,.07) 0%, transparent 70%); opacity:1; }
-
-.card-num {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  padding: 2px 7px;
-  border-radius: 5px;
-  background: rgba(255,255,255,.06);
-  color: var(--muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.card-text {}
-
-.card-title {
-  font-size: 0.9rem;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.card-sub {
-  margin-top: 3px;
-  font-size: 0.75rem;
-  color: var(--muted);
-  line-height: 1.4;
-}
-
-/* ── Footer ── */
-footer {
-  text-align: center;
-  margin-top: 60px;
-  padding: 20px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  border-top: 1px solid #1a2a4a;
+@media (max-width: 640px) {
+  .nav a:not(.gh) { display: none; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  section { padding: 52px 0; }
+  .sec-head { grid-template-columns: minmax(0, 1fr); }
+  .sec-no { grid-row: auto; padding: 0; }
+  .search kbd { display: none; }
+  .toolbar { position: static; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; padding-bottom: 2px; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; }
+  .result-n { margin-left: 0; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .card-sub { display: none; }
+  .card-title { font-size: .88rem; }
+  .tags { display: none; }
+  .help-btn { bottom: 16px; right: 16px; }
 }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>拆开 AI 看看</h1>
-  <p>63 个交互动画，从大模型到工程实践</p>
-  <span class="badge-count">63 个交互动画</span>
+<div class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="brand-mark">AI</span>拆开 AI 看看</a>
+    <nav class="nav" aria-label="页内导航">
+      <a href="#teardown">剖面图</a>
+      <a href="#routes">学习路线</a>
+      <a href="#latest">最新</a>
+      <a href="#catalog">全部动画</a>
+      <a class="gh" href="https://github.com/TbusOS/my-chat">GitHub ↗</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <span class="kicker">AI TEARDOWN · <span data-total>63</span> 个交互动画</span>
+        <h1><span class="grad">拆开 AI</span><br>看看<span class="bracket"> _</span></h1>
+        <p class="lede">从你敲下的<b>一句话</b>开始，一层层往下拆：Agent、模型、Transformer、训练、推理，一直拆到<b> GPU 里的晶体管</b>。每一层都有能点、能拖、能调参数的动画，打开浏览器就能看，不用装任何东西。</p>
+        <div class="cta">
+          <a class="btn btn--hot" href="#routes">从哪开始看 →</a>
+          <button class="btn" type="button" id="random-btn">🎲 随机拆一个</button>
+        </div>
+      </div>
+
+      <div class="teardown rv" id="teardown">
+        <svg id="td-svg" viewBox="0 0 520 580" role="img" aria-label="AI 技术栈爆炸图：从上到下依次是应用层、模型层、架构层、训练层、推理层、硬件层。一个数据包从顶部落下，依次穿过每一层，再把回答带回顶部。点任意一层，跳到这一层的动画。"></svg>
+        <div class="td-caption" id="td-caption">
+          <div class="td-step"><span id="td-step">剖面图 · 6 层</span><button type="button" id="td-replay">▶ 重播</button></div>
+          <p class="td-text" id="td-text">把 AI 从你用的那一层，一路拆到芯片。点任意一层，看这一层的全部动画。</p>
+          <div class="td-picks" id="td-picks"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats rv" id="stats"></div>
+  </div>
 </header>
 
-<main>
-
-  <!-- 第一章：AI 基础 -->
-  <div class="section theme-blue">
-    <div class="section-header">
-      <span class="section-icon">🧠</span>
-      <span class="section-title">AI 基础概念</span>
-      <div class="section-line"></div>
+<section id="routes">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="sec-no">01</span>
+      <h2>不知道从哪开始？挑一条线</h2>
+      <p>63 个动画按顺序看太多了。下面四条线各自串起一个问题，从第一站走到最后一站，这个问题就拆完了。</p>
     </div>
-    <div class="grid">
-      <a class="card" href="01-AI进化之路.html">
-        <span class="card-num">01</span>
-        <div class="card-text">
-          <div class="card-title">AI 进化之路</div>
-          <div class="card-sub">从语言模型到超级智能</div>
-        </div>
-      </a>
-      <a class="card" href="02-AI语言探索.html">
-        <span class="card-num">02</span>
-        <div class="card-text">
-          <div class="card-title">AI 语言探索</div>
-          <div class="card-sub">AI 说什么「语言」？</div>
-        </div>
-      </a>
-      <a class="card" href="03-大模型参数实验室.html">
-        <span class="card-num">03</span>
-        <div class="card-text">
-          <div class="card-title">大模型参数实验室</div>
-          <div class="card-sub">temperature、top-p 等参数可视化调节</div>
-        </div>
-      </a>
-      <a class="card" href="04-大模型API对比.html">
-        <span class="card-num">04</span>
-        <div class="card-text">
-          <div class="card-title">大模型 API 对比</div>
-          <div class="card-sub">GPT vs Claude vs Gemini</div>
-        </div>
-      </a>
-    </div>
+    <div class="routes" id="route-list"></div>
   </div>
+</section>
 
-  <!-- 第二章：Agent -->
-  <div class="section theme-green">
-    <div class="section-header">
-      <span class="section-icon">🤖</span>
-      <span class="section-title">Agent 与多智能体</span>
-      <div class="section-line"></div>
+<section id="latest" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="sec-no">02</span>
+      <h2>最新拆解：写实 3D</h2>
+      <p>最近三期改用手写 WebGL，按真实结构建模：拆开显卡、切开封装、钻进手机 SoC，看数据怎么一路走到屏幕上的像素。</p>
     </div>
-    <div class="grid">
-      <a class="card" href="05-Agent工作故事.html">
-        <span class="card-num">05</span>
-        <div class="card-text">
-          <div class="card-title">Agent 工作故事</div>
-          <div class="card-sub">AI Agent 是怎么工作的？</div>
-        </div>
-      </a>
-      <a class="card" href="06-Agent工作流程.html">
-        <span class="card-num">06</span>
-        <div class="card-text">
-          <div class="card-title">Agent 工作流程</div>
-          <div class="card-sub">规划 → 执行 → 反思循环</div>
-        </div>
-      </a>
-      <a class="card" href="07-多Agent协作.html">
-        <span class="card-num">07</span>
-        <div class="card-text">
-          <div class="card-title">多 Agent 协作</div>
-          <div class="card-sub">多智能体分工动画</div>
-        </div>
-      </a>
-      <a class="card" href="08-MCP架构.html">
-        <span class="card-num">08</span>
-        <div class="card-text">
-          <div class="card-title">MCP 架构</div>
-          <div class="card-sub">Model Context Protocol 核心架构</div>
-        </div>
-      </a>
-    </div>
+    <div class="spot" id="spot"></div>
   </div>
+</section>
 
-  <!-- 第三章：OpenClaw -->
-  <div class="section theme-gold">
-    <div class="section-header">
-      <span class="section-icon">🦞</span>
-      <span class="section-title">OpenClaw 系统</span>
-      <div class="section-line"></div>
+<section id="catalog" style="padding-top:24px">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="sec-no">03</span>
+      <h2>全部动画</h2>
+      <p>按剖面图的六层分组。可以搜标题、关键词或编号，也可以按层、按玩法筛。</p>
     </div>
-    <div class="grid">
-      <a class="card" href="09-OpenClaw智能手机类比.html">
-        <span class="card-num">09</span>
-        <div class="card-text">
-          <div class="card-title">OpenClaw 类比</div>
-          <div class="card-sub">OpenClaw = AI 的智能手机</div>
-        </div>
-      </a>
-      <a class="card" href="10-OpenClaw组件协作.html">
-        <span class="card-num">10</span>
-        <div class="card-text">
-          <div class="card-title">五大组件协作</div>
-          <div class="card-sub">OpenClaw 核心组件联动动画</div>
-        </div>
-      </a>
-      <a class="card" href="24-Brain思考循环.html">
-        <span class="card-num">24</span>
-        <div class="card-text">
-          <div class="card-title">Brain 思考循环</div>
-          <div class="card-sub">OpenClaw 核心决策机制</div>
-        </div>
-      </a>
-      <a class="card" href="26-龙虾解剖图.html">
-        <span class="card-num">26</span>
-        <div class="card-text">
-          <div class="card-title">龙虾解剖图</div>
-          <div class="card-sub">OpenClaw 组件即身体</div>
-        </div>
-      </a>
-      <a class="card" href="27-多Lane并发.html">
-        <span class="card-num">27</span>
-        <div class="card-text">
-          <div class="card-title">多 Lane 并发</div>
-          <div class="card-sub">基于 Promise 链的会话隔离队列</div>
-        </div>
-      </a>
+
+    <div class="toolbar" role="search">
+      <label class="search">
+        <span aria-hidden="true">⌕</span>
+        <input id="q" type="search" placeholder="搜索：注意力、GPU、MCP、29…" aria-label="搜索动画" autocomplete="off">
+        <kbd>/</kbd>
+      </label>
+      <div class="chips" id="layer-chips" aria-label="按层筛选"></div>
+      <div class="chips" id="tag-chips" aria-label="按玩法筛选"></div>
+      <span class="result-n" id="result-n" aria-live="polite"></span>
     </div>
+
+    <div id="chapters"></div>
+    <p class="empty" id="empty">没有匹配的动画。换个关键词，或者 <button class="btn" type="button" id="clear-btn" style="padding:4px 12px;font-size:.85rem">清空筛选</button></p>
   </div>
-
-  <!-- 第四章：Claude Code 机制 -->
-  <div class="section theme-purple">
-    <div class="section-header">
-      <span class="section-icon">⚙️</span>
-      <span class="section-title">Claude Code 机制</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="grid">
-      <a class="card" href="11-AI编程工具对比.html">
-        <span class="card-num">11</span>
-        <div class="card-text">
-          <div class="card-title">AI 编程工具对比</div>
-          <div class="card-sub">全景对比各类 AI 编程工具</div>
-        </div>
-      </a>
-      <a class="card" href="12-提示词注入攻击.html">
-        <span class="card-num">12</span>
-        <div class="card-text">
-          <div class="card-title">提示词注入攻击</div>
-          <div class="card-sub">AI 最大的安全威胁</div>
-        </div>
-      </a>
-      <a class="card" href="13-SystemPrompt系统提示词.html">
-        <span class="card-num">13</span>
-        <div class="card-text">
-          <div class="card-title">System Prompt</div>
-          <div class="card-sub">系统提示词的作用与机制</div>
-        </div>
-      </a>
-      <a class="card" href="14-Rules项目规则.html">
-        <span class="card-num">14</span>
-        <div class="card-text">
-          <div class="card-title">Rules 项目规则</div>
-          <div class="card-sub">CLAUDE.md 项目级规则配置</div>
-        </div>
-      </a>
-      <a class="card" href="15-ContextWindow上下文窗口.html">
-        <span class="card-num">15</span>
-        <div class="card-text">
-          <div class="card-title">Context Window</div>
-          <div class="card-sub">AI 的记忆鱼缸</div>
-        </div>
-      </a>
-      <a class="card" href="16-Tools工具调用.html">
-        <span class="card-num">16</span>
-        <div class="card-text">
-          <div class="card-title">Tools 工具调用</div>
-          <div class="card-sub">AI 的施工队</div>
-        </div>
-      </a>
-      <a class="card" href="17-Skills技能命令.html">
-        <span class="card-num">17</span>
-        <div class="card-text">
-          <div class="card-title">Skills 技能命令</div>
-          <div class="card-sub">一键施放的技能书</div>
-        </div>
-      </a>
-      <a class="card" href="18-Hooks钩子机制.html">
-        <span class="card-num">18</span>
-        <div class="card-text">
-          <div class="card-title">Hooks 钩子机制</div>
-          <div class="card-sub">自动化的质量关卡</div>
-        </div>
-      </a>
-      <a class="card" href="19-MCP万能插座.html">
-        <span class="card-num">19</span>
-        <div class="card-text">
-          <div class="card-title">MCP 万能插座</div>
-          <div class="card-sub">AI 的即插即用接口</div>
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- 第五章：底层技术 -->
-  <div class="section theme-cyan">
-    <div class="section-header">
-      <span class="section-icon">🔬</span>
-      <span class="section-title">底层技术 · 硬件与推理</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="grid">
-      <a class="card" href="20-上下文窗口成本.html">
-        <span class="card-num">20</span>
-        <div class="card-text">
-          <div class="card-title">上下文窗口成本</div>
-          <div class="card-sub">Token 消耗与计费的真实成本</div>
-        </div>
-      </a>
-      <a class="card" href="21-推理数据流.html">
-        <span class="card-num">21</span>
-        <div class="card-text">
-          <div class="card-title">推理数据流</div>
-          <div class="card-sub">从矩阵运算到硬件全景</div>
-        </div>
-      </a>
-      <a class="card" href="22-AI芯片家族.html">
-        <span class="card-num">22</span>
-        <div class="card-text">
-          <div class="card-title">AI 芯片家族</div>
-          <div class="card-sub">谁在什么时候干活？</div>
-        </div>
-      </a>
-      <a class="card" href="23-AI运行架构全景.html">
-        <span class="card-num">23</span>
-        <div class="card-text">
-          <div class="card-title">AI 运行架构全景</div>
-          <div class="card-sub">从硬件到应用，谁在谁里面？</div>
-        </div>
-      </a>
-      <a class="card" href="25-芯片架构对比.html">
-        <span class="card-num">25</span>
-        <div class="card-text">
-          <div class="card-title">三种芯片架构对比</div>
-          <div class="card-sub">CPU / GPU / NPU 横向对比</div>
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- 第六章：Transformer 深度拆解 -->
-  <div class="section theme-pink">
-    <div class="section-header">
-      <span class="section-icon">🔮</span>
-      <span class="section-title">Transformer 深度拆解</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="grid">
-      <a class="card" href="28-Transformer架构全景.html">
-        <span class="card-num">28</span>
-        <div class="card-text">
-          <div class="card-title">Transformer 架构全景</div>
-          <div class="card-sub">Attention is All You Need</div>
-        </div>
-      </a>
-      <a class="card" href="29-注意力机制原理.html">
-        <span class="card-num">29</span>
-        <div class="card-text">
-          <div class="card-title">注意力机制原理</div>
-          <div class="card-sub">让每个词都能看到全世界</div>
-        </div>
-      </a>
-      <a class="card" href="30-Transformer优缺点擂台.html">
-        <span class="card-num">30</span>
-        <div class="card-text">
-          <div class="card-title">Transformer 优缺点擂台</div>
-          <div class="card-sub">强大，但不完美</div>
-        </div>
-      </a>
-      <a class="card" href="31-Tokenization分词实验室.html">
-        <span class="card-num">31</span>
-        <div class="card-text">
-          <div class="card-title">Tokenization 分词实验室</div>
-          <div class="card-sub">AI 如何"读"文字</div>
-        </div>
-      </a>
-      <a class="card" href="55-Transformer直觉之旅.html">
-        <span class="card-num">55</span>
-        <div class="card-text">
-          <div class="card-title">Transformer 直觉之旅</div>
-          <div class="card-sub">从问题出发，一步步推导出 QKV</div>
-        </div>
-      </a>
-      <a class="card" href="58-Transformer原理3D直觉.html">
-        <span class="card-num">58</span>
-        <div class="card-text">
-          <div class="card-title">Transformer 原理 3D 直觉</div>
-          <div class="card-sub">全屏 3D 沉浸式推导注意力机制</div>
-        </div>
-      </a>
-      <a class="card" href="59-Transformer数学工坊.html">
-        <span class="card-num">59</span>
-        <div class="card-text">
-          <div class="card-title">Transformer 数学工坊</div>
-          <div class="card-sub">真实数字，一步步手算 Self-Attention</div>
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- 第七章：训练与微调 -->
-  <div class="section theme-orange">
-    <div class="section-header">
-      <span class="section-icon">🏭</span>
-      <span class="section-title">训练与微调</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="grid">
-      <a class="card" href="32-大模型训练全过程.html">
-        <span class="card-num">32</span>
-        <div class="card-text">
-          <div class="card-title">大模型训练全过程</div>
-          <div class="card-sub">从数据到智能的锻造之路</div>
-        </div>
-      </a>
-      <a class="card" href="33-Fine-tuning与RAG对比.html">
-        <span class="card-num">33</span>
-        <div class="card-text">
-          <div class="card-title">Fine-tuning vs RAG</div>
-          <div class="card-sub">给 AI 变聪明的两条路</div>
-        </div>
-      </a>
-      <a class="card" href="34-模型量化与边缘部署.html">
-        <span class="card-num">34</span>
-        <div class="card-text">
-          <div class="card-title">模型量化与边缘部署</div>
-          <div class="card-sub">大模型的瘦身之旅</div>
-        </div>
-      </a>
-      <a class="card" href="60-大模型训练数据硬件之旅.html">
-        <span class="card-num">60</span>
-        <div class="card-text">
-          <div class="card-title">大模型训练·数据硬件之旅</div>
-          <div class="card-sub">3D 追踪数据从磁盘到 Tensor Core 的完整旅程</div>
-        </div>
-      </a>
-      <a class="card" href="61-大模型训练数据硬件之旅3D电影版.html">
-        <span class="card-num">61</span>
-        <div class="card-text">
-          <div class="card-title">大模型训练·硬件之旅 3D 电影版</div>
-          <div class="card-sub">WebGL 实时光影，一镜到底穿越 17 个硬件场景</div>
-        </div>
-      </a>
-      <a class="card" href="62-GPU从硅片到屏幕.html">
-        <span class="card-num">62</span>
-        <div class="card-text">
-          <div class="card-title">GPU：从硅片到屏幕</div>
-          <div class="card-sub">写实 3D 三幕 14 站：拆显卡、切封装、看硅片版图、数据流走一遍、直到 LCD 像素怎么亮</div>
-        </div>
-      </a>
-      <a class="card" href="63-手机一帧画面怎么到你眼前.html">
-        <span class="card-num">63</span>
-        <div class="card-text">
-          <div class="card-title">手机：一帧画面怎么到你眼前</div>
-          <div class="card-sub">写实 3D：拆手机、钻进 SoC 看片上网络、CPU→GPU→DMA→显示合成→MIPI DSI→OLED 像素发光</div>
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- 第八章：模型生态全景 -->
-  <div class="section theme-green">
-    <div class="section-header">
-      <span class="section-icon">🌐</span>
-      <span class="section-title">模型生态全景</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="grid">
-      <a class="card" href="35-大模型家族图谱.html">
-        <span class="card-num">35</span>
-        <div class="card-text">
-          <div class="card-title">大模型家族图谱</div>
-          <div class="card-sub">谁是谁，谁生了谁</div>
-        </div>
-      </a>
-      <a class="card" href="36-多模态AI融合.html">
-        <span class="card-num">36</span>
-        <div class="card-text">
-          <div class="card-title">多模态 AI 融合</div>
-          <div class="card-sub">看、听、读、懂的统一大脑</div>
-        </div>
-      </a>
-      <a class="card" href="37-AI应用生态全景图.html">
-        <span class="card-num">37</span>
-        <div class="card-text">
-          <div class="card-title">AI 应用生态全景图</div>
-          <div class="card-sub">从芯片到应用的五层世界</div>
-        </div>
-      </a>
-      <a class="card" href="46-垂直领域AI模型图谱.html">
-        <span class="card-num">46</span>
-        <div class="card-text">
-          <div class="card-title">垂直领域 AI 模型图谱</div>
-          <div class="card-sub">各行各业的 AI 专家</div>
-        </div>
-      </a>
-      <a class="card" href="49-嵌入式小模型与开源模型全景.html">
-        <span class="card-num">49</span>
-        <div class="card-text">
-          <div class="card-title">嵌入式小模型与开源全景</div>
-          <div class="card-sub">人人都能跑的 AI</div>
-        </div>
-      </a>
-      <a class="card" href="50-多模态实现路线对比.html">
-        <span class="card-num">50</span>
-        <div class="card-text">
-          <div class="card-title">多模态实现路线对比</div>
-          <div class="card-sub">全能选手 vs 专家团队</div>
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- 第九章：硬件深度与未来 -->
-  <div class="section theme-cyan">
-    <div class="section-header">
-      <span class="section-icon">💎</span>
-      <span class="section-title">硬件深度与未来</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="grid">
-      <a class="card" href="38-GPU并行计算原理.html">
-        <span class="card-num">38</span>
-        <div class="card-text">
-          <div class="card-title">GPU 并行计算原理</div>
-          <div class="card-sub">AI 的发动机</div>
-        </div>
-      </a>
-      <a class="card" href="39-AI训练集群架构.html">
-        <span class="card-num">39</span>
-        <div class="card-text">
-          <div class="card-title">AI 训练集群架构</div>
-          <div class="card-sub">万卡炼丹炉</div>
-        </div>
-      </a>
-      <a class="card" href="40-存算一体与光子计算.html">
-        <span class="card-num">40</span>
-        <div class="card-text">
-          <div class="card-title">存算一体与光子计算</div>
-          <div class="card-sub">AI 硬件的三条革新之路</div>
-        </div>
-      </a>
-      <a class="card" href="41-神经形态芯片.html">
-        <span class="card-num">41</span>
-        <div class="card-text">
-          <div class="card-title">神经形态芯片</div>
-          <div class="card-sub">用 20 瓦模拟 860 亿神经元</div>
-        </div>
-      </a>
-      <a class="card" href="47-Apple Silicon vs NVIDIA.html">
-        <span class="card-num">47</span>
-        <div class="card-text">
-          <div class="card-title">Apple Silicon vs NVIDIA</div>
-          <div class="card-sub">统一内存 vs 离散显存的 AI 之争</div>
-        </div>
-      </a>
-      <a class="card" href="48-数字精度与量化原理.html">
-        <span class="card-num">48</span>
-        <div class="card-text">
-          <div class="card-title">数字精度与量化原理</div>
-          <div class="card-sub">AI 如何用更少的 bit 思考</div>
-        </div>
-      </a>
-      <a class="card" href="54-AI硬件选型与部署方案.html">
-        <span class="card-num">54</span>
-        <div class="card-text">
-          <div class="card-title">AI 硬件选型与部署方案</div>
-          <div class="card-sub">从预算到配置的完整指南</div>
-        </div>
-      </a>
-      <a class="card" href="56-LLM硬件推理全景.html">
-        <span class="card-num">56</span>
-        <div class="card-text">
-          <div class="card-title">LLM 硬件推理全景</div>
-          <div class="card-sub">从数据搬运到 GPU 计算的 3D 之旅</div>
-        </div>
-      </a>
-      <a class="card" href="57-LLM推理参数实验室.html">
-        <span class="card-num">57</span>
-        <div class="card-text">
-          <div class="card-title">LLM 推理参数实验室</div>
-          <div class="card-sub">调参数，看硬件实时变化</div>
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- AI 工程实践 -->
-  <div class="section theme-orange">
-    <div class="section-header">
-      <span class="section-icon">🛠️</span>
-      <span class="section-title">AI 工程实践</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="grid">
-      <a class="card" href="51-RAG技术全解与替代方案.html">
-        <span class="card-num">51</span>
-        <div class="card-text">
-          <div class="card-title">RAG 技术全解与替代方案</div>
-          <div class="card-sub">检索增强还是上下文够大？</div>
-        </div>
-      </a>
-      <a class="card" href="52-提示词工程与Skills设计.html">
-        <span class="card-num">52</span>
-        <div class="card-text">
-          <div class="card-title">提示词工程与 Skills 设计</div>
-          <div class="card-sub">AI 听得懂的语言</div>
-        </div>
-      </a>
-      <a class="card" href="53-MCP深度剖析与替代方案.html">
-        <span class="card-num">53</span>
-        <div class="card-text">
-          <div class="card-title">MCP 深度剖析与替代方案</div>
-          <div class="card-sub">AI 的 USB 接口标准之争</div>
-        </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- 第十章：下一代架构与超越 -->
-  <div class="section theme-blue">
-    <div class="section-header">
-      <span class="section-icon">🚀</span>
-      <span class="section-title">下一代架构与超越</span>
-      <div class="section-line"></div>
-    </div>
-    <div class="grid">
-      <a class="card" href="42-神经网络进化史.html">
-        <span class="card-num">42</span>
-        <div class="card-text">
-          <div class="card-title">神经网络进化史</div>
-          <div class="card-sub">六十年的架构接力赛</div>
-        </div>
-      </a>
-      <a class="card" href="43-Transformer挑战者们.html">
-        <span class="card-num">43</span>
-        <div class="card-text">
-          <div class="card-title">Transformer 挑战者们</div>
-          <div class="card-sub">谁能打破注意力的统治</div>
-        </div>
-      </a>
-      <a class="card" href="44-理想神经网络架构设计.html">
-        <span class="card-num">44</span>
-        <div class="card-text">
-          <div class="card-title">理想神经网络架构</div>
-          <div class="card-sub">如果从零设计 AI 的大脑</div>
-        </div>
-      </a>
-      <a class="card" href="45-理想AI硬件架构设计.html">
-        <span class="card-num">45</span>
-        <div class="card-text">
-          <div class="card-title">理想 AI 硬件架构</div>
-          <div class="card-sub">光电混合神经处理器</div>
-        </div>
-      </a>
-    </div>
-  </div>
-
-</main>
+</section>
 
 <footer>
-  拆开 AI 看看 · 共 63 个交互动画 · 总访问 <span id="gc-total" style="font-weight:700;color:#4a9eff;"></span> 次
+  <div class="wrap">
+    <span>拆开 AI 看看 · 共 <span data-total>63</span> 个交互动画 · 总访问 <b id="gc-total"></b> 次</span>
+    <span>纯前端单文件，无框架 · <a href="https://github.com/TbusOS/my-chat">TbusOS/my-chat</a></span>
+  </div>
 </footer>
+
+<button class="help-btn" id="help-btn" type="button" aria-label="打开术语表" aria-expanded="false" aria-controls="glossary">❓</button>
+<aside class="glossary" id="glossary" aria-label="术语表">
+  <h2>术语表 <button type="button" id="help-close" aria-label="关闭术语表">×</button></h2>
+  <dl>
+    <div><dt>Token<span>词元</span></dt><dd>模型读写文字的最小单位，一个汉字大约是 1～2 个 token。</dd></div>
+    <div><dt>Agent<span>智能体</span></dt><dd>会自己决定下一步调哪个工具、读哪个文件的 AI 程序，不只是一问一答。</dd></div>
+    <div><dt>MCP<span>模型上下文协议</span></dt><dd>Model Context Protocol，让 AI 用同一种方式接入各种外部工具和数据源。</dd></div>
+    <div><dt>Transformer<span>变换器架构</span></dt><dd>今天几乎所有大模型的骨架，核心是注意力机制。</dd></div>
+    <div><dt>Attention<span>注意力</span></dt><dd>让每个 token 给上下文里的其他 token 打分，决定该参考谁、参考多少。</dd></div>
+    <div><dt>Weights<span>权重 / 参数</span></dt><dd>训练出来的一大堆数字，7B 就是 70 亿个。模型的「知识」都存在这里。</dd></div>
+    <div><dt>Inference<span>推理</span></dt><dd>用训练好的模型生成回答的过程，和训练是两回事。</dd></div>
+    <div><dt>Quantization<span>量化</span></dt><dd>把权重从 16 位浮点数压成 8 位、4 位整数，模型变小、变快，精度略降。</dd></div>
+    <div><dt>WebGL<span>网页 3D 渲染</span></dt><dd>浏览器直接调显卡画 3D 的接口。标了「3D」的动画用的就是它或 Canvas 模拟的 3D。</dd></div>
+    <div><dt>Exploded view<span>爆炸图</span></dt><dd>工程制图里把零件沿轴线拉开画的画法，首页的剖面图就是这种画法。</dd></div>
+    <div><dt>玩法标签</dt><dd>3D：可旋转的立体场景 · 实验室：有滑块能调参数 · 对比：两种或多种方案并排比 · 多视角：多个 Tab 切换看。</dd></div>
+  </dl>
+</aside>
+
 <script>
-// 用 img 回调方式获取总访问量（兼容性最好）
-var t = document.getElementById('gc-total');
-var img = new Image();
-img.src = 'https://tbusos.goatcounter.com/counter/TOTAL.svg';
-// 同时用 fetch 获取数字
+document.documentElement.classList.add('js');
+
+/* ───────── 数据:新增动画只改这里(和 interactive/index.html 同步) ───────── */
+var LAYERS = [
+  { id: 'app',   no: 'L1', name: '应用层', sub: 'Agent · MCP · 编程助手', color: '#4ade80',
+    text: '你敲下一句话。Agent 先判断：能直接答，还是要调工具、读文件、查资料。', picks: ['05', '16', '19'] },
+  { id: 'model', no: 'L2', name: '模型层', sub: '认识大模型 · 模型生态', color: '#4a9eff',
+    text: '文字被切成 token，每个 token 变成一串数字。模型只做一件事：猜下一个 token。', picks: ['31', '03', '35'] },
+  { id: 'arch',  no: 'L3', name: '架构层', sub: 'Transformer · 下一代架构', color: '#f472b6',
+    text: 'Transformer 里，注意力让每个 token 去看上下文里的其他 token，决定该参考谁。', picks: ['29', '55', '59'] },
+  { id: 'train', no: 'L4', name: '训练层', sub: '训练 · 微调 · 量化', color: '#fb923c',
+    text: '这一层不在这次请求的路上：那些权重是训练时用海量文本反复猜、反复改，一点点调出来的。', picks: ['32', '60', '33'] },
+  { id: 'infer', no: 'L5', name: '推理层', sub: '数据流 · 芯片 · 精度', color: '#a78bfa',
+    text: '每生成一个 token，都要把整套权重从显存读一遍。7B 模型按 FP16 算，一次约 14 GB。', picks: ['21', '56', '57'] },
+  { id: 'hw',    no: 'L6', name: '硬件层', sub: 'GPU · 集群 · 硅片', color: '#22d3ee',
+    text: '最底层：GPU 里成千上万个核心同时做乘加，数据在显存、缓存和寄存器之间来回搬。', picks: ['38', '62', '63'] }
+];
+var REPLY_TEXT = '算出来的 token 一个个往上送，就是你在屏幕上看到的逐字输出。';
+
+var CHAPTERS = [
+  { id: 'agent',    layer: 'app',   name: 'Agent 与多智能体' },
+  { id: 'openclaw', layer: 'app',   name: 'OpenClaw 系统' },
+  { id: 'cc',       layer: 'app',   name: 'Claude Code 机制' },
+  { id: 'practice', layer: 'app',   name: 'AI 工程实践' },
+  { id: 'basics',   layer: 'model', name: 'AI 基础概念' },
+  { id: 'eco',      layer: 'model', name: '模型生态全景' },
+  { id: 'tf',       layer: 'arch',  name: 'Transformer 深度拆解' },
+  { id: 'next',     layer: 'arch',  name: '下一代架构与超越' },
+  { id: 'train',    layer: 'train', name: '训练与微调' },
+  { id: 'infer',    layer: 'infer', name: '推理：模型怎么跑起来' },
+  { id: 'hw',       layer: 'hw',    name: '硬件深度与未来' }
+];
+
+var TAGS = [
+  { id: '3d', name: '3D' },
+  { id: 'lab', name: '实验室' },
+  { id: 'vs', name: '对比' },
+  { id: 'tabs', name: '多视角' }
+];
+
+// n · 文件名 · 标题 · 副标题 · 章节 · 玩法标签
+var ITEMS = [
+  ['01', '01-AI进化之路.html', 'AI 进化之路', '从语言模型到超级智能', 'basics', ''],
+  ['02', '02-AI语言探索.html', 'AI 语言探索', 'AI 说什么「语言」？', 'basics', 'tabs'],
+  ['03', '03-大模型参数实验室.html', '大模型参数实验室', 'temperature、top-p 等参数可视化调节', 'basics', 'lab'],
+  ['04', '04-大模型API对比.html', '大模型 API 对比', 'GPT vs Claude vs Gemini', 'basics', 'vs tabs'],
+  ['05', '05-Agent工作故事.html', 'Agent 工作故事', 'AI Agent 是怎么工作的？', 'agent', ''],
+  ['06', '06-Agent工作流程.html', 'Agent 工作流程', '规划 → 执行 → 反思循环', 'agent', ''],
+  ['07', '07-多Agent协作.html', '多 Agent 协作', '多智能体分工动画', 'agent', ''],
+  ['08', '08-MCP架构.html', 'MCP 架构', 'Model Context Protocol 核心架构', 'agent', ''],
+  ['09', '09-OpenClaw智能手机类比.html', 'OpenClaw 类比', 'OpenClaw = AI 的智能手机', 'openclaw', 'tabs'],
+  ['10', '10-OpenClaw组件协作.html', '五大组件协作', 'OpenClaw 核心组件联动动画', 'openclaw', ''],
+  ['24', '24-Brain思考循环.html', 'Brain 思考循环', 'OpenClaw 核心决策机制', 'openclaw', ''],
+  ['26', '26-龙虾解剖图.html', '龙虾解剖图', 'OpenClaw 组件即身体', 'openclaw', ''],
+  ['27', '27-多Lane并发.html', '多 Lane 并发', '基于 Promise 链的会话隔离队列', 'openclaw', ''],
+  ['11', '11-AI编程工具对比.html', 'AI 编程工具对比', '全景对比各类 AI 编程工具', 'cc', 'vs tabs'],
+  ['12', '12-提示词注入攻击.html', '提示词注入攻击', 'AI 最大的安全威胁', 'cc', ''],
+  ['13', '13-SystemPrompt系统提示词.html', 'System Prompt', '系统提示词的作用与机制', 'cc', ''],
+  ['14', '14-Rules项目规则.html', 'Rules 项目规则', 'CLAUDE.md 项目级规则配置', 'cc', ''],
+  ['15', '15-ContextWindow上下文窗口.html', 'Context Window', 'AI 的记忆鱼缸', 'cc', ''],
+  ['16', '16-Tools工具调用.html', 'Tools 工具调用', 'AI 的施工队', 'cc', ''],
+  ['17', '17-Skills技能命令.html', 'Skills 技能命令', '一键施放的技能书', 'cc', ''],
+  ['18', '18-Hooks钩子机制.html', 'Hooks 钩子机制', '自动化的质量关卡', 'cc', ''],
+  ['19', '19-MCP万能插座.html', 'MCP 万能插座', 'AI 的即插即用接口', 'cc', ''],
+  ['51', '51-RAG技术全解与替代方案.html', 'RAG 技术全解与替代方案', '检索增强还是上下文够大？', 'practice', 'vs tabs'],
+  ['52', '52-提示词工程与Skills设计.html', '提示词工程与 Skills 设计', 'AI 听得懂的语言', 'practice', 'tabs'],
+  ['53', '53-MCP深度剖析与替代方案.html', 'MCP 深度剖析与替代方案', 'AI 的 USB 接口标准之争', 'practice', 'vs tabs'],
+  ['35', '35-大模型家族图谱.html', '大模型家族图谱', '谁是谁，谁生了谁', 'eco', ''],
+  ['36', '36-多模态AI融合.html', '多模态 AI 融合', '看、听、读、懂的统一大脑', 'eco', 'tabs'],
+  ['37', '37-AI应用生态全景图.html', 'AI 应用生态全景图', '从芯片到应用的五层世界', 'eco', ''],
+  ['46', '46-垂直领域AI模型图谱.html', '垂直领域 AI 模型图谱', '各行各业的 AI 专家', 'eco', ''],
+  ['49', '49-嵌入式小模型与开源模型全景.html', '嵌入式小模型与开源全景', '人人都能跑的 AI', 'eco', 'tabs'],
+  ['50', '50-多模态实现路线对比.html', '多模态实现路线对比', '全能选手 vs 专家团队', 'eco', 'vs tabs'],
+  ['28', '28-Transformer架构全景.html', 'Transformer 架构全景', 'Attention is All You Need', 'tf', ''],
+  ['29', '29-注意力机制原理.html', '注意力机制原理', '让每个词都能看到全世界', 'tf', 'tabs'],
+  ['30', '30-Transformer优缺点擂台.html', 'Transformer 优缺点擂台', '强大，但不完美', 'tf', 'vs'],
+  ['31', '31-Tokenization分词实验室.html', 'Tokenization 分词实验室', 'AI 如何「读」文字', 'tf', 'lab'],
+  ['55', '55-Transformer直觉之旅.html', 'Transformer 直觉之旅', '从问题出发，一步步推导出 QKV', 'tf', ''],
+  ['58', '58-Transformer原理3D直觉.html', 'Transformer 原理 3D 直觉', '全屏 3D 沉浸式推导注意力机制', 'tf', '3d'],
+  ['59', '59-Transformer数学工坊.html', 'Transformer 数学工坊', '真实数字，一步步手算 Self-Attention', 'tf', ''],
+  ['42', '42-神经网络进化史.html', '神经网络进化史', '六十年的架构接力赛', 'next', ''],
+  ['43', '43-Transformer挑战者们.html', 'Transformer 挑战者们', '谁能打破注意力的统治', 'next', 'vs'],
+  ['44', '44-理想神经网络架构设计.html', '理想神经网络架构', '如果从零设计 AI 的大脑', 'next', ''],
+  ['45', '45-理想AI硬件架构设计.html', '理想 AI 硬件架构', '光电混合神经处理器', 'next', 'tabs'],
+  ['32', '32-大模型训练全过程.html', '大模型训练全过程', '从数据到智能的锻造之路', 'train', ''],
+  ['33', '33-Fine-tuning与RAG对比.html', 'Fine-tuning vs RAG', '给 AI 变聪明的两条路', 'train', 'vs tabs'],
+  ['34', '34-模型量化与边缘部署.html', '模型量化与边缘部署', '大模型的瘦身之旅', 'train', 'lab tabs'],
+  ['60', '60-大模型训练数据硬件之旅.html', '大模型训练·数据硬件之旅', '3D 追踪数据从磁盘到 Tensor Core 的完整旅程', 'train', '3d'],
+  ['61', '61-大模型训练数据硬件之旅3D电影版.html', '大模型训练·硬件之旅 3D 电影版', 'WebGL 实时光影，一镜到底穿越 17 个硬件场景', 'train', '3d'],
+  ['20', '20-上下文窗口成本.html', '上下文窗口成本', 'Token 消耗与计费的真实成本', 'infer', ''],
+  ['21', '21-推理数据流.html', '推理数据流', '从矩阵运算到硬件全景', 'infer', ''],
+  ['22', '22-AI芯片家族.html', 'AI 芯片家族', '谁在什么时候干活？', 'infer', ''],
+  ['23', '23-AI运行架构全景.html', 'AI 运行架构全景', '从硬件到应用，谁在谁里面？', 'infer', ''],
+  ['25', '25-芯片架构对比.html', '三种芯片架构对比', 'CPU / GPU / NPU 横向对比', 'infer', 'vs'],
+  ['48', '48-数字精度与量化原理.html', '数字精度与量化原理', 'AI 如何用更少的 bit 思考', 'infer', 'lab tabs'],
+  ['56', '56-LLM硬件推理全景.html', 'LLM 硬件推理全景', '从数据搬运到 GPU 计算的 3D 之旅', 'infer', '3d'],
+  ['57', '57-LLM推理参数实验室.html', 'LLM 推理参数实验室', '调参数，看硬件实时变化', 'infer', 'lab'],
+  ['38', '38-GPU并行计算原理.html', 'GPU 并行计算原理', 'AI 的发动机', 'hw', 'tabs'],
+  ['39', '39-AI训练集群架构.html', 'AI 训练集群架构', '万卡炼丹炉', 'hw', 'tabs'],
+  ['40', '40-存算一体与光子计算.html', '存算一体与光子计算', 'AI 硬件的三条革新之路', 'hw', 'tabs'],
+  ['41', '41-神经形态芯片.html', '神经形态芯片', '用 20 瓦模拟 860 亿神经元', 'hw', 'tabs'],
+  ['47', '47-Apple Silicon vs NVIDIA.html', 'Apple Silicon vs NVIDIA', '统一内存 vs 离散显存的 AI 之争', 'hw', 'vs tabs'],
+  ['54', '54-AI硬件选型与部署方案.html', 'AI 硬件选型与部署方案', '从预算到配置的完整指南', 'hw', 'tabs'],
+  ['62', '62-GPU从硅片到屏幕.html', 'GPU：从硅片到屏幕', '写实 3D 三幕 14 站：拆显卡、切封装、看硅片版图、数据流走一遍、直到 LCD 像素怎么亮', 'hw', '3d lab'],
+  ['63', '63-手机一帧画面怎么到你眼前.html', '手机：一帧画面怎么到你眼前', '写实 3D：拆手机、钻进 SoC 看片上网络、CPU→GPU→DMA→显示合成→MIPI DSI→OLED 像素发光', 'hw', '3d lab']
+];
+var NEW_IDS = ['61', '62', '63'];
+
+var ROUTES = [
+  { name: '零基础入门', who: '没碰过大模型原理，想先有个整体印象', color: '#4a9eff',
+    stops: ['01', '02', '03', '05', '15', '31', '35'] },
+  { name: '把 AI 编程工具用明白', who: '每天在用 Claude Code / Cursor，想知道它背后在干嘛', color: '#4ade80',
+    stops: ['11', '13', '14', '15', '16', '17', '18', '19', '52'] },
+  { name: '啃下 Transformer', who: '想真正搞懂 QKV 和注意力在算什么', color: '#f472b6',
+    stops: ['31', '55', '29', '59', '28', '58', '30', '43'] },
+  { name: '从模型一路拆到硅片', who: '做硬件 / 嵌入式，想知道一次推理在芯片上发生了什么', color: '#22d3ee',
+    stops: ['21', '25', '38', '48', '56', '57', '60', '62', '63'] }
+];
+
+/* ───────── 派生 ───────── */
+var byId = {};
+var items = ITEMS.map(function (r) {
+  var ch = CHAPTERS.filter(function (c) { return c.id === r[4]; })[0];
+  var it = { n: r[0], file: r[1], t: r[2], s: r[3], ch: ch, layer: ch.layer, tags: r[5] ? r[5].split(' ') : [] };
+  byId[it.n] = it;
+  return it;
+});
+var layerById = {};
+LAYERS.forEach(function (l) { layerById[l.id] = l; l.count = items.filter(function (it) { return it.layer === l.id; }).length; });
+function href(it) { return encodeURI(it.file); }
+function el(tag, attrs, html) {
+  var e = document.createElement(tag);
+  for (var k in attrs) { if (attrs[k] != null) e.setAttribute(k, attrs[k]); }
+  if (html != null) e.innerHTML = html;
+  return e;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+document.querySelectorAll('[data-total]').forEach(function (e) { e.textContent = items.length; });
+
+/* ───────── 数字条 ───────── */
+(function () {
+  var n3d = items.filter(function (it) { return it.tags.indexOf('3d') >= 0; }).length;
+  var nlab = items.filter(function (it) { return it.tags.indexOf('lab') >= 0; }).length;
+  var rows = [
+    [items.length, '个交互动画'],
+    [LAYERS.length, '层，从应用拆到硅片'],
+    [n3d, '个 3D 场景'],
+    [nlab, '个能调参数的实验室']
+  ];
+  document.getElementById('stats').innerHTML = rows.map(function (r) {
+    return '<div><b>' + r[0] + '</b><span>' + r[1] + '</span></div>';
+  }).join('');
+})();
+
+/* ───────── 爆炸图 ───────── */
+var Teardown = (function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  var svg = document.getElementById('td-svg');
+  var cap = document.getElementById('td-caption');
+  var stepEl = document.getElementById('td-step');
+  var textEl = document.getElementById('td-text');
+  var picksEl = document.getElementById('td-picks');
+  var CX = 150, W = 125, H = 56, T = 11;
+  var TOP = 72, GAP_OPEN = 84, GAP_SHUT = 22;
+  var shutTop = TOP + (GAP_OPEN - GAP_SHUT) * (LAYERS.length - 1) / 2;
+  var plates = [];
+  var timers = [];
+  var running = false;
+
+  function s(tag, attrs) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function rhombus(cx, cy, w, h) {
+    return 'M' + cx + ',' + (cy - h) + ' L' + (cx + w) + ',' + cy + ' L' + cx + ',' + (cy + h) + ' L' + (cx - w) + ',' + cy + ' Z';
+  }
+  function openY(i) { return TOP + i * GAP_OPEN; }
+  function shutY(i) { return shutTop + i * GAP_SHUT; }
+
+  // 中轴虚线 = 数据通道
+  svg.appendChild(s('line', { 'class': 'td-axis', x1: CX, y1: 0, x2: CX, y2: openY(LAYERS.length - 1) + H + 20 }));
+
+  // 从下往上画,上层盖住下层
+  for (var i = LAYERS.length - 1; i >= 0; i--) {
+    var L = LAYERS[i];
+    var g = s('g', { 'class': 'plate', tabindex: '0', role: 'link', 'aria-label': L.no + ' ' + L.name + '，' + L.count + ' 个动画' });
+    var c = L.color;
+    g.appendChild(s('path', { d: 'M' + (CX - W) + ',0 L' + CX + ',' + H + ' L' + CX + ',' + (H + T) + ' L' + (CX - W) + ',' + T + ' Z', fill: c, 'fill-opacity': '.28' }));
+    g.appendChild(s('path', { d: 'M' + CX + ',' + H + ' L' + (CX + W) + ',0 L' + (CX + W) + ',' + T + ' L' + CX + ',' + (H + T) + ' Z', fill: c, 'fill-opacity': '.16' }));
+    g.appendChild(s('path', { 'class': 'top', d: rhombus(CX, 0, W, H), fill: '#0b1224', stroke: c, 'stroke-width': '1.4' }));
+    // 板面网格
+    for (var k = 1; k < 4; k++) {
+      var f = k / 4;
+      g.appendChild(s('line', { x1: CX - W + W * f, y1: -H * f, x2: CX + W * f, y2: H - H * f, stroke: c, 'stroke-opacity': '.18' }));
+      g.appendChild(s('line', { x1: CX - W + W * f, y1: H * f, x2: CX + W * f, y2: -H + H * f, stroke: c, 'stroke-opacity': '.18' }));
+    }
+    g.appendChild(s('path', { 'class': 'core', d: rhombus(CX, 0, W * .3, H * .3), fill: c, 'fill-opacity': '.55', stroke: c }));
+    // 引线 + 标注
+    g.appendChild(s('polyline', { 'class': 'lead', points: (CX + W) + ',0 ' + (CX + W + 26) + ',0', stroke: c, fill: 'none' }));
+    var t1 = s('text', { 'class': 'lbl-main', x: CX + W + 34, y: -2, fill: c });
+    t1.textContent = L.name;
+    var t1n = s('tspan', { 'class': 'lbl-num', dx: '8', fill: c });
+    t1n.textContent = L.no + ' · ' + L.count;
+    t1.appendChild(t1n);
+    var t2 = s('text', { 'class': 'lbl-sub', x: CX + W + 34, y: 19 });
+    t2.textContent = L.sub;
+    g.appendChild(t1);
+    g.appendChild(t2);
+    svg.appendChild(g);
+    plates[i] = g;
+    (function (idx, layer) {
+      g.addEventListener('mouseenter', function () { stop(); show(idx); });
+      g.addEventListener('focus', function () { stop(); show(idx); });
+      g.addEventListener('click', function () { Catalog.focusLayer(layer.id); });
+      g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); Catalog.focusLayer(layer.id); } });
+    })(i, L);
+  }
+
+  // 数据包
+  var packet = s('g', { 'class': 'packet', opacity: '0' });
+  packet.appendChild(s('circle', { 'class': 'glow', r: '22', fill: '#ffd666', 'fill-opacity': '.55' }));
+  packet.appendChild(s('circle', { r: '20', fill: '#ffd666' }));
+  var ptext = s('text', { 'text-anchor': 'middle', y: '5' });
+  ptext.textContent = '你好';
+  packet.appendChild(ptext);
+  svg.appendChild(packet);
+
+  function place(gap) {
+    plates.forEach(function (p, i) { p.style.transform = 'translateY(' + gap(i) + 'px)'; });
+  }
+  function setActive(idx) {
+    plates.forEach(function (p, i) { p.classList.toggle('on', i === idx); });
+  }
+  function show(idx) {
+    var L = LAYERS[idx];
+    setActive(idx);
+    cap.style.setProperty('--cap', L.color);
+    stepEl.textContent = L.no + ' ' + L.name + ' · ' + (idx + 1) + ' / ' + LAYERS.length;
+    textEl.textContent = L.text;
+    picksEl.innerHTML = L.picks.map(function (n) {
+      var it = byId[n];
+      return '<a href="' + href(it) + '">' + it.n + ' ' + esc(it.t) + '</a>';
+    }).join('') + '<a class="go" href="#catalog" data-layer="' + L.id + '">这一层的 ' + L.count + ' 个动画 →</a>';
+  }
+  picksEl.addEventListener('click', function (e) {
+    var a = e.target.closest('a.go');
+    if (a) { e.preventDefault(); Catalog.focusLayer(a.getAttribute('data-layer')); }
+  });
+
+  // 包从 y0 移到 y1,用 rAF 做缓动
+  function move(y0, y1, ms, done) {
+    var t0 = null;
+    function frame(ts) {
+      if (!running) return;
+      if (t0 === null) t0 = ts;
+      var p = Math.min(1, (ts - t0) / ms);
+      var e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      packet.setAttribute('transform', 'translate(' + CX + ',' + (y0 + (y1 - y0) * e) + ')');
+      if (p < 1) requestAnimationFrame(frame); else if (done) done();
+    }
+    requestAnimationFrame(frame);
+  }
+  function later(fn, ms) { timers.push(setTimeout(function () { if (running) fn(); }, ms)); }
+  function stop() {
+    running = false;
+    timers.forEach(clearTimeout);
+    timers = [];
+    packet.setAttribute('opacity', '0');
+  }
+  function loop() {
+    var i = 0;
+    ptext.textContent = '你好';
+    packet.setAttribute('opacity', '1');
+    function next(fromY) {
+      if (i >= LAYERS.length) {
+        ptext.textContent = '回答';
+        setActive(-1);
+        stepEl.textContent = '回程 · 逐字输出';
+        cap.style.setProperty('--cap', '#ffd666');
+        textEl.textContent = REPLY_TEXT;
+        picksEl.innerHTML = '<a href="' + href(byId['15']) + '">15 Context Window</a><a href="' + href(byId['20']) + '">20 上下文窗口成本</a>';
+        move(fromY, 0, 1400, function () { later(loop, 1800); });
+        return;
+      }
+      var y = openY(i);
+      move(fromY, y, 750, function () {
+        show(i);
+        i++;
+        later(function () { next(y); }, 2300);
+      });
+    }
+    next(-30);
+  }
+  function play() {
+    stop();
+    running = true;
+    place(shutY);
+    later(function () { place(openY); }, 500);
+    later(loop, 1700);
+  }
+
+  document.getElementById('td-replay').addEventListener('click', play);
+
+  if (reduceMotion) {
+    place(openY);
+    show(0);
+  } else {
+    place(shutY);
+    // 进入视口才播,滚出去就停
+    new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (e.isIntersecting && !running) play();
+        else if (!e.isIntersecting && running) stop();
+      });
+    }, { threshold: .25 }).observe(svg);
+  }
+  return { show: show };
+})();
+
+/* ───────── 学习路线 ───────── */
+(function () {
+  var box = document.getElementById('route-list');
+  ROUTES.forEach(function (r, ri) {
+    var art = el('article', { 'class': 'route rv', style: '--c:' + r.color });
+    var stops = r.stops.map(function (n) {
+      var it = byId[n];
+      return '<li><a href="' + href(it) + '"><span class="stop">' + n + '</span><span class="st">' + esc(it.t) + '</span></a></li>';
+    }).join('');
+    art.innerHTML = '<h3>' + esc(r.name) + '<small>' + r.stops.length + ' 站</small></h3><p>' + esc(r.who) + '</p><ol class="line">' + stops + '</ol>';
+    box.appendChild(art);
+  });
+})();
+
+/* ───────── 最新三期 ───────── */
+(function () {
+  var box = document.getElementById('spot');
+  NEW_IDS.slice().reverse().forEach(function (n) {
+    var it = byId[n];
+    var a = el('a', { 'class': 'feat rv', href: href(it) });
+    a.innerHTML = '<img src="thumbs/' + n + '.webp" alt="' + esc(it.t) + ' 截图" loading="lazy">' +
+      '<div class="feat-body"><div class="no">№ ' + n + ' · ' + esc(layerById[it.layer].name) + '</div><h3>' + esc(it.t) + '</h3><p>' + esc(it.s) + '</p></div>';
+    box.appendChild(a);
+  });
+})();
+
+/* ───────── 全部动画 ───────── */
+var Catalog = (function () {
+  var box = document.getElementById('chapters');
+  var q = document.getElementById('q');
+  var resultN = document.getElementById('result-n');
+  var empty = document.getElementById('empty');
+  var state = { layer: null, tag: null, q: '' };
+  var cards = [];
+  var sections = [];
+
+  LAYERS.forEach(function (L) {
+    CHAPTERS.filter(function (c) { return c.layer === L.id; }).forEach(function (ch) {
+      var sec = el('div', { 'class': 'chapter', style: '--c:' + L.color });
+      sec.innerHTML = '<div class="ch-head"><span class="tag">' + L.no + ' ' + L.name + '</span><h3>' + esc(ch.name) + '</h3></div>';
+      var grid = el('div', { 'class': 'grid' });
+      items.filter(function (it) { return it.ch === ch; }).forEach(function (it) {
+        var a = el('a', { 'class': 'card', href: href(it), style: '--c:' + L.color });
+        var tags = it.tags.map(function (t) { return '<span>' + TAGS.filter(function (x) { return x.id === t; })[0].name + '</span>'; }).join('');
+        a.innerHTML = '<div class="thumb"><img src="thumbs/' + it.n + '.webp" alt="" loading="lazy" decoding="async"><span class="num">' + it.n + '</span>' +
+          (NEW_IDS.indexOf(it.n) >= 0 ? '<span class="new">NEW</span>' : '') + '</div>' +
+          '<div class="card-body"><div class="card-title"></div><div class="card-sub"></div>' + (tags ? '<div class="tags">' + tags + '</div>' : '') + '</div>';
+        grid.appendChild(a);
+        cards.push({ it: it, a: a, title: a.querySelector('.card-title'), sub: a.querySelector('.card-sub'),
+          hay: (it.n + ' ' + it.t + ' ' + it.s + ' ' + it.file + ' ' + ch.name + ' ' + L.name + ' ' + L.sub).toLowerCase() });
+      });
+      sec.appendChild(grid);
+      box.appendChild(sec);
+      sections.push({ el: sec, grid: grid });
+    });
+  });
+
+  function hl(text, needle) {
+    var t = esc(text);
+    if (!needle) return t;
+    var i = text.toLowerCase().indexOf(needle);
+    if (i < 0) return t;
+    return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + needle.length)) + '</mark>' + esc(text.slice(i + needle.length));
+  }
+
+  function render() {
+    var needle = state.q.trim().toLowerCase();
+    var shown = 0;
+    cards.forEach(function (c) {
+      var ok = (!state.layer || c.it.layer === state.layer) &&
+               (!state.tag || c.it.tags.indexOf(state.tag) >= 0) &&
+               (!needle || needle.split(/\s+/).every(function (w) { return c.hay.indexOf(w) >= 0; }));
+      c.a.hidden = !ok;
+      var first = needle.split(/\s+/)[0];
+      c.title.innerHTML = hl(c.it.t, first);
+      c.sub.innerHTML = hl(c.it.s, first);
+      if (ok) shown++;
+    });
+    sections.forEach(function (s) {
+      s.el.hidden = !Array.prototype.some.call(s.grid.children, function (a) { return !a.hidden; });
+    });
+    resultN.textContent = shown === items.length ? '共 ' + items.length + ' 个' : '显示 ' + shown + ' / ' + items.length;
+    empty.classList.toggle('show', shown === 0);
+    layerChips.forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.v || null) === state.layer)); });
+    tagChips.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.v === state.tag)); });
+  }
+
+  function chip(label, color, count, v) {
+    var b = el('button', { 'class': 'chip', type: 'button', style: color ? '--c:' + color : null, 'aria-pressed': 'false' });
+    b.innerHTML = (color ? '<i></i>' : '') + label + (count != null ? ' <b>' + count + '</b>' : '');
+    if (v) b.dataset.v = v;
+    return b;
+  }
+  var layerBox = document.getElementById('layer-chips');
+  var layerChips = [chip('全部', null, null, '')].concat(LAYERS.map(function (L) { return chip(L.name, L.color, L.count, L.id); }));
+  layerChips.forEach(function (b) {
+    layerBox.appendChild(b);
+    b.addEventListener('click', function () { state.layer = b.dataset.v || null; render(); });
+  });
+  var tagBox = document.getElementById('tag-chips');
+  var tagChips = TAGS.map(function (t) {
+    return chip(t.name, '#ffd666', items.filter(function (it) { return it.tags.indexOf(t.id) >= 0; }).length, t.id);
+  });
+  tagChips.forEach(function (b) {
+    tagBox.appendChild(b);
+    b.addEventListener('click', function () { state.tag = state.tag === b.dataset.v ? null : b.dataset.v; render(); });
+  });
+
+  q.addEventListener('input', function () { state.q = q.value; render(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== q && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
+      e.preventDefault();
+      q.focus();
+    } else if (e.key === 'Escape' && document.activeElement === q) {
+      q.value = ''; state.q = ''; render(); q.blur();
+    }
+  });
+  document.getElementById('clear-btn').addEventListener('click', function () {
+    q.value = ''; state = { layer: null, tag: null, q: '' }; render();
+  });
+
+  render();
+  return {
+    focusLayer: function (id) {
+      state.layer = id; state.tag = null; state.q = ''; q.value = '';
+      render();
+      document.getElementById('catalog').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+  };
+})();
+
+/* ───────── 随机 ───────── */
+document.getElementById('random-btn').addEventListener('click', function () {
+  location.href = href(items[Math.floor(Math.random() * items.length)]);
+});
+
+/* ───────── 术语表 ───────── */
+(function () {
+  var btn = document.getElementById('help-btn');
+  var panel = document.getElementById('glossary');
+  function set(open) {
+    panel.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+  }
+  btn.addEventListener('click', function () { set(!panel.classList.contains('open')); });
+  document.getElementById('help-close').addEventListener('click', function () { set(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
+  document.addEventListener('click', function (e) {
+    if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== btn) set(false);
+  });
+})();
+
+/* ───────── 浮现 ───────── */
+(function () {
+  var els = document.querySelectorAll('.rv');
+  if (reduceMotion || !('IntersectionObserver' in window)) {
+    els.forEach(function (e) { e.classList.add('in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { rootMargin: '0px 0px -8% 0px' });
+  els.forEach(function (e) { io.observe(e); });
+})();
+
+/* ───────── 访问量 ───────── */
 fetch('https://tbusos.goatcounter.com/counter/TOTAL.json')
-  .then(function(r){ return r.json(); })
-  .then(function(d){ t.textContent = d.count; })
-  .catch(function(){ t.textContent = '...'; });
+  .then(function (r) { return r.json(); })
+  .then(function (d) { document.getElementById('gc-total').textContent = d.count; })
+  .catch(function () { document.getElementById('gc-total').textContent = '…'; });
 </script>
 
-<script data-goatcounter="https://tbusos.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<script data-goatcounter="https://tbusos.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>
