@@ -6,6 +6,17 @@
 <title>拆开 AI 看看 — 交互动画导航</title>
 <meta name="description" content="从你敲下的一句话开始，一层层往下拆：Agent、模型、Transformer、训练、推理，一直拆到 GPU 里的晶体管。每一层都有能点、能拖、能调参数的交互动画。">
 <meta name="theme-color" content="#060a14">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23060a14'/%3E%3Cpath d='M16 19 27 24 16 29 5 24Z' fill='%2322d3ee' fill-opacity='.35' stroke='%2322d3ee' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M16 11 27 16 16 21 5 16Z' fill='%234a9eff' fill-opacity='.35' stroke='%234a9eff' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M16 3 27 8 16 13 5 8Z' fill='%234ade80' fill-opacity='.35' stroke='%234ade80' stroke-width='1.8' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="拆开 AI 看看 · 63 个交互动画">
+<meta property="og:description" content="从你敲下的一句话开始，一层层往下拆：Agent、模型、Transformer、训练、推理，一直拆到 GPU 里的晶体管。">
+<meta property="og:url" content="https://doc.tbusos.com/my-chat/">
+<meta property="og:image" content="https://doc.tbusos.com/my-chat/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://doc.tbusos.com/my-chat/og.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -39,6 +50,8 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
+/* 跳到锚点时让出吸顶顶栏(56px)的高度,不然节标题被盖住 */
+[id] { scroll-margin-top: 72px; }
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -77,16 +90,11 @@ a { color: inherit; }
 }
 .topbar .wrap { display: flex; align-items: center; gap: 24px; height: 56px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; white-space: nowrap; }
-.brand-mark {
-  width: 26px; height: 26px; border-radius: 7px;
-  border: 1.5px solid var(--blue);
-  display: grid; place-items: center;
-  font-family: var(--mono); font-size: 11px; color: var(--blue);
-  box-shadow: 0 0 14px rgba(74, 158, 255, .35);
-}
+.brand-mark { width: 26px; height: 26px; display: block; filter: drop-shadow(0 0 6px rgba(74, 158, 255, .45)); }
 .nav { display: flex; gap: 22px; margin-left: auto; font-size: .88rem; }
 .nav a { text-decoration: none; color: var(--muted); transition: color .15s; }
 .nav a:hover { color: var(--text); }
+.nav a.active { color: var(--text); text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 2px; text-underline-offset: 7px; }
 .nav .gh { color: var(--text); font-family: var(--mono); font-size: .8rem; border: 1px solid var(--line-2); padding: 3px 10px; border-radius: 99px; }
 
 /* ── 首屏 ── */
@@ -126,6 +134,11 @@ a { color: inherit; }
 .btn:hover { transform: translateY(-1px); border-color: var(--blue); }
 .btn--hot { background: var(--blue); border-color: var(--blue); color: #04101f; font-weight: 700; box-shadow: 0 6px 24px rgba(74, 158, 255, .35); }
 .btn--hot:hover { background: #6cb2ff; }
+.resume { margin-top: 18px; font-size: .9rem; color: var(--muted); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.resume[hidden] { display: none; }
+.resume a { color: var(--text); text-decoration: none; border-bottom: 1px dashed var(--line-2); }
+.resume a:hover { border-bottom-color: var(--text); }
+.resume .mono { font-size: .78rem; color: var(--green); }
 
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-top: 48px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .stats div { background: var(--bg-2); padding: 18px 20px; }
@@ -143,6 +156,10 @@ a { color: inherit; }
 .plate .lbl-num { font: 500 14px var(--mono); }
 .plate .lead { stroke-dasharray: 3 3; transition: opacity .35s; opacity: .55; }
 .plate.on .core { opacity: 1; }
+.plate .halo { opacity: 0; transition: opacity .35s; }
+.plate.on .halo { opacity: .85; }
+.ripple { transform-box: fill-box; transform-origin: center; animation: ripple 1.1s ease-out forwards; pointer-events: none; }
+@keyframes ripple { from { transform: scale(.25); opacity: .95; } to { transform: scale(1.3); opacity: 0; } }
 .plate.on .lead { opacity: 1; stroke-dasharray: none; }
 .plate:hover .core, .plate:focus-visible .core { opacity: .8; }
 .plate:focus-visible .top { stroke-width: 2.5; }
@@ -191,7 +208,10 @@ section { padding: 72px 0; }
 .route::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--c), transparent); }
 .route h3 { font-size: 1.12rem; font-weight: 700; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .route h3 small { font: 500 .74rem var(--mono); color: var(--c); }
-.route > p { color: var(--muted); font-size: .86rem; margin: 4px 0 16px; }
+.route > p { color: var(--muted); font-size: .86rem; margin: 4px 0 12px; }
+.route-prog { height: 3px; margin-bottom: 16px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.route-prog i { display: block; height: 100%; width: var(--p, 0%); background: var(--c); transition: width .6s; }
+.stop.seen { background: var(--c); color: #04101f; }
 .line { list-style: none; position: relative; display: flex; flex-direction: column; gap: 2px; }
 .line::before { content: ''; position: absolute; left: 15px; top: 14px; bottom: 14px; width: 2px; background: linear-gradient(var(--c), color-mix(in srgb, var(--c) 25%, transparent)); }
 .line a { display: flex; align-items: center; gap: 12px; text-decoration: none; padding: 4px 6px 4px 0; border-radius: 8px; position: relative; }
@@ -217,6 +237,8 @@ section { padding: 72px 0; }
 }
 .feat img { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; transition: transform .6s; }
 .feat:hover img { transform: scale(1.04); }
+/* 62 的显卡风扇在图的上三分之一,按中线裁会被切掉 */
+.feat[data-n="62"] img { object-position: 50% 28%; }
 .feat::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4, 7, 15, 0) 25%, rgba(4, 7, 15, .88) 62%, rgba(4, 7, 15, .97) 100%); }
 .feat-body { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 22px; z-index: 1; }
 .feat-body .no { font: 500 .76rem var(--mono); color: var(--gold); letter-spacing: .06em; }
@@ -290,8 +312,14 @@ section { padding: 72px 0; }
 .thumb::before { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
 .thumb::after { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
 .card:hover .thumb::before, .card:hover .thumb::after { opacity: 1; }
+.badges { position: absolute; left: 10px; bottom: 10px; z-index: 1; display: flex; gap: 6px; }
+.seen-badge {
+  font: 500 .7rem var(--mono); color: var(--green); line-height: 1.6;
+  background: rgba(6, 10, 20, .85); border: 1px solid rgba(74, 222, 128, .45);
+  padding: 1px 7px; border-radius: 5px;
+}
+.card:not(.seen) .seen-badge { display: none; }
 .num {
-  position: absolute; left: 10px; bottom: 10px; z-index: 1;
   font: 700 .78rem var(--mono); color: var(--c);
   background: rgba(6, 10, 20, .82); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
   padding: 1px 8px; border-radius: 5px;
@@ -314,6 +342,8 @@ mark { background: color-mix(in srgb, var(--gold) 35%, transparent); color: inhe
 footer { border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--muted); font-size: .84rem; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; }
 footer b { color: var(--blue); font-family: var(--mono); }
+.linkish { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.linkish:hover { color: var(--text); }
 
 /* ── 术语表 ── */
 .help-btn {
@@ -379,6 +409,11 @@ footer b { color: var(--blue); font-family: var(--mono); }
   .card-title { font-size: .88rem; }
   .tags { display: none; }
   .help-btn { bottom: 16px; right: 16px; }
+  /* 手机上卡片窄,标题叠在图上会盖住大半张图:改成上图下文 */
+  .feat { min-height: 0; display: flex; flex-direction: column; }
+  .feat img { position: static; height: auto; aspect-ratio: 16 / 10; }
+  .feat::after { display: none; }
+  .feat-body { position: static; padding: 14px 16px 16px; }
 }
 </style>
 </head>
@@ -386,7 +421,7 @@ footer b { color: var(--blue); font-family: var(--mono); }
 
 <div class="topbar">
   <div class="wrap">
-    <a class="brand" href="#top"><span class="brand-mark">AI</span>拆开 AI 看看</a>
+    <a class="brand" href="#top"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 19 27 24 16 29 5 24Z" fill="#22d3ee" fill-opacity=".3" stroke="#22d3ee" stroke-width="1.8" stroke-linejoin="round"/><path d="M16 11 27 16 16 21 5 16Z" fill="#4a9eff" fill-opacity=".3" stroke="#4a9eff" stroke-width="1.8" stroke-linejoin="round"/><path d="M16 3 27 8 16 13 5 8Z" fill="#4ade80" fill-opacity=".3" stroke="#4ade80" stroke-width="1.8" stroke-linejoin="round"/></svg>拆开 AI 看看</a>
     <nav class="nav" aria-label="页内导航">
       <a href="#teardown">剖面图</a>
       <a href="#routes">学习路线</a>
@@ -406,8 +441,9 @@ footer b { color: var(--blue); font-family: var(--mono); }
         <p class="lede">从你敲下的<b>一句话</b>开始，一层层往下拆：Agent、模型、Transformer、训练、推理，一直拆到<b> GPU 里的晶体管</b>。每一层都有能点、能拖、能调参数的动画，打开浏览器就能看，不用装任何东西。</p>
         <div class="cta">
           <a class="btn btn--hot" href="#routes">从哪开始看 →</a>
-          <button class="btn" type="button" id="random-btn">🎲 随机拆一个</button>
+          <button class="btn" type="button" id="random-btn" title="优先挑你还没看过的">🎲 随机拆一个</button>
         </div>
+        <p class="resume" id="resume" hidden><span>↩ 上次看到</span><a id="resume-link" href="#"></a><span class="mono" id="resume-n"></span></p>
       </div>
 
       <div class="teardown rv" id="teardown">
@@ -466,6 +502,7 @@ footer b { color: var(--blue); font-family: var(--mono); }
     </div>
 
     <div id="chapters"></div>
+    <noscript><p class="empty" style="display:block">目录要开启 JavaScript 才能显示。也可以到 <a href="https://github.com/TbusOS/my-chat/tree/main/docs">GitHub 上的 docs 目录</a> 直接打开单个动画。</p></noscript>
     <p class="empty" id="empty">没有匹配的动画。换个关键词，或者 <button class="btn" type="button" id="clear-btn" style="padding:4px 12px;font-size:.85rem">清空筛选</button></p>
   </div>
 </section>
@@ -473,6 +510,7 @@ footer b { color: var(--blue); font-family: var(--mono); }
 <footer>
   <div class="wrap">
     <span>拆开 AI 看看 · 共 <span data-total>63</span> 个交互动画 · 总访问 <b id="gc-total"></b> 次</span>
+    <span>看过哪些只记在你自己的浏览器里 · <button class="linkish" id="clear-seen" type="button">清空记录</button></span>
     <span>纯前端单文件，无框架 · <a href="https://github.com/TbusOS/my-chat">TbusOS/my-chat</a></span>
   </div>
 </footer>
@@ -652,6 +690,36 @@ document.querySelectorAll('[data-total]').forEach(function (e) { e.textContent =
   }).join('');
 })();
 
+/* ───────── 观看记录:只存在本机浏览器 ───────── */
+var Seen = (function () {
+  var KEY = 'teardown-seen-v1';
+  var own = Object.prototype.hasOwnProperty;
+  function read() {
+    try {
+      var v = JSON.parse(localStorage.getItem(KEY) || '{}');
+      return v && typeof v === 'object' ? v : {};
+    } catch (e) { return {}; }
+  }
+  var data = read();
+  function write(next) {
+    data = next;
+    try { localStorage.setItem(KEY, JSON.stringify(next)); } catch (e) { /* 隐私模式写不进去就只在本页生效 */ }
+  }
+  function has(n) { return own.call(data, n); }
+  return {
+    has: has,
+    add: function (n) { var patch = {}; patch[n] = Date.now(); write(Object.assign({}, data, patch)); },
+    clear: function () { write({}); },
+    reload: function () { data = read(); },
+    count: function () { return items.filter(function (it) { return has(it.n); }).length; },
+    last: function () {
+      return items.reduce(function (best, it) {
+        return has(it.n) && (!best || data[it.n] > data[best.n]) ? it : best;
+      }, null);
+    }
+  };
+})();
+
 /* ───────── 爆炸图 ───────── */
 var Teardown = (function () {
   var NS = 'http://www.w3.org/2000/svg';
@@ -662,10 +730,13 @@ var Teardown = (function () {
   var picksEl = document.getElementById('td-picks');
   var CX = 150, W = 125, H = 56, T = 11;
   var TOP = 72, GAP_OPEN = 84, GAP_SHUT = 22;
+  var RESUME_MS = 2500;
   var shutTop = TOP + (GAP_OPEN - GAP_SHUT) * (LAYERS.length - 1) / 2;
   var plates = [];
   var timers = [];
   var running = false;
+  var inView = false;
+  var resumeTimer = null;
 
   function s(tag, attrs) {
     var e = document.createElementNS(NS, tag);
@@ -678,6 +749,13 @@ var Teardown = (function () {
   function openY(i) { return TOP + i * GAP_OPEN; }
   function shutY(i) { return shutTop + i * GAP_SHUT; }
 
+  // 板子亮起时的光晕:模糊过的描边,被不透明的板面盖住内侧一半,只剩外圈
+  var defs = s('defs', {});
+  var glow = s('filter', { id: 'td-glow', x: '-20%', y: '-50%', width: '140%', height: '200%' });
+  glow.appendChild(s('feGaussianBlur', { stdDeviation: '5' }));
+  defs.appendChild(glow);
+  svg.appendChild(defs);
+
   // 中轴虚线 = 数据通道
   svg.appendChild(s('line', { 'class': 'td-axis', x1: CX, y1: 0, x2: CX, y2: openY(LAYERS.length - 1) + H + 20 }));
 
@@ -686,6 +764,7 @@ var Teardown = (function () {
     var L = LAYERS[i];
     var g = s('g', { 'class': 'plate', tabindex: '0', role: 'link', 'aria-label': L.no + ' ' + L.name + '，' + L.count + ' 个动画' });
     var c = L.color;
+    g.appendChild(s('path', { 'class': 'halo', d: rhombus(CX, 0, W, H), fill: 'none', stroke: c, 'stroke-width': '7', filter: 'url(#td-glow)' }));
     g.appendChild(s('path', { d: 'M' + (CX - W) + ',0 L' + CX + ',' + H + ' L' + CX + ',' + (H + T) + ' L' + (CX - W) + ',' + T + ' Z', fill: c, 'fill-opacity': '.28' }));
     g.appendChild(s('path', { d: 'M' + CX + ',' + H + ' L' + (CX + W) + ',0 L' + (CX + W) + ',' + T + ' L' + CX + ',' + (H + T) + ' Z', fill: c, 'fill-opacity': '.16' }));
     g.appendChild(s('path', { 'class': 'top', d: rhombus(CX, 0, W, H), fill: '#0b1224', stroke: c, 'stroke-width': '1.4' }));
@@ -710,8 +789,9 @@ var Teardown = (function () {
     svg.appendChild(g);
     plates[i] = g;
     (function (idx, layer) {
-      g.addEventListener('mouseenter', function () { stop(); show(idx); });
-      g.addEventListener('focus', function () { stop(); show(idx); });
+      function inspect() { clearTimeout(resumeTimer); stop(); show(idx); }
+      g.addEventListener('mouseenter', inspect);
+      g.addEventListener('focus', inspect);
       g.addEventListener('click', function () { Catalog.focusLayer(layer.id); });
       g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); Catalog.focusLayer(layer.id); } });
     })(i, L);
@@ -731,6 +811,12 @@ var Teardown = (function () {
   }
   function setActive(idx) {
     plates.forEach(function (p, i) { p.classList.toggle('on', i === idx); });
+  }
+  // 包落到这一层时荡开一圈
+  function ripple(idx) {
+    var r = s('path', { 'class': 'ripple', d: rhombus(CX, 0, W, H), fill: 'none', stroke: LAYERS[idx].color, 'stroke-width': '2' });
+    r.addEventListener('animationend', function () { r.remove(); });
+    plates[idx].appendChild(r);
   }
   function show(idx) {
     var L = LAYERS[idx];
@@ -786,18 +872,31 @@ var Teardown = (function () {
       var y = openY(i);
       move(fromY, y, 750, function () {
         show(i);
+        ripple(i);
         i++;
         later(function () { next(y); }, 2300);
       });
     }
     next(-30);
   }
+  // 从合拢状态开始完整播一遍
   function play() {
+    clearTimeout(resumeTimer);
     stop();
     running = true;
     place(shutY);
     later(function () { place(openY); }, 500);
     later(loop, 1700);
+  }
+  // 鼠标看完某一层离开后,板子保持拉开,直接接着播
+  function scheduleResume() {
+    clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(function () {
+      if (running || !inView) return;
+      running = true;
+      place(openY);
+      loop();
+    }, RESUME_MS);
   }
 
   document.getElementById('td-replay').addEventListener('click', play);
@@ -807,11 +906,14 @@ var Teardown = (function () {
     show(0);
   } else {
     place(shutY);
+    svg.addEventListener('mouseleave', scheduleResume);
+    svg.addEventListener('focusout', function (e) { if (!svg.contains(e.relatedTarget)) scheduleResume(); });
     // 进入视口才播,滚出去就停
     new IntersectionObserver(function (es) {
       es.forEach(function (e) {
-        if (e.isIntersecting && !running) play();
-        else if (!e.isIntersecting && running) stop();
+        inView = e.isIntersecting;
+        if (inView && !running) play();
+        else if (!inView && running) stop();
       });
     }, { threshold: .25 }).observe(svg);
   }
@@ -819,17 +921,29 @@ var Teardown = (function () {
 })();
 
 /* ───────── 学习路线 ───────── */
-(function () {
+var Routes = (function () {
   var box = document.getElementById('route-list');
-  ROUTES.forEach(function (r, ri) {
+  var rows = ROUTES.map(function (r) {
     var art = el('article', { 'class': 'route rv', style: '--c:' + r.color });
     var stops = r.stops.map(function (n) {
       var it = byId[n];
-      return '<li><a href="' + href(it) + '"><span class="stop">' + n + '</span><span class="st">' + esc(it.t) + '</span></a></li>';
+      return '<li><a href="' + href(it) + '"><span class="stop" data-n="' + n + '">' + n + '</span><span class="st">' + esc(it.t) + '</span></a></li>';
     }).join('');
-    art.innerHTML = '<h3>' + esc(r.name) + '<small>' + r.stops.length + ' 站</small></h3><p>' + esc(r.who) + '</p><ol class="line">' + stops + '</ol>';
+    art.innerHTML = '<h3>' + esc(r.name) + '<small></small></h3><p>' + esc(r.who) + '</p>' +
+      '<div class="route-prog" aria-hidden="true"><i></i></div><ol class="line">' + stops + '</ol>';
     box.appendChild(art);
+    return { r: r, small: art.querySelector('small'), bar: art.querySelector('.route-prog i'), stops: art.querySelectorAll('.stop') };
   });
+  function refresh() {
+    rows.forEach(function (x) {
+      var total = x.r.stops.length;
+      var done = x.r.stops.filter(Seen.has).length;
+      x.small.textContent = done ? '已看 ' + done + ' / ' + total + ' 站' : total + ' 站';
+      x.bar.style.setProperty('--p', (done / total * 100) + '%');
+      x.stops.forEach(function (st) { st.classList.toggle('seen', Seen.has(st.dataset.n)); });
+    });
+  }
+  return { refresh: refresh };
 })();
 
 /* ───────── 最新三期 ───────── */
@@ -837,8 +951,9 @@ var Teardown = (function () {
   var box = document.getElementById('spot');
   NEW_IDS.slice().reverse().forEach(function (n) {
     var it = byId[n];
-    var a = el('a', { 'class': 'feat rv', href: href(it) });
-    a.innerHTML = '<img src="thumbs/' + n + '.webp" alt="' + esc(it.t) + ' 截图" loading="lazy">' +
+    var a = el('a', { 'class': 'feat rv', href: href(it), 'data-n': n });
+    // 优先用只留 3D 画布的干净版(gen-thumbs.mjs 生成),没有就退回普通缩略图
+    a.innerHTML = '<img src="thumbs/' + n + '-clean.webp" alt="' + esc(it.t) + ' 截图" loading="lazy" onerror="this.onerror=null;this.src=\'thumbs/' + n + '.webp\'">' +
       '<div class="feat-body"><div class="no">№ ' + n + ' · ' + esc(layerById[it.layer].name) + '</div><h3>' + esc(it.t) + '</h3><p>' + esc(it.s) + '</p></div>';
     box.appendChild(a);
   });
@@ -850,7 +965,9 @@ var Catalog = (function () {
   var q = document.getElementById('q');
   var resultN = document.getElementById('result-n');
   var empty = document.getElementById('empty');
-  var state = { layer: null, tag: null, q: '' };
+  var own = Object.prototype.hasOwnProperty;
+  var EMPTY = { layer: null, tag: null, q: '' };
+  var state = EMPTY;
   var cards = [];
   var sections = [];
 
@@ -862,7 +979,8 @@ var Catalog = (function () {
       items.filter(function (it) { return it.ch === ch; }).forEach(function (it) {
         var a = el('a', { 'class': 'card', href: href(it), style: '--c:' + L.color });
         var tags = it.tags.map(function (t) { return '<span>' + TAGS.filter(function (x) { return x.id === t; })[0].name + '</span>'; }).join('');
-        a.innerHTML = '<div class="thumb"><img src="thumbs/' + it.n + '.webp" alt="" loading="lazy" decoding="async"><span class="num">' + it.n + '</span>' +
+        a.innerHTML = '<div class="thumb"><img src="thumbs/' + it.n + '.webp" alt="" loading="lazy" decoding="async">' +
+          '<div class="badges"><span class="num">' + it.n + '</span><span class="seen-badge">✓ 看过</span></div>' +
           (NEW_IDS.indexOf(it.n) >= 0 ? '<span class="new">NEW</span>' : '') + '</div>' +
           '<div class="card-body"><div class="card-title"></div><div class="card-sub"></div>' + (tags ? '<div class="tags">' + tags + '</div>' : '') + '</div>';
         grid.appendChild(a);
@@ -885,15 +1003,15 @@ var Catalog = (function () {
 
   function render() {
     var needle = state.q.trim().toLowerCase();
+    var words = needle ? needle.split(/\s+/) : [];
     var shown = 0;
     cards.forEach(function (c) {
       var ok = (!state.layer || c.it.layer === state.layer) &&
                (!state.tag || c.it.tags.indexOf(state.tag) >= 0) &&
-               (!needle || needle.split(/\s+/).every(function (w) { return c.hay.indexOf(w) >= 0; }));
+               words.every(function (w) { return c.hay.indexOf(w) >= 0; });
       c.a.hidden = !ok;
-      var first = needle.split(/\s+/)[0];
-      c.title.innerHTML = hl(c.it.t, first);
-      c.sub.innerHTML = hl(c.it.s, first);
+      c.title.innerHTML = hl(c.it.t, words[0]);
+      c.sub.innerHTML = hl(c.it.s, words[0]);
       if (ok) shown++;
     });
     sections.forEach(function (s) {
@@ -903,6 +1021,32 @@ var Catalog = (function () {
     empty.classList.toggle('show', shown === 0);
     layerChips.forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.v || null) === state.layer)); });
     tagChips.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.v === state.tag)); });
+  }
+
+  // 筛选状态写进网址(?layer=hw&tag=3d&q=gpu),链接发出去别人打开看到的是同一个筛选
+  function syncUrl() {
+    var p = new URLSearchParams();
+    if (state.layer) p.set('layer', state.layer);
+    if (state.tag) p.set('tag', state.tag);
+    if (state.q.trim()) p.set('q', state.q.trim());
+    var qs = p.toString();
+    try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash); } catch (e) { /* file:// 下个别浏览器不让改 */ }
+  }
+  function setState(patch) {
+    state = Object.assign({}, state, patch);
+    if (q.value !== state.q) q.value = state.q;
+    render();
+    syncUrl();
+  }
+  function fromUrl() {
+    var p = new URLSearchParams(location.search);
+    var layer = p.get('layer');
+    var tag = p.get('tag');
+    return {
+      layer: layer && own.call(layerById, layer) ? layer : null,
+      tag: TAGS.some(function (t) { return t.id === tag; }) ? tag : null,
+      q: (p.get('q') || '').slice(0, 60)
+    };
   }
 
   function chip(label, color, count, v) {
@@ -915,7 +1059,7 @@ var Catalog = (function () {
   var layerChips = [chip('全部', null, null, '')].concat(LAYERS.map(function (L) { return chip(L.name, L.color, L.count, L.id); }));
   layerChips.forEach(function (b) {
     layerBox.appendChild(b);
-    b.addEventListener('click', function () { state.layer = b.dataset.v || null; render(); });
+    b.addEventListener('click', function () { setState({ layer: b.dataset.v || null }); });
   });
   var tagBox = document.getElementById('tag-chips');
   var tagChips = TAGS.map(function (t) {
@@ -923,35 +1067,77 @@ var Catalog = (function () {
   });
   tagChips.forEach(function (b) {
     tagBox.appendChild(b);
-    b.addEventListener('click', function () { state.tag = state.tag === b.dataset.v ? null : b.dataset.v; render(); });
+    b.addEventListener('click', function () { setState({ tag: state.tag === b.dataset.v ? null : b.dataset.v }); });
   });
 
-  q.addEventListener('input', function () { state.q = q.value; render(); });
+  q.addEventListener('input', function () { setState({ q: q.value }); });
   document.addEventListener('keydown', function (e) {
     if (e.key === '/' && document.activeElement !== q && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
       e.preventDefault();
       q.focus();
     } else if (e.key === 'Escape' && document.activeElement === q) {
-      q.value = ''; state.q = ''; render(); q.blur();
+      setState({ q: '' });
+      q.blur();
     }
   });
-  document.getElementById('clear-btn').addEventListener('click', function () {
-    q.value = ''; state = { layer: null, tag: null, q: '' }; render();
-  });
+  document.getElementById('clear-btn').addEventListener('click', function () { setState(EMPTY); });
 
-  render();
+  var initial = fromUrl();
+  setState(initial);
+  if (initial.layer || initial.tag || initial.q) {
+    requestAnimationFrame(function () { document.getElementById('catalog').scrollIntoView(); });
+  }
+
   return {
     focusLayer: function (id) {
-      state.layer = id; state.tag = null; state.q = ''; q.value = '';
-      render();
+      setState({ layer: id, tag: null, q: '' });
       document.getElementById('catalog').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
+    },
+    refreshSeen: function () {
+      cards.forEach(function (c) { c.a.classList.toggle('seen', Seen.has(c.it.n)); });
     }
   };
 })();
 
-/* ───────── 随机 ───────── */
+/* ───────── 看过的标记 + 接着看 ───────── */
+function refreshSeen() {
+  Catalog.refreshSeen();
+  Routes.refresh();
+  var last = Seen.last();
+  var box = document.getElementById('resume');
+  box.hidden = !last;
+  if (last) {
+    var link = document.getElementById('resume-link');
+    link.href = href(last);
+    link.textContent = last.n + ' ' + last.t;
+    document.getElementById('resume-n').textContent = '已看 ' + Seen.count() + ' / ' + items.length;
+  }
+}
+// 点任何指向动画页的链接都记一笔;捕获阶段记,赶在跳转之前
+['click', 'auxclick'].forEach(function (type) {
+  document.addEventListener(type, function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    var m = null;
+    try { m = decodeURI(a.getAttribute('href')).match(/^(\d{2})-[^/]+\.html$/); } catch (err) { m = null; }
+    if (m && byId[m[1]]) { Seen.add(m[1]); refreshSeen(); }
+  }, true);
+});
+// 从动画页按返回键回来(页面从缓存恢复)、或在别的标签页看过,都重新读一遍
+window.addEventListener('pageshow', function () { Seen.reload(); refreshSeen(); });
+window.addEventListener('storage', function () { Seen.reload(); refreshSeen(); });
+document.getElementById('clear-seen').addEventListener('click', function () {
+  if (window.confirm('清空这台设备上的观看记录？')) { Seen.clear(); refreshSeen(); }
+});
+refreshSeen();
+
+/* ───────── 随机:优先挑没看过的 ───────── */
 document.getElementById('random-btn').addEventListener('click', function () {
-  location.href = href(items[Math.floor(Math.random() * items.length)]);
+  var fresh = items.filter(function (it) { return !Seen.has(it.n); });
+  var pool = fresh.length ? fresh : items;
+  var pick = pool[Math.floor(Math.random() * pool.length)];
+  Seen.add(pick.n);
+  location.href = href(pick);
 });
 
 /* ───────── 术语表 ───────── */
@@ -981,6 +1167,20 @@ document.getElementById('random-btn').addEventListener('click', function () {
     es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
   }, { rootMargin: '0px 0px -8% 0px' });
   els.forEach(function (e) { io.observe(e); });
+})();
+
+/* ───────── 顶栏:高亮当前区块 ───────── */
+(function () {
+  var links = Array.prototype.filter.call(document.querySelectorAll('.nav a[href^="#"]'), function (a) {
+    return document.getElementById(a.getAttribute('href').slice(1));
+  });
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id); });
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  links.forEach(function (a) { io.observe(document.getElementById(a.getAttribute('href').slice(1))); });
 })();
 
 /* ───────── 访问量 ───────── */

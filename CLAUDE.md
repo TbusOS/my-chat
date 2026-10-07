@@ -82,6 +82,8 @@
    - 章节 id 见同一处的 `CHAPTERS`，每个章节挂在剖面图的一层（`LAYERS`：应用 / 模型 / 架构 / 训练 / 推理 / 硬件）
    - 玩法标签：`3d`（立体场景）· `lab`（有滑块能调参数）· `vs`（方案对比）· `tabs`（多 Tab 切换），空格分隔，可以为空
    - 截缩略图：`node 19-ai-training-ppt/gen-thumbs.mjs <序号>`，输出 `docs/thumbs/<序号>.webp` 并自动同步到 `interactive/thumbs/`
+     （每页截多帧，按边缘密度挑内容最满的一帧；截出来偏空就看脚本开头注释里的三类页面规则）
+   - 首页首屏外观改了以后：`node 19-ai-training-ppt/gen-og.mjs` 重新生成分享图 `og.jpg` 和 iOS 主屏图标
 5. 确保术语表(❓)按钮可正常工作（JS 需在 DOM 之后执行或用 DOMContentLoaded）
 
 ### 质量检查
